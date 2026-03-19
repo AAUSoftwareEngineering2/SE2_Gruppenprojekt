@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="title_activity_connection_view">ConnectionView</string>
+    <string name="title_activity_view">view</string>
+    <string name="title_activity_main2">MainActivity2</string>
+</resources>
