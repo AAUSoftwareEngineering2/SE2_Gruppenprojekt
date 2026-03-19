@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WebSocketBrokerApp"
+rootProject.name = "SE2_Gruppenprojekt"
 include(":app")
