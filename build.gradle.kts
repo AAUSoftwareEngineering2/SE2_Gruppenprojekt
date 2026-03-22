@@ -13,8 +13,8 @@ plugins {
 // SonarCloud Konfiguration direkt im Root
 sonar {
     properties {
-        property("sonar.projectKey", "londera_SE2_Gruppenprojekt")
-        property("sonar.organization", "londera")
+        property("sonar.projectKey", "AAUSoftwareEngineering2_SE2_Gruppenprojekt")
+        property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
     }
 }
