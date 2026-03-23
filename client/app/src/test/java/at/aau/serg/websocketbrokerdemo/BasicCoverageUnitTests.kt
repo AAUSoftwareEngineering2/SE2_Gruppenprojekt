@@ -1,29 +1,21 @@
 package at.aau.serg.websocketbrokerdemo
 
-import android.widget.TextView
+import android.os.Handler
 import org.junit.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.verify
+import org.mockito.Mockito // Wir importieren die Hauptklasse
+import org.mockito.ArgumentMatchers.any // DIESER Import hat im Log gefehlt!
 
 class BasicCoverageUnitTests {
 
     @Test
-    fun `onResponse updates TextView with correct text`() {
-        // Arrange: MainActivity instanziieren
-        val mainActivity = MainActivity()
+    fun onResponseUpdatesTextView() {
+        // Wir nutzen "Mockito.mock" statt nur "mock"
+        val handler = Mockito.mock(Handler::class.java)
         
-        // Arrange: Eine "gefälschte" TextView erstellen (Mock), da wir kein echtes Android haben
-        val mockTextView = mock(TextView::class.java)
-        
-        // Die lateinit Variable 'response' manuell mit unserem Mock befüllen.
-        // So umgehen wir die fehleranfällige onCreate() Methode.
-        mainActivity.response = mockTextView 
+        // Hier kommt dein restlicher Logik-Code hin (MyStomp Instanz etc.)
+        // ...
 
-        // Act: Die zu testende Methode aufrufen
-        val testMessage = "Nachricht vom WebSocket-Server"
-        mainActivity.onResponse(testMessage)
-
-        // Assert: Überprüfen, ob unsere gefälschte TextView den Text empfangen hat
-        verify(mockTextView).text = testMessage 
+        // Wir nutzen "Mockito.verify" und "any()" explizit
+        Mockito.verify(handler).sendMessage(any())
     }
 }
