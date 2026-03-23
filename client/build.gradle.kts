@@ -13,12 +13,11 @@ plugins {
 // SonarCloud Konfiguration direkt im Root
 sonar {
     properties {
-        property("sonar.projectKey", "AAUSoftwareEngineering2_SE2_Gruppenprojekt")
+        property("sonar.projectKey", "se2-gruppenprojekt-client")
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
     }
 }
-
 // Google Coding Standards (Spotless) für alle Unterprojekte (wie 'app')
 subprojects {
     // Das Plugin wird erst geladen, wenn das Subprojekt (app) dran ist
