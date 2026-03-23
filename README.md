@@ -1,4 +1,3 @@
-Unser Gruppenprojekt - Coup für Android! (⓿_⓿) :) :)
+# Kuhhandel for Android
 
-Websocket Demo using Krossbow for STOMP protocol in Android App with Kotlin for 621.250 (26S) Software Engineering II.
-
+Websocket demo using Krossbow for STOMP protocol in Android App with Kotlin for 621.250 (26S) Software Engineering II.
