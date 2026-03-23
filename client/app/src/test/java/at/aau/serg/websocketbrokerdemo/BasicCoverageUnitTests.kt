@@ -1,7 +1,7 @@
 package at.aau.serg.websocketbrokerdemo
 
 import android.widget.TextView
-import org.junit.jupiter.api.Test
+import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 
