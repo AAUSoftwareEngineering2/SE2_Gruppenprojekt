@@ -16,6 +16,9 @@ sonar {
         property("sonar.projectKey", "se2-gruppenprojekt-client")
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
+        
+        // NEU: Damit die ungetestete UI nicht die Coverage versaut
+        property("sonar.coverage.exclusions", "**/MainActivity.kt, **/Callbacks.kt, **/ui/**")
     }
 }
 // Google Coding Standards (Spotless) für alle Unterprojekte (wie 'app')

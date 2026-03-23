@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "at.aau.serg.websocketbrokerdemo"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -99,18 +99,6 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     })
 }
 
-sonar {
-    properties {
-        property("sonar.projectKey", "AAU-SE2_WebSocketBrokerDemo-App")
-        property("sonar.organization", "aau-se2")
-        property("sonar.host.url", "https://sonarcloud.io")
-        property("sonar.java.coveragePlugin", "jacoco")
-        property(
-            "sonar.coverage.jacoco.xmlReportPaths",
-            "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
-        )
-    }
-}
 
 dependencies {
     implementation(libs.krossbow.websocket.okhttp)
@@ -135,4 +123,5 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+	testImplementation("org.mockito:mockito-core:5.11.0")
 }
