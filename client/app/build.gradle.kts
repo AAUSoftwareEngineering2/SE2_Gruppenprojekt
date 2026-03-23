@@ -6,7 +6,6 @@ plugins {
 }
 
 android {
-    // KORREKTUR: Namespace muss zu deinem Code (at.aau.serg...) passen!
     namespace = "at.aau.serg.websocketbrokerdemo"
     compileSdk = 35
 
@@ -27,7 +26,16 @@ android {
             }
         }
     }
-    // ... restliche android-Konfiguration (compileOptions, buildFeatures) bleibt gleich ...
+    
+	compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
+    // fixes JVM-Target-Error):
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
