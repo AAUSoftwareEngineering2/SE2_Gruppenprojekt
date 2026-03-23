@@ -31,13 +31,13 @@ android {
 }
 
 dependencies {
-    // ... deine implementation-Zeilen ...
-    
-    // TEST-ABHÄNGIGKEITEN:
+    // TEST-DEPENDENCIES:
+	implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     testImplementation(libs.junit) 
-    // DIE ENTSCHEIDENDE ZEILE: Mockito hinzufügen!
+    // Mockito!
     testImplementation("org.mockito:mockito-core:5.11.0") 
     
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+	
 }
