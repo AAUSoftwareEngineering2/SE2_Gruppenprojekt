@@ -1,6 +1,5 @@
 package at.aau.serg.websocketbrokerdemo
 
-import MyStomp
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
