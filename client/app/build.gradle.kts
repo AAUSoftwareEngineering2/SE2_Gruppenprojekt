@@ -1,3 +1,8 @@
+repositories {
+    google()
+    mavenCentral()
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -42,11 +47,17 @@ android {
 }
 
 dependencies {
-    // TEST-DEPENDENCIES:
+    // TEST-DEPENDENCIES
+	
+	// Mockito!
+    testImplementation("org.mockito:mockito-core:5.11.0") 
+	testImplementation("org.junit.vintage:junit-vintage-engine:5.10.2") // Hilft bei JUnit 4/5 Mix
+    testImplementation("org.mockito:mockito-core:5.11.0")
+    testImplementation("org.mockito:mockito-inline:5.2.0") // Erlaubt das Mocken von finalen Kotlin-Klassen
+	
 	implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     testImplementation(libs.junit) 
-    // Mockito!
-    testImplementation("org.mockito:mockito-core:5.11.0") 
+    
     
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
