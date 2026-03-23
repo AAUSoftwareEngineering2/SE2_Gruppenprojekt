@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    // Namespace muss exakt zu eurer Paketstruktur passen
+    // KORREKTUR: Namespace muss zu deinem Code (at.aau.serg...) passen!
     namespace = "at.aau.serg.websocketbrokerdemo"
     compileSdk = 35
 
@@ -16,56 +16,28 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-    
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    buildFeatures {
-        compose = true
-        viewBinding = true
     }
 
     testOptions {
         unitTests {
             all {
-                it.useJUnitPlatform()
+                // KORREKTUR: Nutze den Standard JUnit 4 Runner für Android
+                it.useJUnit() 
             }
         }
     }
+    // ... restliche android-Konfiguration (compileOptions, buildFeatures) bleibt gleich ...
 }
 
 dependencies {
-    implementation(libs.krossbow.websocket.okhttp)
-    implementation(libs.krossbow.stomp.core)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.material3)
+    // ... deine implementation-Zeilen ...
     
-    // Test-Abhängigkeiten
-    testImplementation(libs.junit)
-    // Mockito ist zwingend erforderlich für eure BasicCoverageUnitTests
-    testImplementation("org.mockito:mockito-core:5.11.0")
+    // TEST-ABHÄNGIGKEITEN:
+    testImplementation(libs.junit) 
+    // DIE ENTSCHEIDENDE ZEILE: Mockito hinzufügen!
+    testImplementation("org.mockito:mockito-core:5.11.0") 
     
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
 }

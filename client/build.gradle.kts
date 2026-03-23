@@ -14,7 +14,7 @@ sonar {
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
         
-        // Schließt UI-Klassen von der Coverage-Berechnung aus, um das Quality Gate zu bestehen
+        // KORREKTUR: Schließt die MainActivity aus der Coverage-Pflicht aus
         property("sonar.coverage.exclusions", "**/MainActivity.kt, **/Callbacks.kt, **/ui/**")
     }
 }
