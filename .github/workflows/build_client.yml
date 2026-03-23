@@ -42,4 +42,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_CLIENT }}
         run: |
           chmod +x gradlew
-          ./gradlew build sonar --info
+          ./gradlew build sonar --info --stacktrace
