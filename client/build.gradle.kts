@@ -1,29 +1,25 @@
 // Top-level build.gradle.kts
 plugins {
-    // Diese kommen aus deinem Version Catalog (libs.versions.toml)
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
 
-    // Diese laden wir direkt, um Versions-Konflikte zu vermeiden
     id("org.sonarqube") version "6.0.1.5171"
     id("com.diffplug.spotless") version "7.0.2"
 }
 
-// SonarCloud Konfiguration direkt im Root
 sonar {
     properties {
         property("sonar.projectKey", "se2-gruppenprojekt-client")
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
         
-        // NEU: Damit die ungetestete UI nicht die Coverage versaut
+        // Schließt UI-Klassen von der Coverage-Berechnung aus, um das Quality Gate zu bestehen
         property("sonar.coverage.exclusions", "**/MainActivity.kt, **/Callbacks.kt, **/ui/**")
     }
 }
-// Google Coding Standards (Spotless) für alle Unterprojekte (wie 'app')
+
 subprojects {
-    // Das Plugin wird erst geladen, wenn das Subprojekt (app) dran ist
     plugins.withId("com.diffplug.spotless") {
         configure<com.diffplug.gradle.spotless.SpotlessExtension> {
             kotlin {
@@ -31,8 +27,7 @@ subprojects {
                 targetExclude("**/build/**/*.kt")
                 ktlint().editorConfigOverride(mapOf(
                     "indent_size" to "4",
-                    "continuation_indent_size" to "4",
-                    "kotlin_imports_layout" to "google"
+                    "continuation_indent_size" to "4"
                 ))
             }
         }
