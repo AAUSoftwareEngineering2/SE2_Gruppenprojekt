@@ -40,4 +40,6 @@ jobs:
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_CLIENT }}
-        run: ./gradlew build sonar --info
+        run: |
+          chmod +x gradlew
+          ./gradlew build sonar --info
