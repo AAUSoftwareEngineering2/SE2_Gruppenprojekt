@@ -92,7 +92,9 @@ class MyStomp(val callbacks: Callbacks) {
 
         scope.launch {
             try {
-                session?.sendText("/app/object", o) ?: callback("Error: Not connected")
+                session?.let {
+    it.sendText("/app/object", o)
+} ?: callback("Error: Not connected")
             } catch (e: Exception) {
                 Log.e("MyStomp", "Send JSON failed", e)
             }
