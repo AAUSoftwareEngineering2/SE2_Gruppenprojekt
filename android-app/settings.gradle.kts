@@ -18,10 +18,14 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
 }
 
-rootProject.name = "SE2Risiko"
-
-include(":shared")
-include(":server")
-include(":android-app:app")
+// Standalone settings for the android-app module.
+// When building as part of the monorepo, use the root settings.gradle.kts instead.
+rootProject.name = "android-app"
+include(":app")
