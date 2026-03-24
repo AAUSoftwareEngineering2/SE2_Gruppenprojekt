@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SE2Risiko"
+rootProject.name = "SE2_Gruppenprojekt"
 
 include(":shared")
 include(":server")
