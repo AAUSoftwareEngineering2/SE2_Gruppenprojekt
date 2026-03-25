@@ -12,9 +12,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.shared.Constants
+
+//for preview:
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.androidapp.ui.theme.AndroidAppTheme
-import com.example.shared.Constants
+
+import com.example.androidapp.ui.menu.MainMenuScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,28 +26,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AndroidAppTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainScreen(modifier = Modifier.padding(innerPadding))
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding -> //
+                    // Open the main menu
+                    MainMenuScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
     }
 }
 
-@Composable
-fun MainScreen(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = "SE2Risiko v${Constants.APP_VERSION}")
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
-fun MainScreenPreview() {
+fun MainMenuScreenPreview() {
     AndroidAppTheme {
-        MainScreen()
+        MainMenuScreen()
     }
 }
