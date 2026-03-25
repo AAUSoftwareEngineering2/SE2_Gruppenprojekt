@@ -21,17 +21,17 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = "Kuhhandel",
             style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.padding(bottom = 48.dp)
+            modifier = Modifier.padding(bottom = 48.dp),
         )
 
         Button(
             onClick = { /* TODO: Navigation zur Lobby/Spielersuche */ },
-            modifier = Modifier.fillMaxWidth(0.6f)
+            modifier = Modifier.fillMaxWidth(0.6f),
         ) {
             Text("Spiel starten")
         }
@@ -40,7 +40,7 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
 
         OutlinedButton(
             onClick = { /* TODO: Navigation zu den Regeln */ },
-            modifier = Modifier.fillMaxWidth(0.6f)
+            modifier = Modifier.fillMaxWidth(0.6f),
         ) {
             Text("Regeln")
         }
