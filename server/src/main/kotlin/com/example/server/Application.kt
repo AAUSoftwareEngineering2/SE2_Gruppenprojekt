@@ -35,7 +35,7 @@ fun Application.configurePlugins() {
 
 fun Application.configureRoutes() {
     routing {
-        //REST Endpoint
+        // REST Endpoint
         get(ApiRoutes.HEALTH) {
             call.respond(HealthResponse(status = "UP"))
         }
