@@ -1,12 +1,12 @@
 package com.example.server
 
-import io.ktor.application.*
-import io.ktor.http.*
-import io.ktor.response.*
-import io.ktor.routing.*
-import io.ktor.server.testing.*
-import org.junit.Test
+import io.ktor.application.Application
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.testing.handleRequest
+import io.ktor.server.testing.withTestApplication
 import kotlin.test.assertEquals
+import org.junit.Test
 
 class ServerTest {
 
