@@ -1,36 +1,42 @@
 package com.example.server
 
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.testApplication
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.server.testing.*
 import org.junit.Test
+import kotlin.test.assertEquals
 
 class ServerTest {
+
     @Test
-    fun `health endpoint returns HTTP 200`() = testApplication {
-        application {
-            configurePlugins()
-            configureRoutes()
+    fun testConfigurePlugins() {
+        withTestApplication({ configurePlugins() }) {
+            // Test implementation for plugins (e.g., Content negotiation, CORS, etc.)
+            // Example assertions can be added here based on what configurePlugins does
         }
-
-        val response = client.get("/health")
-
-        assertEquals(HttpStatusCode.OK, response.status)
     }
 
     @Test
-    fun `health endpoint response contains UP status`() = testApplication {
-        application {
-            configurePlugins()
-            configureRoutes()
+    fun testConfigureRoutes() {
+        withTestApplication(Application::configureRoutes) {
+            handleRequest(HttpMethod.Get, "/health").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("Healthy", response.content)
+            }
+            // Add more route tests here
         }
+    }
 
-        val response = client.get("/health")
-        val body = response.bodyAsText()
-
-        assertContains(body, "UP")
+    @Test
+    fun testMainApplicationSetup() {
+        withTestApplication(Application::main) {
+            handleRequest(HttpMethod.Get, "/health").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("Healthy", response.content)
+            }
+            // Add more tests for other endpoints or functionalities here
+        }
     }
 }
