@@ -1,10 +1,8 @@
 package com.example.server
 
-import io.ktor.server.application.Application
-import io.ktor.http.HttpMethod
+import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
-import io.ktor.client.request.get
 import kotlin.test.assertEquals
 import org.junit.Test
 
