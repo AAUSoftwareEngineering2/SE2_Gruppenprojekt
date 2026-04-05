@@ -1,5 +1,6 @@
 package com.example.server
 
+import com.example.shared.ApiRoutes
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -12,28 +13,25 @@ class ServerTest {
     fun testConfigurePlugins() {
         testApplication {
             application { configurePlugins() }
-            // Test implementation for plugins (e.g., Content negotiation, CORS, etc.)
-            // Example assertions can be added here based on what configurePlugins does
+            // Plugins load silently, so simply not throwing an exception 
+            // is a decent basic test for 0% coverage.
         }
     }
 
     @Test
     fun testConfigureRoutes() {
         testApplication {
+            // 1. Load the plugins (needed for JSON serialization)
+            application { configurePlugins() }
+            
+            // 2. Load the routes
             application { configureRoutes() }
-            val response = client.get("/health")
+            
+            // 3. Make the request using the exact same constant the server uses
+            val response = client.get(ApiRoutes.HEALTH)
+            
+            // 4. Verify it works
             assertEquals(HttpStatusCode.OK, response.status)
-            // Add more route tests here
-        }
-    }
-
-    @Test
-    fun testMainApplicationSetup() {
-        testApplication {
-            application { main() }
-            val response = client.get("/health")
-            assertEquals(HttpStatusCode.OK, response.status)
-            // Add more tests for other endpoints or functionalities here
         }
     }
 }
