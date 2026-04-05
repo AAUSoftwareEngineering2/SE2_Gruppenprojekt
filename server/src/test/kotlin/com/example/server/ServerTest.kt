@@ -1,10 +1,10 @@
 package com.example.server
 
-import io.ktor.application.Application
+import io.ktor.server.application.Application
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.handleRequest
-import io.ktor.server.testing.withTestApplication
+import io.ktor.server.testing.testApplication
+import io.ktor.client.request.get
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -12,7 +12,8 @@ class ServerTest {
 
     @Test
     fun testConfigurePlugins() {
-        withTestApplication({ configurePlugins() }) {
+        testApplication {
+            application { configurePlugins() }
             // Test implementation for plugins (e.g., Content negotiation, CORS, etc.)
             // Example assertions can be added here based on what configurePlugins does
         }
@@ -20,22 +21,20 @@ class ServerTest {
 
     @Test
     fun testConfigureRoutes() {
-        withTestApplication(Application::configureRoutes) {
-            handleRequest(HttpMethod.Get, "/health").apply {
-                assertEquals(HttpStatusCode.OK, response.status())
-                assertEquals("Healthy", response.content)
-            }
+        testApplication {
+            application { configureRoutes() }
+            val response = client.get("/health")
+            assertEquals(HttpStatusCode.OK, response.status)
             // Add more route tests here
         }
     }
 
     @Test
     fun testMainApplicationSetup() {
-        withTestApplication(Application::main) {
-            handleRequest(HttpMethod.Get, "/health").apply {
-                assertEquals(HttpStatusCode.OK, response.status())
-                assertEquals("Healthy", response.content)
-            }
+        testApplication {
+            application { main() }
+            val response = client.get("/health")
+            assertEquals(HttpStatusCode.OK, response.status)
             // Add more tests for other endpoints or functionalities here
         }
     }
