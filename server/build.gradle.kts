@@ -8,7 +8,7 @@ group = "com.example.server"
 version = "1.0.0"
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
 }
 
 application {
