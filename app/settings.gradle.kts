@@ -27,5 +27,4 @@ dependencyResolutionManagement {
 
 // Standalone settings for the android-app module.
 // When building as part of the monorepo, use the root settings.gradle.kts instead.
-rootProject.name = "android-app"
-include(":app")
+rootProject.name = "app"
