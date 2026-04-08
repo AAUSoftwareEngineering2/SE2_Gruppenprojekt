@@ -71,3 +71,39 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    // Specify which tests to run first
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    // Filter out generated Android files (R, BuildConfig, etc.)
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+    )
+
+    // Point to the package code
+    val debugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
+        exclude(fileFilter)
+    }
+
+    // Provide source and binary paths
+    sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
+    classDirectories.setFrom(files(debugTree))
+
+    // Get the test execution data that Android stores
+    executionData.setFrom(
+        fileTree(layout.buildDirectory.get()) {
+            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        },
+    )
+}

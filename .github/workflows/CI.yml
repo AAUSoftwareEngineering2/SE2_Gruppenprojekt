@@ -166,7 +166,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Test shared
-        run: ./gradlew :shared:test --stacktrace
+        run: ./gradlew :shared:test :shared:jacocoTestReport --stacktrace
 
       - name: Upload shared test reports
         if: always()
@@ -202,7 +202,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Test server
-        run: ./gradlew :server:test --stacktrace
+        run: ./gradlew :server:test :server:jacocoTestReport --stacktrace
 
       - name: Upload server test reports
         if: always()
@@ -256,7 +256,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run Android unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport --stacktrace
 
       - name: Upload Android test reports
         if: always()
