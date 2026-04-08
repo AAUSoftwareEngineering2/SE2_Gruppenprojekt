@@ -34,8 +34,6 @@ configure<SonarExtension> {
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
 
-        property("sonar.sources", "app/src/main/kotlin,server/src/main/kotlin,shared/src/main/kotlin")
-        property("sonar.tests", "app/src/test/kotlin,server/src/test/kotlin,shared/src/test/kotlin")
         property("sonar.java.binaries", "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug")
         property("sonar.kotlin.source.version", "2.0")
         property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/**/*.xml")
