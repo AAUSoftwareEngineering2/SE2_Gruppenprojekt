@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.androidapp
+package at.aau.kuhhandel.app
 
 import at.aau.kuhhandel.shared.Constants
 import kotlin.test.assertEquals

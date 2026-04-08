@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.androidapp.ui.theme
+package at.aau.kuhhandel.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

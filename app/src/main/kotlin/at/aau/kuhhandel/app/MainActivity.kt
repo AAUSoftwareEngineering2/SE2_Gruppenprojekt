@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.androidapp
+package at.aau.kuhhandel.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -10,8 +10,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import at.aau.kuhhandel.androidapp.ui.menu.MainMenuScreen
-import at.aau.kuhhandel.androidapp.ui.theme.AndroidAppTheme
+import at.aau.kuhhandel.app.ui.menu.MainMenuScreen
+import at.aau.kuhhandel.app.ui.theme.AndroidAppTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

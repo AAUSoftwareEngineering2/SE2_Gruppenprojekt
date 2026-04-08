@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "at.aau.kuhhandel.androidapp"
+    namespace = "at.aau.kuhhandel.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "at.aau.kuhhandel.androidapp"
+        applicationId = "at.aau.kuhhandel.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
