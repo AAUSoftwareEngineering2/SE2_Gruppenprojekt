@@ -12,6 +12,7 @@ logback = "1.4.14"
 junit = "4.13.2"
 junitExt = "1.2.1"
 espressoCore = "3.6.1"
+sonar = "7.0.1.6134"
 
 [libraries]
 # AndroidX
@@ -43,6 +44,9 @@ ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", ver
 # Serialization & logging
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
+
+# Build tools & quality
+sonarqube-gradle-plugin = { module = "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin", version.ref = "sonar" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
