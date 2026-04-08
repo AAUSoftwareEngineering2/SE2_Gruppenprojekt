@@ -4,7 +4,7 @@ plugins {
     application
 }
 
-group = "com.example.server"
+group = "at.aau.kuhhandel.server"
 version = "1.0.0"
 
 kotlin {
@@ -12,7 +12,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("com.example.server.ApplicationKt")
+    mainClass.set("at.aau.kuhhandel.server.ApplicationKt")
 }
 
 dependencies {
