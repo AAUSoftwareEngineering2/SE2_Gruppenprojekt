@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.androidapp"
-    compileSdk = 35
+    namespace = "at.aau.kuhhandel.app"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.androidapp"
+        applicationId = "at.aau.kuhhandel.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -25,9 +25,9 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
             )
-            debug {
-                enableUnitTestCoverage = true // Aktiviert Jacoco für den Debug-Build
-            }
+        }
+        debug {
+            enableUnitTestCoverage = true // Aktiviert Jacoco für den Debug-Build
         }
     }
 
@@ -70,4 +70,42 @@ dependencies {
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    // Specify which tests to run first
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    // Filter out generated Android files (R, BuildConfig, etc.)
+    val fileFilter =
+        listOf(
+            "**/R.class",
+            "**/R$*.class",
+            "**/BuildConfig.*",
+            "**/Manifest*.*",
+            "**/*Test*.*",
+            "android/**/*.*",
+        )
+
+    // Point to the package code
+    val debugTree =
+        fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
+            exclude(fileFilter)
+        }
+
+    // Provide source and binary paths
+    sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
+    classDirectories.setFrom(files(debugTree))
+
+    // Get the test execution data that Android stores
+    executionData.setFrom(
+        fileTree(layout.buildDirectory.get()) {
+            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        },
+    )
 }

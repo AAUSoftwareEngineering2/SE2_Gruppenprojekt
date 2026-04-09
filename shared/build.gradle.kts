@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-group = "com.example.shared"
+group = "at.aau.kuhhandel.shared"
 version = "1.0.0"
 
 // class file versions above JVM 21. Both Kotlin and Java must target the same
