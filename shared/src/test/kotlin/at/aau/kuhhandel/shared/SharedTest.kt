@@ -1,7 +1,7 @@
 package at.aau.kuhhandel.shared
 
-import kotlin.test.assertEquals
 import org.junit.Test
+import kotlin.test.assertEquals
 
 class SharedTest {
     @Test

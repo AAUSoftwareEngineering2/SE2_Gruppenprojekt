@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class HealthController {
-
     @GetMapping(ApiRoutes.HEALTH)
     fun getHealth(): HealthResponse {
         return HealthResponse(status = "UP")

@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class HealthControllerTest {
-
     private lateinit var controller: HealthController
 
     @BeforeEach
