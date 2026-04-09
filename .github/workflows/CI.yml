@@ -43,10 +43,10 @@ jobs:
       - name: Test server module
         run: ./gradlew :server:test :server:jacocoTestReport --stacktrace
 
-      - name: Set up Android SDK (API 35)
+      - name: Set up Android SDK (API 36)
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
           accept-android-sdk-licenses: true
           log-accepted-android-sdk-licenses: false
 
