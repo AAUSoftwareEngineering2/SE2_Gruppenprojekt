@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.spring)
+    alias(libs.plugins.spring.boot)
     application
 }
 
@@ -12,19 +14,22 @@ kotlin {
 }
 
 application {
-    mainClass.set("at.aau.kuhhandel.server.ApplicationKt")
+    mainClass.set("at.aau.kuhhandel.server.ServerApplicationKt")
 }
 
 dependencies {
     implementation(project(":shared"))
 
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.netty)
-    implementation(libs.ktor.server.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.logback.classic)
+    implementation(platform(libs.spring.boot.bom))
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.websocket)
+    implementation(libs.kotlin.reflect)
 
     testImplementation(libs.kotlin.test)
-    testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.junit)
+    testImplementation(libs.spring.boot.starter.test)
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
