@@ -12,5 +12,4 @@ class HealthController {
     fun getHealth(): HealthResponse {
         return HealthResponse(status = "UP")
     }
-
 }
