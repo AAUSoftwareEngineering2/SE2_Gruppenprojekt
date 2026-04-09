@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.shared.model
 
 class MoneyDeck {
-
     val cards: MutableList<MoneyCard> = mutableListOf()
 
     init {
