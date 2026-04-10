@@ -1,6 +1,6 @@
 package at.aau.kuhhandel.shared.model
 
-data class AnimalDeck(
+class AnimalDeck(
     val cards: MutableList<AnimalCard> = mutableListOf(),
 ) {
     fun drawTopCard(): AnimalCard? {
@@ -8,7 +8,7 @@ data class AnimalDeck(
             return null
         }
 
-        return cards.removeAt(0)
+        return cards.removeAt(cards.lastIndex)
     }
 
     fun isEmpty(): Boolean = cards.isEmpty()

@@ -9,11 +9,25 @@ class MoneyDeck {
     }
 
     private fun generateDeck() {
-        repeat(10) { cards.add(MoneyCard("0-$it", 0)) }
-        repeat(25) { cards.add(MoneyCard("10-$it", 10)) }
-        repeat(5) { cards.add(MoneyCard("50-$it", 50)) }
-        repeat(5) { cards.add(MoneyCard("100-$it", 100)) }
-        repeat(5) { cards.add(MoneyCard("200-$it", 200)) }
-        repeat(5) { cards.add(MoneyCard("500-$it", 500)) }
+        val distribution =
+            mapOf(
+                0 to 10,
+                10 to 25,
+                50 to 5,
+                100 to 5,
+                200 to 5,
+                500 to 5,
+            )
+
+        distribution.forEach { (value, amount) ->
+            repeat(amount) { index ->
+                cards.add(
+                    MoneyCard(
+                        id = "$value-$index",
+                        value = value,
+                    ),
+                )
+            }
+        }
     }
 }
