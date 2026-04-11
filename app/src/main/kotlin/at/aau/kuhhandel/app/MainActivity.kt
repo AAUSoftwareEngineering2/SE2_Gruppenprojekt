@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AndroidAppTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding -> //
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Open the main menu
                     MainMenuScreen(modifier = Modifier.padding(innerPadding))
                 }
