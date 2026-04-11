@@ -4,7 +4,7 @@ enum class AnimalType(
     val points: Int,
 ) {
     CHICKEN(10),
-    DUCK(40),
+    GOOSE(40),
     CAT(90),
     DOG(180),
     SHEEP(250),
