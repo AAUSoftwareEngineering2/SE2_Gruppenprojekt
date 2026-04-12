@@ -50,9 +50,7 @@ class GameManager {
     /**
      * Returns a session by ID
      */
-    fun getSession(sessionId: String): GameSession? {
-        return sessions[sessionId]
-    }
+    fun getSession(sessionId: String): GameSession? = sessions[sessionId]
 
     /**
      * Reveals the next card in the deck
