@@ -35,6 +35,14 @@ configure<SonarExtension> {
         property("sonar.projectKey", "AAUSoftwareEngineering2_SE2_Gruppenprojekt")
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
+        property(
+            "sonar.exclusions",
+            listOf(
+                ".github/**",
+                "deploy/**",
+                ".dockerignore",
+            ).joinToString(","),
+        )
 
         property("sonar.java.binaries", "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug")
         property("sonar.kotlin.source.version", "2.0")

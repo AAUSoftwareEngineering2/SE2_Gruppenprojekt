@@ -52,6 +52,7 @@ spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies"
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
 spring-boot-starter-websocket = { module = "org.springframework.boot:spring-boot-starter-websocket" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+postgresql = { module = "org.postgresql:postgresql" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

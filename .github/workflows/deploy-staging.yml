@@ -1,0 +1,102 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - ".dockerignore"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+      - "shared/**"
+      - "server/**"
+      - "deploy/compose.staging.yaml"
+      - ".github/workflows/deploy-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat <<EOF > ~/.ssh/config
+          Host deploy-target
+            HostName ${DEPLOY_HOST}
+            User ${DEPLOY_USER}
+            Port ${DEPLOY_PORT:-22}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Build Docker image
+        shell: bash
+        run: |
+          docker build \
+            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+            --label org.opencontainers.image.source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            -f server/Dockerfile \
+            -t kuhhandel-server:staging \
+            .
+
+      - name: Upload image to server
+        shell: bash
+        run: |
+          docker save kuhhandel-server:staging \
+            | gzip \
+            | ssh deploy-target 'gunzip | docker load'
+
+      - name: Upload compose file
+        shell: bash
+        run: |
+          ssh deploy-target 'mkdir -p "$HOME/kuhhandel"'
+          scp deploy/compose.staging.yaml deploy-target:~/kuhhandel/compose.staging.yaml
+
+      - name: Restart staging service
+        shell: bash
+        run: |
+          ssh deploy-target '
+            set -e
+            SERVER_IMAGE=kuhhandel-server:staging docker compose --env-file "$HOME/kuhhandel/.env.infra" -f "$HOME/kuhhandel/compose.staging.yaml" up -d --remove-orphans
+
+            for attempt in $(seq 1 20); do
+              if curl -fsS http://127.0.0.1:18081/health >/dev/null; then
+                docker image prune -f
+                exit 0
+              fi
+              sleep 3
+            done
+
+            SERVER_IMAGE=kuhhandel-server:staging docker compose --env-file "$HOME/kuhhandel/.env.infra" -f "$HOME/kuhhandel/compose.staging.yaml" logs --tail=200
+            exit 1
+          '
