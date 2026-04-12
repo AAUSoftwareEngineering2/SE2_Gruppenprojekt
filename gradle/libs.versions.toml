@@ -1,6 +1,6 @@
 [versions]
 # TODO: Upgrade to AGP 9.1+ once SonarQube plugin 7.3 is released (expected late April 2026)
-agp = "9.1.0"
+agp = "9.0.1"
 kotlin = "2.3.20"
 ktlint = "14.2.0"
 coreKtx = "1.18.0"
