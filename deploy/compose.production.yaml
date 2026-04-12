@@ -10,3 +10,10 @@ services:
       SPRING_PROFILES_ACTIVE: production
     ports:
       - "127.0.0.1:18080:8080"
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: kuhhandel-backend
