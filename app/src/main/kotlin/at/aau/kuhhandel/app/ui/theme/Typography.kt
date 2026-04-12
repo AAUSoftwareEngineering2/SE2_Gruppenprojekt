@@ -8,19 +8,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
 
-val DinFontFamily = FontFamily(
-    Font(R.font.din_regular, FontWeight.Normal)
-)
-
-val Typography = Typography(
-    headlineLarge = TextStyle(
-        fontFamily = DinFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = DinFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp
+val DinFontFamily =
+    FontFamily(
+        Font(R.font.din_regular, FontWeight.Normal),
     )
-)
+
+val Typography =
+    Typography(
+        headlineLarge =
+            TextStyle(
+                fontFamily = DinFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 32.sp,
+            ),
+        bodyLarge =
+            TextStyle(
+                fontFamily = DinFontFamily,
+                fontWeight = FontWeight.Normal,
+                fontSize = 16.sp,
+            ),
+    )

@@ -14,7 +14,7 @@ private val DarkColorScheme =
         background = PureWhite,
         surface = WhitePurple,
         onPrimary = Color.White,
-        onBackground = Color.White
+        onBackground = Color.White,
     )
 
 private val LightColorScheme =
@@ -25,7 +25,7 @@ private val LightColorScheme =
         background = PureWhite,
         surface = WhitePurple,
         onPrimary = Color.White,
-        onBackground = DarkPurple
+        onBackground = DarkPurple,
     )
 
 @Composable
