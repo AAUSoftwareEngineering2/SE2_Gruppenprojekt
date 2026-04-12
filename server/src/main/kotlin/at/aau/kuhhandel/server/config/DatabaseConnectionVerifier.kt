@@ -18,11 +18,16 @@ class DatabaseConnectionVerifier(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        DriverManager.getConnection(datasourceUrl, datasourceUsername, datasourcePassword).use { connection ->
-            check(connection.isValid(2)) {
-                "Database connection was established but did not validate successfully."
+        DriverManager
+            .getConnection(
+                datasourceUrl,
+                datasourceUsername,
+                datasourcePassword,
+            ).use { connection ->
+                check(connection.isValid(2)) {
+                    "Database connection was established but did not validate successfully."
+                }
             }
-        }
 
         logger.info("Successfully connected to the configured PostgreSQL database.")
     }
