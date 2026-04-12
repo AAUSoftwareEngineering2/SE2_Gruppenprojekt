@@ -1,0 +1,22 @@
+name: kuhhandel-production
+
+services:
+  server:
+    image: ${SERVER_IMAGE:?SERVER_IMAGE is required}
+    container_name: kuhhandel-server-production
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: production
+      SPRING_DATASOURCE_URL: jdbc:postgresql://kuhhandel-postgres:5432/kuhhandel_prod
+      SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:?APP_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+    ports:
+      - "127.0.0.1:18080:8080"
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: kuhhandel-backend

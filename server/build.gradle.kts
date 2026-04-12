@@ -9,8 +9,10 @@ plugins {
 group = "at.aau.kuhhandel.server"
 version = "1.0.0"
 
+val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").get().toInt()
+
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(jvmToolchainVersion)
 }
 
 application {
@@ -24,6 +26,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.websocket)
     implementation(libs.kotlin.reflect)
+    implementation(libs.postgresql)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
