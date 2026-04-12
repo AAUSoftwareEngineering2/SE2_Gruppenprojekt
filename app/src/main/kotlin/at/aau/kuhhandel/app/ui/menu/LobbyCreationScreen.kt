@@ -129,6 +129,4 @@ fun RoomCreationScreen(
  * Generiert einen 5-stelligen Zahlencode für die Lobby
  * @return 5-stelliger Code als String (z.B. "12345")
  */
-fun generateLobbyCode(): String {
-    return (10000..99999).random().toString()
-}
+fun generateLobbyCode(): String = (10000..99999).random().toString()
