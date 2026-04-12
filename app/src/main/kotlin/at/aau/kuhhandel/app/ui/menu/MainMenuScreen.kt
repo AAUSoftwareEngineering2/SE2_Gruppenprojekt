@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.app.ui.menu
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +66,8 @@ private fun MainMenuContent(
     Column(
         modifier = modifier
             .fillMaxSize()
+            // HIER: Wendet den hellen Creme-Hintergrund aus dem Theme an
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -81,7 +84,11 @@ private fun MainMenuContent(
                 .fillMaxWidth(0.8f)
                 .height(48.dp),
         ) {
-            Text("Lobby erstellen")
+            Text(
+                text = "Lobby erstellen",
+                // HIER: Zwingt den Text dazu, strahlend weiß zu sein
+                color = MaterialTheme.colorScheme.onPrimary
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -92,7 +99,11 @@ private fun MainMenuContent(
                 .fillMaxWidth(0.8f)
                 .height(48.dp),
         ) {
-            Text("Lobby beitreten")
+            Text(
+                text = "Lobby beitreten",
+                // HIER: Zwingt den Text dazu, strahlend weiß zu sein
+                color = MaterialTheme.colorScheme.onPrimary
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
