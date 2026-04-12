@@ -83,8 +83,7 @@ fun LobbyScreen(
                         .background(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shape = MaterialTheme.shapes.medium,
-                        )
-                        .padding(16.dp),
+                        ).padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -171,8 +170,7 @@ private fun PlayerListItem(player: Player) {
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.medium,
-                )
-                .padding(12.dp),
+                ).padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

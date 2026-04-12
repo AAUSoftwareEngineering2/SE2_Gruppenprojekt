@@ -135,7 +135,9 @@ sealed class MenuScreenState {
 
     data object RoomJoining : MenuScreenState()
 
-    data class Lobby(val lobbyCode: String) : MenuScreenState()
+    data class Lobby(
+        val lobbyCode: String,
+    ) : MenuScreenState()
 
     data object Rules : MenuScreenState()
 }

@@ -83,13 +83,15 @@ class RulesScreenTest {
         }
 
         // Check that descriptions are displayed
-        composeTestRule.onNodeWithText(
-            "Ziel des Spiels ist es, die wertvollsten Tiere und " +
-                "Geldkarten zu sammeln um am Ende das höchste Vermögen zu haben.",
-        ).assertIsDisplayed()
-        composeTestRule.onNodeWithText(
-            "Jeder Spieler erhält eine bestimmte Anzahl von Karten.",
-        ).assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                "Ziel des Spiels ist es, die wertvollsten Tiere und " +
+                    "Geldkarten zu sammeln um am Ende das höchste Vermögen zu haben.",
+            ).assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                "Jeder Spieler erhält eine bestimmte Anzahl von Karten.",
+            ).assertIsDisplayed()
     }
 
     @Test
@@ -98,9 +100,10 @@ class RulesScreenTest {
             RulesScreen(onBack = {})
         }
 
-        composeTestRule.onNodeWithText(
-            "Spieler können um Tiere und Geldkarten bieten.",
-        ).assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                "Spieler können um Tiere und Geldkarten bieten.",
+            ).assertIsDisplayed()
     }
 
     @Test
@@ -109,9 +112,10 @@ class RulesScreenTest {
             RulesScreen(onBack = {})
         }
 
-        composeTestRule.onNodeWithText(
-            "Das Spiel endet nach einer festgelegten Anzahl von Runden.",
-        ).assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                "Das Spiel endet nach einer festgelegten Anzahl von Runden.",
+            ).assertIsDisplayed()
     }
 
     @Test

@@ -74,6 +74,9 @@ class RoomJoiningValidationTest {
     }
 }
 
-fun isValidLobbyCode(code: String): Boolean {
-    return code.length == 5 && code.all { it.isDigit() } && code[0] != '0'
-}
+fun isValidLobbyCode(code: String): Boolean =
+    code.length == 5 &&
+        code.all {
+            it.isDigit()
+        } &&
+        code[0] != '0'
