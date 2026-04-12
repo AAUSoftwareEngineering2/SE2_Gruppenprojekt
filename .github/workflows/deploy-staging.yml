@@ -83,7 +83,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" '
             set -e
-            SERVER_IMAGE=kuhhandel-server:staging docker compose -f "$HOME/kuhhandel/compose.staging.yaml" up -d --remove-orphans
+            SERVER_IMAGE=kuhhandel-server:staging docker compose --env-file "$HOME/kuhhandel/.env.infra" -f "$HOME/kuhhandel/compose.staging.yaml" up -d --remove-orphans
 
             for attempt in $(seq 1 20); do
               if curl -fsS http://127.0.0.1:18081/health >/dev/null; then
@@ -93,6 +93,6 @@ jobs:
               sleep 3
             done
 
-            SERVER_IMAGE=kuhhandel-server:staging docker compose -f "$HOME/kuhhandel/compose.staging.yaml" logs --tail=200
+            SERVER_IMAGE=kuhhandel-server:staging docker compose --env-file "$HOME/kuhhandel/.env.infra" -f "$HOME/kuhhandel/compose.staging.yaml" logs --tail=200
             exit 1
           '

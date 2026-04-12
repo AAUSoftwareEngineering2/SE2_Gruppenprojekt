@@ -8,6 +8,9 @@ services:
     environment:
       SERVER_PORT: 8080
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_DATASOURCE_URL: jdbc:postgresql://kuhhandel-postgres:5432/kuhhandel_staging
+      SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:?APP_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
     ports:
       - "127.0.0.1:18081:8080"
     networks:

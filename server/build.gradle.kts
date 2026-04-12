@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.websocket)
     implementation(libs.kotlin.reflect)
+    implementation(libs.postgresql)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
