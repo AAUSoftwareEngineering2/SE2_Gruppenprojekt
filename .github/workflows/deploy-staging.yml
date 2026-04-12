@@ -1,0 +1,98 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - ".dockerignore"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+      - "shared/**"
+      - "server/**"
+      - "deploy/compose.staging.yaml"
+      - ".github/workflows/deploy-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy Staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Build Docker image
+        shell: bash
+        run: |
+          docker build \
+            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+            --label org.opencontainers.image.source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            -f server/Dockerfile \
+            -t kuhhandel-server:staging \
+            .
+
+      - name: Upload image to server
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          docker save kuhhandel-server:staging \
+            | gzip \
+            | ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" 'gunzip | docker load'
+
+      - name: Upload compose file
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" 'mkdir -p "$HOME/kuhhandel"'
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" deploy/compose.staging.yaml "${DEPLOY_USER}@${DEPLOY_HOST}:~/kuhhandel/compose.staging.yaml"
+
+      - name: Restart staging service
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" '
+            set -e
+            SERVER_IMAGE=kuhhandel-server:staging docker compose -f "$HOME/kuhhandel/compose.staging.yaml" up -d --remove-orphans
+
+            for attempt in $(seq 1 20); do
+              if curl -fsS http://127.0.0.1:18081/health >/dev/null; then
+                docker image prune -f
+                exit 0
+              fi
+              sleep 3
+            done
+
+            SERVER_IMAGE=kuhhandel-server:staging docker compose -f "$HOME/kuhhandel/compose.staging.yaml" logs --tail=200
+            exit 1
+          '

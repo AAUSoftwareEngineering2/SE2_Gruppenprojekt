@@ -1,0 +1,12 @@
+name: kuhhandel-production
+
+services:
+  server:
+    image: ${SERVER_IMAGE:?SERVER_IMAGE is required}
+    container_name: kuhhandel-server-production
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: production
+    ports:
+      - "127.0.0.1:18080:8080"

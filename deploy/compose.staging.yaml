@@ -1,0 +1,12 @@
+name: kuhhandel-staging
+
+services:
+  server:
+    image: ${SERVER_IMAGE:?SERVER_IMAGE is required}
+    container_name: kuhhandel-server-staging
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: staging
+    ports:
+      - "127.0.0.1:18081:8080"
