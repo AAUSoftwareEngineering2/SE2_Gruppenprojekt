@@ -30,6 +30,10 @@ jobs:
     name: Build and Deploy Production
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
 
     steps:
       - name: Check out repository
@@ -42,6 +46,18 @@ jobs:
           printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat <<EOF > ~/.ssh/config
+          Host deploy-target
+            HostName ${DEPLOY_HOST}
+            User ${DEPLOY_USER}
+            Port ${DEPLOY_PORT:-22}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Build Docker image
         shell: bash
@@ -55,33 +71,21 @@ jobs:
 
       - name: Upload image to server
         shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           docker save kuhhandel-server:production \
             | gzip \
-            | ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" 'gunzip | docker load'
+            | ssh deploy-target 'gunzip | docker load'
 
       - name: Upload compose file
         shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" 'mkdir -p "$HOME/kuhhandel"'
-          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" deploy/compose.production.yaml "${DEPLOY_USER}@${DEPLOY_HOST}:~/kuhhandel/compose.production.yaml"
+          ssh deploy-target 'mkdir -p "$HOME/kuhhandel"'
+          scp deploy/compose.production.yaml deploy-target:~/kuhhandel/compose.production.yaml
 
       - name: Restart production service
         shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" '
+          ssh deploy-target '
             set -e
             SERVER_IMAGE=kuhhandel-server:production docker compose --env-file "$HOME/kuhhandel/.env.infra" -f "$HOME/kuhhandel/compose.production.yaml" up -d --remove-orphans
 

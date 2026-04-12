@@ -20,10 +20,14 @@ FROM eclipse-temurin:${JAVA_VERSION}-jre-jammy
 
 WORKDIR /app
 
-COPY --from=build /workspace/server/build/libs/*.jar app.jar
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+
+COPY --chown=appuser:appuser --from=build /workspace/server/build/libs/*.jar app.jar
 
 ENV SERVER_PORT=8080
 
 EXPOSE 8080
+
+USER appuser
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
