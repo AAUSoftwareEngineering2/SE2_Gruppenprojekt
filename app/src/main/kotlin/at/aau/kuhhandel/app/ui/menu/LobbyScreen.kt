@@ -41,15 +41,16 @@ fun LobbyScreen(
     lobbyCode: String,
     onBack: () -> Unit,
 ) {
-    val players = remember {
-        mutableStateOf(
-            listOf(
-                Player("Du", true, true),
-                Player("Spieler 2", true, false),
-                Player("Spieler 3", false, false),
+    val players =
+        remember {
+            mutableStateOf(
+                listOf(
+                    Player("Du", true, true),
+                    Player("Spieler 2", true, false),
+                    Player("Spieler 3", false, false),
+                ),
             )
-        )
-    }
+        }
     val isHost = true // TODO: Aus Server-Daten abrufen
 
     Scaffold(
@@ -60,28 +61,30 @@ fun LobbyScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück"
+                            contentDescription = "Zurück",
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
         ) {
             // Lobby Code
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.medium,
+                        )
+                        .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -115,9 +118,10 @@ fun LobbyScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(players.value) { player ->
@@ -161,13 +165,14 @@ fun LobbyScreen(
 @Composable
 private fun PlayerListItem(player: Player) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
-            )
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium,
+                )
+                .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -177,10 +182,11 @@ private fun PlayerListItem(player: Player) {
         ) {
             // Player Avatar
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

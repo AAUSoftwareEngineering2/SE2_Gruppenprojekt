@@ -34,19 +34,20 @@ fun RulesScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück"
+                            contentDescription = "Zurück",
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
         ) {
             Text(
                 "Kuhhandel - Spielregeln",
@@ -57,27 +58,37 @@ fun RulesScreen(
 
             RuleSection(
                 title = "Spielziel",
-                content = "Ziel des Spiels ist es, die wertvollsten Tiere und Geldkarten zu sammeln um am Ende das höchste Vermögen zu haben."
+                content =
+                    "Ziel des Spiels ist es, die wertvollsten Tiere und Geldkarten " +
+                        "zu sammeln um am Ende das höchste Vermögen zu haben.",
             )
 
             RuleSection(
                 title = "Spielstart",
-                content = "Jeder Spieler erhält eine bestimmte Anzahl von Karten. Die verbleibenden Karten bilden den Nachziehstapel."
+                content =
+                    "Jeder Spieler erhält eine bestimmte Anzahl von Karten. " +
+                        "Die verbleibenden Karten bilden den Nachziehstapel.",
             )
 
             RuleSection(
                 title = "Spielablauf",
-                content = "In jeder Runde kann ein Spieler eine Aktion durchführen: Karten tauschen, bieten oder passen."
+                content =
+                    "In jeder Runde kann ein Spieler eine Aktion durchführen: " +
+                        "Karten tauschen, bieten oder passen.",
             )
 
             RuleSection(
                 title = "Bieten",
-                content = "Spieler können um Tiere und Geldkarten bieten. Das höchste Gebot gewinnt die Karte."
+                content =
+                    "Spieler können um Tiere und Geldkarten bieten. " +
+                        "Das höchste Gebot gewinnt die Karte.",
             )
 
             RuleSection(
                 title = "Ende",
-                content = "Das Spiel endet nach einer festgelegten Anzahl von Runden. Der Spieler mit dem höchsten Vermögen gewinnt."
+                content =
+                    "Das Spiel endet nach einer festgelegten Anzahl von Runden. " +
+                        "Der Spieler mit dem höchsten Vermögen gewinnt.",
             )
 
             Spacer(modifier = Modifier.height(24.dp))

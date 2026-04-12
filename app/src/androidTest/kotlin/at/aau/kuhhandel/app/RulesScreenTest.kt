@@ -3,7 +3,6 @@ package at.aau.kuhhandel.app.ui.menu
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -11,7 +10,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RulesScreenTest {
-
     @get:Rule
     val composeTestRule = createComposeRule()
 
@@ -85,8 +83,13 @@ class RulesScreenTest {
         }
 
         // Check that descriptions are displayed
-        composeTestRule.onNodeWithText("Ziel des Spiels ist es, die wertvollsten Tiere und Geldkarten zu sammeln um am Ende das höchste Vermögen zu haben.").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Jeder Spieler erhält eine bestimmte Anzahl von Karten.").assertIsDisplayed()
+        composeTestRule.onNodeWithText(
+            "Ziel des Spiels ist es, die wertvollsten Tiere und " +
+                "Geldkarten zu sammeln um am Ende das höchste Vermögen zu haben.",
+        ).assertIsDisplayed()
+        composeTestRule.onNodeWithText(
+            "Jeder Spieler erhält eine bestimmte Anzahl von Karten.",
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -95,7 +98,9 @@ class RulesScreenTest {
             RulesScreen(onBack = {})
         }
 
-        composeTestRule.onNodeWithText("Spieler können um Tiere und Geldkarten bieten.").assertIsDisplayed()
+        composeTestRule.onNodeWithText(
+            "Spieler können um Tiere und Geldkarten bieten.",
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -104,7 +109,9 @@ class RulesScreenTest {
             RulesScreen(onBack = {})
         }
 
-        composeTestRule.onNodeWithText("Das Spiel endet nach einer festgelegten Anzahl von Runden.").assertIsDisplayed()
+        composeTestRule.onNodeWithText(
+            "Das Spiel endet nach einer festgelegten Anzahl von Runden.",
+        ).assertIsDisplayed()
     }
 
     @Test

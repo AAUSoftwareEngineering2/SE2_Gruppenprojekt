@@ -24,35 +24,40 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
     val currentScreen = remember { mutableStateOf<MenuScreenState>(MenuScreenState.Main) }
 
     when (currentScreen.value) {
-        MenuScreenState.Main -> MainMenuContent(
-            modifier = modifier,
-            onLobbyErstellen = { currentScreen.value = MenuScreenState.RoomCreation },
-            onLobbyBeitreten = { currentScreen.value = MenuScreenState.RoomJoining },
-            onRegeln = { currentScreen.value = MenuScreenState.Rules }
-        )
-        MenuScreenState.RoomCreation -> RoomCreationScreen(
-            modifier = modifier,
-            onBack = { currentScreen.value = MenuScreenState.Main },
-            onLobbyCreated = { lobbyCode ->
-                currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-            }
-        )
-        MenuScreenState.RoomJoining -> RoomJoiningScreen(
-            modifier = modifier,
-            onBack = { currentScreen.value = MenuScreenState.Main },
-            onLobbyJoined = { lobbyCode ->
-                currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-            }
-        )
-        is MenuScreenState.Lobby -> LobbyScreen(
-            modifier = modifier,
-            lobbyCode = (currentScreen.value as MenuScreenState.Lobby).lobbyCode,
-            onBack = { currentScreen.value = MenuScreenState.Main }
-        )
-        MenuScreenState.Rules -> RulesScreen(
-            modifier = modifier,
-            onBack = { currentScreen.value = MenuScreenState.Main }
-        )
+        MenuScreenState.Main ->
+            MainMenuContent(
+                modifier = modifier,
+                onLobbyErstellen = { currentScreen.value = MenuScreenState.RoomCreation },
+                onLobbyBeitreten = { currentScreen.value = MenuScreenState.RoomJoining },
+                onRegeln = { currentScreen.value = MenuScreenState.Rules },
+            )
+        MenuScreenState.RoomCreation ->
+            RoomCreationScreen(
+                modifier = modifier,
+                onBack = { currentScreen.value = MenuScreenState.Main },
+                onLobbyCreated = { lobbyCode ->
+                    currentScreen.value = MenuScreenState.Lobby(lobbyCode)
+                },
+            )
+        MenuScreenState.RoomJoining ->
+            RoomJoiningScreen(
+                modifier = modifier,
+                onBack = { currentScreen.value = MenuScreenState.Main },
+                onLobbyJoined = { lobbyCode ->
+                    currentScreen.value = MenuScreenState.Lobby(lobbyCode)
+                },
+            )
+        is MenuScreenState.Lobby ->
+            LobbyScreen(
+                modifier = modifier,
+                lobbyCode = (currentScreen.value as MenuScreenState.Lobby).lobbyCode,
+                onBack = { currentScreen.value = MenuScreenState.Main },
+            )
+        MenuScreenState.Rules ->
+            RulesScreen(
+                modifier = modifier,
+                onBack = { currentScreen.value = MenuScreenState.Main },
+            )
     }
 }
 
@@ -64,11 +69,12 @@ private fun MainMenuContent(
     onRegeln: () -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            // HIER: Wendet den hellen Creme-Hintergrund aus dem Theme an
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                // HIER: Wendet den hellen Creme-Hintergrund aus dem Theme an
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -80,14 +86,15 @@ private fun MainMenuContent(
 
         Button(
             onClick = onLobbyErstellen,
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(48.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(48.dp),
         ) {
             Text(
                 text = "Lobby erstellen",
                 // HIER: Zwingt den Text dazu, strahlend weiß zu sein
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimary,
             )
         }
 
@@ -95,14 +102,15 @@ private fun MainMenuContent(
 
         Button(
             onClick = onLobbyBeitreten,
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(48.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(48.dp),
         ) {
             Text(
                 text = "Lobby beitreten",
                 // HIER: Zwingt den Text dazu, strahlend weiß zu sein
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimary,
             )
         }
 
@@ -110,9 +118,10 @@ private fun MainMenuContent(
 
         OutlinedButton(
             onClick = onRegeln,
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(48.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(48.dp),
         ) {
             Text("Regeln")
         }
@@ -121,8 +130,12 @@ private fun MainMenuContent(
 
 sealed class MenuScreenState {
     data object Main : MenuScreenState()
+
     data object RoomCreation : MenuScreenState()
+
     data object RoomJoining : MenuScreenState()
+
     data class Lobby(val lobbyCode: String) : MenuScreenState()
+
     data object Rules : MenuScreenState()
 }

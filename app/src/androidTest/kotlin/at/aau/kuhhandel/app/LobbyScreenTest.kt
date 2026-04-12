@@ -11,7 +11,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class LobbyScreenTest {
-
     @get:Rule
     val composeTestRule = createComposeRule()
 
@@ -22,7 +21,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -36,7 +35,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -48,7 +47,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -60,7 +59,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -74,7 +73,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = { backCalled = true }
+                onBack = { backCalled = true },
             )
         }
 
@@ -87,7 +86,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -100,7 +99,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -112,7 +111,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = {}
+                onBack = {},
             )
         }
 
@@ -127,7 +126,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testLobbyCode,
-                onBack = { backClicked = true }
+                onBack = { backClicked = true },
             )
         }
 
@@ -160,7 +159,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             LobbyScreen(
                 lobbyCode = testCode,
-                onBack = {}
+                onBack = {},
             )
         }
 

@@ -3,8 +3,6 @@ package at.aau.kuhhandel.app.ui.menu
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -12,7 +10,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RoomJoiningScreenTest {
-
     @get:Rule
     val composeTestRule = createComposeRule()
 
@@ -21,7 +18,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -34,7 +31,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -46,7 +43,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -61,7 +58,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = { backCalled = true },
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -74,7 +71,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -87,7 +84,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 
@@ -103,7 +100,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = { joinCalled = true }
+                onLobbyJoined = { joinCalled = true },
             )
         }
 
@@ -119,7 +116,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = { backClicked = true },
-                onLobbyJoined = { code -> joinedCode = code }
+                onLobbyJoined = { code -> joinedCode = code },
             )
         }
 
@@ -132,7 +129,7 @@ class RoomJoiningScreenTest {
         composeTestRule.setContent {
             RoomJoiningScreen(
                 onBack = {},
-                onLobbyJoined = {}
+                onLobbyJoined = {},
             )
         }
 

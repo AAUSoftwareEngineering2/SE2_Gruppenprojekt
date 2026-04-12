@@ -48,18 +48,19 @@ fun RoomJoiningScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück"
+                            contentDescription = "Zurück",
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -80,13 +81,14 @@ fun RoomJoiningScreen(
                                 isLoading.value = false
                             }
                         } else {
-                            errorMessage.value = "Bitte geben Sie einen gültigen 5-stelligen Code ein"
+                            errorMessage.value = "Bitte geben Sie " +
+                                "einen gültigen 5-stelligen Code ein"
                         }
                     },
                     onDismiss = onBack,
                     isLoading = isLoading.value,
                     error = errorMessage.value,
-                    onErrorDismiss = { errorMessage.value = null }
+                    onErrorDismiss = { errorMessage.value = null },
                 )
             }
 
@@ -118,7 +120,7 @@ private fun JoinLobbyDialog(
                 TextButton(onClick = onErrorDismiss) {
                     Text("OK")
                 }
-            }
+            },
         )
     } else {
         AlertDialog(
@@ -166,7 +168,7 @@ private fun JoinLobbyDialog(
                 ) {
                     Text("Abbrechen")
                 }
-            }
+            },
         )
     }
 }

@@ -3,7 +3,6 @@ package at.aau.kuhhandel.app.ui.menu
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -11,7 +10,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RoomCreationScreenTest {
-
     @get:Rule
     val composeTestRule = createComposeRule()
 
@@ -20,7 +18,7 @@ class RoomCreationScreenTest {
         composeTestRule.setContent {
             RoomCreationScreen(
                 onBack = {},
-                onLobbyCreated = {}
+                onLobbyCreated = {},
             )
         }
 
@@ -36,7 +34,7 @@ class RoomCreationScreenTest {
         composeTestRule.setContent {
             RoomCreationScreen(
                 onBack = { backCalled = true },
-                onLobbyCreated = {}
+                onLobbyCreated = {},
             )
         }
 
@@ -54,7 +52,7 @@ class RoomCreationScreenTest {
                 onLobbyCreated = { code ->
                     callbackCalled = true
                     receivedCode = code
-                }
+                },
             )
         }
 
@@ -68,7 +66,9 @@ class RoomCreationScreenTest {
             val code = generateLobbyCode()
             assert(code.length == 5) { "Code length should be 5, but was ${code.length}" }
             assert(code.all { it.isDigit() }) { "Code should contain only digits, but was $code" }
-            assert(code.toInt() in 10000..99999) { "Code should be between 10000 and 99999, but was $code" }
+            assert(
+                code.toInt() in 10000..99999,
+            ) { "Code should be between 10000 and 99999, but was $code" }
         }
     }
 
@@ -79,14 +79,18 @@ class RoomCreationScreenTest {
             codes.add(generateLobbyCode())
         }
         // Due to randomness, we should have many unique codes
-        assert(codes.size > 40) { "Expected mostly unique codes, but got ${codes.size} unique out of 50" }
+        assert(
+            codes.size > 40,
+        ) { "Expected mostly unique codes, but got ${codes.size} unique out of 50" }
     }
 
     @Test
     fun generateLobbyCode_onlyDigits() {
         repeat(100) {
             val code = generateLobbyCode()
-            assert(code.matches(Regex("\\d{5}"))) { "Code should match pattern \\d{5}, but was $code" }
+            assert(
+                code.matches(Regex("\\d{5}")),
+            ) { "Code should match pattern \\d{5}, but was $code" }
         }
     }
 
@@ -98,7 +102,7 @@ class RoomCreationScreenTest {
         composeTestRule.setContent {
             RoomCreationScreen(
                 onBack = { backClicked = true },
-                onLobbyCreated = { code -> createdCode = code }
+                onLobbyCreated = { code -> createdCode = code },
             )
         }
 
