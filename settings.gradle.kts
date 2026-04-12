@@ -24,4 +24,8 @@ rootProject.name = "SE2_Gruppenprojekt"
 
 include(":shared")
 include(":server")
-include(":app")
+
+val serverOnly = gradle.startParameter.projectProperties["serverOnly"] == "true"
+if (!serverOnly) {
+    include(":app")
+}

@@ -9,8 +9,10 @@ plugins {
 group = "at.aau.kuhhandel.server"
 version = "1.0.0"
 
+val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").get().toInt()
+
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(jvmToolchainVersion)
 }
 
 application {
