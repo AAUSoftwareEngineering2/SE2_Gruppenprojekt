@@ -39,6 +39,8 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
 // Kotlin 2.3.20: kotlinOptions is removed; use the compilerOptions DSL instead.
