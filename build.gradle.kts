@@ -44,7 +44,10 @@ configure<SonarExtension> {
             ).joinToString(","),
         )
 
-        property("sonar.java.binaries", "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug")
+        property(
+            "sonar.java.binaries",
+            "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug",
+        )
         property("sonar.kotlin.source.version", "2.0")
         property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/**/*.xml")
     }
