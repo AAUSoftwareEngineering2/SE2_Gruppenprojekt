@@ -49,7 +49,14 @@ configure<SonarExtension> {
             "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug",
         )
         property("sonar.kotlin.source.version", "2.0")
-        property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/**/*.xml")
+        property(
+            "sonar.coverage.jacoco.xmlReportPaths",
+            listOf(
+                "server/build/reports/jacoco/test/jacocoTestReport.xml",
+                "shared/build/reports/jacoco/test/jacocoTestReport.xml",
+                "app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
+            ).joinToString(","),
+        )
     }
 }
 
