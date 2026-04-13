@@ -2,14 +2,12 @@ package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 
-
 /**
  * Container für die Tierkarten eines Spielers.
  * Maximal 4 Karten, minimal 0.
  */
 class AnimalCardContainer {
     private val cards = mutableListOf<AnimalCard>()
-
 
     /**
      * Fügt eine Tierkarte hinzu, wenn das Limit von 4 noch nicht erreicht ist.
@@ -66,5 +64,3 @@ class AnimalCardContainer {
      */
     fun isEmpty(): Boolean = cards.isEmpty()
 }
-
-
