@@ -13,14 +13,14 @@ class AnimalCardContainer {
      * Fügt eine Tierkarte hinzu, wenn das Limit von 4 noch nicht erreicht ist.
      * @return true, wenn die Karte hinzugefügt wurde, sonst false.
      */
-    fun addCard(card: AnimalCard): Boolean {
-        return if (cards.size < 4) {
+    fun addCard(card: AnimalCard): Boolean =
+        if (cards.size < 4) {
             cards.add(card)
             true
         } else {
             false
         }
-    }
+
     /**
      * Entfernt eine Tierkarte des angegebenen Typs (die erste, die gefunden wird).
      * @return die entfernte Karte oder null, wenn keine Karte dieses Typs vorhanden ist.
