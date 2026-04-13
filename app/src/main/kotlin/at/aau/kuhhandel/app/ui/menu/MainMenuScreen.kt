@@ -2,7 +2,6 @@ package at.aau.kuhhandel.app.ui.menu
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -43,6 +42,7 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
                 onJoinLobby = { currentScreen.value = MenuScreenState.RoomJoining },
                 onRules = { currentScreen.value = MenuScreenState.Rules },
             )
+
         MenuScreenState.RoomCreation ->
             RoomCreationScreen(
                 modifier = modifier,
@@ -51,6 +51,7 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
                     currentScreen.value = MenuScreenState.Lobby(lobbyCode)
                 },
             )
+
         MenuScreenState.RoomJoining ->
             RoomJoiningScreen(
                 modifier = modifier,
@@ -59,12 +60,14 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
                     currentScreen.value = MenuScreenState.Lobby(lobbyCode)
                 },
             )
+
         is MenuScreenState.Lobby ->
             LobbyScreen(
                 modifier = modifier,
                 lobbyCode = (currentScreen.value as MenuScreenState.Lobby).lobbyCode,
                 onBack = { currentScreen.value = MenuScreenState.Main },
             )
+
         MenuScreenState.Rules ->
             RulesScreen(
                 modifier = modifier,
@@ -101,45 +104,51 @@ private fun MainMenuContent(
             painter = painterResource(id = R.drawable.bg_grass),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
+            contentScale = ContentScale.FillBounds,
         )
 
         // Title
-        //TODO: Fancy drawable later
+        // TODO: Fancy drawable later
         Text(
             text = "Kuhhandel",
             style = MaterialTheme.typography.displayLarge,
             color = DarkPurple,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 64.dp)
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 64.dp),
         )
 
         // 2. CONTAINER (Sign + Buttons)
         Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(x = signOffsetX, y = signOffsetY)
-                .scale(signSize)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .offset(x = signOffsetX, y = signOffsetY)
+                    .scale(signSize)
+                    .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
         ) {
-
             // Sign
             Image(
                 painter = painterResource(id = R.drawable.mm_sign_no_buttons),
                 contentDescription = "Sign",
                 modifier = Modifier.fillMaxWidth(),
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.Fit,
             )
 
             // Buttons
             Column(
-                modifier = Modifier
-                    .align(BiasAlignment(horizontalBias = buttonOffsetX, verticalBias = buttonOffsetY))
-                    .fillMaxWidth(buttonWidth),
+                modifier =
+                    Modifier
+                        .align(
+                            BiasAlignment(
+                                horizontalBias = buttonOffsetX,
+                                verticalBias = buttonOffsetY,
+                            ),
+                        ).fillMaxWidth(buttonWidth),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(buttonSpacing)
+                verticalArrangement = Arrangement.spacedBy(buttonSpacing),
             ) {
                 MenuButton(R.drawable.mm_create_room_button, "Create", onCreateLobby)
                 MenuButton(R.drawable.mm_join_room_button, "Join", onJoinLobby)
@@ -150,53 +159,68 @@ private fun MainMenuContent(
 }
 
 @Composable
-private fun MenuButton(drawableId: Int, contentDesc: String, onClick: () -> Unit) {
+private fun MenuButton(
+    drawableId: Int,
+    contentDesc: String,
+    onClick: () -> Unit,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(targetValue = if (isPressed) 0.92f else 1f, label = "buttonScale")
-    val alpha by animateFloatAsState(targetValue = if (isPressed) 0.7f else 1f, label = "buttonAlpha")
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        label = "buttonScale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.7f else 1f,
+        label = "buttonAlpha",
+    )
 
     Box(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Image(
             painter = painterResource(id = drawableId),
             contentDescription = contentDesc,
-            modifier = Modifier
-                .fillMaxWidth()
-                .scale(scale)
-                .alpha(alpha),
-            contentScale = ContentScale.Fit
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .scale(scale)
+                    .alpha(alpha),
+            contentScale = ContentScale.Fit,
         )
 
         // HITBOX
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                // scale button hitbox
-                .padding(horizontal = 0.dp, vertical = 40.dp)
-
-                // rotate button hitbox
-                .rotate(-30f)
-
-                // DEBUG-MODE: shows hitboxes
-                //.background(androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.4f))
-
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick
-                )
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    // scale button hitbox
+                    .padding(horizontal = 0.dp, vertical = 40.dp)
+                    // rotate button hitbox
+                    .rotate(-30f)
+                    // DEBUG-MODE: shows hitboxes
+                    // .background(androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.4f))
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    ),
         )
     }
 }
 
 sealed class MenuScreenState {
     data object Main : MenuScreenState()
+
     data object RoomCreation : MenuScreenState()
+
     data object RoomJoining : MenuScreenState()
-    data class Lobby(val lobbyCode: String) : MenuScreenState()
+
+    data class Lobby(
+        val lobbyCode: String,
+    ) : MenuScreenState()
+
     data object Rules : MenuScreenState()
 }
