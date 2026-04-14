@@ -174,19 +174,35 @@ private fun MainMenuContent(
                         val client = NetworkClientFactory.create()
                         val response = client.get("https://api.se-aau.com/health")
                         if (response.status.isSuccess()) {
-                            Toast.makeText(context, "Server is reachable!", Toast.LENGTH_SHORT).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Server is reachable!",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                         } else {
-                            Toast.makeText(context, "Server returned error!: ${response.status}", Toast.LENGTH_SHORT).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Server returned error!: ${response.status}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                         }
                         client.close()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Server not reachable!: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast
+                            .makeText(
+                                context,
+                                "Server not reachable!: ${e.message}",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
                 }
             },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
         ) {
             Text("Ping-Server")
         }
