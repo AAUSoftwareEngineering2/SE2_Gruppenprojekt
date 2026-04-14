@@ -60,6 +60,14 @@ configure<SonarExtension> {
     }
 }
 
+tasks.named("sonar") {
+    dependsOn(
+        ":shared:jacocoTestReport",
+        ":server:jacocoTestReport",
+        ":app:jacocoTestReport",
+    )
+}
+
 subprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
     apply(plugin = "jacoco")
