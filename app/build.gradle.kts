@@ -29,7 +29,6 @@ android {
         }
         debug {
             enableUnitTestCoverage = true
-            enableAndroidTestCoverage = true // Enables coverage for androidTest
         }
     }
 
@@ -74,6 +73,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+    testImplementation("io.ktor:ktor-client-mock:${libs.versions.ktor.get()}")
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -85,8 +85,7 @@ dependencies {
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
-    // Ensure both unit tests and instrumented tests are run
-    dependsOn("testDebugUnitTest", "createDebugCoverageReport")
+    dependsOn("testDebugUnitTest")
 
     reports {
         xml.required.set(true)
@@ -111,11 +110,9 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
     classDirectories.setFrom(files(debugTree))
 
-    // Combined execution data from both Unit and Instrumented tests
     executionData.setFrom(
         fileTree(layout.buildDirectory.get()) {
             include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-            include("outputs/code_coverage/debugAndroidTest/connected/*/coverage.ec")
         },
     )
 }

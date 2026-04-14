@@ -32,10 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.NetworkClientFactory
+import at.aau.kuhhandel.app.network.PingService
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
-import io.ktor.client.request.get
-import io.ktor.http.isSuccess
 import kotlinx.coroutines.launch
 
 @Composable
@@ -170,33 +168,23 @@ private fun MainMenuContent(
         Button(
             onClick = {
                 scope.launch {
-                    try {
-                        val client = NetworkClientFactory.create()
-                        val response = client.get("https://api.se-aau.com/health")
-                        if (response.status.isSuccess()) {
+                    val result = PingService().isServerReachable()
+                    result
+                        .onSuccess {
                             Toast
                                 .makeText(
                                     context,
                                     "Server is reachable!",
                                     Toast.LENGTH_SHORT,
                                 ).show()
-                        } else {
+                        }.onFailure { e ->
                             Toast
                                 .makeText(
                                     context,
-                                    "Server returned error!: ${response.status}",
+                                    "Server error: ${e.message}",
                                     Toast.LENGTH_SHORT,
                                 ).show()
                         }
-                        client.close()
-                    } catch (e: Exception) {
-                        Toast
-                            .makeText(
-                                context,
-                                "Server not reachable!: ${e.message}",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                    }
                 }
             },
             modifier =
