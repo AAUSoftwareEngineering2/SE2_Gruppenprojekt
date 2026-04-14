@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    id("jacoco")
 }
 
 android {
@@ -27,7 +28,8 @@ android {
             )
         }
         debug {
-            enableUnitTestCoverage = true // Aktiviert Jacoco für den Debug-Build
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true // Enables coverage for androidTest
         }
     }
 
@@ -83,15 +85,14 @@ dependencies {
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
-    // Specify which tests to run first
-    dependsOn("testDebugUnitTest")
+    // Ensure both unit tests and instrumented tests are run
+    dependsOn("testDebugUnitTest", "createDebugCoverageReport")
 
     reports {
         xml.required.set(true)
         html.required.set(true)
     }
 
-    // Filter out generated Android files (R, BuildConfig, etc.)
     val fileFilter =
         listOf(
             "**/R.class",
@@ -102,20 +103,19 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             "android/**/*.*",
         )
 
-    // Point to the package code
     val debugTree =
         fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
             exclude(fileFilter)
         }
 
-    // Provide source and binary paths
     sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
     classDirectories.setFrom(files(debugTree))
 
-    // Get the test execution data that Android stores
+    // Combined execution data from both Unit and Instrumented tests
     executionData.setFrom(
         fileTree(layout.buildDirectory.get()) {
             include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+            include("outputs/code_coverage/debugAndroidTest/connected/*/coverage.ec")
         },
     )
 }
