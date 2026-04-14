@@ -46,7 +46,7 @@ configure<SonarExtension> {
 
         property(
             "sonar.java.binaries",
-            "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug",
+            "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug,**/build/classes/kotlin/debug,**/build/intermediates/javac/debug/classes",
         )
         property("sonar.kotlin.source.version", "2.0")
         property(
