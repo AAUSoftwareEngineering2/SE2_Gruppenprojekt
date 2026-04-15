@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.websockets)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.compose.ui)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

@@ -5,6 +5,9 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 
+/**
+ * Registers the game WebSocket endpoint and configures handshake rules.
+ */
 @Configuration
 @EnableWebSocket
 class WebSocketConfig(
@@ -13,7 +16,7 @@ class WebSocketConfig(
     override fun registerWebSocketHandlers(registry: WebSocketHandlerRegistry) {
         registry
             .addHandler(gameWebSocketHandler, "/websocket/game")
-            // Allow all origins for local development; should be restricted when more game logic is implemented
+            // Temporary development setting; should be restricted when origins are finalized
             .setAllowedOrigins("*")
     }
 }

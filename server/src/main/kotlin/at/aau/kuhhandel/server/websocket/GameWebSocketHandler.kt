@@ -5,6 +5,9 @@ import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
 
+/**
+ * Handles game WebSocket messages.
+ */
 @Component
 class GameWebSocketHandler : TextWebSocketHandler() {
     override fun afterConnectionEstablished(session: WebSocketSession) {
