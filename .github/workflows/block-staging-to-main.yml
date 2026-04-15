@@ -1,4 +1,4 @@
-name: Block Staging To Main
+name: Block Staging Merge To Main
 
 on:
   pull_request:
