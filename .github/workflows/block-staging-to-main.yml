@@ -21,7 +21,7 @@ jobs:
       - name: Fail when the PR source branch is staging
         shell: bash
         run: |
-          if [ "${{ github.head_ref }}" = "staging" ]; then
+          if [ "${{ github.head_ref }}" = "staging" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
             echo "Pull requests from staging to main are not allowed."
             exit 1
           fi
