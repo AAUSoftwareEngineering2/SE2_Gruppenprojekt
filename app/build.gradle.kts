@@ -8,12 +8,21 @@ plugins {
 
 android {
     namespace = "at.aau.kuhhandel.app"
-    compileSdk = 36
+    compileSdk =
+        libs.versions.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "at.aau.kuhhandel.app"
-        minSdk = 24
-        targetSdk = 36
+        minSdk =
+            libs.versions.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.targetSdk
+                .get()
+                .toInt()
         versionCode = 1
         versionName = "1.0"
 
@@ -67,7 +76,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material:material-icons-core")
+    implementation(libs.androidx.material.icons.core)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
@@ -78,10 +87,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
-    testImplementation("io.ktor:ktor-client-mock:${libs.versions.ktor.get()}")
-    testImplementation("org.robolectric:robolectric:4.12.1")
-    testImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
