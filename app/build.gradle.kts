@@ -94,11 +94,6 @@ dependencies {
 tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
 
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
-    }
-
     val fileFilter =
         listOf(
             "**/R.class",
