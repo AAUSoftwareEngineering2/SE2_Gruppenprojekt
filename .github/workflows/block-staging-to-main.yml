@@ -1,0 +1,29 @@
+name: Block Staging Merge To Main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: block-staging-to-main-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-pr-source:
+    name: Validate PR source branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail when the PR source branch is staging
+        shell: bash
+        run: |
+          if [ "${{ github.head_ref }}" = "staging" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            echo "Pull requests from staging to main are not allowed."
+            exit 1
+          fi
+
+          echo "Source branch '${{ github.head_ref }}' is allowed."

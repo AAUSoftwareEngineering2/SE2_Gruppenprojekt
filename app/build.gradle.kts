@@ -3,16 +3,26 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    id("jacoco")
 }
 
 android {
     namespace = "at.aau.kuhhandel.app"
-    compileSdk = 36
+    compileSdk =
+        libs.versions.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "at.aau.kuhhandel.app"
-        minSdk = 24
-        targetSdk = 36
+        minSdk =
+            libs.versions.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.targetSdk
+                .get()
+                .toInt()
         versionCode = 1
         versionName = "1.0"
 
@@ -27,7 +37,13 @@ android {
             )
         }
         debug {
-            enableUnitTestCoverage = true // Aktiviert Jacoco für den Debug-Build
+            enableUnitTestCoverage = true
+        }
+    }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
         }
     }
 
@@ -43,7 +59,6 @@ android {
     sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
-// Kotlin 2.3.20: kotlinOptions is removed; use the compilerOptions DSL instead.
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -61,7 +76,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material:material-icons-core")
+    implementation(libs.androidx.material.icons.core)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
@@ -72,6 +87,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -79,19 +98,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
 
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
-    // Specify which tests to run first
     dependsOn("testDebugUnitTest")
 
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
-    }
-
-    // Filter out generated Android files (R, BuildConfig, etc.)
     val fileFilter =
         listOf(
             "**/R.class",
@@ -102,17 +113,14 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             "android/**/*.*",
         )
 
-    // Point to the package code
     val debugTree =
         fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
             exclude(fileFilter)
         }
 
-    // Provide source and binary paths
     sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
     classDirectories.setFrom(files(debugTree))
 
-    // Get the test execution data that Android stores
     executionData.setFrom(
         fileTree(layout.buildDirectory.get()) {
             include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
