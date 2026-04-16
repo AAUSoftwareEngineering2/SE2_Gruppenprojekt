@@ -30,9 +30,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.network.PingService
+import at.aau.kuhhandel.app.ui.components.MenuBackground
+import at.aau.kuhhandel.app.ui.components.MenuButton
+import at.aau.kuhhandel.app.ui.components.MenuDecor
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import kotlinx.coroutines.launch
 
@@ -106,25 +110,26 @@ private fun MainMenuContent(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // Background
-        Image(
-            painter = painterResource(id = R.drawable.bg_grass),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds,
-        )
+    MenuBackground(modifier = modifier) {
+        // --- DECORATIONS ---
+        MenuDecor(R.drawable.ig_tall_bush, -115, 129, 300)
+        MenuDecor(R.drawable.ig_short_bush, 704, 183, 216)
+        MenuDecor(R.drawable.ig_tall_bush, 772, 711, 288)
+        MenuDecor(R.drawable.ig_tall_bush, -200, 1255, 264)
+        MenuDecor(R.drawable.ig_short_bush, 749, 1681, 180)
 
         // Title
         // TODO: Fancy drawable later
         Text(
-            text = "Kuhhandel",
+            text = "KUHHANDEL",
             style = MaterialTheme.typography.displayLarge,
+            fontWeight = FontWeight.Bold,
             color = DarkPurple,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 64.dp),
+                    .padding(top = 64.dp)
+                    .scale(scaleX = 1f, scaleY = 1.6f),
         )
 
         // 2. CONTAINER (Sign + Buttons)

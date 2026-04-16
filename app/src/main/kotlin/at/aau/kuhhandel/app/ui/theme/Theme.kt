@@ -15,7 +15,7 @@ private val DarkColorScheme =
         background = PureWhite,
         surface = WhitePurple,
         onPrimary = Color.White,
-        onBackground = Color.White,
+        onBackground = BackgroundGreen,
     )
 
 private val LightColorScheme =
@@ -23,7 +23,7 @@ private val LightColorScheme =
         primary = DefaultPurple,
         secondary = DarkPurple,
         tertiary = LightPurple,
-        background = PureWhite,
+        background = BackgroundGreen,
         surface = WhitePurple,
         onPrimary = Color.White,
         onBackground = DarkPurple,
