@@ -43,6 +43,9 @@ configure<SonarExtension> {
                 ".dockerignore",
             ).joinToString(","),
         )
+        // Exclude UI from coverage calculations so it doesn't drag down the percentage,
+        // but keep it in Sonar for code smells/analysis.
+        property("sonar.coverage.exclusions", "**/ui/**")
 
         property(
             "sonar.java.binaries",
