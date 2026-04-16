@@ -9,7 +9,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -116,7 +115,7 @@ private fun MainMenuContent(
         MenuDecor(R.drawable.ig_short_bush, 704, 183, 216)
         MenuDecor(R.drawable.ig_tall_bush, 772, 711, 288)
         MenuDecor(R.drawable.ig_tall_bush, -200, 1255, 264)
-        MenuDecor(R.drawable.ig_short_bush, 749, 1681, 180)
+        MenuDecor(R.drawable.ig_short_bush, 749, 1531, 270)
 
         // Title
         // TODO: Fancy drawable later

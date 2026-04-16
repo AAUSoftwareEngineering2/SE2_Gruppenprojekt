@@ -42,7 +42,9 @@ fun DraggableElement(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragEnd = {
-                            println("DEBUG: $label position -> x: ${offsetX.roundToInt()}, y: ${offsetY.roundToInt()}")
+                            println(
+                                "DEBUG: $label position -> x: ${offsetX.roundToInt()}, y: ${offsetY.roundToInt()}",
+                            )
                         },
                     ) { change, dragAmount ->
                         change.consume()
