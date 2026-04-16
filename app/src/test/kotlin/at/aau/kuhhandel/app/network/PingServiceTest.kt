@@ -53,4 +53,19 @@ class PingServiceTest {
 
             assertTrue(result.isFailure)
         }
+
+    @Test
+    fun `isServerReachable returns failure when exception is thrown`() =
+        runBlocking {
+            val mockEngine =
+                MockEngine { _ ->
+                    throw Exception("Network error")
+                }
+            val client = HttpClient(mockEngine)
+            val service = PingService(client)
+
+            val result = service.isServerReachable()
+
+            assertTrue(result.isFailure)
+        }
 }
