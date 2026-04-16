@@ -13,11 +13,8 @@ class GameManagerTest {
 
         val session = manager.createTestGame()
 
-        // Game should start running with no revealed card
-        assertEquals(GamePhase.RUNNING, session.gameState.phase)
+        assertEquals(GamePhase.PLAYER_TURN, session.gameState.phase)
         assertNull(session.gameState.currentFaceUpCard)
-
-        // Test deck has 3 cards
         assertEquals(3, session.gameState.deck.size())
     }
 
@@ -28,7 +25,6 @@ class GameManagerTest {
 
         val loadedSession = manager.getSession(session.sessionId)
 
-        // Retrieved session should match the original
         assertNotNull(loadedSession)
         assertEquals(session.sessionId, loadedSession.sessionId)
     }
@@ -40,10 +36,9 @@ class GameManagerTest {
 
         val updatedState = manager.revealNextCard(session.sessionId)
 
-        // A card should now be visible
         assertNotNull(updatedState)
         assertNotNull(updatedState.currentFaceUpCard)
-        assertEquals(GamePhase.RUNNING, updatedState.phase)
+        assertEquals(GamePhase.PLAYER_TURN, updatedState.phase)
     }
 
     @Test
@@ -55,22 +50,51 @@ class GameManagerTest {
         val updatedState = manager.revealNextCard(session.sessionId)
         val afterSize = updatedState?.deck?.size()
 
-        // Deck size should decrease by 1
         assertEquals(beforeSize - 1, afterSize)
     }
 
     @Test
-    fun test_revealNextCard_finishesGame_whenDeckEmpty() {
+    fun test_revealNextCard_updatesStoredSessionState() {
         val manager = GameManager()
         val session = manager.createTestGame()
 
-        // Reveal all cards
+        manager.revealNextCard(session.sessionId)
+        val loadedSession = manager.getSession(session.sessionId)
+
+        assertNotNull(loadedSession)
+        assertNotNull(loadedSession.gameState.currentFaceUpCard)
+        assertEquals(2, loadedSession.gameState.deck.size())
+        assertEquals(GamePhase.PLAYER_TURN, loadedSession.gameState.phase)
+    }
+
+    @Test
+    fun test_revealNextCard_lastCardDoesNotImmediatelyFinishGame() {
+        val manager = GameManager()
+        val session = manager.createTestGame()
+
+        manager.revealNextCard(session.sessionId)
+        manager.revealNextCard(session.sessionId)
+        val stateAfterLastCard = manager.revealNextCard(session.sessionId)
+
+        assertNotNull(stateAfterLastCard)
+        assertNotNull(stateAfterLastCard.currentFaceUpCard)
+        assertEquals(GamePhase.PLAYER_TURN, stateAfterLastCard.phase)
+        assertEquals(0, stateAfterLastCard.deck.size())
+    }
+
+    @Test
+    fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
+        val manager = GameManager()
+        val session = manager.createTestGame()
+
+        manager.revealNextCard(session.sessionId)
         manager.revealNextCard(session.sessionId)
         manager.revealNextCard(session.sessionId)
         val finalState = manager.revealNextCard(session.sessionId)
 
         assertNotNull(finalState)
         assertEquals(GamePhase.FINISHED, finalState.phase)
+        assertNull(finalState.currentFaceUpCard)
     }
 
     @Test
@@ -79,7 +103,6 @@ class GameManagerTest {
 
         val result = manager.revealNextCard("invalid-id")
 
-        // Invalid session should return null
         assertNull(result)
     }
 }
