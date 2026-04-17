@@ -16,5 +16,7 @@ class GameStateTest {
         assertNull(state.currentFaceUpCard)
         assertTrue(state.players.isEmpty())
         assertTrue(state.deck.isEmpty())
+        assertNull(state.auctionState)
+        assertNull(state.tradeState)
     }
 }

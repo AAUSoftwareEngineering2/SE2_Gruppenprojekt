@@ -8,4 +8,8 @@ data class GameState(
     val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = 0,
     val players: List<PlayerState> = emptyList(),
+    // Active auction state, null if no auction is running
+    val auctionState: AuctionState? = null,
+    // Active trade state, null if no trade is running
+    val tradeState: TradeState? = null,
 )

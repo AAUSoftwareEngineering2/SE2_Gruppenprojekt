@@ -9,14 +9,14 @@ import at.aau.kuhhandel.shared.model.GameState
 import java.util.UUID
 
 /**
- * Manages the Game Sessions (Phase 2 - minimal logic)
+ * Manages the game sessions (minimal logic).
  */
 class GameManager {
     // Stores all active sessions
     private val sessions: MutableMap<String, GameSession> = mutableMapOf()
 
     /**
-     * Creates a simple test game with a small deck
+     * Creates a simple test game with a small deck.
      */
     fun createTestGame(): GameSession {
         val testDeck =
@@ -30,7 +30,7 @@ class GameManager {
 
         val gameState =
             GameState(
-                phase = GamePhase.RUNNING,
+                phase = GamePhase.PLAYER_TURN,
                 deck = testDeck,
                 currentFaceUpCard = null,
                 currentPlayerIndex = 0,
@@ -48,18 +48,18 @@ class GameManager {
     }
 
     /**
-     * Returns a session by ID
+     * Returns a session by ID.
      */
     fun getSession(sessionId: String): GameSession? = sessions[sessionId]
 
     /**
-     * Reveals the next card in the deck
+     * Reveals the next card in the deck.
      */
     fun revealNextCard(sessionId: String): GameState? {
         val session = sessions[sessionId] ?: return null
         val currentState = session.gameState
 
-        // If deck empty → finish game
+        // If the deck is already empty, finish the game.
         if (currentState.deck.isEmpty()) {
             val finishedState =
                 currentState.copy(
@@ -71,18 +71,13 @@ class GameManager {
             return finishedState
         }
 
-        // Draw next card
+        // Draw the next card from the deck.
         val nextCard = currentState.deck.drawTopCard()
 
         val updatedState =
             currentState.copy(
                 currentFaceUpCard = nextCard,
-                phase =
-                    if (currentState.deck.isEmpty()) {
-                        GamePhase.FINISHED
-                    } else {
-                        currentState.phase
-                    },
+                phase = GamePhase.PLAYER_TURN,
             )
 
         sessions[sessionId] = session.copy(gameState = updatedState)
