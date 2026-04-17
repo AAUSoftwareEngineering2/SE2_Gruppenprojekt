@@ -100,6 +100,10 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
 tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
 
