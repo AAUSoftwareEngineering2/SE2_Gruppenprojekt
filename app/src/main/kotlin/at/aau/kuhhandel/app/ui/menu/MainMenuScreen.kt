@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.app.ui.menu
 
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -12,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -25,10 +28,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.network.PingService
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainMenuScreen(modifier: Modifier = Modifier) {
@@ -97,6 +103,8 @@ private fun MainMenuContent(
     val buttonSpacing = (-75).dp
 
     // ==========================================================
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background
@@ -154,6 +162,37 @@ private fun MainMenuContent(
                 MenuButton(R.drawable.mm_join_room_button, "Join", onJoinLobby)
                 MenuButton(R.drawable.mm_rules_button, "Rules", onRules)
             }
+        }
+
+        // DEBUG: Ping Server Button
+        Button(
+            onClick = {
+                scope.launch {
+                    val result = PingService().isServerReachable()
+                    result
+                        .onSuccess {
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Server is reachable!",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        }.onFailure { e ->
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Server error: ${e.message}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        }
+                }
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+        ) {
+            Text("Ping-Server")
         }
     }
 }
