@@ -3,9 +3,10 @@ package at.aau.kuhhandel.server.service
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import org.springframework.stereotype.Service
 import kotlin.random.Random
 
+@Service
 class GameService {
     // Stores all active game sessions by their 5-digit game id
     private val sessions: MutableMap<String, GameSession> = mutableMapOf()

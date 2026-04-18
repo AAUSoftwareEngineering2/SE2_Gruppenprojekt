@@ -27,10 +27,12 @@ dependencies {
     implementation(libs.spring.boot.starter.websocket)
     implementation(libs.kotlin.reflect)
     implementation(libs.postgresql)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.mockito.kotlin)
 }
 
 tasks.withType<Test> {
