@@ -10,7 +10,5 @@ import kotlinx.serialization.json.JsonElement
 data class WebSocketEnvelope(
     val type: WebSocketType,
     val requestId: String? = null,
-    val matchId: String? = null,
-    val playerId: String? = null,
     val payload: JsonElement? = null,
 )

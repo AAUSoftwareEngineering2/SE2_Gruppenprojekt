@@ -25,8 +25,6 @@ class WebSocketProtocolTest {
 
         assertEquals(WebSocketType.CREATE_GAME, envelope.type)
         assertNull(envelope.requestId)
-        assertNull(envelope.matchId)
-        assertNull(envelope.playerId)
         assertNull(envelope.payload)
     }
 
@@ -37,8 +35,6 @@ class WebSocketProtocolTest {
             WebSocketEnvelope(
                 type = WebSocketType.CREATE_GAME,
                 requestId = "request-1",
-                matchId = "match-1",
-                playerId = "player-1",
                 payload = json.encodeToJsonElement(CreateGamePayload.serializer(), payload),
             )
 
