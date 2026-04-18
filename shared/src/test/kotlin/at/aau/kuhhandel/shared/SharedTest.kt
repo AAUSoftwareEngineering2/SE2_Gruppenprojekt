@@ -1,6 +1,6 @@
 package at.aau.kuhhandel.shared
 
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class SharedTest {

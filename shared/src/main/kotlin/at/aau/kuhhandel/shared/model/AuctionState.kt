@@ -1,5 +1,8 @@
 package at.aau.kuhhandel.shared.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class AuctionState(
     // The card that is currently being auctioned
     val auctionCard: AnimalCard,

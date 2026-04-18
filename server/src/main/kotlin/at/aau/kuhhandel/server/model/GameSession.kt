@@ -9,18 +9,20 @@ import at.aau.kuhhandel.shared.model.PlayerState
 
 class GameSession(
     val gameId: String,
+    val playerId: String,
 ) {
     // Each session manages its own current game state
-    var gameState: GameState = GameState()
+    var gameState: GameState =
+        GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
         private set
 
     /**
      * Starts a game with a simple initial deck.
      */
-    fun startGame(players: List<PlayerState> = emptyList()): GameState {
+    fun startGame(): GameState {
         val initialDeck =
             AnimalDeck(
-                mutableListOf(
+                listOf(
                     AnimalCard(id = "1", type = AnimalType.COW),
                     AnimalCard(id = "2", type = AnimalType.DOG),
                     AnimalCard(id = "3", type = AnimalType.CAT),
@@ -28,12 +30,11 @@ class GameSession(
             )
 
         gameState =
-            GameState(
+            gameState.copy(
                 phase = GamePhase.PLAYER_TURN,
                 deck = initialDeck,
                 currentFaceUpCard = null,
                 currentPlayerIndex = 0,
-                players = players,
                 auctionState = null,
                 tradeState = null,
             )
@@ -58,10 +59,11 @@ class GameSession(
             return gameState
         }
 
-        val nextCard = currentState.deck.drawTopCard()
+        val (nextCard, updatedDeck) = currentState.deck.drawTopCard()
 
         gameState =
             currentState.copy(
+                deck = updatedDeck,
                 currentFaceUpCard = nextCard,
                 phase = GamePhase.PLAYER_TURN,
                 auctionState = null,

@@ -31,3 +31,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
 }
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
