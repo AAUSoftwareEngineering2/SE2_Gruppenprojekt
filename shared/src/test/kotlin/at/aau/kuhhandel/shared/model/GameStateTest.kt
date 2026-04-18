@@ -1,7 +1,7 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.GamePhase
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -34,7 +34,7 @@ class GameStateTest {
         val state =
             GameState(
                 phase = GamePhase.AUCTION,
-                deck = AnimalDeck(mutableListOf(card)),
+                deck = AnimalDeck(listOf(card)),
                 currentFaceUpCard = card,
                 currentPlayerIndex = 1,
                 players = emptyList(),
