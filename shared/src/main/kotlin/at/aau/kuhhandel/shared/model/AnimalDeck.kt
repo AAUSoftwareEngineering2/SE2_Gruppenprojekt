@@ -1,5 +1,8 @@
 package at.aau.kuhhandel.shared.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class AnimalDeck(
     val cards: List<AnimalCard> = emptyList(),
 ) {

@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
+import at.aau.kuhhandel.shared.model.GameState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -59,6 +60,26 @@ class WebSocketProtocolTest {
 
         val encoded = json.encodeToString(CreateGamePayload.serializer(), payload)
         val decoded = json.decodeFromString(CreateGamePayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `GameCreatedPayload round-trips`() {
+        val payload = GameCreatedPayload(gameId = "Id", state = GameState())
+
+        val encoded = json.encodeToString(GameCreatedPayload.serializer(), payload)
+        val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `GameStatePayload round-trips`() {
+        val payload = GameStatePayload(state = GameState())
+
+        val encoded = json.encodeToString(GameStatePayload.serializer(), payload)
+        val decoded = json.decodeFromString(GameStatePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
     }
