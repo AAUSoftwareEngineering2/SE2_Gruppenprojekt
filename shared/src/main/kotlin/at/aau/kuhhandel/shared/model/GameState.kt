@@ -1,7 +1,9 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.GamePhase
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class GameState(
     val phase: GamePhase = GamePhase.NOT_STARTED,
     val deck: AnimalDeck = AnimalDeck(),
