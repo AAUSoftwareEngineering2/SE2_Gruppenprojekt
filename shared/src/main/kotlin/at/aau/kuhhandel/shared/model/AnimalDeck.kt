@@ -1,14 +1,14 @@
 package at.aau.kuhhandel.shared.model
 
-class AnimalDeck(
-    val cards: MutableList<AnimalCard> = mutableListOf(),
+data class AnimalDeck(
+    val cards: List<AnimalCard> = emptyList(),
 ) {
-    fun drawTopCard(): AnimalCard? {
+    fun drawTopCard(): Pair<AnimalCard?, AnimalDeck> {
         if (cards.isEmpty()) {
-            return null
+            return null to this
         }
 
-        return cards.removeAt(cards.lastIndex)
+        return cards.last() to copy(cards = cards.dropLast(1))
     }
 
     fun isEmpty(): Boolean = cards.isEmpty()

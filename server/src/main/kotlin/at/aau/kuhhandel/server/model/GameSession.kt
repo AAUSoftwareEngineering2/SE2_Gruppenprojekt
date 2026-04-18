@@ -20,7 +20,7 @@ class GameSession(
     fun startGame(players: List<PlayerState> = emptyList()): GameState {
         val initialDeck =
             AnimalDeck(
-                mutableListOf(
+                listOf(
                     AnimalCard(id = "1", type = AnimalType.COW),
                     AnimalCard(id = "2", type = AnimalType.DOG),
                     AnimalCard(id = "3", type = AnimalType.CAT),
@@ -58,10 +58,11 @@ class GameSession(
             return gameState
         }
 
-        val nextCard = currentState.deck.drawTopCard()
+        val (nextCard, updatedDeck) = currentState.deck.drawTopCard()
 
         gameState =
             currentState.copy(
+                deck = updatedDeck,
                 currentFaceUpCard = nextCard,
                 phase = GamePhase.PLAYER_TURN,
                 auctionState = null,

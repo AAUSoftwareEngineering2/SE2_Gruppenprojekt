@@ -34,7 +34,7 @@ class GameStateTest {
         val state =
             GameState(
                 phase = GamePhase.AUCTION,
-                deck = AnimalDeck(mutableListOf(card)),
+                deck = AnimalDeck(listOf(card)),
                 currentFaceUpCard = card,
                 currentPlayerIndex = 1,
                 players = emptyList(),
