@@ -3,9 +3,10 @@ package at.aau.kuhhandel.server.service
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import org.springframework.stereotype.Service
 import kotlin.random.Random
 
+@Service
 class GameService {
     // Stores all active game sessions by their 5-digit game id
     private val sessions: MutableMap<String, GameSession> = mutableMapOf()
@@ -13,9 +14,9 @@ class GameService {
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(): GameSession {
+    fun createGame(playerId: String): GameSession {
         val gameId = generateGameCode()
-        val session = GameSession(gameId = gameId)
+        val session = GameSession(gameId, playerId)
 
         sessions[gameId] = session
         return session
@@ -29,12 +30,9 @@ class GameService {
     /**
      * Starts an existing game.
      */
-    fun startGame(
-        gameId: String,
-        players: List<PlayerState> = emptyList(),
-    ): GameState? {
+    fun startGame(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.startGame(players)
+        return session.startGame()
     }
 
     /**
