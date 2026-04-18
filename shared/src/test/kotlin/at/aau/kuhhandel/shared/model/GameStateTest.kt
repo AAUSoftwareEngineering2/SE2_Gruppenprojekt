@@ -19,4 +19,34 @@ class GameStateTest {
         assertNull(state.auctionState)
         assertNull(state.tradeState)
     }
+
+    @Test
+    fun test_gameState_withCustomValues() {
+        val card = AnimalCard(id = "1", type = at.aau.kuhhandel.shared.enums.AnimalType.COW)
+        val auctionState = AuctionState(auctionCard = card)
+        val tradeState =
+            TradeState(
+                initiatingPlayerId = "p1",
+                challengedPlayerId = "p2",
+                requestedAnimalType = at.aau.kuhhandel.shared.enums.AnimalType.DOG,
+            )
+
+        val state =
+            GameState(
+                phase = GamePhase.AUCTION,
+                deck = AnimalDeck(mutableListOf(card)),
+                currentFaceUpCard = card,
+                currentPlayerIndex = 1,
+                players = emptyList(),
+                auctionState = auctionState,
+                tradeState = tradeState,
+            )
+
+        assertEquals(GamePhase.AUCTION, state.phase)
+        assertEquals(card, state.currentFaceUpCard)
+        assertEquals(1, state.currentPlayerIndex)
+        assertEquals(auctionState, state.auctionState)
+        assertEquals(tradeState, state.tradeState)
+        assertEquals(1, state.deck.size())
+    }
 }

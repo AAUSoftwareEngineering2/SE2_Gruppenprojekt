@@ -6,6 +6,8 @@ enum class GamePhase {
     PLAYER_TURN,
 
     AUCTION,
+    TRADE,
+
     ROUND_END,
 
     FINISHED,
