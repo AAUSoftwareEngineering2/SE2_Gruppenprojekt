@@ -12,7 +12,7 @@ class GameServiceTest {
     fun test_createGame_generatesFiveDigitCode() {
         val service = GameService()
 
-        val session = service.createGame()
+        val session = service.createGame("player-1")
 
         assertNotNull(session)
         assertEquals(5, session.gameId.length)
@@ -23,8 +23,8 @@ class GameServiceTest {
     fun test_createGame_generatesDifferentCodes() {
         val service = GameService()
 
-        val firstSession = service.createGame()
-        val secondSession = service.createGame()
+        val firstSession = service.createGame("player-1")
+        val secondSession = service.createGame("player-1")
 
         assertNotEquals(firstSession.gameId, secondSession.gameId)
     }
@@ -32,7 +32,7 @@ class GameServiceTest {
     @Test
     fun test_getGame_returnsCorrectSession() {
         val service = GameService()
-        val session = service.createGame()
+        val session = service.createGame("player-1")
 
         val loadedSession = service.getGame(session.gameId)
 
@@ -52,7 +52,7 @@ class GameServiceTest {
     @Test
     fun test_startGame_startsExistingGame() {
         val service = GameService()
-        val session = service.createGame()
+        val session = service.createGame("player-1")
 
         val state = service.startGame(session.gameId)
 
@@ -74,7 +74,7 @@ class GameServiceTest {
     @Test
     fun test_revealNextCard_updatesGameState() {
         val service = GameService()
-        val session = service.createGame()
+        val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
         val state = service.revealNextCard(session.gameId)
@@ -97,7 +97,7 @@ class GameServiceTest {
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
         val service = GameService()
-        val session = service.createGame()
+        val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
         service.revealNextCard(session.gameId)

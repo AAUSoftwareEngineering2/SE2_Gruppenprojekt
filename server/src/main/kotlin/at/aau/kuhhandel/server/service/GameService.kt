@@ -13,9 +13,9 @@ class GameService {
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(): GameSession {
+    fun createGame(playerId: String): GameSession {
         val gameId = generateGameCode()
-        val session = GameSession(gameId = gameId)
+        val session = GameSession(gameId, playerId)
 
         sessions[gameId] = session
         return session
@@ -29,12 +29,9 @@ class GameService {
     /**
      * Starts an existing game.
      */
-    fun startGame(
-        gameId: String,
-        players: List<PlayerState> = emptyList(),
-    ): GameState? {
+    fun startGame(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.startGame(players)
+        return session.startGame()
     }
 
     /**
