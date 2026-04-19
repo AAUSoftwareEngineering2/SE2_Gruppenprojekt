@@ -4,7 +4,6 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
-import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketExtension
 import io.ktor.websocket.WebSocketSession
@@ -16,6 +15,7 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.coroutines.CoroutineContext
 import kotlin.test.assertEquals
@@ -24,57 +24,58 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class GameWebSocketClientTest {
+    private lateinit var session: FakeWebSocketSession
+    private lateinit var client: GameWebSocketClient
+
+    @BeforeEach
+    fun setUp() {
+        session = FakeWebSocketSession()
+        client = GameWebSocketClient { session }
+    }
+
     @Test
-    fun `connect twice throws IllegalStateException`() {
+    fun `connect twice throws`() =
         runBlocking {
-            val client = GameWebSocketClient { FakeWebSocketSession() }
             client.connect()
             assertFailsWith<IllegalStateException> { client.connect() }
+            Unit
         }
-    }
 
     @Test
-    fun `createGame without connect throws IllegalStateException`() {
+    fun `createGame without connect throws`() =
         runBlocking {
-            val client = GameWebSocketClient { FakeWebSocketSession() }
             assertFailsWith<IllegalStateException> { client.createGame("Fabio") }
+            Unit
         }
-    }
 
     @Test
-    fun `startGame without connect throws IllegalStateException`() {
+    fun `startGame without connect throws`() =
         runBlocking {
-            val client = GameWebSocketClient { FakeWebSocketSession() }
             assertFailsWith<IllegalStateException> { client.startGame() }
+            Unit
         }
-    }
 
     @Test
-    fun `revealCard without connect throws IllegalStateException`() {
+    fun `revealCard without connect throws`() =
         runBlocking {
-            val client = GameWebSocketClient { FakeWebSocketSession() }
             assertFailsWith<IllegalStateException> { client.revealCard() }
+            Unit
         }
-    }
 
     @Test
-    fun `disconnect without connect does not throw`() {
+    fun `disconnect without connect does not throw`() =
         runBlocking {
-            val client = GameWebSocketClient { FakeWebSocketSession() }
             client.disconnect()
         }
-    }
 
+    // Verifies the envelope sent over the wire: correct type, matching requestId, and serialized payload.
     @Test
-    fun `createGame sends CREATE_GAME envelope with playerName payload`() {
+    fun `createGame sends envelope with payload`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             client.connect()
-
             val requestId = client.createGame("Fabio")
 
-            val envelope = session.decodeSingleSent()
+            val envelope = session.onlySentEnvelope()
             assertEquals(WebSocketType.CREATE_GAME, envelope.type)
             assertEquals(requestId, envelope.requestId)
 
@@ -85,69 +86,43 @@ class GameWebSocketClientTest {
                 )
             assertEquals("Fabio", payload.playerName)
         }
-    }
 
     @Test
-    fun `startGame sends START_GAME envelope without payload`() {
+    fun `startGame sends envelope`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             client.connect()
-
             val requestId = client.startGame()
 
-            val envelope = session.decodeSingleSent()
+            val envelope = session.onlySentEnvelope()
             assertEquals(WebSocketType.START_GAME, envelope.type)
             assertEquals(requestId, envelope.requestId)
         }
-    }
 
     @Test
-    fun `revealCard sends REVEAL_CARD envelope`() {
+    fun `revealCard sends envelope`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             client.connect()
-
             val requestId = client.revealCard()
 
-            val envelope = session.decodeSingleSent()
+            val envelope = session.onlySentEnvelope()
             assertEquals(WebSocketType.REVEAL_CARD, envelope.type)
             assertEquals(requestId, envelope.requestId)
         }
-    }
 
     @Test
-    fun `disconnect closes the session`() {
+    fun `disconnect closes session`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             client.connect()
-
             client.disconnect()
-
             assertTrue(session.wasClosed)
         }
-    }
 
+    // Simulates the server pushing a GAME_CREATED event and verifies the flow emits it to the collector.
     @Test
-    fun `connect flow emits incoming envelopes`() {
+    fun `flow emits incoming envelopes`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             val events = client.connect()
-
-            val incoming =
-                WebSocketEnvelope(
-                    type = WebSocketType.GAME_CREATED,
-                    requestId = "req-123",
-                )
-            session.emitIncomingText(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    incoming,
-                ),
-            )
+            session.deliverEnvelope(WebSocketType.GAME_CREATED, "req-123")
             session.closeIncoming()
 
             val received = events.toList()
@@ -155,69 +130,70 @@ class GameWebSocketClientTest {
             assertEquals(WebSocketType.GAME_CREATED, received[0].type)
             assertEquals("req-123", received[0].requestId)
         }
-    }
 
+    // Broken JSON from the server must not crash the collector — invalid frames are silently dropped.
     @Test
-    fun `connect flow ignores malformed JSON frames`() {
+    fun `flow ignores malformed JSON`() =
         runBlocking {
-            val session = FakeWebSocketSession()
-            val client = GameWebSocketClient { session }
             val events = client.connect()
-
-            session.emitIncomingText("not valid json")
+            session.deliverText("not json")
             session.closeIncoming()
 
-            val received = events.toList()
-            assertEquals(0, received.size)
+            assertEquals(0, events.toList().size)
         }
-    }
-
-    private fun FakeWebSocketSession.decodeSingleSent(): WebSocketEnvelope {
-        assertEquals(1, sentFrames.size)
-        val frame = sentFrames.single()
-        assertTrue(frame is Frame.Text)
-        return WebSocketJson.json.decodeFromString(
-            WebSocketEnvelope.serializer(),
-            frame.readText(),
-        )
-    }
 }
 
+/**
+ * In-memory stand-in for Ktor's WebSocketSession. No real network, everything is a list or channel.
+ * Tests use the helpers below; the `override`s at the bottom exist only because the interface demands them.
+ */
 private class FakeWebSocketSession : WebSocketSession {
+    // --- What tests actually read/act on ---
+
     val sentFrames = mutableListOf<Frame>()
-    var wasClosed: Boolean = false
-        private set
+    val wasClosed: Boolean get() = sentFrames.any { it is Frame.Close }
+
+    fun deliverText(text: String) {
+        incomingChannel.trySend(Frame.Text(text))
+    }
+
+    fun deliverEnvelope(
+        type: WebSocketType,
+        requestId: String?,
+    ) {
+        val envelope = WebSocketEnvelope(type = type, requestId = requestId)
+        deliverText(WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope))
+    }
+
+    fun closeIncoming() {
+        incomingChannel.close()
+    }
+
+    fun onlySentEnvelope(): WebSocketEnvelope {
+        val text = sentFrames.filterIsInstance<Frame.Text>().single()
+        return WebSocketJson.json.decodeFromString(WebSocketEnvelope.serializer(), text.readText())
+    }
+
+    // --- WebSocketSession interface plumbing (required, not used by tests directly) ---
 
     private val incomingChannel = Channel<Frame>(Channel.UNLIMITED)
 
     override val coroutineContext: CoroutineContext = Dispatchers.Unconfined + Job()
     override val incoming: ReceiveChannel<Frame> = incomingChannel
     override val outgoing: SendChannel<Frame> = Channel(Channel.UNLIMITED)
+    override var masking: Boolean = false
     override var maxFrameSize: Long = Long.MAX_VALUE
     override val extensions: List<WebSocketExtension<*>> = emptyList()
 
     override suspend fun send(frame: Frame) {
         sentFrames.add(frame)
+        if (frame is Frame.Close) incomingChannel.close()
     }
 
     override suspend fun flush() = Unit
 
-    override fun terminate() {
-        wasClosed = true
-        incomingChannel.close()
-    }
-
     @Suppress("OVERRIDE_DEPRECATION")
-    override suspend fun close(cause: CloseReason?) {
-        wasClosed = true
-        incomingChannel.close()
-    }
-
-    fun emitIncomingText(text: String) {
-        incomingChannel.trySend(Frame.Text(text))
-    }
-
-    fun closeIncoming() {
+    override fun terminate() {
         incomingChannel.close()
     }
 }
