@@ -30,7 +30,7 @@ class GameWebSocketClientTest {
     @BeforeEach
     fun setUp() {
         session = FakeWebSocketSession()
-        client = GameWebSocketClient { session }
+        client = GameWebSocketClient { OpenedSession(session) }
     }
 
     @Test
@@ -145,22 +145,61 @@ class GameWebSocketClientTest {
     @Test
     fun `flow completion closes session and allows reconnect`() =
         runBlocking {
-            val firstSession = FakeWebSocketSession()
-            val secondSession = FakeWebSocketSession()
+            val sessions = listOf(FakeWebSocketSession(), FakeWebSocketSession())
             var openCount = 0
-            val reconnectingClient =
-                GameWebSocketClient {
-                    if (openCount++ == 0) firstSession else secondSession
-                }
+            val reconnectingClient = GameWebSocketClient { OpenedSession(sessions[openCount++]) }
 
             val firstEvents = reconnectingClient.connect()
-            firstSession.closeIncoming()
+            sessions[0].closeIncoming()
             assertEquals(0, firstEvents.toList().size)
-            assertTrue(firstSession.wasClosed)
+            assertTrue(sessions[0].wasClosed)
 
             val secondEvents = reconnectingClient.connect()
-            secondSession.closeIncoming()
+            sessions[1].closeIncoming()
             assertEquals(0, secondEvents.toList().size)
+        }
+
+    @Test
+    fun `flow completion invokes extra cleanup`() =
+        runBlocking {
+            var cleanupCalls = 0
+            val customClient =
+                GameWebSocketClient {
+                    OpenedSession(session) { cleanupCalls++ }
+                }
+
+            val events = customClient.connect()
+            session.closeIncoming()
+            events.toList()
+
+            assertEquals(1, cleanupCalls)
+        }
+
+    @Test
+    fun `disconnect invokes extra cleanup`() =
+        runBlocking {
+            var cleanupCalls = 0
+            val customClient =
+                GameWebSocketClient {
+                    OpenedSession(session) { cleanupCalls++ }
+                }
+
+            customClient.connect()
+            customClient.disconnect()
+
+            assertEquals(1, cleanupCalls)
+        }
+
+    @Test
+    fun `extra cleanup exception does not bubble up`() =
+        runBlocking {
+            val customClient =
+                GameWebSocketClient {
+                    OpenedSession(session) { error("boom") }
+                }
+
+            customClient.connect()
+            customClient.disconnect()
         }
 }
 

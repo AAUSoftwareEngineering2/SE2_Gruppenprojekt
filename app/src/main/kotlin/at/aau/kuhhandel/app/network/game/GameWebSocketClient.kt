@@ -7,7 +7,6 @@ import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
 import at.aau.kuhhandel.shared.websocket.WebSocketType
-import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.url
 import io.ktor.websocket.Frame
@@ -18,23 +17,32 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
 
+class OpenedSession(
+    val session: WebSocketSession,
+    private val extraCleanup: suspend () -> Unit = {},
+) {
+    suspend fun close() {
+        runCatching { session.close() }
+        runCatching { extraCleanup() }
+    }
+}
+
 /** Talks to the server's GameWebSocketHandler — one connection, typed commands, events as Flow. */
 class GameWebSocketClient(
-    openSession: (suspend () -> WebSocketSession)? = null,
+    openSession: (suspend () -> OpenedSession)? = null,
 ) {
-    private var session: WebSocketSession? = null
-    private var ownedHttpClient: HttpClient? = null
-    private val openSession: suspend () -> WebSocketSession = openSession ?: ::defaultOpenSession
+    private var current: OpenedSession? = null
+    private val openSession: suspend () -> OpenedSession = openSession ?: ::defaultOpenSession
 
     /** Opens the WebSocket and returns every incoming envelope as Flow. Collect once. */
     suspend fun connect(): Flow<WebSocketEnvelope> {
-        check(session == null) { "Already connected. Call disconnect() first." }
-        val newSession = openSession()
-        session = newSession
-        // flow { } the loop starts only when someone collects, each emit is one envelope.
+        check(current == null) { "Already connected. Call disconnect() first." }
+        val opened = openSession()
+        current = opened
+        // flow { } is lazy: the loop starts only when someone collects, each emit is one envelope.
         return flow {
             try {
-                for (frame in newSession.incoming) {
+                for (frame in opened.session.incoming) {
                     if (frame is Frame.Text) {
                         runCatching {
                             WebSocketJson.json.decodeFromString(
@@ -45,9 +53,9 @@ class GameWebSocketClient(
                     }
                 }
             } finally {
-                if (session === newSession) {
-                    session = null
-                    closeConnection(newSession)
+                if (current === opened) {
+                    current = null
+                    opened.close()
                 }
             }
         }
@@ -78,36 +86,28 @@ class GameWebSocketClient(
     }
 
     suspend fun disconnect() {
-        val activeSession = session ?: return
-        session = null
-        closeConnection(activeSession)
+        val active = current ?: return
+        current = null
+        active.close()
     }
 
     private suspend fun send(envelope: WebSocketEnvelope) {
-        val active = session ?: error("Not connected. Call connect() first.")
+        val active = current?.session ?: error("Not connected. Call connect() first.")
         val text = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
         active.send(Frame.Text(text))
     }
 
-    private suspend fun closeConnection(activeSession: WebSocketSession) {
-        runCatching { activeSession.close() }
-        ownedHttpClient?.let { client ->
-            ownedHttpClient = null
-            runCatching { client.close() }
-        }
-    }
-
-    private suspend fun defaultOpenSession(): WebSocketSession {
+    private suspend fun defaultOpenSession(): OpenedSession {
         val client = NetworkClientFactory.create()
-        return runCatching {
-            client.webSocketSession {
-                url("${ApiConfig.WS_URL}${WebSocketRoutes.GAME}")
-            }
-        }.onSuccess {
-            ownedHttpClient = client
-        }.getOrElse { error ->
+        return try {
+            val session =
+                client.webSocketSession {
+                    url("${ApiConfig.WS_URL}${WebSocketRoutes.GAME}")
+                }
+            OpenedSession(session) { client.close() }
+        } catch (e: Exception) {
             client.close()
-            throw error
+            throw e
         }
     }
 }
