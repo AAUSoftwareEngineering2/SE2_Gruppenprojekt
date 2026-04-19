@@ -61,7 +61,7 @@ class GameWebSocketClient(
         }
     }
 
-    /** Sends CREATE_GAME. Returns the requestId so the caller can match the server reply. */
+    /** Sends CREATE_GAME. Returns the requestId so the caller can match the server reply well. */
     suspend fun createGame(playerName: String? = null): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
