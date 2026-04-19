@@ -9,15 +9,17 @@ import at.aau.kuhhandel.shared.model.PlayerState
 
 class GameSession(
     val gameId: String,
+    val playerId: String,
 ) {
     // Each session manages its own current game state
-    var gameState: GameState = GameState()
+    var gameState: GameState =
+        GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
         private set
 
     /**
      * Starts a game with a simple initial deck.
      */
-    fun startGame(players: List<PlayerState> = emptyList()): GameState {
+    fun startGame(): GameState {
         val initialDeck =
             AnimalDeck(
                 listOf(
@@ -28,12 +30,11 @@ class GameSession(
             )
 
         gameState =
-            GameState(
+            gameState.copy(
                 phase = GamePhase.PLAYER_TURN,
                 deck = initialDeck,
                 currentFaceUpCard = null,
                 currentPlayerIndex = 0,
-                players = players,
                 auctionState = null,
                 tradeState = null,
             )

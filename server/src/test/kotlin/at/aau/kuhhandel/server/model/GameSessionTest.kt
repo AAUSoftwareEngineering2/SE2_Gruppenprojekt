@@ -10,21 +10,26 @@ import kotlin.test.assertTrue
 class GameSessionTest {
     @Test
     fun test_newSession_isNotStarted() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
 
         assertEquals("12345", session.gameId)
         assertEquals(GamePhase.NOT_STARTED, session.gameState.phase)
         assertTrue(session.gameState.deck.isEmpty())
         assertNull(session.gameState.currentFaceUpCard)
         assertEquals(0, session.gameState.currentPlayerIndex)
-        assertTrue(session.gameState.players.isEmpty())
+        assertEquals(1, session.gameState.players.size)
+        assertEquals(
+            "player-1",
+            session.gameState.players[0]
+                .id,
+        )
         assertNull(session.gameState.auctionState)
         assertNull(session.gameState.tradeState)
     }
 
     @Test
     fun test_startGame_initializesGame() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
 
         val state = session.startGame()
 
@@ -32,14 +37,19 @@ class GameSessionTest {
         assertEquals(3, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(0, state.currentPlayerIndex)
-        assertTrue(state.players.isEmpty())
+        assertEquals(1, session.gameState.players.size)
+        assertEquals(
+            "player-1",
+            session.gameState.players[0]
+                .id,
+        )
         assertNull(state.auctionState)
         assertNull(state.tradeState)
     }
 
     @Test
     fun test_startGame_updatesStoredState() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
 
         session.startGame()
 
@@ -50,7 +60,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_revealsCard() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
         session.startGame()
 
         val state = session.revealNextCard()
@@ -64,7 +74,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_updatesStoredState() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
         session.startGame()
 
         session.revealNextCard()
@@ -76,7 +86,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_lastCardDoesNotImmediatelyFinishGame() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
         session.startGame()
 
         session.revealNextCard()
@@ -90,7 +100,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
-        val session = GameSession("12345")
+        val session = GameSession("12345", "player-1")
         session.startGame()
 
         session.revealNextCard()
