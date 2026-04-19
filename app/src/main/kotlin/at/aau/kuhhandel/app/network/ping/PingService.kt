@@ -11,7 +11,7 @@ class PingService(
     private val client: HttpClient = NetworkClientFactory.create(),
 ) {
     suspend fun isServerReachable(): Result<Boolean> =
-        try { //removed hardcoded URL, now using ApiConfig.HTTP_URL
+        try { /**removed hardcoded URL, now using ApiConfig.HTTP_URL to ensure consistency across the app*/
             val response = client.get("${ApiConfig.HTTP_URL}${ApiRoutes.HEALTH}")
             if (response.status.isSuccess()) {
                 Result.success(true)
