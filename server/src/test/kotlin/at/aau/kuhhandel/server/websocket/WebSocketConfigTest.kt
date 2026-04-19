@@ -1,5 +1,7 @@
 package at.aau.kuhhandel.server.websocket
 
+import at.aau.kuhhandel.server.service.GameService
+import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -9,12 +11,17 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import org.mockito.Mockito.`when` as whenever
 
 class WebSocketConfigTest {
+    private lateinit var gameService: GameService
+    private lateinit var connectionRegistry: ConnectionRegistry
     private lateinit var handler: GameWebSocketHandler
     private lateinit var config: WebSocketConfig
 
     @BeforeEach
     fun setUp() {
-        handler = GameWebSocketHandler()
+        gameService = mock(GameService::class.java)
+        connectionRegistry = mock(ConnectionRegistry::class.java)
+
+        handler = GameWebSocketHandler(gameService, connectionRegistry)
         config = WebSocketConfig(handler)
     }
 
@@ -23,12 +30,12 @@ class WebSocketConfigTest {
         val registry = mock(WebSocketHandlerRegistry::class.java)
         val registration = mock(WebSocketHandlerRegistration::class.java)
 
-        whenever(registry.addHandler(handler, "/websocket/game")).thenReturn(registration)
+        whenever(registry.addHandler(handler, WebSocketRoutes.GAME)).thenReturn(registration)
         whenever(registration.setAllowedOrigins("*")).thenReturn(registration)
 
         config.registerWebSocketHandlers(registry)
 
-        verify(registry).addHandler(handler, "/websocket/game")
+        verify(registry).addHandler(handler, WebSocketRoutes.GAME)
         verify(registration).setAllowedOrigins("*")
     }
 }
