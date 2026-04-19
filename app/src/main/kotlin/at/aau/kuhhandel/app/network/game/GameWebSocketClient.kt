@@ -20,10 +20,11 @@ import java.util.UUID
 
 /** Talks to the server's GameWebSocketHandler — one connection, typed commands, events as Flow. */
 class GameWebSocketClient(
-    private val openSession: suspend () -> WebSocketSession = ::defaultOpenSession,
+    openSession: (suspend () -> WebSocketSession)? = null,
 ) {
     private var session: WebSocketSession? = null
     private var ownedHttpClient: HttpClient? = null
+    private val openSession: suspend () -> WebSocketSession = openSession ?: ::defaultOpenSession
 
     /** Opens the WebSocket and returns every incoming envelope as Flow. Collect once. */
     suspend fun connect(): Flow<WebSocketEnvelope> {
