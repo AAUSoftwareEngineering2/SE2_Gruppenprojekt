@@ -19,6 +19,7 @@ robolectric = "4.12.1"
 compileSdk = "36"
 minSdk = "24"
 targetSdk = "36"
+mockitoKotlin = "6.3.0"
 
 [libraries]
 # AndroidX
@@ -42,6 +43,7 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 
 # Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
