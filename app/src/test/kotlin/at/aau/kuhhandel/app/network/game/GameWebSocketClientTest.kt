@@ -141,6 +141,27 @@ class GameWebSocketClientTest {
 
             assertEquals(0, events.toList().size)
         }
+
+    @Test
+    fun `flow completion closes session and allows reconnect`() =
+        runBlocking {
+            val firstSession = FakeWebSocketSession()
+            val secondSession = FakeWebSocketSession()
+            var openCount = 0
+            val reconnectingClient =
+                GameWebSocketClient {
+                    if (openCount++ == 0) firstSession else secondSession
+                }
+
+            val firstEvents = reconnectingClient.connect()
+            firstSession.closeIncoming()
+            assertEquals(0, firstEvents.toList().size)
+            assertTrue(firstSession.wasClosed)
+
+            val secondEvents = reconnectingClient.connect()
+            secondSession.closeIncoming()
+            assertEquals(0, secondEvents.toList().size)
+        }
 }
 
 /**

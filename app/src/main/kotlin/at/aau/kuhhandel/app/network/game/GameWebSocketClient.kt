@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.url
 import io.ktor.websocket.Frame
@@ -22,6 +23,7 @@ class GameWebSocketClient(
     private val openSession: suspend () -> WebSocketSession = ::defaultOpenSession,
 ) {
     private var session: WebSocketSession? = null
+    private var ownedHttpClient: HttpClient? = null
 
     /** Opens the WebSocket and returns every incoming envelope as Flow. Collect once. */
     suspend fun connect(): Flow<WebSocketEnvelope> {
@@ -30,14 +32,21 @@ class GameWebSocketClient(
         session = newSession
         // flow { } the loop starts only when someone collects, each emit is one envelope.
         return flow {
-            for (frame in newSession.incoming) {
-                if (frame is Frame.Text) {
-                    runCatching {
-                        WebSocketJson.json.decodeFromString(
-                            WebSocketEnvelope.serializer(),
-                            frame.readText(),
-                        )
-                    }.getOrNull()?.let { emit(it) }
+            try {
+                for (frame in newSession.incoming) {
+                    if (frame is Frame.Text) {
+                        runCatching {
+                            WebSocketJson.json.decodeFromString(
+                                WebSocketEnvelope.serializer(),
+                                frame.readText(),
+                            )
+                        }.getOrNull()?.let { emit(it) }
+                    }
+                }
+            } finally {
+                if (session === newSession) {
+                    session = null
+                    closeConnection(newSession)
                 }
             }
         }
@@ -68,8 +77,9 @@ class GameWebSocketClient(
     }
 
     suspend fun disconnect() {
-        session?.close()
+        val activeSession = session ?: return
         session = null
+        closeConnection(activeSession)
     }
 
     private suspend fun send(envelope: WebSocketEnvelope) {
@@ -77,9 +87,26 @@ class GameWebSocketClient(
         val text = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
         active.send(Frame.Text(text))
     }
-}
 
-private suspend fun defaultOpenSession(): WebSocketSession =
-    NetworkClientFactory.create().webSocketSession {
-        url("${ApiConfig.WS_URL}${WebSocketRoutes.GAME}")
+    private suspend fun closeConnection(activeSession: WebSocketSession) {
+        runCatching { activeSession.close() }
+        ownedHttpClient?.let { client ->
+            ownedHttpClient = null
+            runCatching { client.close() }
+        }
     }
+
+    private suspend fun defaultOpenSession(): WebSocketSession {
+        val client = NetworkClientFactory.create()
+        return runCatching {
+            client.webSocketSession {
+                url("${ApiConfig.WS_URL}${WebSocketRoutes.GAME}")
+            }
+        }.onSuccess {
+            ownedHttpClient = client
+        }.getOrElse { error ->
+            client.close()
+            throw error
+        }
+    }
+}
