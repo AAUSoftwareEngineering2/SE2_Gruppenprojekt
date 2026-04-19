@@ -26,6 +26,10 @@ private val LightColorScheme =
         surface = WhitePurple,
         onPrimary = Color.White,
         onBackground = DarkPurple,
+        primaryContainer = LightPurple,
+        onPrimaryContainer = DarkPurple,
+        surfaceVariant = WhitePurple,
+        onSurfaceVariant = DarkPurple,
     )
 
 @Composable

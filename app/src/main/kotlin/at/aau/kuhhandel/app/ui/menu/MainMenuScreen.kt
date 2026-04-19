@@ -1,11 +1,7 @@
 package at.aau.kuhhandel.app.ui.menu
 
 import android.widget.Toast
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -35,7 +29,6 @@ import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.network.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
-import at.aau.kuhhandel.app.ui.components.MenuDecor
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import kotlinx.coroutines.launch
 
@@ -110,13 +103,6 @@ private fun MainMenuContent(
     val context = LocalContext.current
 
     MenuBackground(modifier = modifier) {
-        // --- DECORATIONS ---
-        MenuDecor(R.drawable.ig_tall_bush, -115, 129, 300)
-        MenuDecor(R.drawable.ig_short_bush, 704, 183, 216)
-        MenuDecor(R.drawable.ig_tall_bush, 772, 711, 288)
-        MenuDecor(R.drawable.ig_tall_bush, -200, 1255, 264)
-        MenuDecor(R.drawable.ig_short_bush, 749, 1531, 270)
-
         // Title
         // TODO: Fancy drawable later
         Text(
@@ -198,59 +184,6 @@ private fun MainMenuContent(
         ) {
             Text("Ping-Server")
         }
-    }
-}
-
-@Composable
-private fun MenuButton(
-    drawableId: Int,
-    contentDesc: String,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        label = "buttonScale",
-    )
-    val alpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.7f else 1f,
-        label = "buttonAlpha",
-    )
-
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Image(
-            painter = painterResource(id = drawableId),
-            contentDescription = contentDesc,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .scale(scale)
-                    .alpha(alpha),
-            contentScale = ContentScale.Fit,
-        )
-
-        // HITBOX
-        Box(
-            modifier =
-                Modifier
-                    .matchParentSize()
-                    // scale button hitbox
-                    .padding(horizontal = 0.dp, vertical = 40.dp)
-                    // rotate button hitbox
-                    .rotate(-30f)
-                    // DEBUG-MODE: shows hitboxes
-                    // .background(androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.4f))
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = onClick,
-                    ),
-        )
     }
 }
 

@@ -1,23 +1,15 @@
 package at.aau.kuhhandel.app.ui.menu
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -25,8 +17,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.components.MenuBackground
+import at.aau.kuhhandel.app.ui.components.MenuCard
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoomCreationScreen(
     modifier: Modifier = Modifier,
@@ -54,71 +47,59 @@ fun RoomCreationScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Lobby erstellen") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück",
+    MenuBackground(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(top = 64.dp, bottom = 32.dp, start = 32.dp, end = 32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            MenuCard(onBack = onBack) {
+                when {
+                    isLoading.value -> {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Verbinde zum Server...")
+                    }
+
+                    errorMessage.value != null -> {
+                        Text(
+                            text = errorMessage.value ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onBack,
+                            modifier = Modifier.fillMaxWidth(0.6f),
+                        ) {
+                            Text("Zurück")
+                        }
+                    }
+
+                    lobbyCode.value != null -> {
+                        Text(
+                            text = "Lobby erstellt!",
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Lobby-Code:",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = lobbyCode.value ?: "",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = "Teile diesen Code mit anderen Spielern",
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
-                },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            when {
-                isLoading.value -> {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Verbinde zum Server...")
-                }
-                errorMessage.value != null -> {
-                    Text(
-                        text = errorMessage.value ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier.fillMaxWidth(0.6f),
-                    ) {
-                        Text("Zurück")
-                    }
-                }
-                lobbyCode.value != null -> {
-                    Text(
-                        text = "Lobby erstellt!",
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "Lobby-Code:",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = lobbyCode.value ?: "",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = "Teile diesen Code mit anderen Spielern",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
                 }
             }
         }

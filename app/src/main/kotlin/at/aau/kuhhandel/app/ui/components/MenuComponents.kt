@@ -6,14 +6,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -22,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
@@ -50,10 +57,7 @@ fun MenuDecor(
 }
 
 @Composable
-fun MenuBackground(
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
-) {
+fun MainBackground(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
@@ -66,10 +70,66 @@ fun MenuBackground(
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.FillBounds,
         )
-        // We wrap the content in another Box to provide the BoxScope
-        // and allow children to use the .align() modifier.
+    }
+}
+
+@Composable
+fun MenuBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        MainBackground()
+
+        // Decorations (Bushes)
+        MenuDecor(R.drawable.ig_tall_bush, -115, 129, 300)
+        MenuDecor(R.drawable.ig_short_bush, 704, 183, 216)
+        MenuDecor(R.drawable.ig_tall_bush, 772, 711, 288)
+        MenuDecor(R.drawable.ig_tall_bush, -200, 1255, 264)
+        MenuDecor(R.drawable.ig_short_bush, 749, 1681, 180)
+
+        // Wrap inside box for alignment purposes
         Box(modifier = Modifier.fillMaxSize()) {
             content()
+        }
+    }
+}
+
+@Composable
+fun MenuCard(
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.TopStart,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(32.dp),
+            color = Color.White,
+            tonalElevation = 0.dp,
+            shadowElevation = 2.dp,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top,
+                content = content,
+            )
+        }
+
+        if (onBack != null) {
+            BackButton(
+                onClick = onBack,
+                modifier =
+                    Modifier
+                        .offset(x = (-20).dp, y = (-20).dp),
+            )
         }
     }
 }
@@ -123,6 +183,23 @@ fun MenuButton(
                         indication = null,
                         onClick = onClick,
                     ),
+        )
+    }
+}
+
+@Composable
+fun BackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_back),
+            contentDescription = "zurück",
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
