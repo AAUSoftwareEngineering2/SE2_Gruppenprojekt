@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.service.GameService
-import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
@@ -60,14 +59,6 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val payload =
-            envelope.payload?.let {
-                WebSocketJson.json.decodeFromJsonElement(
-                    CreateGamePayload.serializer(),
-                    it,
-                )
-            } ?: CreateGamePayload()
-
         // Uses a temporary player ID for now; will be changed when multiplayer is implemented
         val game = gameService.createGame("player-1")
         connectionRegistry.bind(session.id, game.gameId)
