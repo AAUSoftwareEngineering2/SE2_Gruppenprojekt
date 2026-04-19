@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.PingService
+import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import kotlinx.coroutines.launch
 

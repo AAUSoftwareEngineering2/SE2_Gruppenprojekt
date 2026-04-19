@@ -1,5 +1,7 @@
-package at.aau.kuhhandel.app.network
+package at.aau.kuhhandel.app.network.ping
 
+import at.aau.kuhhandel.app.network.ApiConfig
+import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.shared.ApiRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
