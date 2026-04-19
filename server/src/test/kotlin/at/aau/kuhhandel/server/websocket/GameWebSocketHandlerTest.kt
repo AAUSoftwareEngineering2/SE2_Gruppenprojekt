@@ -19,6 +19,7 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
+import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.mockito.Mockito.`when` as whenever
@@ -212,6 +213,16 @@ class GameWebSocketHandlerTest {
         assertEquals("Unsupported message type", payload.message)
 
         verifyNoInteractions(gameService, connectionRegistry)
+    }
+
+    @Test
+    fun `afterConnectionClosed removes game and unbinds session`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        handler.afterConnectionClosed(session, CloseStatus.NORMAL)
+
+        verify(gameService).removeGame("game-1")
+        verify(connectionRegistry).unbind("session-1")
     }
 
     private fun captureResponse(session: WebSocketSession): WebSocketEnvelope {
