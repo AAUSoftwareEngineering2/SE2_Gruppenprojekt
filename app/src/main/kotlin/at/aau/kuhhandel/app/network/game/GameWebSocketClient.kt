@@ -39,7 +39,7 @@ class GameWebSocketClient(
         check(current == null) { "Already connected. Call disconnect() first." }
         val opened = openSession()
         current = opened
-        // flow { } is lazy: the loop starts only when someone collects, each emit is one envelope.
+        // flow { }: the loop starts only when someone collects, each emit is one envelope.
         return flow {
             try {
                 for (frame in opened.session.incoming) {
