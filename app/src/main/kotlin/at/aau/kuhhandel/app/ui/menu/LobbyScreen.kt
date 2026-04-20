@@ -27,31 +27,47 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.network.game.GameConnectionUiState
+import at.aau.kuhhandel.shared.enums.GamePhase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LobbyScreen(
     modifier: Modifier = Modifier,
     lobbyCode: String,
+    connectionState: GameConnectionUiState,
+    onStartGame: () -> Unit,
+    onRevealCard: () -> Unit,
+    onDismissError: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val gameState = connectionState.gameState
+    val resolvedLobbyCode = connectionState.gameId ?: lobbyCode
     val players =
-        remember {
-            mutableStateOf(
+        gameState
+            ?.players
+            ?.mapIndexed { index, playerState ->
+                Player(
+                    name = playerState.name.ifBlank { playerState.id },
+                    isHost = index == 0,
+                    isReady = connectionState.isConnected,
+                )
+            }.orEmpty()
+            .ifEmpty {
                 listOf(
-                    Player("Du", true, true),
-                    Player("Spieler 2", true, false),
-                    Player("Spieler 3", false, false),
-                ),
-            )
-        }
-    val isHost = true // TODO: Aus Server-Daten abrufen
+                    Player("Du", true, connectionState.isConnected),
+                )
+            }
+    val currentPhase = gameState?.phase
+    val remainingCards = gameState?.deck?.size() ?: 0
+    val currentCardLabel =
+        gameState?.currentFaceUpCard?.let { card ->
+            "${card.type.name} (#${card.id})"
+        } ?: "Noch keine Karte aufgedeckt"
 
     Scaffold(
         topBar = {
@@ -75,7 +91,6 @@ fun LobbyScreen(
                     .padding(innerPadding)
                     .padding(16.dp),
         ) {
-            // Lobby Code
             Row(
                 modifier =
                     Modifier
@@ -94,7 +109,7 @@ fun LobbyScreen(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        lobbyCode,
+                        resolvedLobbyCode,
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
@@ -108,9 +123,70 @@ fun LobbyScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Spieler-Liste
             Text(
-                "Spieler (${players.value.size})",
+                text =
+                    if (connectionState.isConnected) {
+                        "Verbunden"
+                    } else if (connectionState.isConnecting) {
+                        "Verbinde..."
+                    } else {
+                        "Nicht verbunden"
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+                color =
+                    if (connectionState.errorMessage == null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (connectionState.errorMessage != null) {
+                Text(
+                    text = connectionState.errorMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onDismissError,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Fehler ausblenden")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.medium,
+                        ).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = "Phase: ${currentPhase?.name ?: "Noch kein GameState"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "Verbleibende Karten: $remainingCards",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "Aktuelle Karte: $currentCardLabel",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                "Spieler (${players.size})",
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -123,28 +199,36 @@ fun LobbyScreen(
                         .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(players.value) { player ->
+                items(players) { player ->
                     PlayerListItem(player)
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Buttons
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (isHost && players.value.size >= 2) {
+                if (currentPhase == GamePhase.NOT_STARTED) {
                     Button(
-                        onClick = { /* TODO: Spiel starten */ },
+                        onClick = onStartGame,
                         modifier = Modifier.fillMaxWidth(),
+                        enabled = connectionState.isConnected,
                     ) {
                         Text("Spiel starten")
                     }
-                } else if (!isHost) {
+                } else if (currentPhase == GamePhase.PLAYER_TURN) {
+                    Button(
+                        onClick = onRevealCard,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = connectionState.isConnected,
+                    ) {
+                        Text("Naechste Karte aufdecken")
+                    }
+                } else if (currentPhase == GamePhase.FINISHED) {
                     Text(
-                        "Warte auf Host...",
+                        "Spiel beendet",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
@@ -178,7 +262,6 @@ private fun PlayerListItem(player: Player) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f),
         ) {
-            // Player Avatar
             Box(
                 modifier =
                     Modifier
