@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import at.aau.kuhhandel.app.R
 
 @Composable
 fun MenuMusicPlayer(content: @Composable () -> Unit) {
