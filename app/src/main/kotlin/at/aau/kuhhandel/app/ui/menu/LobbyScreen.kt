@@ -157,20 +157,12 @@ fun LobbyScreen(
                         text = "Phase: ${currentPhase?.name ?: "No GameState"}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(
-                        text = "Remaining Cards: $remainingCards",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = "Remaining Cards: $currentCardLabel",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "Spieler (${players.size})",
+                    "Players (${players.size})",
                     style = MaterialTheme.typography.titleMedium,
                 )
 
@@ -194,7 +186,7 @@ fun LobbyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (currentPhase == GamePhase.NOT_STARTED) {
+                    if (currentPhase == GamePhase.NOT_STARTED || currentPhase == null) {
                         Button(
                             onClick = onStartGame,
                             modifier = Modifier.fillMaxWidth(),
@@ -202,27 +194,6 @@ fun LobbyScreen(
                         ) {
                             Text("Start Game")
                         }
-                    } else if (currentPhase == GamePhase.PLAYER_TURN) {
-                        Button(
-                            onClick = onRevealCard,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = connectionState.isConnected,
-                        ) {
-                            Text("Reveal next Card")
-                        }
-                    } else if (currentPhase == GamePhase.FINISHED) {
-                        Text(
-                            "Game Over",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onBack,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Cancel")
                     }
                 }
             }

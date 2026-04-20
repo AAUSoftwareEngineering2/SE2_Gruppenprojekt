@@ -31,7 +31,9 @@ import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
+import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.shared.enums.GamePhase
 import kotlinx.coroutines.launch
 
 @Composable
@@ -46,65 +48,84 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
             )
         }
 
-    when (currentScreen.value) {
-        MenuScreenState.Main ->
-            MainMenuContent(
-                modifier = modifier,
-                onCreateLobby = { currentScreen.value = MenuScreenState.RoomCreation },
-                onJoinLobby = { currentScreen.value = MenuScreenState.RoomJoining },
-                onRules = { currentScreen.value = MenuScreenState.Rules },
-            )
+    val currentPhase = connectionStore.uiState.gameState?.phase
 
-        MenuScreenState.RoomCreation ->
-            RoomCreationScreen(
-                modifier = modifier,
-                connectionState = connectionStore.uiState,
-                onCreateLobby = { connectionStore.createGame() },
-                onBack = {
-                    connectionStore.disconnect()
-                    currentScreen.value = MenuScreenState.Main
-                },
-                onLobbyCreated = { lobbyCode ->
-                    currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                },
-            )
+    if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
+        GameScreen(
+            modifier = modifier,
+            connectionState = connectionStore.uiState,
+            onStartGame = {
+                scope.launch {
+                    connectionStore.startGame()
+                }
+            },
+            onRevealCard = {
+                scope.launch {
+                    connectionStore.revealCard()
+                }
+            },
+        )
+    } else {
+        when (val state = currentScreen.value) {
+            MenuScreenState.Main ->
+                MainMenuContent(
+                    modifier = modifier,
+                    onCreateLobby = { currentScreen.value = MenuScreenState.RoomCreation },
+                    onJoinLobby = { currentScreen.value = MenuScreenState.RoomJoining },
+                    onRules = { currentScreen.value = MenuScreenState.Rules },
+                )
 
-        MenuScreenState.RoomJoining ->
-            RoomJoiningScreen(
-                modifier = modifier,
-                onBack = { currentScreen.value = MenuScreenState.Main },
-                onLobbyJoined = { lobbyCode ->
-                    currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                },
-            )
+            MenuScreenState.RoomCreation ->
+                RoomCreationScreen(
+                    modifier = modifier,
+                    connectionState = connectionStore.uiState,
+                    onCreateLobby = { connectionStore.createGame() },
+                    onBack = {
+                        connectionStore.disconnect()
+                        currentScreen.value = MenuScreenState.Main
+                    },
+                    onLobbyCreated = { lobbyCode ->
+                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
+                    },
+                )
 
-        is MenuScreenState.Lobby ->
-            LobbyScreen(
-                modifier = modifier,
-                lobbyCode = (currentScreen.value as MenuScreenState.Lobby).lobbyCode,
-                connectionState = connectionStore.uiState,
-                onStartGame = {
-                    scope.launch {
-                        connectionStore.startGame()
-                    }
-                },
-                onRevealCard = {
-                    scope.launch {
-                        connectionStore.revealCard()
-                    }
-                },
-                onDismissError = connectionStore::clearError,
-                onBack = {
-                    connectionStore.disconnect()
-                    currentScreen.value = MenuScreenState.Main
-                },
-            )
+            MenuScreenState.RoomJoining ->
+                RoomJoiningScreen(
+                    modifier = modifier,
+                    onBack = { currentScreen.value = MenuScreenState.Main },
+                    onLobbyJoined = { lobbyCode ->
+                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
+                    },
+                )
 
-        MenuScreenState.Rules ->
-            RulesScreen(
-                modifier = modifier,
-                onBack = { currentScreen.value = MenuScreenState.Main },
-            )
+            is MenuScreenState.Lobby ->
+                LobbyScreen(
+                    modifier = modifier,
+                    lobbyCode = state.lobbyCode,
+                    connectionState = connectionStore.uiState,
+                    onStartGame = {
+                        scope.launch {
+                            connectionStore.startGame()
+                        }
+                    },
+                    onRevealCard = {
+                        scope.launch {
+                            connectionStore.revealCard()
+                        }
+                    },
+                    onDismissError = connectionStore::clearError,
+                    onBack = {
+                        connectionStore.disconnect()
+                        currentScreen.value = MenuScreenState.Main
+                    },
+                )
+
+            MenuScreenState.Rules ->
+                RulesScreen(
+                    modifier = modifier,
+                    onBack = { currentScreen.value = MenuScreenState.Main },
+                )
+        }
     }
 }
 
