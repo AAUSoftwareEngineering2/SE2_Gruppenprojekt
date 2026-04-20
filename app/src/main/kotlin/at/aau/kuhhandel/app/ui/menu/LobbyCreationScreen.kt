@@ -32,7 +32,8 @@ import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 fun RoomCreationScreen(
     modifier: Modifier = Modifier,
     connectionState: GameConnectionUiState,
-    onCreateLobby: suspend () -> Unit, /** like void */
+    // suspend () -> Unit: suspend function that returns nothing (Unit ≈ void)
+    onCreateLobby: suspend () -> Unit,
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
@@ -114,7 +115,12 @@ fun RoomCreationScreen(
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = if (connectionState.isConnecting) "Verbinde zum Server..." else "Erstelle Lobby...",
+                        text =
+                            if (connectionState.isConnecting) {
+                                "Verbinde zum Server..."
+                            } else {
+                                "Erstelle Lobby..."
+                            },
                     )
                 }
             }

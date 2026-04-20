@@ -78,11 +78,12 @@ class GameConnectionStore(
             try {
                 client.connect()
             } catch (e: Exception) {
+                val reason = e.message ?: "Unbekannter Fehler"
                 uiState =
                     uiState.copy(
                         isConnecting = false,
                         isConnected = false,
-                        errorMessage = "Verbindung fehlgeschlagen: ${e.message ?: "Unbekannter Fehler"}",
+                        errorMessage = "Verbindung fehlgeschlagen: $reason",
                     )
                 throw e
             }
@@ -97,9 +98,10 @@ class GameConnectionStore(
                     throw e
                 } catch (e: Exception) {
                     if (eventsJob === currentCoroutineContext()[Job]) {
+                        val reason = e.message ?: "Unbekannter Fehler"
                         uiState =
                             uiState.copy(
-                                errorMessage = "Verbindung verloren: ${e.message ?: "Unbekannter Fehler"}",
+                                errorMessage = "Verbindung verloren: $reason",
                             )
                     }
                 } finally {
@@ -133,7 +135,8 @@ class GameConnectionStore(
             }
 
             WebSocketType.GAME_STARTED,
-            WebSocketType.GAME_STATE_UPDATED -> {
+            WebSocketType.GAME_STATE_UPDATED,
+            -> {
                 val payload =
                     decodePayload(
                         envelope = envelope,
