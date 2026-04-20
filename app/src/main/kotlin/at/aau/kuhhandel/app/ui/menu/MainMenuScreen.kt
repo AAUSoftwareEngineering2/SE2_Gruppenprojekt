@@ -32,13 +32,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.PingService
+import at.aau.kuhhandel.app.network.game.GameConnectionStore
+import at.aau.kuhhandel.app.network.game.GameWebSocketClient
+import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import kotlinx.coroutines.launch
 
 @Composable
 fun MainMenuScreen(modifier: Modifier = Modifier) {
     val currentScreen = remember { mutableStateOf<MenuScreenState>(MenuScreenState.Main) }
+    val scope = rememberCoroutineScope()
+    val connectionStore =
+        remember(scope) {
+            GameConnectionStore(
+                client = GameWebSocketClient(),
+                scope = scope,
+            )
+        }
 
     when (currentScreen.value) {
         MenuScreenState.Main ->
@@ -52,7 +62,12 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
         MenuScreenState.RoomCreation ->
             RoomCreationScreen(
                 modifier = modifier,
-                onBack = { currentScreen.value = MenuScreenState.Main },
+                connectionState = connectionStore.uiState,
+                onCreateLobby = { connectionStore.createGame() },
+                onBack = {
+                    connectionStore.disconnect()
+                    currentScreen.value = MenuScreenState.Main
+                },
                 onLobbyCreated = { lobbyCode ->
                     currentScreen.value = MenuScreenState.Lobby(lobbyCode)
                 },
@@ -71,7 +86,22 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
             LobbyScreen(
                 modifier = modifier,
                 lobbyCode = (currentScreen.value as MenuScreenState.Lobby).lobbyCode,
-                onBack = { currentScreen.value = MenuScreenState.Main },
+                connectionState = connectionStore.uiState,
+                onStartGame = {
+                    scope.launch {
+                        connectionStore.startGame()
+                    }
+                },
+                onRevealCard = {
+                    scope.launch {
+                        connectionStore.revealCard()
+                    }
+                },
+                onDismissError = connectionStore::clearError,
+                onBack = {
+                    connectionStore.disconnect()
+                    currentScreen.value = MenuScreenState.Main
+                },
             )
 
         MenuScreenState.Rules ->

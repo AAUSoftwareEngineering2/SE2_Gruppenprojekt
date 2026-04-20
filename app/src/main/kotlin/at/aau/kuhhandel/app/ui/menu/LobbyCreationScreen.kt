@@ -25,33 +25,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoomCreationScreen(
     modifier: Modifier = Modifier,
+    connectionState: GameConnectionUiState,
+    // suspend () -> Unit: suspend function that returns nothing (Unit ≈ void)
+    onCreateLobby: suspend () -> Unit,
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
-    val isLoading = remember { mutableStateOf(false) }
-    val errorMessage = remember { mutableStateOf<String?>(null) }
-    val lobbyCode = remember { mutableStateOf<String?>(null) }
+    val hasStarted = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        isLoading.value = true
-        try {
-            // TODO: Hier Server-Verbindung implementieren
-            // Für jetzt: Simuliere Server-Response
-            val generatedCode = generateLobbyCode()
-            lobbyCode.value = generatedCode
-            isLoading.value = false
-            // Auto-navigate nach kurzer Verzögerung
-            Thread.sleep(500)
-            onLobbyCreated(generatedCode)
-        } catch (e: Exception) {
-            errorMessage.value = "Fehler beim Erstellen der Lobby: ${e.message}"
-            isLoading.value = false
+        if (!hasStarted.value) {
+            hasStarted.value = true
+            runCatching { onCreateLobby() }
         }
+    }
+
+    LaunchedEffect(connectionState.gameId) {
+        connectionState.gameId?.let(onLobbyCreated)
     }
 
     Scaffold(
@@ -79,14 +75,9 @@ fun RoomCreationScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             when {
-                isLoading.value -> {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Verbinde zum Server...")
-                }
-                errorMessage.value != null -> {
+                connectionState.errorMessage != null -> {
                     Text(
-                        text = errorMessage.value ?: "",
+                        text = connectionState.errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyLarge,
                     )
@@ -98,7 +89,7 @@ fun RoomCreationScreen(
                         Text("Zurück")
                     }
                 }
-                lobbyCode.value != null -> {
+                connectionState.gameId != null -> {
                     Text(
                         text = "Lobby erstellt!",
                         style = MaterialTheme.typography.headlineMedium,
@@ -110,7 +101,7 @@ fun RoomCreationScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = lobbyCode.value ?: "",
+                        text = connectionState.gameId,
                         style = MaterialTheme.typography.displayMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -120,13 +111,19 @@ fun RoomCreationScreen(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+                else -> {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text =
+                            if (connectionState.isConnecting) {
+                                "Verbinde zum Server..."
+                            } else {
+                                "Erstelle Lobby..."
+                            },
+                    )
+                }
             }
         }
     }
 }
-
-/**
- * Generiert einen 5-stelligen Zahlencode für die Lobby
- * @return 5-stelliger Code als String (z.B. "12345")
- */
-fun generateLobbyCode(): String = (10000..99999).random().toString()
