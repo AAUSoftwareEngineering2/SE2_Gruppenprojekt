@@ -17,10 +17,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             AndroidAppTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainMenuScreen(modifier = Modifier.padding(innerPadding))
+                // hier wird der Music Wrapper verwendet
+                MenuMusicPlayer {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        MainMenuScreen(
+                            modifier = Modifier.padding(innerPadding),
+                        )
+                    }
                 }
             }
         }
