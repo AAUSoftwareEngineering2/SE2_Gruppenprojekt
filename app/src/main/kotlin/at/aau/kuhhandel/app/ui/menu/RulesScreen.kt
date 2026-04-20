@@ -38,51 +38,51 @@ fun RulesScreen(
                             .verticalScroll(rememberScrollState()),
                 ) {
                     Text(
-                        "Kuhhandel - Spielregeln",
+                        "Kuhhandel - Game Rules",
                         style = MaterialTheme.typography.headlineMedium,
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     RuleSection(
-                        title = "Spielziel",
+                        title = "Goal of the Game",
                         content =
-                            "Ziel des Spiels ist es, die wertvollsten Tiere und Geldkarten " +
-                                "zu sammeln um am Ende das höchste Vermögen zu haben.",
+                            "The goal of the game is to collect the most valuable animals and money cards " +
+                                "to have the highest fortune at the end.",
                     )
 
                     RuleSection(
-                        title = "Spielstart",
+                        title = "Game Start",
                         content =
-                            "Jeder Spieler erhält eine bestimmte Anzahl von Karten. " +
-                                "Die verbleibenden Karten bilden den Nachziehstapel.",
+                            "Each player receives a certain number of cards. " +
+                                "The remaining cards form the draw pile.",
                     )
 
                     RuleSection(
-                        title = "Spielablauf",
+                        title = "Gameplay",
                         content =
-                            "In jeder Runde kann ein Spieler eine Aktion durchführen: " +
-                                "Karten tauschen, bieten oder passen.",
+                            "In each round, a player can perform an action: " +
+                                "trade cards, bid, or pass.",
                     )
 
                     RuleSection(
-                        title = "Bieten",
+                        title = "Bidding",
                         content =
-                            "Spieler können um Tiere und Geldkarten bieten. " +
-                                "Das höchste Gebot gewinnt die Karte.",
+                            "Players can bid for animals and money cards. " +
+                                "The highest bid wins the card.",
                     )
 
                     RuleSection(
-                        title = "Ende",
+                        title = "Game End",
                         content =
-                            "Das Spiel endet nach einer festgelegten Anzahl von Runden. " +
-                                "Der Spieler mit dem höchsten Vermögen gewinnt.",
+                            "The game ends after a set number of rounds. " +
+                                "The player with the highest fortune wins.",
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        "Vollständige Regeln",
+                        "Full Rules",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

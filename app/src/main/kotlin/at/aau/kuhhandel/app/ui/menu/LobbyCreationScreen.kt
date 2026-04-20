@@ -33,16 +33,16 @@ fun RoomCreationScreen(
     LaunchedEffect(Unit) {
         isLoading.value = true
         try {
-            // TODO: Hier Server-Verbindung implementieren
-            // Für jetzt: Simuliere Server-Response
+            // TODO: Implement server connection here
+            // For now: Simulate server response
             val generatedCode = generateLobbyCode()
             lobbyCode.value = generatedCode
             isLoading.value = false
-            // Auto-navigate nach kurzer Verzögerung
+            // Auto-navigate after short delay
             Thread.sleep(500)
             onLobbyCreated(generatedCode)
         } catch (e: Exception) {
-            errorMessage.value = "Fehler beim Erstellen der Lobby: ${e.message}"
+            errorMessage.value = "Error creating lobby: ${e.message}"
             isLoading.value = false
         }
     }
@@ -60,7 +60,7 @@ fun RoomCreationScreen(
                     isLoading.value -> {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Verbinde zum Server...")
+                        Text("Connecting to server...")
                     }
 
                     errorMessage.value != null -> {
@@ -74,18 +74,18 @@ fun RoomCreationScreen(
                             onClick = onBack,
                             modifier = Modifier.fillMaxWidth(0.6f),
                         ) {
-                            Text("Zurück")
+                            Text("Back")
                         }
                     }
 
                     lobbyCode.value != null -> {
                         Text(
-                            text = "Lobby erstellt!",
+                            text = "Lobby Created!",
                             style = MaterialTheme.typography.headlineMedium,
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            text = "Lobby-Code:",
+                            text = "Lobby Code:",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -96,7 +96,7 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(32.dp))
                         Text(
-                            text = "Teile diesen Code mit anderen Spielern",
+                            text = "Share this code with other players",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -107,7 +107,7 @@ fun RoomCreationScreen(
 }
 
 /**
- * Generiert einen 5-stelligen Zahlencode für die Lobby
- * @return 5-stelliger Code als String (z.B. "12345")
+ * Generates a 5-digit numeric code for the lobby
+ * @return 5-digit code as string (e.g. "12345")
  */
 fun generateLobbyCode(): String = (10000..99999).random().toString()

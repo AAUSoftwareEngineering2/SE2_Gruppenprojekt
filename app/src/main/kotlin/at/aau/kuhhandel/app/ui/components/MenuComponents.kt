@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 
+// This file also includes UI Elements which may also be used in the Game Views
 @Composable
 fun MenuDecor(
     drawableId: Int,

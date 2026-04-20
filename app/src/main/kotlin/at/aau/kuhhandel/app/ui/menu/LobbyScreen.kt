@@ -42,9 +42,9 @@ fun LobbyScreen(
         remember {
             mutableStateOf(
                 listOf(
-                    Player("Du", true, true),
-                    Player("Spieler 2", true, false),
-                    Player("Spieler 3", false, false),
+                    Player("You", true, true),
+                    Player("Player 2", true, false),
+                    Player("Player 3", false, false),
                 ),
             )
         }
@@ -73,7 +73,7 @@ fun LobbyScreen(
                 ) {
                     Column {
                         Text(
-                            "Lobby-Code",
+                            "Lobby Code",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -84,7 +84,7 @@ fun LobbyScreen(
                         )
                     }
                     Text(
-                        "Teile diesen Code",
+                        "Share this code",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
@@ -92,9 +92,9 @@ fun LobbyScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Spieler-Liste
+                // Player List
                 Text(
-                    "Spieler (${players.value.size})",
+                    "Players (${players.value.size})",
                     style = MaterialTheme.typography.titleMedium,
                 )
 
@@ -121,14 +121,14 @@ fun LobbyScreen(
                 ) {
                     if (isHost && players.value.size >= 2) {
                         Button(
-                            onClick = { /* TODO: Spiel starten */ },
+                            onClick = { /* TODO: Start game */ },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Spiel starten")
+                            Text("Start Game")
                         }
                     } else if (!isHost) {
                         Text(
-                            "Warte auf Host...",
+                            "Waiting for host...",
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.align(Alignment.CenterHorizontally),
                         )
@@ -138,7 +138,7 @@ fun LobbyScreen(
                         onClick = onBack,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Abbrechen")
+                        Text("Cancel")
                     }
                 }
             }
@@ -187,7 +187,7 @@ private fun PlayerListItem(player: Player) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    if (player.isHost) "Host" else "Spieler",
+                    if (player.isHost) "Host" else "Player",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -197,7 +197,7 @@ private fun PlayerListItem(player: Player) {
         if (player.isReady) {
             Icon(
                 imageVector = Icons.Default.Check,
-                contentDescription = "Bereit",
+                contentDescription = "Ready",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
             )
