@@ -4,33 +4,117 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
-import io.ktor.websocket.Frame
-import io.ktor.websocket.WebSocketExtension
-import io.ktor.websocket.WebSocketSession
-import io.ktor.websocket.readText
-import kotlinx.coroutines.Dispatchers
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.request.HttpResponseData
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpProtocolVersion
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.http.websocket.websocketServerAccept
+import io.ktor.util.date.GMTDate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class GameWebSocketClientTest {
+    private data class ConnectedClient(
+        val client: GameWebSocketClient,
+        val session: FakeWebSocketSession,
+        private val collector: Job,
+    ) {
+        suspend fun disconnect() {
+            client.disconnect()
+            collector.join()
+        }
+    }
+
     private lateinit var session: FakeWebSocketSession
     private lateinit var client: GameWebSocketClient
 
     @BeforeEach
     fun setUp() {
         session = FakeWebSocketSession()
-        client = GameWebSocketClient { OpenedSession(session) }
+        client = testClient(session)
+    }
+
+    private fun testClient(
+        session: FakeWebSocketSession,
+        extraCleanup: suspend () -> Unit = {},
+    ): GameWebSocketClient =
+        GameWebSocketClient(
+            openSession = { OpenedSession(session, extraCleanup) },
+        )
+
+    private fun defaultOpenSessionClient(
+        session: FakeWebSocketSession,
+        onUrlSeen: (String) -> Unit,
+    ): GameWebSocketClient =
+        GameWebSocketClient(
+            clientFactory = {
+                HttpClient(MockEngine) {
+                    install(WebSockets)
+                    engine {
+                        addHandler { request ->
+                            onUrlSeen(request.url.toString())
+                            HttpResponseData(
+                                statusCode = HttpStatusCode.SwitchingProtocols,
+                                requestTime = GMTDate(),
+                                headers =
+                                    headersOf(
+                                        HttpHeaders.SecWebSocketAccept,
+                                        websocketServerAccept(
+                                            requireNotNull(
+                                                request.body.headers[HttpHeaders.SecWebSocketKey],
+                                            ),
+                                        ),
+                                    ),
+                                version = HttpProtocolVersion.HTTP_1_1,
+                                body = session,
+                                callContext = coroutineContext,
+                            )
+                        }
+                    }
+                }
+            },
+            webSocketUrl = "ws://localhost/test",
+        )
+
+    private suspend fun CoroutineScope.connectClient(
+        target: GameWebSocketClient = client,
+        targetSession: FakeWebSocketSession = session,
+    ): ConnectedClient {
+        val collector =
+            launch(start = CoroutineStart.UNDISPATCHED) {
+                target.connect().collect()
+            }
+        target.awaitConnected()
+        return ConnectedClient(target, targetSession, collector)
+    }
+
+    private suspend fun CoroutineScope.collectEvents(
+        target: GameWebSocketClient = client,
+    ): Deferred<List<WebSocketEnvelope>> {
+        val events =
+            async(start = CoroutineStart.UNDISPATCHED) {
+                target.connect().toList()
+            }
+        target.awaitConnected()
+        return events
     }
 
     @Test
@@ -38,28 +122,31 @@ class GameWebSocketClientTest {
         runBlocking {
             client.connect()
             assertFailsWith<IllegalStateException> { client.connect() }
-            Unit
+            client.disconnect()
+        }
+
+    @Test
+    fun `awaitConnected without connect throws`() =
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.awaitConnected() }
         }
 
     @Test
     fun `createGame without connect throws`() =
         runBlocking {
             assertFailsWith<IllegalStateException> { client.createGame("Fabio") }
-            Unit
         }
 
     @Test
     fun `startGame without connect throws`() =
         runBlocking {
             assertFailsWith<IllegalStateException> { client.startGame() }
-            Unit
         }
 
     @Test
     fun `revealCard without connect throws`() =
         runBlocking {
             assertFailsWith<IllegalStateException> { client.revealCard() }
-            Unit
         }
 
     @Test
@@ -68,95 +155,108 @@ class GameWebSocketClientTest {
             client.disconnect()
         }
 
-    // Verifies the envelope sent over the wire: correct type, matching requestId, and serialized payload.
     @Test
     fun `createGame sends envelope with payload`() =
         runBlocking {
-            client.connect()
-            val requestId = client.createGame("Fabio")
+            val connection = connectClient()
 
-            val envelope = session.onlySentEnvelope()
-            assertEquals(WebSocketType.CREATE_GAME, envelope.type)
-            assertEquals(requestId, envelope.requestId)
+            client.createGame("Fabio")
 
             val payload =
                 WebSocketJson.json.decodeFromJsonElement(
                     CreateGamePayload.serializer(),
-                    assertNotNull(envelope.payload),
+                    assertNotNull(connection.session.onlySentEnvelope().payload),
                 )
+
+            assertEquals(WebSocketType.CREATE_GAME, connection.session.onlySentEnvelope().type)
             assertEquals("Fabio", payload.playerName)
+
+            connection.disconnect()
         }
 
     @Test
     fun `startGame sends envelope`() =
         runBlocking {
-            client.connect()
-            val requestId = client.startGame()
+            val connection = connectClient()
 
-            val envelope = session.onlySentEnvelope()
-            assertEquals(WebSocketType.START_GAME, envelope.type)
-            assertEquals(requestId, envelope.requestId)
+            val requestId = client.startGame()
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.START_GAME, sent.type)
+            assertEquals(requestId, sent.requestId)
+
+            connection.disconnect()
         }
 
     @Test
     fun `revealCard sends envelope`() =
         runBlocking {
-            client.connect()
-            val requestId = client.revealCard()
+            val connection = connectClient()
 
-            val envelope = session.onlySentEnvelope()
-            assertEquals(WebSocketType.REVEAL_CARD, envelope.type)
-            assertEquals(requestId, envelope.requestId)
+            val requestId = client.revealCard()
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.REVEAL_CARD, sent.type)
+            assertEquals(requestId, sent.requestId)
+
+            connection.disconnect()
         }
 
     @Test
     fun `disconnect closes session`() =
         runBlocking {
-            client.connect()
-            client.disconnect()
-            assertTrue(session.wasClosed)
+            val connection = connectClient()
+
+            connection.disconnect()
+
+            assertTrue(connection.session.wasClosed)
         }
 
-    // Simulates the server pushing a GAME_CREATED event and verifies the flow emits it to the collector.
     @Test
     fun `flow emits incoming envelopes`() =
         runBlocking {
-            val events = client.connect()
+            val events = collectEvents()
+
             session.deliverEnvelope(WebSocketType.GAME_CREATED, "req-123")
             session.closeIncoming()
 
-            val received = events.toList()
+            val received = events.await()
             assertEquals(1, received.size)
             assertEquals(WebSocketType.GAME_CREATED, received[0].type)
             assertEquals("req-123", received[0].requestId)
         }
 
-    // Broken JSON from the server must not crash the collector — invalid frames are silently dropped.
     @Test
     fun `flow ignores malformed JSON`() =
         runBlocking {
-            val events = client.connect()
+            val events = collectEvents()
+
             session.deliverText("not json")
             session.closeIncoming()
 
-            assertEquals(0, events.toList().size)
+            assertEquals(0, events.await().size)
         }
 
     @Test
     fun `flow completion closes session and allows reconnect`() =
         runBlocking {
-            val sessions = listOf(FakeWebSocketSession(), FakeWebSocketSession())
+            val firstSession = FakeWebSocketSession()
+            val secondSession = FakeWebSocketSession()
+            val sessions = listOf(firstSession, secondSession)
             var openCount = 0
-            val reconnectingClient = GameWebSocketClient { OpenedSession(sessions[openCount++]) }
+            val reconnectingClient =
+                GameWebSocketClient(
+                    openSession = { OpenedSession(sessions[openCount++]) },
+                )
 
-            val firstEvents = reconnectingClient.connect()
-            sessions[0].closeIncoming()
-            assertEquals(0, firstEvents.toList().size)
-            assertTrue(sessions[0].wasClosed)
+            val firstEvents = collectEvents(reconnectingClient)
+            firstSession.closeIncoming()
+            assertEquals(0, firstEvents.await().size)
+            assertTrue(firstSession.wasClosed)
 
-            val secondEvents = reconnectingClient.connect()
-            sessions[1].closeIncoming()
-            assertEquals(0, secondEvents.toList().size)
+            val secondEvents = collectEvents(reconnectingClient)
+            secondSession.closeIncoming()
+            assertEquals(0, secondEvents.await().size)
         }
 
     @Test
@@ -164,13 +264,13 @@ class GameWebSocketClientTest {
         runBlocking {
             var cleanupCalls = 0
             val customClient =
-                GameWebSocketClient {
-                    OpenedSession(session) { cleanupCalls++ }
+                testClient(session) {
+                    cleanupCalls++
                 }
 
-            val events = customClient.connect()
+            val events = collectEvents(customClient)
             session.closeIncoming()
-            events.toList()
+            events.await()
 
             assertEquals(1, cleanupCalls)
         }
@@ -180,12 +280,12 @@ class GameWebSocketClientTest {
         runBlocking {
             var cleanupCalls = 0
             val customClient =
-                GameWebSocketClient {
-                    OpenedSession(session) { cleanupCalls++ }
+                testClient(session) {
+                    cleanupCalls++
                 }
 
-            customClient.connect()
-            customClient.disconnect()
+            val connection = connectClient(customClient)
+            connection.disconnect()
 
             assertEquals(1, cleanupCalls)
         }
@@ -194,66 +294,61 @@ class GameWebSocketClientTest {
     fun `extra cleanup exception does not bubble up`() =
         runBlocking {
             val customClient =
-                GameWebSocketClient {
-                    OpenedSession(session) { error("boom") }
+                testClient(session) {
+                    error("boom")
                 }
 
-            customClient.connect()
-            customClient.disconnect()
+            val connection = connectClient(customClient)
+            connection.disconnect()
         }
-}
 
-/**
- * In-memory stand-in for Ktor's WebSocketSession. No real network, everything is a list or channel.
- * Tests use the helpers below; the `override`s at the bottom exist only because the interface demands them.
- */
-private class FakeWebSocketSession : WebSocketSession {
-    // --- What tests actually read/act on ---
+    @Test
+    fun `failed connection allows a later retry`() =
+        runBlocking {
+            val retrySession = FakeWebSocketSession()
+            var shouldFail = true
+            val retryClient =
+                GameWebSocketClient(
+                    openSession = {
+                        if (shouldFail) {
+                            shouldFail = false
+                            throw IllegalStateException("offline")
+                        }
+                        OpenedSession(retrySession)
+                    },
+                )
 
-    val sentFrames = mutableListOf<Frame>()
-    val wasClosed: Boolean get() = sentFrames.any { it is Frame.Close }
+            val failedCollector =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    assertFailsWith<IllegalStateException> {
+                        retryClient.connect().collect()
+                    }
+                }
 
-    fun deliverText(text: String) {
-        incomingChannel.trySend(Frame.Text(text))
-    }
+            assertFailsWith<IllegalStateException> { retryClient.awaitConnected() }
+            failedCollector.join()
 
-    fun deliverEnvelope(
-        type: WebSocketType,
-        requestId: String?,
-    ) {
-        val envelope = WebSocketEnvelope(type = type, requestId = requestId)
-        deliverText(WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope))
-    }
+            val connection = connectClient(retryClient, retrySession)
+            connection.disconnect()
 
-    fun closeIncoming() {
-        incomingChannel.close()
-    }
+            assertTrue(retrySession.wasClosed)
+        }
 
-    fun onlySentEnvelope(): WebSocketEnvelope {
-        val text = sentFrames.filterIsInstance<Frame.Text>().single()
-        return WebSocketJson.json.decodeFromString(WebSocketEnvelope.serializer(), text.readText())
-    }
+    @Test
+    fun `defaultOpenSession opens the configured websocket url`() =
+        runBlocking {
+            val defaultSession = FakeWebSocketSession()
+            var seenUrl: String? = null
+            val defaultClient =
+                defaultOpenSessionClient(defaultSession) {
+                    seenUrl = it
+                }
 
-    // --- WebSocketSession interface plumbing (required, not used by tests directly) ---
+            val connection = connectClient(defaultClient, defaultSession)
 
-    private val incomingChannel = Channel<Frame>(Channel.UNLIMITED)
+            assertTrue(seenUrl?.contains("/test") == true)
 
-    override val coroutineContext: CoroutineContext = Dispatchers.Unconfined + Job()
-    override val incoming: ReceiveChannel<Frame> = incomingChannel
-    override val outgoing: SendChannel<Frame> = Channel(Channel.UNLIMITED)
-    override var masking: Boolean = false
-    override var maxFrameSize: Long = Long.MAX_VALUE
-    override val extensions: List<WebSocketExtension<*>> = emptyList()
-
-    override suspend fun send(frame: Frame) {
-        sentFrames.add(frame)
-        if (frame is Frame.Close) incomingChannel.close()
-    }
-
-    override suspend fun flush() = Unit
-
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun terminate() {
-        incomingChannel.close()
-    }
+            connection.disconnect()
+            assertTrue(defaultSession.wasClosed)
+        }
 }

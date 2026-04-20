@@ -69,6 +69,7 @@ class GameConnectionStore(
 
     private suspend fun ensureConnected() {
         if (eventsJob != null) {
+            client.awaitConnected()
             return
         }
 
@@ -87,8 +88,6 @@ class GameConnectionStore(
                 throw e
             }
 
-        uiState = uiState.copy(isConnecting = false, isConnected = true, errorMessage = null)
-
         val collectorJob =
             scope.launch(start = CoroutineStart.LAZY) {
                 try {
@@ -99,7 +98,15 @@ class GameConnectionStore(
                     if (eventsJob === currentCoroutineContext()[Job]) {
                         uiState =
                             uiState.copy(
-                                errorMessage = formatThrowable("Verbindung verloren", e),
+                                errorMessage =
+                                    formatThrowable(
+                                        if (uiState.isConnected) {
+                                            "Verbindung verloren"
+                                        } else {
+                                            "Verbindung fehlgeschlagen"
+                                        },
+                                        e,
+                                    ),
                             )
                     }
                 } finally {
@@ -112,6 +119,23 @@ class GameConnectionStore(
 
         eventsJob = collectorJob
         collectorJob.start()
+
+        try {
+            client.awaitConnected()
+            uiState = uiState.copy(isConnecting = false, isConnected = true, errorMessage = null)
+        } catch (e: Exception) {
+            if (eventsJob === collectorJob) {
+                eventsJob = null
+            }
+            collectorJob.cancel()
+            uiState =
+                uiState.copy(
+                    isConnecting = false,
+                    isConnected = false,
+                    errorMessage = formatThrowable("Verbindung fehlgeschlagen", e),
+                )
+            throw e
+        }
     }
 
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
