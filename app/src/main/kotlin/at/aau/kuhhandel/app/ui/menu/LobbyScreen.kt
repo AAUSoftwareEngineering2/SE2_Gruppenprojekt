@@ -14,27 +14,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.network.game.GameConnectionUiState
+import at.aau.kuhhandel.app.ui.components.MenuBackground
+import at.aau.kuhhandel.app.ui.components.MenuCard
 import at.aau.kuhhandel.shared.enums.GamePhase
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LobbyScreen(
     modifier: Modifier = Modifier,
@@ -59,7 +56,7 @@ fun LobbyScreen(
             }.orEmpty()
             .ifEmpty {
                 listOf(
-                    Player("Du", true, connectionState.isConnected),
+                    Player("You", true, connectionState.isConnected),
                 )
             }
     val currentPhase = gameState?.phase
@@ -67,178 +64,137 @@ fun LobbyScreen(
     val currentCardLabel =
         gameState?.currentFaceUpCard?.let { card ->
             "${card.type.name} (#${card.id})"
-        } ?: "Noch keine Karte aufgedeckt"
+        } ?: "No card revealed"
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Lobby") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück",
+    MenuBackground(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(top = 64.dp, bottom = 32.dp, start = 32.dp, end = 32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            MenuCard(onBack = onBack) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = MaterialTheme.shapes.medium,
+                            ).padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            "Lobby Code",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            resolvedLobbyCode,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
-                },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-        ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.medium,
-                        ).padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
                     Text(
-                        "Lobby-Code",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        resolvedLobbyCode,
-                        style = MaterialTheme.typography.headlineSmall,
+                        "Share this code",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
                 Text(
-                    "Teile diesen Code",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text =
-                    if (connectionState.isConnected) {
-                        "Verbunden"
-                    } else if (connectionState.isConnecting) {
-                        "Verbinde..."
-                    } else {
-                        "Nicht verbunden"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color =
-                    if (connectionState.errorMessage == null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (connectionState.errorMessage != null) {
-                Text(
-                    text = connectionState.errorMessage,
+                    text =
+                        if (connectionState.isConnected) {
+                            "Connected"
+                        } else if (connectionState.isConnecting) {
+                            "Connect..."
+                        } else {
+                            "Not connected"
+                        },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+                    color =
+                        if (connectionState.errorMessage == null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onDismissError,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Fehler ausblenden")
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = MaterialTheme.shapes.medium,
-                        ).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "Phase: ${currentPhase?.name ?: "Noch kein GameState"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = "Verbleibende Karten: $remainingCards",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = "Aktuelle Karte: $currentCardLabel",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                "Spieler (${players.size})",
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(players) { player ->
-                    PlayerListItem(player)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (currentPhase == GamePhase.NOT_STARTED) {
-                    Button(
-                        onClick = onStartGame,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = connectionState.isConnected,
-                    ) {
-                        Text("Spiel starten")
-                    }
-                } else if (currentPhase == GamePhase.PLAYER_TURN) {
-                    Button(
-                        onClick = onRevealCard,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = connectionState.isConnected,
-                    ) {
-                        Text("Naechste Karte aufdecken")
-                    }
-                } else if (currentPhase == GamePhase.FINISHED) {
+                if (connectionState.errorMessage != null) {
                     Text(
-                        "Spiel beendet",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        text = connectionState.errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onDismissError,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Hide Errors")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = MaterialTheme.shapes.medium,
+                            ).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Phase: ${currentPhase?.name ?: "No GameState"}",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
-                OutlinedButton(
-                    onClick = onBack,
-                    modifier = Modifier.fillMaxWidth(),
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    "Players (${players.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Abbrechen")
+                    items(players) { player ->
+                        PlayerListItem(player)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (currentPhase == GamePhase.NOT_STARTED || currentPhase == null) {
+                        Button(
+                            onClick = onStartGame,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = connectionState.isConnected,
+                        ) {
+                            Text("Start Game")
+                        }
+                    }
                 }
             }
         }
@@ -253,7 +209,7 @@ private fun PlayerListItem(player: Player) {
                 .fillMaxWidth()
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.medium,
+                    shape = RoundedCornerShape(24.dp),
                 ).padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -285,7 +241,7 @@ private fun PlayerListItem(player: Player) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    if (player.isHost) "Host" else "Spieler",
+                    if (player.isHost) "Host" else "Player",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -295,7 +251,7 @@ private fun PlayerListItem(player: Player) {
         if (player.isReady) {
             Icon(
                 imageVector = Icons.Default.Check,
-                contentDescription = "Bereit",
+                contentDescription = "Ready",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
             )
