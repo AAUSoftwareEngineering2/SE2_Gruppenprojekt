@@ -19,32 +19,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 
 @Composable
 fun RoomCreationScreen(
     modifier: Modifier = Modifier,
+    connectionState: GameConnectionUiState,
+    // suspend () -> Unit: suspend function that returns nothing (Unit ≈ void)
+    onCreateLobby: suspend () -> Unit,
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
-    val isLoading = remember { mutableStateOf(false) }
-    val errorMessage = remember { mutableStateOf<String?>(null) }
-    val lobbyCode = remember { mutableStateOf<String?>(null) }
+    val hasStarted = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        isLoading.value = true
-        try {
-            // TODO: Implement server connection here
-            // For now: Simulate server response
-            val generatedCode = generateLobbyCode()
-            lobbyCode.value = generatedCode
-            isLoading.value = false
-            // Auto-navigate after short delay
-            Thread.sleep(500)
-            onLobbyCreated(generatedCode)
-        } catch (e: Exception) {
-            errorMessage.value = "Error creating lobby: ${e.message}"
-            isLoading.value = false
+        if (!hasStarted.value) {
+            hasStarted.value = true
+            runCatching { onCreateLobby() }
         }
+    }
+
+    LaunchedEffect(connectionState.gameId) {
+        connectionState.gameId?.let(onLobbyCreated)
     }
 
     MenuBackground(modifier = modifier) {
@@ -57,15 +53,9 @@ fun RoomCreationScreen(
         ) {
             MenuCard(onBack = onBack) {
                 when {
-                    isLoading.value -> {
-                        CircularProgressIndicator()
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Connecting to server...")
-                    }
-
-                    errorMessage.value != null -> {
+                    connectionState.errorMessage != null -> {
                         Text(
-                            text = errorMessage.value ?: "",
+                            text = connectionState.errorMessage,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyLarge,
                         )
@@ -78,9 +68,9 @@ fun RoomCreationScreen(
                         }
                     }
 
-                    lobbyCode.value != null -> {
+                    connectionState.gameId != null -> {
                         Text(
-                            text = "Lobby Created!",
+                            text = "Lobby created!",
                             style = MaterialTheme.typography.headlineMedium,
                         )
                         Spacer(modifier = Modifier.height(24.dp))
@@ -90,14 +80,27 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = lobbyCode.value ?: "",
+                            text = connectionState.gameId,
                             style = MaterialTheme.typography.displayMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(modifier = Modifier.height(32.dp))
                         Text(
-                            text = "Share this code with other players",
+                            text = "Share this code with other players\"",
                             style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+
+                    else -> {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text =
+                                if (connectionState.isConnecting) {
+                                    "Connection to Server..."
+                                } else {
+                                    "Create Lobby..."
+                                },
                         )
                     }
                 }
@@ -105,9 +108,3 @@ fun RoomCreationScreen(
         }
     }
 }
-
-/**
- * Generates a 5-digit numeric code for the lobby
- * @return 5-digit code as string (e.g. "12345")
- */
-fun generateLobbyCode(): String = (10000..99999).random().toString()
