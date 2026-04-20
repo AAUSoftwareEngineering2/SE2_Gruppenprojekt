@@ -27,45 +27,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.app.ui.lobby.LobbyUiState
+import at.aau.kuhhandel.app.ui.lobby.PlayerDisplayItem
 
 @Composable
 fun LobbyScreen(
     modifier: Modifier = Modifier,
-    lobbyCode: String,
-    connectionState: GameConnectionUiState,
+    uiState: LobbyUiState,
     onStartGame: () -> Unit,
-    onRevealCard: () -> Unit,
     onDismissError: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val gameState = connectionState.gameState
-    val resolvedLobbyCode = connectionState.gameId ?: lobbyCode
-    val players =
-        gameState
-            ?.players
-            ?.mapIndexed { index, playerState ->
-                Player(
-                    name = playerState.name.ifBlank { playerState.id },
-                    isHost = index == 0,
-                    isReady = connectionState.isConnected,
-                )
-            }.orEmpty()
-            .ifEmpty {
-                listOf(
-                    Player("You", true, connectionState.isConnected),
-                )
-            }
-    val currentPhase = gameState?.phase
-    val remainingCards = gameState?.deck?.size() ?: 0
-    val currentCardLabel =
-        gameState?.currentFaceUpCard?.let { card ->
-            "${card.type.name} (#${card.id})"
-        } ?: "No card revealed"
-
     MenuBackground(modifier = modifier) {
         Box(
             modifier =
@@ -93,7 +67,7 @@ fun LobbyScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                         Text(
-                            resolvedLobbyCode,
+                            uiState.lobbyCode,
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -108,17 +82,10 @@ fun LobbyScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text =
-                        if (connectionState.isConnected) {
-                            "Connected"
-                        } else if (connectionState.isConnecting) {
-                            "Connect..."
-                        } else {
-                            "Not connected"
-                        },
+                    text = uiState.connectionStatus,
                     style = MaterialTheme.typography.bodyMedium,
                     color =
-                        if (connectionState.errorMessage == null) {
+                        if (!uiState.isError) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.error
@@ -127,9 +94,9 @@ fun LobbyScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (connectionState.errorMessage != null) {
+                if (uiState.isError && uiState.errorMessage != null) {
                     Text(
-                        text = connectionState.errorMessage,
+                        text = uiState.errorMessage,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -143,26 +110,10 @@ fun LobbyScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = MaterialTheme.shapes.medium,
-                            ).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = "Phase: ${currentPhase?.name ?: "No GameState"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "Players (${players.size})",
+                    "Players (${uiState.players.size})",
                     style = MaterialTheme.typography.titleMedium,
                 )
 
@@ -175,7 +126,7 @@ fun LobbyScreen(
                             .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(players) { player ->
+                    items(uiState.players) { player ->
                         PlayerListItem(player)
                     }
                 }
@@ -186,14 +137,20 @@ fun LobbyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (currentPhase == GamePhase.NOT_STARTED || currentPhase == null) {
+                    if (uiState.canStartGame) {
                         Button(
                             onClick = onStartGame,
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = connectionState.isConnected,
                         ) {
                             Text("Start Game")
                         }
+                    }
+
+                    OutlinedButton(
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Cancel")
                     }
                 }
             }
@@ -202,7 +159,7 @@ fun LobbyScreen(
 }
 
 @Composable
-private fun PlayerListItem(player: Player) {
+private fun PlayerListItem(player: PlayerDisplayItem) {
     Row(
         modifier =
             Modifier
@@ -227,7 +184,7 @@ private fun PlayerListItem(player: Player) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    player.name.first().toString(),
+                    player.name.firstOrNull()?.toString() ?: "?",
                     color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -258,9 +215,3 @@ private fun PlayerListItem(player: Player) {
         }
     }
 }
-
-data class Player(
-    val name: String,
-    val isHost: Boolean,
-    val isReady: Boolean,
-)
