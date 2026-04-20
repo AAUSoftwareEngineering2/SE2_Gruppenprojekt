@@ -56,7 +56,7 @@ fun LobbyScreen(
             }.orEmpty()
             .ifEmpty {
                 listOf(
-                    Player("Du", true, connectionState.isConnected),
+                    Player("You", true, connectionState.isConnected),
                 )
             }
     val currentPhase = gameState?.phase
@@ -64,7 +64,7 @@ fun LobbyScreen(
     val currentCardLabel =
         gameState?.currentFaceUpCard?.let { card ->
             "${card.type.name} (#${card.id})"
-        } ?: "Noch keine Karte aufgedeckt"
+        } ?: "No card revealed"
 
     MenuBackground(modifier = modifier) {
         Box(
@@ -110,11 +110,11 @@ fun LobbyScreen(
                 Text(
                     text =
                         if (connectionState.isConnected) {
-                            "Verbunden"
+                            "Connected"
                         } else if (connectionState.isConnecting) {
-                            "Verbinde..."
+                            "Connect..."
                         } else {
-                            "Nicht verbunden"
+                            "Not connected"
                         },
                     style = MaterialTheme.typography.bodyMedium,
                     color =
@@ -138,7 +138,7 @@ fun LobbyScreen(
                         onClick = onDismissError,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Fehler ausblenden")
+                        Text("Hide Errors")
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -154,15 +154,15 @@ fun LobbyScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        text = "Phase: ${currentPhase?.name ?: "Noch kein GameState"}",
+                        text = "Phase: ${currentPhase?.name ?: "No GameState"}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Verbleibende Karten: $remainingCards",
+                        text = "Remaining Cards: $remainingCards",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Aktuelle Karte: $currentCardLabel",
+                        text = "Remaining Cards: $currentCardLabel",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -200,7 +200,7 @@ fun LobbyScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = connectionState.isConnected,
                         ) {
-                            Text("Spiel starten")
+                            Text("Start Game")
                         }
                     } else if (currentPhase == GamePhase.PLAYER_TURN) {
                         Button(
@@ -208,11 +208,11 @@ fun LobbyScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = connectionState.isConnected,
                         ) {
-                            Text("Naechste Karte aufdecken")
+                            Text("Reveal next Card")
                         }
                     } else if (currentPhase == GamePhase.FINISHED) {
                         Text(
-                            "Spiel beendet",
+                            "Game Over",
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.align(Alignment.CenterHorizontally),
                         )

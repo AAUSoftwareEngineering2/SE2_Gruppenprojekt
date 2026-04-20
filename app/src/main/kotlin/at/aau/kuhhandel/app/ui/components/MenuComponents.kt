@@ -199,7 +199,7 @@ fun BackButton(
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_back),
-            contentDescription = "zurück",
+            contentDescription = "back",
             modifier = Modifier.fillMaxSize(),
         )
     }

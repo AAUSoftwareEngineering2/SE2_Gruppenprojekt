@@ -41,7 +41,7 @@ fun RoomJoiningScreen(
         ) {
             MenuCard(onBack = onBack) {
                 Text(
-                    "Lobby beitreten",
+                    "Enter Lobby",
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -58,7 +58,7 @@ fun RoomJoiningScreen(
                 }
 
                 Text(
-                    "Geben Sie den 5-stelligen Lobby-Code ein",
+                    "Enter 5-digit Code here",
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
@@ -91,13 +91,13 @@ fun RoomJoiningScreen(
                                 // Simulated join
                                 onLobbyJoined(lobbyCode.value)
                             } else {
-                                errorMessage.value = "Code muss 5-stellig sein"
+                                errorMessage.value = "Code must have 5 digits"
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = lobbyCode.value.length == 5,
                     ) {
-                        Text("Beitreten")
+                        Text("Enter")
                     }
                 }
             }
