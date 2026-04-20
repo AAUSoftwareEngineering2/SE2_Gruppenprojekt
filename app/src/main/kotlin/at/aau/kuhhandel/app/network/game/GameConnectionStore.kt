@@ -97,7 +97,7 @@ class GameConnectionStore(
         uiState = uiState.copy(isConnecting = true, errorMessage = null)
     }
 
-    private suspend fun connectEvents(): Flow<WebSocketEnvelope> =
+    private fun connectEvents(): Flow<WebSocketEnvelope> =
         try {
             client.connect()
         } catch (e: Exception) {
