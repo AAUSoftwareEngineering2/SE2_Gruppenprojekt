@@ -78,12 +78,11 @@ class GameConnectionStore(
             try {
                 client.connect()
             } catch (e: Exception) {
-                val reason = e.message ?: "Unbekannter Fehler"
                 uiState =
                     uiState.copy(
                         isConnecting = false,
                         isConnected = false,
-                        errorMessage = "Verbindung fehlgeschlagen: $reason",
+                        errorMessage = formatThrowable("Verbindung fehlgeschlagen", e),
                     )
                 throw e
             }
@@ -98,10 +97,9 @@ class GameConnectionStore(
                     throw e
                 } catch (e: Exception) {
                     if (eventsJob === currentCoroutineContext()[Job]) {
-                        val reason = e.message ?: "Unbekannter Fehler"
                         uiState =
                             uiState.copy(
-                                errorMessage = "Verbindung verloren: $reason",
+                                errorMessage = formatThrowable("Verbindung verloren", e),
                             )
                     }
                 } finally {
@@ -180,4 +178,17 @@ class GameConnectionStore(
             uiState = uiState.copy(errorMessage = invalidMessage)
             null
         }
+
+    private fun formatThrowable(
+        prefix: String,
+        throwable: Throwable,
+    ): String {
+        val type = throwable::class.simpleName ?: "Fehler"
+        val message = throwable.message?.takeIf { it.isNotBlank() }
+        return if (message != null) {
+            "$prefix: $type - $message"
+        } else {
+            "$prefix: $type"
+        }
+    }
 }

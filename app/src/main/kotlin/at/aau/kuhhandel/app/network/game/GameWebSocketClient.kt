@@ -12,6 +12,7 @@ import io.ktor.client.request.url
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
+import io.ktor.websocket.readReason
 import io.ktor.websocket.readText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -41,16 +42,35 @@ class GameWebSocketClient(
         current = opened
         // flow { }: the loop starts only when someone collects, each emit is one envelope.
         return flow {
+            var closeDetails: String? = null
             try {
                 for (frame in opened.session.incoming) {
-                    if (frame is Frame.Text) {
-                        runCatching {
-                            WebSocketJson.json.decodeFromString(
-                                WebSocketEnvelope.serializer(),
-                                frame.readText(),
-                            )
-                        }.getOrNull()?.let { emit(it) }
+                    when (frame) {
+                        is Frame.Text -> {
+                            runCatching {
+                                WebSocketJson.json.decodeFromString(
+                                    WebSocketEnvelope.serializer(),
+                                    frame.readText(),
+                                )
+                            }.getOrNull()?.let { emit(it) }
+                        }
+
+                        is Frame.Close -> {
+                            val reason = frame.readReason()
+                            closeDetails =
+                                if (reason != null) {
+                                    "WebSocket closed (${reason.code}): ${reason.message.ifBlank { "Kein Grund angegeben" }}"
+                                } else {
+                                    "WebSocket closed without a close reason"
+                                }
+                            break
+                        }
+
+                        else -> Unit
                     }
+                }
+                if (closeDetails != null && current === opened) {
+                    error(closeDetails)
                 }
             } finally {
                 if (current === opened) {
