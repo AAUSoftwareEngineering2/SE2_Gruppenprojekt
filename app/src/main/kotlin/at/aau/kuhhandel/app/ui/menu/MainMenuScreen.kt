@@ -26,44 +26,43 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.game.GameConnectionStore
+import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
 import at.aau.kuhhandel.app.ui.game.GameScreen
+import at.aau.kuhhandel.app.ui.game.GameViewModel
+import at.aau.kuhhandel.app.ui.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.shared.enums.GamePhase
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 
 @Composable
 fun MainMenuScreen(modifier: Modifier = Modifier) {
     val currentScreen = remember { mutableStateOf<MenuScreenState>(MenuScreenState.Main) }
     val scope = rememberCoroutineScope()
-    val connectionStore =
+    val repository =
         remember(scope) {
-            GameConnectionStore(
+            GameRepository(
                 client = GameWebSocketClient(),
                 scope = scope,
             )
         }
 
-    val currentPhase = connectionStore.uiState.gameState?.phase
+    val repositoryState by repository.state.collectAsState()
+    val currentPhase = repositoryState.gameState?.phase
 
     if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
+        val gameViewModel = remember(repository, scope) { GameViewModel(repository, scope) }
+        val gameUiState by gameViewModel.uiState.collectAsState()
+
         GameScreen(
             modifier = modifier,
-            connectionState = connectionStore.uiState,
-            onStartGame = {
-                scope.launch {
-                    connectionStore.startGame()
-                }
-            },
-            onRevealCard = {
-                scope.launch {
-                    connectionStore.revealCard()
-                }
-            },
+            uiState = gameUiState,
+            onStartGame = gameViewModel::startGame,
+            onRevealCard = gameViewModel::revealCard,
         )
     } else {
         when (val state = currentScreen.value) {
@@ -78,10 +77,10 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
             MenuScreenState.RoomCreation ->
                 RoomCreationScreen(
                     modifier = modifier,
-                    connectionState = connectionStore.uiState,
-                    onCreateLobby = { connectionStore.createGame() },
+                    repositoryState = repositoryState,
+                    onCreateLobby = { repository.createGame() },
                     onBack = {
-                        connectionStore.disconnect()
+                        repository.disconnect()
                         currentScreen.value = MenuScreenState.Main
                     },
                     onLobbyCreated = { lobbyCode ->
@@ -98,27 +97,24 @@ fun MainMenuScreen(modifier: Modifier = Modifier) {
                     },
                 )
 
-            is MenuScreenState.Lobby ->
+            is MenuScreenState.Lobby -> {
+                val lobbyViewModel =
+                    remember(repository, scope, state.lobbyCode) {
+                        LobbyViewModel(repository, scope, state.lobbyCode)
+                    }
+                val lobbyUiState by lobbyViewModel.uiState.collectAsState()
+
                 LobbyScreen(
                     modifier = modifier,
-                    lobbyCode = state.lobbyCode,
-                    connectionState = connectionStore.uiState,
-                    onStartGame = {
-                        scope.launch {
-                            connectionStore.startGame()
-                        }
-                    },
-                    onRevealCard = {
-                        scope.launch {
-                            connectionStore.revealCard()
-                        }
-                    },
-                    onDismissError = connectionStore::clearError,
+                    uiState = lobbyUiState,
+                    onStartGame = lobbyViewModel::startGame,
+                    onDismissError = lobbyViewModel::clearError,
                     onBack = {
-                        connectionStore.disconnect()
+                        repository.disconnect()
                         currentScreen.value = MenuScreenState.Main
                     },
                 )
+            }
 
             MenuScreenState.Rules ->
                 RulesScreen(

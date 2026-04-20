@@ -1,8 +1,5 @@
 package at.aau.kuhhandel.app.network.game
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -16,10 +13,13 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class GameConnectionUiState(
+data class GameRepositoryState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val gameId: String? = null,
@@ -27,40 +27,44 @@ data class GameConnectionUiState(
     val errorMessage: String? = null,
 )
 
-class GameConnectionStore(
+/**
+ * Repository responsible for managing the WebSocket connection and
+ * maintaining the raw game state received from the server.
+ */
+class GameRepository(
     private val client: GameWebSocketClient,
     private val scope: CoroutineScope,
 ) {
     private companion object {
-        const val CONNECTION_FAILED = "Verbindung fehlgeschlagen"
-        const val CONNECTION_LOST = "Verbindung verloren"
+        const val CONNECTION_FAILED = "Connection failed"
+        const val CONNECTION_LOST = "Connection lost"
     }
 
-    var uiState by mutableStateOf(GameConnectionUiState())
-        private set
+    private val _state = MutableStateFlow(GameRepositoryState())
+    val state: StateFlow<GameRepositoryState> = _state.asStateFlow()
 
     private var eventsJob: Job? = null
 
     suspend fun createGame(playerName: String? = null) {
         ensureConnected()
-        uiState = uiState.copy(errorMessage = null)
+        _state.update { it.copy(errorMessage = null) }
         client.createGame(playerName)
     }
 
     suspend fun startGame() {
         ensureConnected()
-        uiState = uiState.copy(errorMessage = null)
+        _state.update { it.copy(errorMessage = null) }
         client.startGame()
     }
 
     suspend fun revealCard() {
         ensureConnected()
-        uiState = uiState.copy(errorMessage = null)
+        _state.update { it.copy(errorMessage = null) }
         client.revealCard()
     }
 
     fun clearError() {
-        uiState = uiState.copy(errorMessage = null)
+        _state.update { it.copy(errorMessage = null) }
     }
 
     fun disconnect() {
@@ -69,7 +73,7 @@ class GameConnectionStore(
             eventsJob = null
             activeJob?.cancel()
             client.disconnect()
-            uiState = GameConnectionUiState()
+            _state.value = GameRepositoryState()
         }
     }
 
@@ -94,7 +98,7 @@ class GameConnectionStore(
     }
 
     private fun startConnecting() {
-        uiState = uiState.copy(isConnecting = true, errorMessage = null)
+        _state.update { it.copy(isConnecting = true, errorMessage = null) }
     }
 
     private fun connectEvents(): Flow<WebSocketEnvelope> =
@@ -135,10 +139,11 @@ class GameConnectionStore(
             return
         }
 
-        uiState =
-            uiState.copy(
+        _state.update {
+            it.copy(
                 errorMessage = formatThrowable(connectionErrorPrefix(), throwable),
             )
+        }
     }
 
     private fun finishCollector(collectorJob: Job?) {
@@ -147,13 +152,13 @@ class GameConnectionStore(
         }
 
         eventsJob = null
-        uiState = uiState.copy(isConnecting = false, isConnected = false)
+        _state.update { it.copy(isConnecting = false, isConnected = false) }
     }
 
     private suspend fun awaitInitialConnection(collectorJob: Job) {
         try {
             client.awaitConnected()
-            uiState = uiState.copy(isConnecting = false, isConnected = true, errorMessage = null)
+            _state.update { it.copy(isConnecting = false, isConnected = true, errorMessage = null) }
         } catch (e: Exception) {
             cancelCollector(collectorJob)
             reportConnectionFailure(e)
@@ -169,16 +174,17 @@ class GameConnectionStore(
     }
 
     private fun reportConnectionFailure(throwable: Throwable) {
-        uiState =
-            uiState.copy(
+        _state.update {
+            it.copy(
                 isConnecting = false,
                 isConnected = false,
                 errorMessage = formatThrowable(CONNECTION_FAILED, throwable),
             )
+        }
     }
 
     private fun connectionErrorPrefix(): String =
-        if (uiState.isConnected) {
+        if (_state.value.isConnected) {
             CONNECTION_LOST
         } else {
             CONNECTION_FAILED
@@ -191,15 +197,16 @@ class GameConnectionStore(
                     decodePayload(
                         envelope = envelope,
                         serializer = GameCreatedPayload.serializer(),
-                        invalidMessage = "Ungueltige GAME_CREATED-Nachricht",
+                        invalidMessage = "Invalid GAME_CREATED message",
                     ) ?: return
 
-                uiState =
-                    uiState.copy(
+                _state.update {
+                    it.copy(
                         gameId = payload.gameId,
                         gameState = payload.state,
                         errorMessage = null,
                     )
+                }
             }
 
             WebSocketType.GAME_STARTED,
@@ -209,14 +216,15 @@ class GameConnectionStore(
                     decodePayload(
                         envelope = envelope,
                         serializer = GameStatePayload.serializer(),
-                        invalidMessage = "Ungueltige GameState-Nachricht",
+                        invalidMessage = "Invalid GameState message",
                     ) ?: return
 
-                uiState =
-                    uiState.copy(
+                _state.update {
+                    it.copy(
                         gameState = payload.state,
                         errorMessage = null,
                     )
+                }
             }
 
             WebSocketType.ERROR -> {
@@ -224,10 +232,10 @@ class GameConnectionStore(
                     decodePayload(
                         envelope = envelope,
                         serializer = ErrorPayload.serializer(),
-                        invalidMessage = "Ungueltige ERROR-Nachricht",
+                        invalidMessage = "Invalid ERROR message",
                     ) ?: return
 
-                uiState = uiState.copy(errorMessage = payload.message)
+                _state.update { it.copy(errorMessage = payload.message) }
             }
 
             else -> Unit
@@ -245,7 +253,7 @@ class GameConnectionStore(
                 requireNotNull(envelope.payload),
             )
         }.getOrElse {
-            uiState = uiState.copy(errorMessage = invalidMessage)
+            _state.update { it.copy(errorMessage = invalidMessage) }
             null
         }
 
@@ -253,7 +261,7 @@ class GameConnectionStore(
         prefix: String,
         throwable: Throwable,
     ): String {
-        val type = throwable::class.simpleName ?: "Fehler"
+        val type = throwable::class.simpleName ?: "Error"
         val message = throwable.message?.takeIf { it.isNotBlank() }
         return if (message != null) {
             "$prefix: $type - $message"

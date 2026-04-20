@@ -17,14 +17,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
+import at.aau.kuhhandel.app.network.game.GameRepositoryState
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
 @Composable
 fun RoomCreationScreen(
     modifier: Modifier = Modifier,
-    connectionState: GameConnectionUiState,
+    repositoryState: GameRepositoryState,
     // suspend () -> Unit: suspend function that returns nothing (Unit ≈ void)
     onCreateLobby: suspend () -> Unit,
     onBack: () -> Unit,
@@ -39,8 +39,8 @@ fun RoomCreationScreen(
         }
     }
 
-    LaunchedEffect(connectionState.gameId) {
-        connectionState.gameId?.let(onLobbyCreated)
+    LaunchedEffect(repositoryState.gameId) {
+        repositoryState.gameId?.let(onLobbyCreated)
     }
 
     MenuBackground(modifier = modifier) {
@@ -53,9 +53,9 @@ fun RoomCreationScreen(
         ) {
             MenuCard(onBack = onBack) {
                 when {
-                    connectionState.errorMessage != null -> {
+                    repositoryState.errorMessage != null -> {
                         Text(
-                            text = connectionState.errorMessage,
+                            text = repositoryState.errorMessage,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyLarge,
                         )
@@ -68,7 +68,7 @@ fun RoomCreationScreen(
                         }
                     }
 
-                    connectionState.gameId != null -> {
+                    repositoryState.gameId != null -> {
                         Text(
                             text = "Lobby created!",
                             style = MaterialTheme.typography.headlineMedium,
@@ -80,7 +80,7 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = connectionState.gameId,
+                            text = repositoryState.gameId,
                             style = MaterialTheme.typography.displayMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -96,7 +96,7 @@ fun RoomCreationScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text =
-                                if (connectionState.isConnecting) {
+                                if (repositoryState.isConnecting) {
                                     "Connection to Server..."
                                 } else {
                                     "Create Lobby..."
