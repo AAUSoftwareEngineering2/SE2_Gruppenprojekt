@@ -47,8 +47,8 @@ fun RulesScreen(
                     RuleSection(
                         title = "Goal of the Game",
                         content =
-                            "The goal of the game is to collect the most valuable animals and money cards " +
-                                "to have the highest fortune at the end.",
+                            "The goal of the game is to collect the most valuable animals " +
+                                "and money cards to have the highest fortune at the end.",
                     )
 
                     RuleSection(

@@ -27,9 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.shared.enums.GamePhase
 
 @Composable
@@ -107,116 +107,116 @@ fun LobbyScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text =
-                    if (connectionState.isConnected) {
-                        "Verbunden"
-                    } else if (connectionState.isConnecting) {
-                        "Verbinde..."
-                    } else {
-                        "Nicht verbunden"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color =
-                    if (connectionState.errorMessage == null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (connectionState.errorMessage != null) {
                 Text(
-                    text = connectionState.errorMessage,
+                    text =
+                        if (connectionState.isConnected) {
+                            "Verbunden"
+                        } else if (connectionState.isConnecting) {
+                            "Verbinde..."
+                        } else {
+                            "Nicht verbunden"
+                        },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+                    color =
+                        if (connectionState.errorMessage == null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onDismissError,
-                    modifier = Modifier.fillMaxWidth(),
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (connectionState.errorMessage != null) {
+                    Text(
+                        text = connectionState.errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onDismissError,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Fehler ausblenden")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = MaterialTheme.shapes.medium,
+                            ).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Fehler ausblenden")
+                    Text(
+                        text = "Phase: ${currentPhase?.name ?: "Noch kein GameState"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Verbleibende Karten: $remainingCards",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Aktuelle Karte: $currentCardLabel",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = MaterialTheme.shapes.medium,
-                        ).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "Phase: ${currentPhase?.name ?: "Noch kein GameState"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = "Verbleibende Karten: $remainingCards",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = "Aktuelle Karte: $currentCardLabel",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                "Spieler (${players.size})",
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(players) { player ->
-                    PlayerListItem(player)
-                }
-            }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (currentPhase == GamePhase.NOT_STARTED) {
-                    Button(
-                        onClick = onStartGame,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = connectionState.isConnected,
-                    ) {
-                        Text("Spiel starten")
+                Text(
+                    "Spieler (${players.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(players) { player ->
+                        PlayerListItem(player)
                     }
-                } else if (currentPhase == GamePhase.PLAYER_TURN) {
-                    Button(
-                        onClick = onRevealCard,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = connectionState.isConnected,
-                    ) {
-                        Text("Naechste Karte aufdecken")
-                    }
-                } else if (currentPhase == GamePhase.FINISHED) {
-                    Text(
-                        "Spiel beendet",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (currentPhase == GamePhase.NOT_STARTED) {
+                        Button(
+                            onClick = onStartGame,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = connectionState.isConnected,
+                        ) {
+                            Text("Spiel starten")
+                        }
+                    } else if (currentPhase == GamePhase.PLAYER_TURN) {
+                        Button(
+                            onClick = onRevealCard,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = connectionState.isConnected,
+                        ) {
+                            Text("Naechste Karte aufdecken")
+                        }
+                    } else if (currentPhase == GamePhase.FINISHED) {
+                        Text(
+                            "Spiel beendet",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        )
+                    }
 
                     OutlinedButton(
                         onClick = onBack,

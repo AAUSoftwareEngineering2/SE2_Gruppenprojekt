@@ -17,9 +17,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 
 @Composable
 fun RoomCreationScreen(
