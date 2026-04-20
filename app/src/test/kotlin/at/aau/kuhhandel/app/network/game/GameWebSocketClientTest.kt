@@ -117,6 +117,8 @@ class GameWebSocketClientTest {
         return events
     }
 
+    // === Negativ-Tests: alles, was Verbindung braucht, muss ohne Connect knallen ===
+
     @Test
     fun `connect twice throws`() =
         runBlocking {
@@ -155,13 +157,18 @@ class GameWebSocketClientTest {
             client.disconnect()
         }
 
+    // === Send-Tests: was schickt der Client an den Server? ===
+
     @Test
     fun `createGame sends envelope with payload`() =
         runBlocking {
+            // ARRANGE: Verbindung aufbauen
             val connection = connectClient()
 
+            // ACT: Befehl ausloesen
             client.createGame("Fabio")
 
+            // ASSERT: Envelope-Typ und Payload pruefen
             val payload =
                 WebSocketJson.json.decodeFromJsonElement(
                     CreateGamePayload.serializer(),
@@ -171,6 +178,7 @@ class GameWebSocketClientTest {
             assertEquals(WebSocketType.CREATE_GAME, connection.session.onlySentEnvelope().type)
             assertEquals("Fabio", payload.playerName)
 
+            // CLEANUP: Verbindung sauber zumachen
             connection.disconnect()
         }
 
@@ -212,6 +220,8 @@ class GameWebSocketClientTest {
             assertTrue(connection.session.wasClosed)
         }
 
+    // === Receive-Tests: was passiert mit eingehenden Server-Nachrichten? ===
+
     @Test
     fun `flow emits incoming envelopes`() =
         runBlocking {
@@ -236,6 +246,8 @@ class GameWebSocketClientTest {
 
             assertEquals(0, events.await().size)
         }
+
+    // === Lifecycle-Tests: Cleanup, Reconnect, Retry ===
 
     @Test
     fun `flow completion closes session and allows reconnect`() =
@@ -333,6 +345,8 @@ class GameWebSocketClientTest {
 
             assertTrue(retrySession.wasClosed)
         }
+
+    // === Default-Code-Pfad: echte HttpClient-Factory mit MockEngine ===
 
     @Test
     fun `defaultOpenSession opens the configured websocket url`() =

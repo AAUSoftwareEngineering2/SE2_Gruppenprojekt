@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.websocket.WebSocketType
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.url
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
@@ -17,6 +18,7 @@ import io.ktor.websocket.readReason
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
 
@@ -43,69 +45,107 @@ class GameWebSocketClient(
 
     /** Returns the connection Flow. The WebSocket opens when collection starts. */
     fun connect(): Flow<WebSocketEnvelope> {
+        ensureDisconnected()
+        val ready = preparePendingConnection()
+        return flow {
+            val opened = openSessionOrThrow(ready)
+            markConnected(opened, ready)
+            try {
+                emitIncomingEnvelopes(opened)
+            } finally {
+                cleanupConnection(opened, ready)
+            }
+        }
+    }
+
+    private fun ensureDisconnected() {
         check(current == null && pendingConnection == null) {
             "Already connected. Call disconnect() first."
         }
-        val ready = CompletableDeferred<Unit>()
-        connectionFailure = null
-        pendingConnection = ready
-        return flow {
-            val opened =
-                try {
-                    openSession()
-                } catch (e: Exception) {
-                    connectionFailure = e
-                    if (pendingConnection === ready) {
-                        pendingConnection = null
-                    }
-                    ready.completeExceptionally(e)
-                    throw e
-                }
+    }
 
-            current = opened
+    private fun preparePendingConnection(): CompletableDeferred<Unit> =
+        CompletableDeferred<Unit>().also { ready ->
             connectionFailure = null
-            ready.complete(Unit)
-            var closeDetails: String? = null
-            try {
-                for (frame in opened.session.incoming) {
-                    when (frame) {
-                        is Frame.Text -> {
-                            runCatching {
-                                WebSocketJson.json.decodeFromString(
-                                    WebSocketEnvelope.serializer(),
-                                    frame.readText(),
-                                )
-                            }.getOrNull()?.let { emit(it) }
-                        }
+            pendingConnection = ready
+        }
 
-                        is Frame.Close -> {
-                            val reason = frame.readReason()
-                            closeDetails =
-                                if (reason != null) {
-                                    "WebSocket closed (${reason.code}): ${
-                                        reason.message.ifBlank { "Kein Grund angegeben" }
-                                    }"
-                                } else {
-                                    "WebSocket closed without a close reason"
-                                }
-                            break
-                        }
+    private suspend fun openSessionOrThrow(ready: CompletableDeferred<Unit>): OpenedSession =
+        try {
+            openSession()
+        } catch (e: Exception) {
+            connectionFailure = e
+            clearPendingConnection(ready)
+            ready.completeExceptionally(e)
+            throw e
+        }
 
-                        else -> Unit
-                    }
-                }
-                if (closeDetails != null && current === opened) {
-                    error(closeDetails)
-                }
-            } finally {
-                if (current === opened) {
-                    current = null
-                    opened.close()
-                }
-                if (pendingConnection === ready) {
-                    pendingConnection = null
-                }
-            }
+    private fun markConnected(
+        opened: OpenedSession,
+        ready: CompletableDeferred<Unit>,
+    ) {
+        current = opened
+        connectionFailure = null
+        ready.complete(Unit)
+    }
+
+    private suspend fun FlowCollector<WebSocketEnvelope>.emitIncomingEnvelopes(
+        opened: OpenedSession,
+    ) {
+        val closeDetails = consumeIncomingFrames(opened)
+        if (closeDetails != null && current === opened) {
+            error(closeDetails)
+        }
+    }
+
+    private suspend fun FlowCollector<WebSocketEnvelope>.consumeIncomingFrames(
+        opened: OpenedSession,
+    ): String? {
+        for (frame in opened.session.incoming) {
+            closeDetails(frame)?.let { return it }
+            decodeEnvelope(frame)?.let { emit(it) }
+        }
+        return null
+    }
+
+    private suspend fun closeDetails(frame: Frame): String? =
+        (frame as? Frame.Close)?.let { closeFrame ->
+            formatCloseDetails(closeFrame.readReason())
+        }
+
+    private fun formatCloseDetails(reason: CloseReason?): String =
+        if (reason != null) {
+            "WebSocket closed (${reason.code}): ${
+                reason.message.ifBlank { "Kein Grund angegeben" }
+            }"
+        } else {
+            "WebSocket closed without a close reason"
+        }
+
+    private suspend fun decodeEnvelope(frame: Frame): WebSocketEnvelope? {
+        val textFrame = frame as? Frame.Text ?: return null
+        return runCatching {
+            WebSocketJson.json.decodeFromString(
+                WebSocketEnvelope.serializer(),
+                textFrame.readText(),
+            )
+        }.getOrNull()
+    }
+
+    private suspend fun cleanupConnection(
+        opened: OpenedSession,
+        ready: CompletableDeferred<Unit>,
+    ) {
+        if (current === opened) {
+            current = null
+            opened.close()
+        }
+        clearPendingConnection(ready)
+    }
+
+    private fun clearPendingConnection(ready: CompletableDeferred<Unit>) {
+        if (pendingConnection === ready) {
+            pendingConnection = null
         }
     }
 

@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -30,6 +31,11 @@ class GameConnectionStore(
     private val client: GameWebSocketClient,
     private val scope: CoroutineScope,
 ) {
+    private companion object {
+        const val CONNECTION_FAILED = "Verbindung fehlgeschlagen"
+        const val CONNECTION_LOST = "Verbindung verloren"
+    }
+
     var uiState by mutableStateOf(GameConnectionUiState())
         private set
 
@@ -68,75 +74,115 @@ class GameConnectionStore(
     }
 
     private suspend fun ensureConnected() {
-        if (eventsJob != null) {
-            client.awaitConnected()
+        if (awaitExistingConnection()) {
             return
         }
 
+        startConnecting()
+        val events = connectEvents()
+        val collectorJob = launchCollector(events)
+        awaitInitialConnection(collectorJob)
+    }
+
+    private suspend fun awaitExistingConnection(): Boolean {
+        if (eventsJob == null) {
+            return false
+        }
+
+        client.awaitConnected()
+        return true
+    }
+
+    private fun startConnecting() {
         uiState = uiState.copy(isConnecting = true, errorMessage = null)
+    }
 
-        val events =
-            try {
-                client.connect()
-            } catch (e: Exception) {
-                uiState =
-                    uiState.copy(
-                        isConnecting = false,
-                        isConnected = false,
-                        errorMessage = formatThrowable("Verbindung fehlgeschlagen", e),
-                    )
-                throw e
+    private suspend fun connectEvents(): Flow<WebSocketEnvelope> =
+        try {
+            client.connect()
+        } catch (e: Exception) {
+            reportConnectionFailure(e)
+            throw e
+        }
+
+    private fun launchCollector(events: Flow<WebSocketEnvelope>): Job =
+        scope
+            .launch(start = CoroutineStart.LAZY) {
+                collectEvents(events)
+            }.also { collectorJob ->
+                eventsJob = collectorJob
+                collectorJob.start()
             }
 
-        val collectorJob =
-            scope.launch(start = CoroutineStart.LAZY) {
-                try {
-                    events.collect(::handleEnvelope)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    if (eventsJob === currentCoroutineContext()[Job]) {
-                        uiState =
-                            uiState.copy(
-                                errorMessage =
-                                    formatThrowable(
-                                        if (uiState.isConnected) {
-                                            "Verbindung verloren"
-                                        } else {
-                                            "Verbindung fehlgeschlagen"
-                                        },
-                                        e,
-                                    ),
-                            )
-                    }
-                } finally {
-                    if (eventsJob === currentCoroutineContext()[Job]) {
-                        eventsJob = null
-                        uiState = uiState.copy(isConnecting = false, isConnected = false)
-                    }
-                }
-            }
+    private suspend fun collectEvents(events: Flow<WebSocketEnvelope>) {
+        val collectorJob = currentCoroutineContext()[Job]
+        try {
+            events.collect(::handleEnvelope)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportCollectorFailure(e, collectorJob)
+        } finally {
+            finishCollector(collectorJob)
+        }
+    }
 
-        eventsJob = collectorJob
-        collectorJob.start()
+    private fun reportCollectorFailure(
+        throwable: Throwable,
+        collectorJob: Job?,
+    ) {
+        if (eventsJob !== collectorJob) {
+            return
+        }
 
+        uiState =
+            uiState.copy(
+                errorMessage = formatThrowable(connectionErrorPrefix(), throwable),
+            )
+    }
+
+    private fun finishCollector(collectorJob: Job?) {
+        if (eventsJob !== collectorJob) {
+            return
+        }
+
+        eventsJob = null
+        uiState = uiState.copy(isConnecting = false, isConnected = false)
+    }
+
+    private suspend fun awaitInitialConnection(collectorJob: Job) {
         try {
             client.awaitConnected()
             uiState = uiState.copy(isConnecting = false, isConnected = true, errorMessage = null)
         } catch (e: Exception) {
-            if (eventsJob === collectorJob) {
-                eventsJob = null
-            }
-            collectorJob.cancel()
-            uiState =
-                uiState.copy(
-                    isConnecting = false,
-                    isConnected = false,
-                    errorMessage = formatThrowable("Verbindung fehlgeschlagen", e),
-                )
+            cancelCollector(collectorJob)
+            reportConnectionFailure(e)
             throw e
         }
     }
+
+    private fun cancelCollector(collectorJob: Job) {
+        if (eventsJob === collectorJob) {
+            eventsJob = null
+        }
+        collectorJob.cancel()
+    }
+
+    private fun reportConnectionFailure(throwable: Throwable) {
+        uiState =
+            uiState.copy(
+                isConnecting = false,
+                isConnected = false,
+                errorMessage = formatThrowable(CONNECTION_FAILED, throwable),
+            )
+    }
+
+    private fun connectionErrorPrefix(): String =
+        if (uiState.isConnected) {
+            CONNECTION_LOST
+        } else {
+            CONNECTION_FAILED
+        }
 
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
         when (envelope.type) {
