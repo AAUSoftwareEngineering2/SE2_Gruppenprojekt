@@ -21,6 +21,8 @@ import at.aau.kuhhandel.app.ui.menu.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.RoomJoiningScreen
 import at.aau.kuhhandel.app.ui.menu.RulesScreen
+import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
+import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
 import at.aau.kuhhandel.shared.enums.GamePhase
 
 @Composable
@@ -62,9 +64,14 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
         composable<Screen.RoomCreation> {
+            val creationViewModel = remember(repository, scope) {
+                LobbyCreationViewModel(repository, scope)
+            }
+            val creationUiState by creationViewModel.uiState.collectAsState()
+
             RoomCreationScreen(
-                repositoryState = repositoryState,
-                onCreateLobby = { repository.createGame() },
+                uiState = creationUiState,
+                onCreateLobby = creationViewModel::createLobby,
                 onBack = {
                     repository.disconnect()
                     navController.popBackStack()
@@ -78,8 +85,19 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
         composable<Screen.RoomJoining> {
+            val joiningViewModel = remember(repository, scope) {
+                LobbyJoiningViewModel(repository, scope)
+            }
+            val joiningUiState by joiningViewModel.uiState.collectAsState()
+
             RoomJoiningScreen(
-                onBack = { navController.popBackStack() },
+                uiState = joiningUiState,
+                onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
+                onJoinLobby = joiningViewModel::joinLobby,
+                onBack = {
+                    repository.disconnect()
+                    navController.popBackStack()
+                },
                 onLobbyJoined = { lobbyCode ->
                     navController.navigate(Screen.Lobby(lobbyCode)) {
                         popUpTo(Screen.RoomJoining) { inclusive = true }
