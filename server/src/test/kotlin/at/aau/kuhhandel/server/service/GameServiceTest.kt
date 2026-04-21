@@ -72,6 +72,19 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_removeGame_removesGameSession() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        val gameId = session.gameId
+
+        assertNotNull(service.getGame(gameId))
+
+        service.removeGame(gameId)
+
+        assertNull(service.getGame(gameId))
+    }
+
+    @Test
     fun test_revealNextCard_updatesGameState() {
         val service = GameService()
         val session = service.createGame("player-1")

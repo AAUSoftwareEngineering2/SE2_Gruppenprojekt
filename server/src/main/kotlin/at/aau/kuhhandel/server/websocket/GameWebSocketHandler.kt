@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.service.GameService
-import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
@@ -9,6 +8,7 @@ import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
 import org.springframework.stereotype.Component
+import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
@@ -44,19 +44,22 @@ class GameWebSocketHandler(
         }
     }
 
+    override fun afterConnectionClosed(
+        session: WebSocketSession,
+        status: CloseStatus,
+    ) {
+        val gameId = connectionRegistry.gameIdFor(session.id)
+        if (gameId != null) {
+            gameService.removeGame(gameId)
+        }
+        connectionRegistry.unbind(session.id)
+    }
+
     private fun handleCreateGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val payload =
-            envelope.payload?.let {
-                WebSocketJson.json.decodeFromJsonElement(
-                    CreateGamePayload.serializer(),
-                    it,
-                )
-            } ?: CreateGamePayload()
-
-        // Uses a temporary player ID for now; will be changed when authentification is implemented
+        // Uses a temporary player ID for now; will be changed when multiplayer is implemented
         val game = gameService.createGame("player-1")
         connectionRegistry.bind(session.id, game.gameId)
 
