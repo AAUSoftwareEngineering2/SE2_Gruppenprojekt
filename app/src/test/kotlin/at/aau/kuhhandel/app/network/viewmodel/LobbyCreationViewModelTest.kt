@@ -47,45 +47,51 @@ class LobbyCreationViewModelTest {
     }
 
     @Test
-    fun `initial state is fully correct`() = runTest {
-        val uiState = viewModel.uiState.value
-        assertFalse(uiState.isConnecting)
-        assertNull(uiState.gameId)
-        assertNull(uiState.errorMessage)
-        assertFalse(uiState.isCreated)
-    }
-
-    @Test
-    fun `createLobby shall call repository`() = runTest {
-        viewModel.createLobby()
-        advanceUntilIdle()
-        coVerify { mockRepository.createGame() }
-    }
-
-    @Test
-    fun `state reflects repository updates`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `initial state is fully correct`() =
+        runTest {
+            val uiState = viewModel.uiState.value
+            assertFalse(uiState.isConnecting)
+            assertNull(uiState.gameId)
+            assertNull(uiState.errorMessage)
+            assertFalse(uiState.isCreated)
         }
 
-        repoStateFlow.value = GameRepositoryState(
-            isConnecting = true
-        )
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.isConnecting)
+    @Test
+    fun `createLobby shall call repository`() =
+        runTest {
+            viewModel.createLobby()
+            advanceUntilIdle()
+            coVerify { mockRepository.createGame() }
+        }
 
-        repoStateFlow.value = GameRepositoryState(
-            gameId = "ABCDE",
-            isConnecting = false
-        )
-        advanceUntilIdle()
-        assertEquals("ABCDE", viewModel.uiState.value.gameId)
-        assertTrue(viewModel.uiState.value.isCreated)
+    @Test
+    fun `state reflects repository updates`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
 
-        repoStateFlow.value = GameRepositoryState(
-            errorMessage = "Error occurred"
-        )
-        advanceUntilIdle()
-        assertEquals("Error occurred", viewModel.uiState.value.errorMessage)
-    }
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnecting = true,
+                )
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isConnecting)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameId = "ABCDE",
+                    isConnecting = false,
+                )
+            advanceUntilIdle()
+            assertEquals("ABCDE", viewModel.uiState.value.gameId)
+            assertTrue(viewModel.uiState.value.isCreated)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    errorMessage = "Error occurred",
+                )
+            advanceUntilIdle()
+            assertEquals("Error occurred", viewModel.uiState.value.errorMessage)
+        }
 }

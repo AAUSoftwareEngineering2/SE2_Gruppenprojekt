@@ -51,86 +51,95 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `initial state is correct`() = runTest {
-        val uiState = viewModel.uiState.value
-        assertEquals(GamePhase.NOT_STARTED, uiState.currentPhase)
-        assertEquals("0 cards left", uiState.deckCountText)
-        assertEquals("No card revealed", uiState.activeCardLabel)
-        assertFalse(uiState.isConnected)
-    }
-
-    @Test
-    fun `state updates from repository correctly`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `initial state is correct`() =
+        runTest {
+            val uiState = viewModel.uiState.value
+            assertEquals(GamePhase.NOT_STARTED, uiState.currentPhase)
+            assertEquals("0 cards left", uiState.deckCountText)
+            assertEquals("No card revealed", uiState.activeCardLabel)
+            assertFalse(uiState.isConnected)
         }
 
-        val deck = AnimalDeck(listOf(AnimalCard("1", AnimalType.COW)))
-        val gameState = GameState(
-            phase = GamePhase.PLAYER_TURN,
-            deck = deck,
-            currentFaceUpCard = AnimalCard("2", AnimalType.PIG)
-        )
-
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = true,
-            gameState = gameState
-        )
-
-        advanceUntilIdle()
-
-        val uiState = viewModel.uiState.value
-        assertEquals(GamePhase.PLAYER_TURN, uiState.currentPhase)
-        assertEquals("1 cards left", uiState.deckCountText)
-        assertEquals("PIG (#2)", uiState.activeCardLabel)
-        assertTrue(uiState.isConnected)
-        assertTrue(uiState.canRevealCard)
-        assertFalse(uiState.canStartGame)
-    }
-
-
     @Test
-    fun `canRevealCard depends on connection and phase`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `state updates from repository correctly`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val deck = AnimalDeck(listOf(AnimalCard("1", AnimalType.COW)))
+            val gameState =
+                GameState(
+                    phase = GamePhase.PLAYER_TURN,
+                    deck = deck,
+                    currentFaceUpCard = AnimalCard("2", AnimalType.PIG),
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                )
+
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals(GamePhase.PLAYER_TURN, uiState.currentPhase)
+            assertEquals("1 cards left", uiState.deckCountText)
+            assertEquals("PIG (#2)", uiState.activeCardLabel)
+            assertTrue(uiState.isConnected)
+            assertTrue(uiState.canRevealCard)
+            assertFalse(uiState.canStartGame)
         }
 
-        // Case 1: Connected + PLAYER_TURN -> True
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = true,
-            gameState = GameState(phase = GamePhase.PLAYER_TURN)
-        )
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.canRevealCard)
+    @Test
+    fun `canRevealCard depends on connection and phase`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
 
-        // Case 2: Connected + AUCTION -> False
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = true,
-            gameState = GameState(phase = GamePhase.AUCTION)
-        )
-        advanceUntilIdle()
-        assertFalse(viewModel.uiState.value.canRevealCard)
+            // Case 1: Connected + PLAYER_TURN -> True
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                )
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.canRevealCard)
 
-        // Case 3: Disconnected + PLAYER_TURN -> False
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = false,
-            gameState = GameState(phase = GamePhase.PLAYER_TURN)
-        )
-        advanceUntilIdle()
-        assertFalse(viewModel.uiState.value.canRevealCard)
-    }
+            // Case 2: Connected + AUCTION -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = GameState(phase = GamePhase.AUCTION),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+
+            // Case 3: Disconnected + PLAYER_TURN -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = false,
+                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+        }
 
     @Test
-    fun `startGame calls repository`() = runTest {
-        viewModel.startGame()
-        advanceUntilIdle()
-        coVerify { mockRepository.startGame() }
-    }
+    fun `startGame calls repository`() =
+        runTest {
+            viewModel.startGame()
+            advanceUntilIdle()
+            coVerify { mockRepository.startGame() }
+        }
 
     @Test
-    fun `revealCard calls repository`() = runTest {
-        viewModel.revealCard()
-        advanceUntilIdle()
-        coVerify { mockRepository.revealCard() }
-    }
+    fun `revealCard calls repository`() =
+        runTest {
+            viewModel.revealCard()
+            advanceUntilIdle()
+            coVerify { mockRepository.revealCard() }
+        }
 }
