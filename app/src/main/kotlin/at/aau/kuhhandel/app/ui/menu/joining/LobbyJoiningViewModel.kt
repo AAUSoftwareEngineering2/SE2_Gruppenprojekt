@@ -21,15 +21,15 @@ class LobbyJoiningViewModel(
     private val repository: GameRepository,
     private val scope: CoroutineScope,
 ) {
-    private val _lobbyCode = MutableStateFlow("")
-    private val _isLoading = MutableStateFlow(false)
-    private val _localErrorMessage = MutableStateFlow<String?>(null)
+    private val lobbyCode = MutableStateFlow("")
+    private val isLoading = MutableStateFlow(false)
+    private val localErrorMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<LobbyJoiningUiState> =
         combine(
-            _lobbyCode,
-            _isLoading,
-            _localErrorMessage,
+            lobbyCode,
+            isLoading,
+            localErrorMessage,
             repository.state,
         ) { code, loading, localError, repoState ->
             LobbyJoiningUiState(
@@ -47,16 +47,16 @@ class LobbyJoiningViewModel(
 
     fun onLobbyCodeChanged(newCode: String) {
         if (newCode.length <= 5 && newCode.all { it.isDigit() }) {
-            _lobbyCode.value = newCode
-            _localErrorMessage.value = null
+            lobbyCode.value = newCode
+            localErrorMessage.value = null
         }
     }
 
     fun joinLobby() {
-        val code = _lobbyCode.value
+        val code = lobbyCode.value
         if (code.length == 5) {
-            _isLoading.value = true
-            _localErrorMessage.value = null
+            isLoading.value = true
+            localErrorMessage.value = null
             scope.launch {
                 try {
                     // Assuming the repository might have a joinGame method or we use createGame for now
@@ -66,16 +66,16 @@ class LobbyJoiningViewModel(
                     // For now, let's assume createGame can also be used or we need a joinGame.
                     repository.createGame()
                 } catch (e: Exception) {
-                    _isLoading.value = false
+                    isLoading.value = false
                 }
             }
         } else {
-            _localErrorMessage.value = "Code must have 5 digits"
+            localErrorMessage.value = "Code must have 5 digits"
         }
     }
 
     fun clearError() {
-        _localErrorMessage.value = null
+        localErrorMessage.value = null
         repository.clearError()
     }
 }
