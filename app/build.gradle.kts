@@ -90,6 +90,8 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.robolectric)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.test.manifest)
 
