@@ -15,12 +15,12 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
-import at.aau.kuhhandel.app.ui.lobby.LobbyScreen
-import at.aau.kuhhandel.app.ui.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
 import at.aau.kuhhandel.app.ui.menu.joining.RoomJoiningScreen
+import at.aau.kuhhandel.app.ui.menu.lobby.LobbyScreen
+import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase

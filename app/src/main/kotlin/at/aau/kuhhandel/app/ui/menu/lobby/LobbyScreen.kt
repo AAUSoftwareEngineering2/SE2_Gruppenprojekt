@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.lobby
+package at.aau.kuhhandel.app.ui.menu.lobby
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,8 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.ui.lobby.LobbyUiState
-import at.aau.kuhhandel.app.ui.lobby.PlayerDisplayItem
 
 @Composable
 fun LobbyScreen(

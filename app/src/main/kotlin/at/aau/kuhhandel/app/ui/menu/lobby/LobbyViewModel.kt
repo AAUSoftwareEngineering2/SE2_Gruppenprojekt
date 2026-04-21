@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.lobby
+package at.aau.kuhhandel.app.ui.menu.lobby
 
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.GamePhase
