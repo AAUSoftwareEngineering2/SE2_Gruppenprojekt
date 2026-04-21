@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.menu
+package at.aau.kuhhandel.app.ui.menu.creation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -12,38 +12,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationUiState
 
 @Composable
 fun RoomCreationScreen(
-    modifier: Modifier = Modifier,
-    connectionState: GameConnectionUiState,
-    // suspend () -> Unit: suspend function that returns nothing (Unit ≈ void)
-    onCreateLobby: suspend () -> Unit,
+    uiState: LobbyCreationUiState,
+    onCreateLobby: () -> Unit,
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
-    val hasStarted = remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
-        if (!hasStarted.value) {
-            hasStarted.value = true
-            runCatching { onCreateLobby() }
+        onCreateLobby()
+    }
+
+    LaunchedEffect(uiState.isCreated, uiState.gameId) {
+        if (uiState.isCreated && uiState.gameId != null) {
+            onLobbyCreated(uiState.gameId)
         }
     }
 
-    LaunchedEffect(connectionState.gameId) {
-        connectionState.gameId?.let(onLobbyCreated)
-    }
-
-    MenuBackground(modifier = modifier) {
+    MenuBackground {
         Box(
             modifier =
                 Modifier
@@ -53,9 +46,9 @@ fun RoomCreationScreen(
         ) {
             MenuCard(onBack = onBack) {
                 when {
-                    connectionState.errorMessage != null -> {
+                    uiState.errorMessage != null -> {
                         Text(
-                            text = connectionState.errorMessage,
+                            text = uiState.errorMessage,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyLarge,
                         )
@@ -68,7 +61,7 @@ fun RoomCreationScreen(
                         }
                     }
 
-                    connectionState.gameId != null -> {
+                    uiState.gameId != null -> {
                         Text(
                             text = "Lobby created!",
                             style = MaterialTheme.typography.headlineMedium,
@@ -80,13 +73,13 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = connectionState.gameId,
+                            text = uiState.gameId,
                             style = MaterialTheme.typography.displayMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(modifier = Modifier.height(32.dp))
                         Text(
-                            text = "Share this code with other players\"",
+                            text = "Share this code with other players",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -96,7 +89,7 @@ fun RoomCreationScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text =
-                                if (connectionState.isConnecting) {
+                                if (uiState.isConnecting) {
                                     "Connection to Server..."
                                 } else {
                                     "Create Lobby..."

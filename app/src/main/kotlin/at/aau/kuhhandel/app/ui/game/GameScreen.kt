@@ -15,27 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.network.game.GameConnectionUiState
 import at.aau.kuhhandel.app.ui.components.FarmColor
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.OtherFarm
-import at.aau.kuhhandel.shared.enums.GamePhase
 
 @Composable
 fun GameScreen(
     modifier: Modifier = Modifier,
-    connectionState: GameConnectionUiState,
+    uiState: GameUiState,
     onStartGame: () -> Unit,
     onRevealCard: () -> Unit,
 ) {
-    val gameState = connectionState.gameState
-    val currentPhase = gameState?.phase
-    val remainingCards = gameState?.deck?.size() ?: 0
-    val currentCardLabel =
-        gameState?.currentFaceUpCard?.let { card ->
-            "${card.type.name} (#${card.id})"
-        } ?: "No card revealed"
-
     MainBackground(modifier = modifier)
     OtherFarm(farmColor = FarmColor.BLUE, onClick = {})
     // some placeholder overlay for Game Logic (to be integrated into the farm design later)
@@ -56,15 +46,15 @@ fun GameScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = "Game Phase: ${currentPhase?.name ?: "UNKNOWN"}",
+                text = "Game Phase: ${uiState.currentPhase.name}",
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = "Deck: $remainingCards cards left",
+                text = uiState.deckCountText,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "Active Card: $currentCardLabel",
+                text = "Active Card: ${uiState.activeCardLabel}",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -75,21 +65,21 @@ fun GameScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (currentPhase == GamePhase.NOT_STARTED) {
+            if (uiState.canStartGame) {
                 Button(
                     onClick = onStartGame,
                     modifier = Modifier.weight(1f),
-                    enabled = connectionState.isConnected,
+                    enabled = uiState.isConnected,
                 ) {
                     Text("Start Game")
                 }
             }
 
-            if (currentPhase == GamePhase.PLAYER_TURN) {
+            if (uiState.canRevealCard) {
                 Button(
                     onClick = onRevealCard,
                     modifier = Modifier.weight(1f),
-                    enabled = connectionState.isConnected,
+                    enabled = uiState.isConnected,
                 ) {
                     Text("Reveal Card")
                 }

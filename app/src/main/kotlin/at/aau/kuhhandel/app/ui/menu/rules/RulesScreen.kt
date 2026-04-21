@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.menu
+package at.aau.kuhhandel.app.ui.menu.rules
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column

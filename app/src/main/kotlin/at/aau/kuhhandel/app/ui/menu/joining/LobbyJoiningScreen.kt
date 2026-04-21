@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.menu
+package at.aau.kuhhandel.app.ui.menu.joining
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -13,25 +13,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningUiState
 
 @Composable
 fun RoomJoiningScreen(
-    modifier: Modifier = Modifier,
+    uiState: LobbyJoiningUiState,
+    onLobbyCodeChanged: (String) -> Unit,
+    onJoinLobby: () -> Unit,
     onBack: () -> Unit,
     onLobbyJoined: (String) -> Unit,
 ) {
-    val lobbyCode = remember { mutableStateOf("") }
-    val isLoading = remember { mutableStateOf(false) }
-    val errorMessage = remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(uiState.isJoined, uiState.joinedLobbyCode) {
+        if (uiState.isJoined && uiState.joinedLobbyCode != null) {
+            onLobbyJoined(uiState.joinedLobbyCode)
+        }
+    }
 
-    MenuBackground(modifier = modifier) {
+    MenuBackground {
         Box(
             modifier =
                 Modifier
@@ -48,9 +52,9 @@ fun RoomJoiningScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                if (errorMessage.value != null) {
+                if (uiState.errorMessage != null) {
                     Text(
-                        text = errorMessage.value!!,
+                        text = uiState.errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 16.dp),
@@ -65,15 +69,11 @@ fun RoomJoiningScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
-                    value = lobbyCode.value,
-                    onValueChange = { newValue ->
-                        if (newValue.length <= 5 && newValue.all { it.isDigit() }) {
-                            lobbyCode.value = newValue
-                        }
-                    },
+                    value = uiState.lobbyCode,
+                    onValueChange = onLobbyCodeChanged,
                     label = { Text("Code") },
                     placeholder = { Text("12345") },
-                    enabled = !isLoading.value,
+                    enabled = !uiState.isLoading,
                     singleLine = true,
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -81,21 +81,13 @@ fun RoomJoiningScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                if (isLoading.value) {
+                if (uiState.isLoading) {
                     CircularProgressIndicator()
                 } else {
                     Button(
-                        onClick = {
-                            if (lobbyCode.value.length == 5) {
-                                isLoading.value = true
-                                // Simulated join
-                                onLobbyJoined(lobbyCode.value)
-                            } else {
-                                errorMessage.value = "Code must have 5 digits"
-                            }
-                        },
+                        onClick = onJoinLobby,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = lobbyCode.value.length == 5,
+                        enabled = uiState.lobbyCode.length == 5,
                     ) {
                         Text("Enter")
                     }

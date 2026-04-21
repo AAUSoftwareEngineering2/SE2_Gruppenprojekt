@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.app.ui.menu
+package at.aau.kuhhandel.app.ui.menu.main
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -12,9 +12,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -26,111 +23,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.game.GameConnectionStore
-import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
-import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
-import at.aau.kuhhandel.shared.enums.GamePhase
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainMenuScreen(modifier: Modifier = Modifier) {
-    val currentScreen = remember { mutableStateOf<MenuScreenState>(MenuScreenState.Main) }
-    val scope = rememberCoroutineScope()
-    val connectionStore =
-        remember(scope) {
-            GameConnectionStore(
-                client = GameWebSocketClient(),
-                scope = scope,
-            )
-        }
-
-    val currentPhase = connectionStore.uiState.gameState?.phase
-
-    if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
-        GameScreen(
-            modifier = modifier,
-            connectionState = connectionStore.uiState,
-            onStartGame = {
-                scope.launch {
-                    connectionStore.startGame()
-                }
-            },
-            onRevealCard = {
-                scope.launch {
-                    connectionStore.revealCard()
-                }
-            },
-        )
-    } else {
-        when (val state = currentScreen.value) {
-            MenuScreenState.Main ->
-                MainMenuContent(
-                    modifier = modifier,
-                    onCreateLobby = { currentScreen.value = MenuScreenState.RoomCreation },
-                    onJoinLobby = { currentScreen.value = MenuScreenState.RoomJoining },
-                    onRules = { currentScreen.value = MenuScreenState.Rules },
-                )
-
-            MenuScreenState.RoomCreation ->
-                RoomCreationScreen(
-                    modifier = modifier,
-                    connectionState = connectionStore.uiState,
-                    onCreateLobby = { connectionStore.createGame() },
-                    onBack = {
-                        connectionStore.disconnect()
-                        currentScreen.value = MenuScreenState.Main
-                    },
-                    onLobbyCreated = { lobbyCode ->
-                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                    },
-                )
-
-            MenuScreenState.RoomJoining ->
-                RoomJoiningScreen(
-                    modifier = modifier,
-                    onBack = { currentScreen.value = MenuScreenState.Main },
-                    onLobbyJoined = { lobbyCode ->
-                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                    },
-                )
-
-            is MenuScreenState.Lobby ->
-                LobbyScreen(
-                    modifier = modifier,
-                    lobbyCode = state.lobbyCode,
-                    connectionState = connectionStore.uiState,
-                    onStartGame = {
-                        scope.launch {
-                            connectionStore.startGame()
-                        }
-                    },
-                    onRevealCard = {
-                        scope.launch {
-                            connectionStore.revealCard()
-                        }
-                    },
-                    onDismissError = connectionStore::clearError,
-                    onBack = {
-                        connectionStore.disconnect()
-                        currentScreen.value = MenuScreenState.Main
-                    },
-                )
-
-            MenuScreenState.Rules ->
-                RulesScreen(
-                    modifier = modifier,
-                    onBack = { currentScreen.value = MenuScreenState.Main },
-                )
-        }
-    }
-}
-
-@Composable
-private fun MainMenuContent(
+fun MainMenuScreen(
     modifier: Modifier = Modifier,
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
@@ -236,18 +136,4 @@ private fun MainMenuContent(
             Text("Ping-Server")
         }
     }
-}
-
-sealed class MenuScreenState {
-    data object Main : MenuScreenState()
-
-    data object RoomCreation : MenuScreenState()
-
-    data object RoomJoining : MenuScreenState()
-
-    data class Lobby(
-        val lobbyCode: String,
-    ) : MenuScreenState()
-
-    data object Rules : MenuScreenState()
 }
