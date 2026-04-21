@@ -14,7 +14,7 @@ data class LobbyJoiningUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isJoined: Boolean = false,
-    val joinedLobbyCode: String? = null
+    val joinedLobbyCode: String? = null,
 )
 
 class LobbyJoiningViewModel(
@@ -25,24 +25,25 @@ class LobbyJoiningViewModel(
     private val _isLoading = MutableStateFlow(false)
     private val _localErrorMessage = MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<LobbyJoiningUiState> = combine(
-        _lobbyCode,
-        _isLoading,
-        _localErrorMessage,
-        repository.state
-    ) { code, loading, localError, repoState ->
-        LobbyJoiningUiState(
-            lobbyCode = code,
-            isLoading = loading || repoState.isConnecting,
-            errorMessage = localError ?: repoState.errorMessage,
-            isJoined = repoState.gameId != null,
-            joinedLobbyCode = repoState.gameId
+    val uiState: StateFlow<LobbyJoiningUiState> =
+        combine(
+            _lobbyCode,
+            _isLoading,
+            _localErrorMessage,
+            repository.state,
+        ) { code, loading, localError, repoState ->
+            LobbyJoiningUiState(
+                lobbyCode = code,
+                isLoading = loading || repoState.isConnecting,
+                errorMessage = localError ?: repoState.errorMessage,
+                isJoined = repoState.gameId != null,
+                joinedLobbyCode = repoState.gameId,
+            )
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = LobbyJoiningUiState(),
         )
-    }.stateIn(
-        scope = scope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = LobbyJoiningUiState()
-    )
 
     fun onLobbyCodeChanged(newCode: String) {
         if (newCode.length <= 5 && newCode.all { it.isDigit() }) {

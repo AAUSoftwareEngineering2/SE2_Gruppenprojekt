@@ -15,14 +15,14 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
+import at.aau.kuhhandel.app.ui.lobby.LobbyScreen
 import at.aau.kuhhandel.app.ui.lobby.LobbyViewModel
-import at.aau.kuhhandel.app.ui.menu.LobbyScreen
-import at.aau.kuhhandel.app.ui.menu.MainMenuScreen
-import at.aau.kuhhandel.app.ui.menu.RoomCreationScreen
-import at.aau.kuhhandel.app.ui.menu.RoomJoiningScreen
-import at.aau.kuhhandel.app.ui.menu.RulesScreen
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
+import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
+import at.aau.kuhhandel.app.ui.menu.joining.RoomJoiningScreen
+import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
+import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase
 
 @Composable
@@ -64,9 +64,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
         composable<Screen.RoomCreation> {
-            val creationViewModel = remember(repository, scope) {
-                LobbyCreationViewModel(repository, scope)
-            }
+            val creationViewModel =
+                remember(repository, scope) {
+                    LobbyCreationViewModel(repository, scope)
+                }
             val creationUiState by creationViewModel.uiState.collectAsState()
 
             RoomCreationScreen(
@@ -85,9 +86,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
         composable<Screen.RoomJoining> {
-            val joiningViewModel = remember(repository, scope) {
-                LobbyJoiningViewModel(repository, scope)
-            }
+            val joiningViewModel =
+                remember(repository, scope) {
+                    LobbyJoiningViewModel(repository, scope)
+                }
             val joiningUiState by joiningViewModel.uiState.collectAsState()
 
             RoomJoiningScreen(
