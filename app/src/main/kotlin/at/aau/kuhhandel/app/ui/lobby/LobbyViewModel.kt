@@ -60,7 +60,9 @@ class LobbyViewModel(
                         },
                     isError = repoState.errorMessage != null,
                     errorMessage = repoState.errorMessage,
-                    canStartGame = repoState.isConnected && (gameState?.phase == GamePhase.NOT_STARTED || gameState == null),
+                    canStartGame =
+                        repoState.isConnected &&
+                            (gameState?.phase == GamePhase.NOT_STARTED || gameState == null),
                 )
             }.stateIn(
                 scope = scope,
