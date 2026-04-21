@@ -30,9 +30,8 @@ import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LobbyViewModelTest {
-
-
-    private val testDispatcher = StandardTestDispatcher() // spezialised coroutine dispatcher used for unit testings
+    // Specialized coroutine dispatcher used for unit testings
+    private val testDispatcher = StandardTestDispatcher()
     private val testScope = TestScope(testDispatcher) // coroutine scope
     private val mockRepository = mockk<GameRepository>(relaxed = true)
     private val repoStateFlow = MutableStateFlow(GameRepositoryState())
@@ -52,92 +51,102 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `initial state reflects initial set lobby code`() = runTest {
-        val uiState = viewModel.uiState.value
-        assertEquals("12345", uiState.lobbyCode)
-        assertEquals("Not connected", uiState.connectionStatus)
-    }
-
-    @Test
-    fun `the state updates when repository state changes`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `initial state reflects initial set lobby code`() =
+        runTest {
+            val uiState = viewModel.uiState.value
+            assertEquals("12345", uiState.lobbyCode)
+            assertEquals("Not connected", uiState.connectionStatus)
         }
 
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = true,
-            gameId = "ABCDE"
-        )
-
-        advanceUntilIdle()
-
-        val uiState = viewModel.uiState.value
-        assertEquals("ABCDE", uiState.lobbyCode)
-        assertEquals("Connected", uiState.connectionStatus)
-    }
-
     @Test
-    fun `all players are mapped correctly from game state`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `the state updates when repository state changes`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameId = "ABCDE",
+                )
+
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals("ABCDE", uiState.lobbyCode)
+            assertEquals("Connected", uiState.connectionStatus)
         }
 
-        val players = listOf(
-            PlayerState(id = "p1", name = "Alice"),
-            PlayerState(id = "p2", name = "Bob")
-        )
-        val gameState = GameState(players = players, phase = GamePhase.NOT_STARTED)
-
-        repoStateFlow.value = GameRepositoryState(
-            isConnected = true,
-            gameState = gameState
-        )
-
-        advanceUntilIdle()
-
-        val uiState = viewModel.uiState.value
-        assertEquals(2, uiState.players.size)
-        assertEquals("Alice", uiState.players[0].name)
-        assertTrue(uiState.players[0].isHost)
-        assertEquals("Bob", uiState.players[1].name)
-        assertFalse(uiState.players[1].isHost)
-    }
-
     @Test
-    fun `canStartGame is true only when host and connected and not started yet`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `all players are mapped correctly from game state`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val players =
+                listOf(
+                    PlayerState(id = "p1", name = "Alice"),
+                    PlayerState(id = "p2", name = "Bob"),
+                )
+            val gameState = GameState(players = players, phase = GamePhase.NOT_STARTED)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                )
+
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals(2, uiState.players.size)
+            assertEquals("Alice", uiState.players[0].name)
+            assertTrue(uiState.players[0].isHost)
+            assertEquals("Bob", uiState.players[1].name)
+            assertFalse(uiState.players[1].isHost)
         }
 
-        // case one, connecte no game state yet (waiting for creation)
-        repoStateFlow.value = GameRepositoryState(isConnected = true)
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.canStartGame)
+    @Test
+    fun `canStartGame is true only when host and connected and not started yet`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
 
-        //Case two, Game already started
-        val startedGameState = GameState(phase = GamePhase.AUCTION)
-        repoStateFlow.value = GameRepositoryState(isConnected = true, gameState = startedGameState)
-        advanceUntilIdle()
-        assertFalse(viewModel.uiState.value.canStartGame)
+            // case one, connecte no game state yet (waiting for creation)
+            repoStateFlow.value = GameRepositoryState(isConnected = true)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.canStartGame)
 
-        // disconnected
-        repoStateFlow.value = GameRepositoryState(isConnected = false)
-        advanceUntilIdle()
+            // Case two, Game already started
+            val startedGameState = GameState(phase = GamePhase.AUCTION)
+            repoStateFlow.value =
+                GameRepositoryState(isConnected = true, gameState = startedGameState)
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canStartGame)
 
-        assertFalse(viewModel.uiState.value.canStartGame)
-    }
+            // disconnected
+            repoStateFlow.value = GameRepositoryState(isConnected = false)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.canStartGame)
+        }
 
     @Test
-    fun `startGame calls repository`() = runTest {
-        viewModel.startGame()
-        advanceUntilIdle()
-        coVerify { mockRepository.startGame() }
-    }
+    fun `startGame calls repository`() =
+        runTest {
+            viewModel.startGame()
+            advanceUntilIdle()
+            coVerify { mockRepository.startGame() }
+        }
 
     @Test
-    fun `clearError calls repository`() = runTest {
-        viewModel.clearError()
-        advanceUntilIdle()
-        verify { mockRepository.clearError() }
-    }
+    fun `clearError calls repository`() =
+        runTest {
+            viewModel.clearError()
+            advanceUntilIdle()
+            verify { mockRepository.clearError() }
+        }
 }

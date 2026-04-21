@@ -48,98 +48,105 @@ class LobbyJoiningViewModelTest {
     }
 
     @Test
-    fun `initial state is empty`() = runTest {
-        val uiState = viewModel.uiState.value
-        assertEquals("", uiState.lobbyCode)
-        assertFalse(uiState.isLoading)
-        assertNull(uiState.errorMessage)
-        assertFalse(uiState.isJoined)
-    }
-
-    @Test
-    fun `onLobbyCodeChanged updates code if valid`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `initial state is empty`() =
+        runTest {
+            val uiState = viewModel.uiState.value
+            assertEquals("", uiState.lobbyCode)
+            assertFalse(uiState.isLoading)
+            assertNull(uiState.errorMessage)
+            assertFalse(uiState.isJoined)
         }
 
-        viewModel.onLobbyCodeChanged("123")
-        advanceUntilIdle()
-        assertEquals("123", viewModel.uiState.value.lobbyCode)
-
-        viewModel.onLobbyCodeChanged("12345")
-        advanceUntilIdle()
-        assertEquals("12345", viewModel.uiState.value.lobbyCode)
-    }
-
     @Test
-    fun `onLobbyCodeChanged ignores invalid code`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `onLobbyCodeChanged updates code if valid`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onLobbyCodeChanged("123")
+            advanceUntilIdle()
+            assertEquals("123", viewModel.uiState.value.lobbyCode)
+
+            viewModel.onLobbyCodeChanged("12345")
+            advanceUntilIdle()
+            assertEquals("12345", viewModel.uiState.value.lobbyCode)
         }
 
-        viewModel.onLobbyCodeChanged("123")
-        advanceUntilIdle()
-
-        viewModel.onLobbyCodeChanged("123456") // Too long
-        advanceUntilIdle()
-        assertEquals("123", viewModel.uiState.value.lobbyCode)
-
-        viewModel.onLobbyCodeChanged("12a") // Not digits
-        advanceUntilIdle()
-        assertEquals("123", viewModel.uiState.value.lobbyCode)
-    }
-
     @Test
-    fun `joinLobby sets error if code is too short`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `onLobbyCodeChanged ignores invalid code`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onLobbyCodeChanged("123")
+            advanceUntilIdle()
+
+            viewModel.onLobbyCodeChanged("123456") // Too long
+            advanceUntilIdle()
+            assertEquals("123", viewModel.uiState.value.lobbyCode)
+
+            viewModel.onLobbyCodeChanged("12a") // Not digits
+            advanceUntilIdle()
+            assertEquals("123", viewModel.uiState.value.lobbyCode)
         }
 
-        viewModel.onLobbyCodeChanged("123")
-        viewModel.joinLobby()
-        advanceUntilIdle()
-
-        assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)
-    }
-
     @Test
-    fun `joinLobby calls repository if code is 5 digits`() = runTest {
-        viewModel.onLobbyCodeChanged("12345")
-        viewModel.joinLobby()
-        advanceUntilIdle()
+    fun `joinLobby sets error if code is too short`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
 
-        // Based on current implementation using createGame as placeholder
-        coVerify { mockRepository.createGame() }
-    }
+            viewModel.onLobbyCodeChanged("123")
+            viewModel.joinLobby()
+            advanceUntilIdle()
 
-    @Test
-    fun `state reflects joined lobby`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+            assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)
         }
 
-        repoStateFlow.value = GameRepositoryState(gameId = "54321")
-        advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value.isJoined)
-        assertEquals("54321", viewModel.uiState.value.joinedLobbyCode)
-    }
-
     @Test
-    fun `clearError clears both local and repository errors`() = runTest {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.uiState.collect {}
+    fun `joinLobby calls repository if code is 5 digits`() =
+        runTest {
+            viewModel.onLobbyCodeChanged("12345")
+            viewModel.joinLobby()
+            advanceUntilIdle()
+
+            // Based on current implementation using createGame as placeholder
+            coVerify { mockRepository.createGame() }
         }
 
-        // Trigger local error
-        viewModel.onLobbyCodeChanged("1")
-        viewModel.joinLobby()
-        advanceUntilIdle()
-        assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)
+    @Test
+    fun `state reflects joined lobby`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
 
-        viewModel.clearError()
-        advanceUntilIdle()
-        assertNull(viewModel.uiState.value.errorMessage)
-        verify { mockRepository.clearError() }
-    }
+            repoStateFlow.value = GameRepositoryState(gameId = "54321")
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isJoined)
+            assertEquals("54321", viewModel.uiState.value.joinedLobbyCode)
+        }
+
+    @Test
+    fun `clearError clears both local and repository errors`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Trigger local error
+            viewModel.onLobbyCodeChanged("1")
+            viewModel.joinLobby()
+            advanceUntilIdle()
+            assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)
+
+            viewModel.clearError()
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.errorMessage)
+            verify { mockRepository.clearError() }
+        }
 }
