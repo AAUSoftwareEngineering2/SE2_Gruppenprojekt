@@ -19,14 +19,16 @@ Commit messages must follow the format:
 
 - **feat**: A new feature.
 - **fix**: A bug fix.
+- **test**: New tests or updates to tests.
+- **refactor**: Code restructuring.
 - **config**: Build system, dependencies, or environment changes.
 - **docs**: Documentation only.
 
 ### Examples
 
-- `feat(lang): add Polish language`
+- `feat(app): add Polish language`
 - `fix: prevent racing of requests`
-- `config: update mailmap file`
+- `docs: update mailmap file`
 
 ---
 
@@ -38,19 +40,21 @@ All branch names must be lowercase and hyphen-separated.
 
 - **Character Set**: Use only alphanumeric characters (`a-z`, `0-9`) and hyphens (`-`).
 - **Separation**: Use single hyphens. No continuous hyphens (`--`) or trailing hyphens.
-- **Format**: `<type>/<task-id>-<description>`
+- **Format**: `<type>/<description>`
 
 ### Valid Types
 
 - `feat/`
-- `bugfix/`
+- `fix/`
+- `test/`
+- `refactor/`
 - `config/`
 - `docs/`
 
 ### Examples
 
-- `feat/T-456-user-authentication`
-- `bugfix/T-789-fix-header-styling`
+- `feat/user-authentication`
+- `fix/fix-header-styling`
 
 ---
 
