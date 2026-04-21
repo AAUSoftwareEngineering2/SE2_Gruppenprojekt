@@ -18,6 +18,8 @@ spring-boot = "4.0.5"
 ui = "1.10.6"
 navigationCompose = "2.8.8"
 robolectric = "4.12.1"
+mockk = "1.13.13"
+kotlinxCoroutines = "1.10.1"
 compileSdk = "36"
 minSdk = "24"
 targetSdk = "36"
@@ -61,6 +63,8 @@ ktor-client-websockets = { group = "io.ktor", name = "ktor-client-websockets", v
 ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 
 # Build tools & quality
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 sonarqube-gradle-plugin = { module = "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin", version.ref = "sonar" }
 
 # Spring Boot
