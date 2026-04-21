@@ -27,32 +27,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class GameConnectionStoreTest {
-    private class StoreHarness(
-        val store: GameConnectionStore,
+class GameRepositoryTest {
+    private class Harness(
+        val repository: GameRepository,
         val session: FakeWebSocketSession,
     ) {
-        val uiState: GameConnectionUiState
-            get() = store.uiState
+        val state: GameRepositoryState
+            get() = repository.state.value
 
         suspend fun createGame(playerName: String? = null) {
-            store.createGame(playerName)
+            repository.createGame(playerName)
         }
 
         suspend fun startGame() {
-            store.startGame()
+            repository.startGame()
         }
 
         suspend fun revealCard() {
-            store.revealCard()
+            repository.revealCard()
         }
 
         fun clearError() {
-            store.clearError()
+            repository.clearError()
         }
 
         fun disconnect() {
-            store.disconnect()
+            repository.disconnect()
         }
 
         fun sentEnvelope(): WebSocketEnvelope = session.onlySentEnvelope()
@@ -71,41 +71,41 @@ class GameConnectionStoreTest {
     private fun createHarness(
         session: FakeWebSocketSession = FakeWebSocketSession(),
         openSession: suspend () -> OpenedSession = { OpenedSession(session) },
-    ): StoreHarness {
+    ): Harness {
         val scope = CoroutineScope(Dispatchers.Unconfined + Job())
         scopes += scope
-        val store = GameConnectionStore(GameWebSocketClient(openSession = openSession), scope)
-        return StoreHarness(store, session)
+        val repository = GameRepository(GameWebSocketClient(openSession = openSession), scope)
+        return Harness(repository, session)
     }
 
-    private suspend fun flushStore() {
+    private suspend fun flushRepository() {
         repeat(3) { yield() }
     }
 
-    private suspend fun StoreHarness.receiveGameCreated(
+    private suspend fun Harness.receiveGameCreated(
         gameId: String,
         state: GameState,
     ) {
         session.deliverEnvelope(gameCreatedEnvelope(gameId, state))
-        flushStore()
+        flushRepository()
     }
 
-    private suspend fun StoreHarness.receiveGameState(
+    private suspend fun Harness.receiveGameState(
         type: WebSocketType,
         state: GameState,
     ) {
         session.deliverEnvelope(gameStateEnvelope(type, state))
-        flushStore()
+        flushRepository()
     }
 
-    private suspend fun StoreHarness.receiveError(message: String) {
+    private suspend fun Harness.receiveError(message: String) {
         session.deliverEnvelope(errorEnvelope(message))
-        flushStore()
+        flushRepository()
     }
 
-    private suspend fun StoreHarness.receiveClose(message: String = "bye") {
+    private suspend fun Harness.receiveClose(message: String = "bye") {
         session.deliverClose(message = message)
-        flushStore()
+        flushRepository()
     }
 
     private fun sampleState(
@@ -178,14 +178,14 @@ class GameConnectionStoreTest {
 
             assertEquals(WebSocketType.CREATE_GAME, harness.sentEnvelope().type)
             assertEquals("Fabio", payload.playerName)
-            assertTrue(harness.uiState.isConnected)
-            assertFalse(harness.uiState.isConnecting)
+            assertTrue(harness.state.isConnected)
+            assertFalse(harness.state.isConnecting)
 
             harness.receiveGameCreated("48307", createdState)
 
-            assertEquals("48307", harness.uiState.gameId)
-            assertEquals(createdState, harness.uiState.gameState)
-            assertNull(harness.uiState.errorMessage)
+            assertEquals("48307", harness.state.gameId)
+            assertEquals(createdState, harness.state.gameState)
+            assertNull(harness.state.errorMessage)
         }
 
     @Test
@@ -214,8 +214,8 @@ class GameConnectionStoreTest {
 
             harness.receiveGameState(WebSocketType.GAME_STARTED, startedState)
 
-            assertEquals(startedState, harness.uiState.gameState)
-            assertTrue(harness.uiState.isConnected)
+            assertEquals(startedState, harness.state.gameState)
+            assertTrue(harness.state.isConnected)
         }
 
     @Test
@@ -235,22 +235,22 @@ class GameConnectionStoreTest {
 
             harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, updatedState)
 
-            assertEquals(updatedState, harness.uiState.gameState)
-            assertEquals(revealedCard, harness.uiState.gameState?.currentFaceUpCard)
+            assertEquals(updatedState, harness.state.gameState)
+            assertEquals(revealedCard, harness.state.gameState?.currentFaceUpCard)
         }
 
     @Test
-    fun `error envelopes update the ui state and can be cleared`() =
+    fun `error envelopes update the state and can be cleared`() =
         runBlocking {
             val harness = createHarness()
 
             harness.createGame()
-            harness.receiveError("Ungueltiger Zug")
+            harness.receiveError("Invalid move")
 
-            assertEquals("Ungueltiger Zug", harness.uiState.errorMessage)
+            assertEquals("Invalid move", harness.state.errorMessage)
 
             harness.clearError()
-            assertNull(harness.uiState.errorMessage)
+            assertNull(harness.state.errorMessage)
         }
 
     @Test
@@ -260,13 +260,13 @@ class GameConnectionStoreTest {
 
             harness.createGame()
             harness.session.deliverEnvelope(WebSocketEnvelope(type = WebSocketType.GAME_CREATED))
-            flushStore()
+            flushRepository()
 
-            assertEquals("Ungueltige GAME_CREATED-Nachricht", harness.uiState.errorMessage)
+            assertEquals("Invalid GAME_CREATED message", harness.state.errorMessage)
         }
 
     @Test
-    fun `failed connection keeps the store disconnected and stores the reason`() =
+    fun `failed connection keeps the repository disconnected and stores the reason`() =
         runBlocking {
             val harness =
                 createHarness(
@@ -281,11 +281,11 @@ class GameConnectionStoreTest {
                 }
 
             assertEquals("offline", error.message)
-            assertFalse(harness.uiState.isConnected)
-            assertFalse(harness.uiState.isConnecting)
+            assertFalse(harness.state.isConnected)
+            assertFalse(harness.state.isConnecting)
             assertEquals(
-                "Verbindung fehlgeschlagen: IllegalStateException - offline",
-                harness.uiState.errorMessage,
+                "Connection failed: IllegalStateException - offline",
+                harness.state.errorMessage,
             )
         }
 
@@ -297,15 +297,15 @@ class GameConnectionStoreTest {
             harness.createGame()
             harness.receiveClose()
 
-            assertFalse(harness.uiState.isConnected)
+            assertFalse(harness.state.isConnected)
             assertEquals(
-                "Verbindung verloren: IllegalStateException - WebSocket closed (1000): bye",
-                harness.uiState.errorMessage,
+                "Connection lost: IllegalStateException - WebSocket closed (1000): bye",
+                harness.state.errorMessage,
             )
         }
 
     @Test
-    fun `disconnect resets the ui state and closes the session`() =
+    fun `disconnect resets the state and closes the session`() =
         runBlocking {
             val harness = createHarness()
             val createdState = sampleState(deckSize = 2)
@@ -314,9 +314,9 @@ class GameConnectionStoreTest {
             harness.receiveGameCreated("48307", createdState)
 
             harness.disconnect()
-            flushStore()
+            flushRepository()
 
-            assertEquals(GameConnectionUiState(), harness.uiState)
+            assertEquals(GameRepositoryState(), harness.state)
             assertTrue(harness.session.wasClosed)
         }
 }
