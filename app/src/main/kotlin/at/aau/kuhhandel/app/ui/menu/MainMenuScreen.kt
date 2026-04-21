@@ -12,9 +12,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -26,107 +23,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.game.GameRepository
-import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
-import at.aau.kuhhandel.app.ui.game.GameScreen
-import at.aau.kuhhandel.app.ui.game.GameViewModel
-import at.aau.kuhhandel.app.ui.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
-import at.aau.kuhhandel.shared.enums.GamePhase
-import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainMenuScreen(modifier: Modifier = Modifier) {
-    val currentScreen = remember { mutableStateOf<MenuScreenState>(MenuScreenState.Main) }
-    val scope = rememberCoroutineScope()
-    val repository =
-        remember(scope) {
-            GameRepository(
-                client = GameWebSocketClient(),
-                scope = scope,
-            )
-        }
-
-    val repositoryState by repository.state.collectAsState()
-    val currentPhase = repositoryState.gameState?.phase
-
-    if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
-        val gameViewModel = remember(repository, scope) { GameViewModel(repository, scope) }
-        val gameUiState by gameViewModel.uiState.collectAsState()
-
-        GameScreen(
-            modifier = modifier,
-            uiState = gameUiState,
-            onStartGame = gameViewModel::startGame,
-            onRevealCard = gameViewModel::revealCard,
-        )
-    } else {
-        when (val state = currentScreen.value) {
-            MenuScreenState.Main ->
-                MainMenuContent(
-                    modifier = modifier,
-                    onCreateLobby = { currentScreen.value = MenuScreenState.RoomCreation },
-                    onJoinLobby = { currentScreen.value = MenuScreenState.RoomJoining },
-                    onRules = { currentScreen.value = MenuScreenState.Rules },
-                )
-
-            MenuScreenState.RoomCreation ->
-                RoomCreationScreen(
-                    modifier = modifier,
-                    repositoryState = repositoryState,
-                    onCreateLobby = { repository.createGame() },
-                    onBack = {
-                        repository.disconnect()
-                        currentScreen.value = MenuScreenState.Main
-                    },
-                    onLobbyCreated = { lobbyCode ->
-                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                    },
-                )
-
-            MenuScreenState.RoomJoining ->
-                RoomJoiningScreen(
-                    modifier = modifier,
-                    onBack = { currentScreen.value = MenuScreenState.Main },
-                    onLobbyJoined = { lobbyCode ->
-                        currentScreen.value = MenuScreenState.Lobby(lobbyCode)
-                    },
-                )
-
-            is MenuScreenState.Lobby -> {
-                val lobbyViewModel =
-                    remember(repository, scope, state.lobbyCode) {
-                        LobbyViewModel(repository, scope, state.lobbyCode)
-                    }
-                val lobbyUiState by lobbyViewModel.uiState.collectAsState()
-
-                LobbyScreen(
-                    modifier = modifier,
-                    uiState = lobbyUiState,
-                    onStartGame = lobbyViewModel::startGame,
-                    onDismissError = lobbyViewModel::clearError,
-                    onBack = {
-                        repository.disconnect()
-                        currentScreen.value = MenuScreenState.Main
-                    },
-                )
-            }
-
-            MenuScreenState.Rules ->
-                RulesScreen(
-                    modifier = modifier,
-                    onBack = { currentScreen.value = MenuScreenState.Main },
-                )
-        }
-    }
-}
-
-@Composable
-private fun MainMenuContent(
+fun MainMenuScreen(
     modifier: Modifier = Modifier,
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
@@ -232,18 +136,4 @@ private fun MainMenuContent(
             Text("Ping-Server")
         }
     }
-}
-
-sealed class MenuScreenState {
-    data object Main : MenuScreenState()
-
-    data object RoomCreation : MenuScreenState()
-
-    data object RoomJoining : MenuScreenState()
-
-    data class Lobby(
-        val lobbyCode: String,
-    ) : MenuScreenState()
-
-    data object Rules : MenuScreenState()
 }
