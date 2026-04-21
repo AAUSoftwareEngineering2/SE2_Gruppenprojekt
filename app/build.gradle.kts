@@ -111,6 +111,8 @@ tasks.withType<Test> {
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports for the debug build."
     dependsOn("testDebugUnitTest")
 
     val fileFilter =
