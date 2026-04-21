@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     id("jacoco")
 }
 
-android {
+extensions.configure<com.android.build.api.dsl.ApplicationExtension> {
     namespace = "at.aau.kuhhandel.app"
     compileSdk =
         libs.versions.compileSdk
@@ -30,13 +29,13 @@ android {
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
             )
         }
-        debug {
+        getByName("debug") {
             enableUnitTestCoverage = true
         }
     }
@@ -55,8 +54,6 @@ android {
     buildFeatures {
         compose = true
     }
-
-    sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
 kotlin {
