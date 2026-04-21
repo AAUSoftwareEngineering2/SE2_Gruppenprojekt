@@ -10,7 +10,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import at.aau.kuhhandel.app.ui.KuhhandelApp
+import at.aau.kuhhandel.app.ui.menu.MainMenuScreen
 import at.aau.kuhhandel.app.ui.theme.AndroidAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             AndroidAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    KuhhandelApp(modifier = Modifier.padding(innerPadding))
+                    MainMenuScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -31,6 +31,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainMenuScreenPreview() {
     AndroidAppTheme {
-        KuhhandelApp()
+        MainMenuScreen()
     }
 }

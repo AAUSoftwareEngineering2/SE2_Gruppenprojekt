@@ -1,8 +1,5 @@
-package at.aau.kuhhandel.app.network.ping
+package at.aau.kuhhandel.app.network
 
-import at.aau.kuhhandel.app.network.ApiConfig
-import at.aau.kuhhandel.app.network.NetworkClientFactory
-import at.aau.kuhhandel.shared.ApiRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
@@ -12,7 +9,7 @@ class PingService(
 ) {
     suspend fun isServerReachable(): Result<Boolean> =
         try {
-            val response = client.get("${ApiConfig.HTTP_URL}${ApiRoutes.HEALTH}")
+            val response = client.get("https://api.se-aau.com/health")
             if (response.status.isSuccess()) {
                 Result.success(true)
             } else {

@@ -28,13 +28,6 @@ class GameService {
     fun getGame(gameId: String): GameSession? = sessions[gameId]
 
     /**
-     * Removes the game session with the given game id.
-     */
-    fun removeGame(gameId: String) {
-        sessions.remove(gameId)
-    }
-
-    /**
      * Starts an existing game.
      */
     fun startGame(gameId: String): GameState? {

@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -14,7 +15,7 @@ private val DarkColorScheme =
         background = PureWhite,
         surface = WhitePurple,
         onPrimary = Color.White,
-        onBackground = BackgroundGreen,
+        onBackground = Color.White,
     )
 
 private val LightColorScheme =
@@ -22,14 +23,10 @@ private val LightColorScheme =
         primary = DefaultPurple,
         secondary = DarkPurple,
         tertiary = LightPurple,
-        background = BackgroundGreen,
+        background = PureWhite,
         surface = WhitePurple,
         onPrimary = Color.White,
         onBackground = DarkPurple,
-        primaryContainer = LightPurple,
-        onPrimaryContainer = DarkPurple,
-        surfaceVariant = WhitePurple,
-        onSurfaceVariant = DarkPurple,
     )
 
 @Composable
