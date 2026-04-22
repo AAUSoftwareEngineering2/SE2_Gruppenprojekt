@@ -4,8 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import at.aau.kuhhandel.app.R
 
-internal fun shouldPlayMenuMusic(isGameStarted: Boolean): Boolean =
-    !isGameStarted
+internal fun shouldPlayMenuMusic(isGameStarted: Boolean): Boolean = !isGameStarted
 
 internal fun MediaPlayer.managePlayback(isGameStarted: Boolean) {
     if (shouldPlayMenuMusic(isGameStarted)) {

@@ -55,7 +55,6 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     }
 
     MenuMusicPlayer(isGameStarted = isGameStarted) {
-
         NavHost(
             navController = navController,
             startDestination = Screen.Main,
