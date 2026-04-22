@@ -123,6 +123,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             "**/Manifest*.*",
             "**/*Test*.*",
             "android/**/*.*",
+            "**/audio/**",
         )
 
     val debugTree =
