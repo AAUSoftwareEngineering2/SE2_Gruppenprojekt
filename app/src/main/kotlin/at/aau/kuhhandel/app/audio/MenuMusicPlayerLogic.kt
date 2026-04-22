@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.audio
 
 import android.content.Context
 import android.media.MediaPlayer
+import at.aau.kuhhandel.app.R
 
 internal fun shouldPlayMenuMusic(isGameStarted: Boolean): Boolean =
     !isGameStarted
@@ -16,7 +17,7 @@ internal fun MediaPlayer.managePlayback(isGameStarted: Boolean) {
 }
 
 internal fun createMenuMediaPlayer(context: Context): MediaPlayer =
-    MediaPlayer.create(context, at.aau.kuhhandel.app.R.raw.mainmenu)
+    MediaPlayer.create(context, R.raw.mainmenu)
 
 internal fun releaseMediaPlayer(mediaPlayer: MediaPlayer) {
     mediaPlayer.release()

@@ -30,7 +30,6 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 fun KuhhandelApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
-
     val repository =
         remember(scope) {
             GameRepository(
@@ -42,19 +41,19 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val repositoryState by repository.state.collectAsState()
     val currentPhase = repositoryState.gameState?.phase
 
-    // 👉 Musik soll nur laufen, wenn Spiel NICHT gestartet ist
+    // Musiksteuerung
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
-    // 👉 Navigation wenn Spiel startet
+    // Handle Game State transitions via Navigation
     LaunchedEffect(currentPhase) {
         if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
             navController.navigate(Screen.Game) {
+                // Pop up to Main to clear the backstack when game starts
                 popUpTo(Screen.Main) { inclusive = false }
             }
         }
     }
 
-    // 👉 HIER wird Musik gesteuert
     MenuMusicPlayer(isGameStarted = isGameStarted) {
 
         NavHost(
