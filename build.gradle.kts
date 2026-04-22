@@ -37,12 +37,13 @@ configure<SonarExtension> {
             "sonar.exclusions",
             listOf(
                 "**/ui/**",
+                "**/audio/**",
                 ".github/**",
                 "deploy/**",
                 ".dockerignore",
             ).joinToString(","),
         )
-        property("sonar.coverage.exclusions", "**/ui/**")
+        property("sonar.coverage.exclusions", "**/ui/**,**/audio/**")
         property("sonar.kotlin.source.version", "2.0")
     }
 }
