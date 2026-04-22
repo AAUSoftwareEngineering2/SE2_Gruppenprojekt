@@ -5,10 +5,10 @@ Engineering II course at Alpen-Adria-Universität Klagenfurt.
 
 ### Tech Stack
 
-* **Frontend:** Kotlin, Jetpack Compose (Android)
-* **Backend:** Spring Boot (Kotlin)
-* **Communication:** WebSockets via the STOMP protocol (using Krossbow on Android)
-* **Build System:** Gradle with ktlint for consistent code styling
+* **Frontend:** Android app using Kotlin, Jetpack Compose, and Ktor
+* **Backend:** Server using Kotlin and Spring Boot
+* **Communication Protocol:** WebSockets with JSON payloads
+* **Build System:** Gradle with ktlint
 
 ## Project Structure
 
