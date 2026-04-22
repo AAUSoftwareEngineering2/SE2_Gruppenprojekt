@@ -1,11 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     id("jacoco")
 }
 
-extensions.configure<com.android.build.api.dsl.ApplicationExtension> {
+android {
     namespace = "at.aau.kuhhandel.app"
     compileSdk =
         libs.versions.compileSdk
@@ -29,13 +30,13 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension> {
     }
 
     buildTypes {
-        getByName("release") {
+        release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
             )
         }
-        getByName("debug") {
+        debug {
             enableUnitTestCoverage = true
         }
     }
@@ -54,6 +55,8 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension> {
     buildFeatures {
         compose = true
     }
+
+    sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
 kotlin {
@@ -64,7 +67,6 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -83,24 +85,25 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.ui)
 
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)
-    testRuntimeOnly(libs.junit.jupiter.engine)
-    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.robolectric)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.test.manifest)
+
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-
-    debugImplementation(libs.androidx.ui.tooling)
 }
 
 tasks.withType<Test> {
@@ -108,6 +111,8 @@ tasks.withType<Test> {
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports for the debug build."
     dependsOn("testDebugUnitTest")
 
     val fileFilter =
@@ -118,6 +123,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             "**/Manifest*.*",
             "**/*Test*.*",
             "android/**/*.*",
+            "**/audio/**",
         )
 
     val debugTree =
