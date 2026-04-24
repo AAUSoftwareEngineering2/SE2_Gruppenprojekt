@@ -30,4 +30,23 @@ class GameSession(
         gameState = stateMachine.apply(gameState, GameCommand.RevealCard)
         return gameState
     }
+
+    fun chooseAuction(): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.ChooseAuction)
+        return gameState
+    }
+
+    fun chooseTrade(challengedPlayerId: String): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.ChooseTrade(challengedPlayerId),
+            )
+        return gameState
+    }
+
+    fun finishRound(): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.FinishRound)
+        return gameState
+    }
 }

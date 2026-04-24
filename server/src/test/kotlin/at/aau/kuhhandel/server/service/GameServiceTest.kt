@@ -3,6 +3,7 @@ package at.aau.kuhhandel.server.service
 import at.aau.kuhhandel.shared.enums.GamePhase
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -121,5 +122,75 @@ class GameServiceTest {
         assertNotNull(finalState)
         assertEquals(GamePhase.FINISHED, finalState.phase)
         assertNull(finalState.currentFaceUpCard)
+    }
+
+    @Test
+    fun test_chooseAuction_updatesGameState() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+        service.revealNextCard(session.gameId)
+
+        val state = service.chooseAuction(session.gameId)
+
+        assertNotNull(state)
+        assertEquals(GamePhase.AUCTION, state.phase)
+        assertNotNull(state.auctionState)
+        assertNull(state.currentFaceUpCard)
+    }
+
+    @Test
+    fun test_chooseAuction_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.chooseAuction("99999")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun test_chooseTrade_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.chooseTrade("99999", "player-2")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun test_chooseTrade_propagatesInvalidTrade() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.chooseTrade(session.gameId, "player-2")
+        }
+    }
+
+    @Test
+    fun test_finishRound_updatesGameState() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+        service.revealNextCard(session.gameId)
+        service.chooseAuction(session.gameId)
+
+        val state = service.finishRound(session.gameId)
+
+        assertNotNull(state)
+        assertEquals(GamePhase.PLAYER_TURN, state.phase)
+        assertEquals(2, state.roundNumber)
+        assertNull(state.auctionState)
+        assertNull(state.tradeState)
+    }
+
+    @Test
+    fun test_finishRound_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.finishRound("99999")
+
+        assertNull(result)
     }
 }
