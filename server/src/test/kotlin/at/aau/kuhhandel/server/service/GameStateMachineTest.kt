@@ -90,33 +90,42 @@ class GameStateMachineTest {
     }
 
     @Test
-    fun test_chooseAuction_movesPhaseToAuction() {
-        val card = AnimalCard(id = "1", type = AnimalType.COW)
+    fun test_chooseAuction_drawsTopCardAndMovesPhaseToAuction() {
         val state =
             GameState(
                 phase = GamePhase.PLAYER_TURN,
                 roundNumber = 1,
                 players = listOf(player("player-1")),
-                currentFaceUpCard = card,
+                deck =
+                    AnimalDeck(
+                        listOf(
+                            AnimalCard(id = "1", type = AnimalType.COW),
+                            AnimalCard(id = "2", type = AnimalType.DOG),
+                        ),
+                    ),
             )
 
         val updatedState = stateMachine.apply(state, GameCommand.ChooseAuction)
 
         assertEquals(GamePhase.AUCTION, updatedState.phase)
-        assertEquals(AuctionState(auctionCard = card), updatedState.auctionState)
+        assertEquals(
+            AuctionState(auctionCard = AnimalCard(id = "2", type = AnimalType.DOG)),
+            updatedState.auctionState,
+        )
+        assertEquals(1, updatedState.deck.size())
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.tradeState)
     }
 
     @Test
-    fun test_chooseAuction_rejectsMissingFaceUpCard() {
+    fun test_chooseAuction_rejectsEmptyDeck() {
         val state =
             GameState(
                 phase = GamePhase.PLAYER_TURN,
                 players = listOf(player("player-1")),
             )
 
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<IllegalStateException> {
             stateMachine.apply(state, GameCommand.ChooseAuction)
         }
     }
@@ -126,7 +135,7 @@ class GameStateMachineTest {
         val state =
             GameState(
                 phase = GamePhase.TRADE,
-                currentFaceUpCard = AnimalCard(id = "1", type = AnimalType.COW),
+                deck = AnimalDeck(listOf(AnimalCard(id = "1", type = AnimalType.COW))),
             )
 
         assertFailsWith<IllegalStateException> {

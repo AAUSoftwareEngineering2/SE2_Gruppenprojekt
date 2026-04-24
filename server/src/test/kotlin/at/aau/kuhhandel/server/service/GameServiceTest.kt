@@ -129,13 +129,13 @@ class GameServiceTest {
         val service = GameService()
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
-        service.revealNextCard(session.gameId)
 
         val state = service.chooseAuction(session.gameId)
 
         assertNotNull(state)
         assertEquals(GamePhase.AUCTION, state.phase)
         assertNotNull(state.auctionState)
+        assertEquals(2, state.deck.size())
         assertNull(state.currentFaceUpCard)
     }
 
@@ -173,7 +173,6 @@ class GameServiceTest {
         val service = GameService()
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
-        service.revealNextCard(session.gameId)
         service.chooseAuction(session.gameId)
 
         val state = service.finishRound(session.gameId)

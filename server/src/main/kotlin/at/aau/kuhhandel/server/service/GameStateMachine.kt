@@ -67,15 +67,17 @@ class GameStateMachine {
             "Cannot start an auction during phase ${state.phase}"
         }
 
-        val auctionCard =
-            requireNotNull(state.currentFaceUpCard) {
-                "Cannot start an auction without a revealed animal card"
-            }
+        check(!state.deck.isEmpty()) {
+            "Cannot start an auction without animal cards in the deck"
+        }
+
+        val (auctionCard, updatedDeck) = state.deck.drawTopCard()
 
         return state.copy(
             phase = GamePhase.AUCTION,
+            deck = updatedDeck,
             currentFaceUpCard = null,
-            auctionState = AuctionState(auctionCard = auctionCard),
+            auctionState = AuctionState(auctionCard = requireNotNull(auctionCard)),
             tradeState = null,
         )
     }

@@ -119,12 +119,12 @@ class GameSessionTest {
     fun test_chooseAuction_updatesStoredState() {
         val session = GameSession("12345", "player-1")
         session.startGame()
-        session.revealNextCard()
 
         val state = session.chooseAuction()
 
         assertEquals(GamePhase.AUCTION, state.phase)
         assertNotNull(state.auctionState)
+        assertEquals(2, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(GamePhase.AUCTION, session.gameState.phase)
     }
@@ -143,7 +143,6 @@ class GameSessionTest {
     fun test_finishRound_updatesStoredState() {
         val session = GameSession("12345", "player-1")
         session.startGame()
-        session.revealNextCard()
         session.chooseAuction()
 
         val state = session.finishRound()
