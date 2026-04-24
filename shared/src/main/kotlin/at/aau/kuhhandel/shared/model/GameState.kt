@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GameState(
     val phase: GamePhase = GamePhase.NOT_STARTED,
+    val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = 0,
