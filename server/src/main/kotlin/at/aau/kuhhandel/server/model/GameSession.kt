@@ -1,15 +1,14 @@
 package at.aau.kuhhandel.server.model
 
-import at.aau.kuhhandel.shared.enums.AnimalType
-import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.AnimalDeck
+import at.aau.kuhhandel.server.service.GameCommand
+import at.aau.kuhhandel.server.service.GameStateMachine
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
 
 class GameSession(
     val gameId: String,
     val playerId: String,
+    private val stateMachine: GameStateMachine = GameStateMachine(),
 ) {
     // Each session manages its own current game state
     var gameState: GameState =
@@ -20,25 +19,7 @@ class GameSession(
      * Starts a game with a simple initial deck.
      */
     fun startGame(): GameState {
-        val initialDeck =
-            AnimalDeck(
-                listOf(
-                    AnimalCard(id = "1", type = AnimalType.COW),
-                    AnimalCard(id = "2", type = AnimalType.DOG),
-                    AnimalCard(id = "3", type = AnimalType.CAT),
-                ),
-            )
-
-        gameState =
-            gameState.copy(
-                phase = GamePhase.PLAYER_TURN,
-                deck = initialDeck,
-                currentFaceUpCard = null,
-                currentPlayerIndex = 0,
-                auctionState = null,
-                tradeState = null,
-            )
-
+        gameState = stateMachine.apply(gameState, GameCommand.StartGame)
         return gameState
     }
 
@@ -46,30 +27,26 @@ class GameSession(
      * Reveals the next card from the deck.
      */
     fun revealNextCard(): GameState {
-        val currentState = gameState
+        gameState = stateMachine.apply(gameState, GameCommand.RevealCard)
+        return gameState
+    }
 
-        if (currentState.deck.isEmpty()) {
-            gameState =
-                currentState.copy(
-                    phase = GamePhase.FINISHED,
-                    currentFaceUpCard = null,
-                    auctionState = null,
-                    tradeState = null,
-                )
-            return gameState
-        }
+    fun chooseAuction(): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.ChooseAuction)
+        return gameState
+    }
 
-        val (nextCard, updatedDeck) = currentState.deck.drawTopCard()
-
+    fun chooseTrade(challengedPlayerId: String): GameState {
         gameState =
-            currentState.copy(
-                deck = updatedDeck,
-                currentFaceUpCard = nextCard,
-                phase = GamePhase.PLAYER_TURN,
-                auctionState = null,
-                tradeState = null,
+            stateMachine.apply(
+                gameState,
+                GameCommand.ChooseTrade(challengedPlayerId),
             )
+        return gameState
+    }
 
+    fun finishRound(): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.FinishRound)
         return gameState
     }
 }

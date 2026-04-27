@@ -57,6 +57,24 @@ class GameService {
         return updatedState
     }
 
+    fun chooseAuction(gameId: String): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.chooseAuction()
+    }
+
+    fun chooseTrade(
+        gameId: String,
+        challengedPlayerId: String,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.chooseTrade(challengedPlayerId)
+    }
+
+    fun finishRound(gameId: String): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.finishRound()
+    }
+
     /**
      * Generates a unique 5-digit game code.
      */

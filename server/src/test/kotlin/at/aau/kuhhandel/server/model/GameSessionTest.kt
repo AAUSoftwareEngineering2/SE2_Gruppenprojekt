@@ -3,6 +3,7 @@ package at.aau.kuhhandel.server.model
 import at.aau.kuhhandel.shared.enums.GamePhase
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -112,5 +113,44 @@ class GameSessionTest {
         assertNull(finalState.currentFaceUpCard)
         assertNull(finalState.auctionState)
         assertNull(finalState.tradeState)
+    }
+
+    @Test
+    fun test_chooseAuction_updatesStoredState() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+
+        val state = session.chooseAuction()
+
+        assertEquals(GamePhase.AUCTION, state.phase)
+        assertNotNull(state.auctionState)
+        assertEquals(2, state.deck.size())
+        assertNull(state.currentFaceUpCard)
+        assertEquals(GamePhase.AUCTION, session.gameState.phase)
+    }
+
+    @Test
+    fun test_chooseTrade_rejectsUnknownPlayer() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+
+        assertFailsWith<IllegalArgumentException> {
+            session.chooseTrade("player-2")
+        }
+    }
+
+    @Test
+    fun test_finishRound_updatesStoredState() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+        session.chooseAuction()
+
+        val state = session.finishRound()
+
+        assertEquals(GamePhase.PLAYER_TURN, state.phase)
+        assertEquals(2, state.roundNumber)
+        assertNull(state.auctionState)
+        assertNull(state.tradeState)
+        assertEquals(state, session.gameState)
     }
 }
