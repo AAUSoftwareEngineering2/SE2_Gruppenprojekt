@@ -12,6 +12,7 @@ class GameStateTest {
         val state = GameState()
 
         assertEquals(GamePhase.NOT_STARTED, state.phase)
+        assertEquals(0, state.roundNumber)
         assertEquals(0, state.currentPlayerIndex)
         assertNull(state.currentFaceUpCard)
         assertTrue(state.players.isEmpty())
@@ -34,6 +35,7 @@ class GameStateTest {
         val state =
             GameState(
                 phase = GamePhase.AUCTION,
+                roundNumber = 2,
                 deck = AnimalDeck(listOf(card)),
                 currentFaceUpCard = card,
                 currentPlayerIndex = 1,
@@ -43,6 +45,7 @@ class GameStateTest {
             )
 
         assertEquals(GamePhase.AUCTION, state.phase)
+        assertEquals(2, state.roundNumber)
         assertEquals(card, state.currentFaceUpCard)
         assertEquals(1, state.currentPlayerIndex)
         assertEquals(auctionState, state.auctionState)
