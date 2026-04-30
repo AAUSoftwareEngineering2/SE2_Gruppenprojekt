@@ -1,5 +1,8 @@
 package at.aau.kuhhandel.shared.enums
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class AnimalType(
     val points: Int,
 ) {

@@ -3,8 +3,6 @@ import org.sonarqube.gradle.SonarExtension
 // Root build file — only declares plugins used across sub-projects.
 // Actual configuration lives in each sub-project's own build.gradle.kts.
 
-// Using buildscript because the standard "alias" version
-// of the Sonar plugin is currently broken in Gradle 9.
 buildscript {
     repositories {
         gradlePluginPortal()
@@ -27,7 +25,6 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
 }
 
-// See the comment above "buildscript"
 apply(plugin = "org.sonarqube")
 
 configure<SonarExtension> {
@@ -35,32 +32,54 @@ configure<SonarExtension> {
         property("sonar.projectKey", "AAUSoftwareEngineering2_SE2_Gruppenprojekt")
         property("sonar.organization", "aausoftwareengineering2")
         property("sonar.host.url", "https://sonarcloud.io")
+
         property(
             "sonar.exclusions",
             listOf(
+                "**/ui/**",
+                "**/audio/**",
                 ".github/**",
                 "deploy/**",
                 ".dockerignore",
             ).joinToString(","),
         )
-
-        property("sonar.java.binaries", "**/build/classes/kotlin/main,**/build/tmp/kotlin-classes/debug")
+        property("sonar.coverage.exclusions", "**/ui/**,**/audio/**")
         property("sonar.kotlin.source.version", "2.0")
-        property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/**/*.xml")
     }
+}
+
+tasks.named("sonar") {
+    dependsOn(
+        ":shared:jacocoTestReport",
+        ":server:jacocoTestReport",
+        ":app:jacocoTestReport",
+    )
 }
 
 subprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
     apply(plugin = "jacoco")
 
-    // Konfiguration für JVM-Module (shared & server)
-    tasks.withType<JacocoReport>().configureEach {
-        dependsOn(tasks.withType<Test>()) // Tests müssen vor dem Report laufen
+    // Configure Sonar properties for each subproject
+    apply(plugin = "org.sonarqube")
 
+    // This allows each subproject to report its own coverage to Sonar
+    extensions.configure<SonarExtension> {
+        properties {
+            val reportPath = if (project.name == "app") {
+                "${project.layout.buildDirectory.get()}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+            } else {
+                "${project.layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml"
+            }
+            property("sonar.coverage.jacoco.xmlReportPaths", reportPath)
+        }
+    }
+
+    // Konfiguration für alle Jacoco-Reports (XML für Sonar)
+    tasks.withType<JacocoReport>().configureEach {
         reports {
-            xml.required.set(true) // XML für Sonar
-            html.required.set(true) // Optional für lokale Ansicht
+            xml.required.set(true)
+            html.required.set(true)
         }
     }
 }
