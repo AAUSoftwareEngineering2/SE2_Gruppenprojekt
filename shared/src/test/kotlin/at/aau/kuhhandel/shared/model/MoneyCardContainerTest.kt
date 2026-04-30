@@ -1,12 +1,12 @@
 package at.aau.kuhhandel.shared.model
 
-import at.aau.kuhhandel.shared.enums.AnimalType
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MoneyCardContainerTest {
-
     private lateinit var container: MoneyCardContainer
     private lateinit var card1: MoneyCard
     private lateinit var card2: MoneyCard

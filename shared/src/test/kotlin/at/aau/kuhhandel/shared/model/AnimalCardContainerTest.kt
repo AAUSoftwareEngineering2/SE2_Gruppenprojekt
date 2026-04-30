@@ -1,13 +1,15 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.AnimalType
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
-import org.junit.Test
-
+import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AnimalCardContainerTest {
-
     private lateinit var container: AnimalCardContainer
     private lateinit var cowCard: AnimalCard
     private lateinit var pigCard: AnimalCard
@@ -53,8 +55,8 @@ class AnimalCardContainerTest {
         container.addCard(pigCard)
         val removed = container.removeCard(AnimalType.COW)
         assertNotNull(removed)
-        assertEquals(AnimalType.COW, removed?.type)
-        assertEquals("cow1", removed?.id)
+        assertEquals(AnimalType.COW, removed.type)
+        assertEquals("cow1", removed.id)
         assertEquals(1, container.numberOfCards())
         assertNull(container.removeCard(AnimalType.COW))
     }
