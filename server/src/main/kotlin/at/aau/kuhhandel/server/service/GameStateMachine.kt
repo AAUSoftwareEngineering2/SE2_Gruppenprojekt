@@ -18,6 +18,7 @@ class GameStateMachine {
             GameCommand.StartGame -> startGame(state)
             GameCommand.RevealCard -> revealCard(state)
             GameCommand.ChooseAuction -> chooseAuction(state)
+            is GameCommand.PlaceBid -> placeBid(state, command)
             is GameCommand.ChooseTrade -> chooseTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
         }
@@ -72,13 +73,53 @@ class GameStateMachine {
         }
 
         val (auctionCard, updatedDeck) = state.deck.drawTopCard()
+        val activePlayer = requireActivePlayer(state)
 
         return state.copy(
             phase = GamePhase.AUCTION,
             deck = updatedDeck,
             currentFaceUpCard = null,
-            auctionState = AuctionState(auctionCard = requireNotNull(auctionCard)),
+            auctionState =
+                AuctionState(
+                    auctionCard = requireNotNull(auctionCard),
+                    auctioneerId = activePlayer.id,
+                ),
             tradeState = null,
+        )
+    }
+
+    private fun placeBid(
+        state: GameState,
+        command: GameCommand.PlaceBid,
+    ): GameState {
+        check(state.phase == GamePhase.AUCTION) {
+            "Cannot place a bid during phase ${state.phase}"
+        }
+
+        val auctionState =
+            requireNotNull(state.auctionState) {
+                "Cannot place a bid without an active auction"
+            }
+
+        check(!auctionState.isClosed) {
+            "Cannot place a bid after the auction is closed"
+        }
+        require(command.bidderId != auctionState.auctioneerId) {
+            "Auctioneer cannot bid in their own auction"
+        }
+        require(state.players.any { it.id == command.bidderId }) {
+            "Unknown bidder ${command.bidderId}"
+        }
+        require(command.amount > auctionState.highestBid) {
+            "Bid must be higher than current highest bid"
+        }
+
+        return state.copy(
+            auctionState =
+                auctionState.copy(
+                    highestBid = command.amount,
+                    highestBidderId = command.bidderId,
+                ),
         )
     }
 

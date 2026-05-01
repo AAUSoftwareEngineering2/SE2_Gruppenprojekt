@@ -149,6 +149,27 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_placeBid_propagatesInvalidBid() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+        service.chooseAuction(session.gameId)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.placeBid(session.gameId, "player-2", 10)
+        }
+    }
+
+    @Test
+    fun test_placeBid_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.placeBid("99999", "player-2", 10)
+
+        assertNull(result)
+    }
+
+    @Test
     fun test_chooseTrade_returnsNull_forInvalidGameId() {
         val service = GameService()
 

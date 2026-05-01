@@ -62,6 +62,15 @@ class GameService {
         return session.chooseAuction()
     }
 
+    fun placeBid(
+        gameId: String,
+        bidderId: String,
+        amount: Int,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.placeBid(bidderId, amount)
+    }
+
     fun chooseTrade(
         gameId: String,
         challengedPlayerId: String,

@@ -10,6 +10,11 @@ sealed interface GameCommand {
 
     data object ChooseAuction : GameCommand
 
+    data class PlaceBid(
+        val bidderId: String,
+        val amount: Int,
+    ) : GameCommand
+
     data class ChooseTrade(
         val challengedPlayerId: String,
     ) : GameCommand

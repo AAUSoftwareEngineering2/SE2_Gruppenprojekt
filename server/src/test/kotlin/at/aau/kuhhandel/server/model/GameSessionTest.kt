@@ -130,6 +130,17 @@ class GameSessionTest {
     }
 
     @Test
+    fun test_placeBid_rejectsUnknownBidder() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+        session.chooseAuction()
+
+        assertFailsWith<IllegalArgumentException> {
+            session.placeBid("player-2", 10)
+        }
+    }
+
+    @Test
     fun test_chooseTrade_rejectsUnknownPlayer() {
         val session = GameSession("12345", "player-1")
         session.startGame()
