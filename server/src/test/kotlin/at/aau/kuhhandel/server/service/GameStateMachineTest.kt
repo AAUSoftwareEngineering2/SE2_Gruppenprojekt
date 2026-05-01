@@ -253,6 +253,141 @@ class GameStateMachineTest {
     }
 
     @Test
+    fun test_closeAuction_marksAuctionClosed() {
+        val state = activeAuctionState()
+
+        val updatedState = stateMachine.apply(state, GameCommand.CloseAuction)
+
+        assertEquals(true, updatedState.auctionState?.isClosed)
+    }
+
+    @Test
+    fun test_closeAuction_rejectsOutsideAuction() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_closeAuction_rejectsMissingAuctionState() {
+        val state =
+            GameState(
+                phase = GamePhase.AUCTION,
+                players = listOf(player("player-1"), player("player-2")),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_closeAuction_rejectsAlreadyClosedAuction() {
+        val state =
+            activeAuctionState(
+                auctionFixture(isClosed = true),
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_resolveAuction_sellsCardToHighestBidder() {
+        val state =
+            activeAuctionState(
+                auctionFixture(
+                    highestBid = 10,
+                    highestBidderId = "player-2",
+                    isClosed = true,
+                ),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[1].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_allowsAuctioneerToBuyCard() {
+        val state =
+            activeAuctionState(
+                auctionFixture(
+                    highestBid = 10,
+                    highestBidderId = "player-2",
+                    isClosed = true,
+                ),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = true),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[0].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_withoutBidGivesCardToAuctioneer() {
+        val state = activeAuctionState(auctionFixture(isClosed = true))
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[0].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_rejectsOutsideAuction() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+        }
+    }
+
+    @Test
+    fun test_resolveAuction_rejectsOpenAuction() {
+        val state = activeAuctionState()
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+        }
+    }
+
+    @Test
     fun test_chooseTrade_movesPhaseToTrade() {
         val cow = AnimalCard(id = "cow-1", type = AnimalType.COW)
         val state =

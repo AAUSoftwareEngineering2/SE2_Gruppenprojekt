@@ -141,6 +141,21 @@ class GameSessionTest {
     }
 
     @Test
+    fun test_resolveAuction_updatesStoredState() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+        session.chooseAuction()
+        session.closeAuction()
+
+        val state = session.resolveAuction(auctioneerBuysCard = false)
+
+        assertEquals(GamePhase.ROUND_END, state.phase)
+        assertEquals(1, state.players[0].animals.size)
+        assertNull(state.auctionState)
+        assertEquals(state, session.gameState)
+    }
+
+    @Test
     fun test_chooseTrade_rejectsUnknownPlayer() {
         val session = GameSession("12345", "player-1")
         session.startGame()

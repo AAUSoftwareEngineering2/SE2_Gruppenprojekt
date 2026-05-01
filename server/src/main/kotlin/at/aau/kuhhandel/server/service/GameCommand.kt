@@ -15,6 +15,12 @@ sealed interface GameCommand {
         val amount: Int,
     ) : GameCommand
 
+    data object CloseAuction : GameCommand
+
+    data class ResolveAuction(
+        val auctioneerBuysCard: Boolean,
+    ) : GameCommand
+
     data class ChooseTrade(
         val challengedPlayerId: String,
     ) : GameCommand

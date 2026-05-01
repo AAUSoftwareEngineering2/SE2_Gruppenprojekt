@@ -170,6 +170,40 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_closeAuction_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.closeAuction("99999")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun test_resolveAuction_updatesGameState() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+        service.chooseAuction(session.gameId)
+        service.closeAuction(session.gameId)
+
+        val state = service.resolveAuction(session.gameId, auctioneerBuysCard = false)
+
+        assertNotNull(state)
+        assertEquals(GamePhase.ROUND_END, state.phase)
+        assertEquals(1, state.players[0].animals.size)
+        assertNull(state.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.resolveAuction("99999", auctioneerBuysCard = false)
+
+        assertNull(result)
+    }
+
+    @Test
     fun test_chooseTrade_returnsNull_forInvalidGameId() {
         val service = GameService()
 

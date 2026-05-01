@@ -48,6 +48,20 @@ class GameSession(
         return gameState
     }
 
+    fun closeAuction(): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.CloseAuction)
+        return gameState
+    }
+
+    fun resolveAuction(auctioneerBuysCard: Boolean): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.ResolveAuction(auctioneerBuysCard),
+            )
+        return gameState
+    }
+
     fun chooseTrade(challengedPlayerId: String): GameState {
         gameState =
             stateMachine.apply(
