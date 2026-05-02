@@ -23,4 +23,7 @@ sealed class Screen {
 
     @Serializable
     data object Game : Screen()
+
+    @Serializable
+    data object GamePrototype : Screen()
 }

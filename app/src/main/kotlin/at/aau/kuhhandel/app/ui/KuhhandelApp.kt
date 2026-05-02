@@ -15,6 +15,7 @@ import at.aau.kuhhandel.app.audio.MenuMusicPlayer
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
+import at.aau.kuhhandel.app.ui.game.GameScreenPrototype
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
@@ -65,6 +66,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onCreateLobby = { navController.navigate(Screen.RoomCreation) },
                     onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                     onRules = { navController.navigate(Screen.Rules) },
+                    onGamePrototype = { navController.navigate(Screen.GamePrototype) }
                 )
             }
 
@@ -146,6 +148,20 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                 val gameUiState by gameViewModel.uiState.collectAsState()
 
                 GameScreen(
+                    uiState = gameUiState,
+                    onStartGame = gameViewModel::startGame,
+                    onRevealCard = gameViewModel::revealCard,
+                )
+            }
+
+            composable<Screen.GamePrototype> {
+                val gameViewModel =
+                    remember(repository, scope) {
+                        GameViewModel(repository, scope)
+                    }
+                val gameUiState by gameViewModel.uiState.collectAsState()
+
+                GameScreenPrototype(
                     uiState = gameUiState,
                     onStartGame = gameViewModel::startGame,
                     onRevealCard = gameViewModel::revealCard,
