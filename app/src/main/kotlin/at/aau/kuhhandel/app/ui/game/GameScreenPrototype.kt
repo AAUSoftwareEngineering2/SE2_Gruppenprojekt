@@ -56,14 +56,15 @@ fun GameScreenPrototype(
     MainBackground(modifier = modifier)
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp),
     ) {
         // --- TOP: OPPONENTS ---
         OpponentListPrototype(
             players = uiState.gameState?.players ?: emptyList(),
-            myId = uiState.myPlayerId
+            myId = uiState.myPlayerId,
         )
 
         Spacer(modifier = Modifier.weight(1f))
@@ -82,7 +83,7 @@ fun GameScreenPrototype(
                     } else {
                         Text(
                             "Waiting for host to start...",
-                            style = MaterialTheme.typography.headlineSmall
+                            style = MaterialTheme.typography.headlineSmall,
                         )
                     }
                 }
@@ -93,7 +94,7 @@ fun GameScreenPrototype(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
                             modifier = Modifier.size(100.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                         Text(uiState.deckCountText, style = MaterialTheme.typography.titleMedium)
 
@@ -107,7 +108,7 @@ fun GameScreenPrototype(
                             Text(
                                 "Waiting for ${uiState.activePlayerName}...",
                                 color = Color.Gray,
-                                modifier = Modifier.padding(top = 8.dp)
+                                modifier = Modifier.padding(top = 8.dp),
                             )
                         }
                     }
@@ -122,7 +123,7 @@ fun GameScreenPrototype(
                     Text(
                         "TRADE CHALLENGE",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.tertiary,
                     )
                 }
 
@@ -141,16 +142,19 @@ fun GameScreenPrototype(
         // --- BOTTOM: PLAYER'S OWN AREA ---
         PlayerFarmPrototype(
             player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
-            isMyTurn = uiState.isMyTurn
+            isMyTurn = uiState.isMyTurn,
         )
     }
 }
 
 @Composable
-fun OpponentListPrototype(players: List<PlayerState>, myId: String) {
+fun OpponentListPrototype(
+    players: List<PlayerState>,
+    myId: String,
+) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         items(players.filter { it.id != myId }) { player ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -158,9 +162,10 @@ fun OpponentListPrototype(players: List<PlayerState>, myId: String) {
                     imageVector = Icons.Default.AccountCircle,
                     contentDescription = null,
                     tint = Color.LightGray,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    modifier =
+                        Modifier
+                            .size(56.dp)
+                            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape),
                 )
                 Text(player.name, style = MaterialTheme.typography.labelMedium)
                 // TODO: Display owned animal types as small icons
@@ -175,15 +180,16 @@ fun AuctionViewPrototype(auction: AuctionState?) {
     if (auction == null) return
 
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            ),
         elevation = CardDefaults.cardElevation(8.dp),
-        modifier = Modifier.padding(horizontal = 32.dp)
+        modifier = Modifier.padding(horizontal = 32.dp),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("LIVE AUCTION", style = MaterialTheme.typography.labelLarge)
             Spacer(modifier = Modifier.height(12.dp))
@@ -195,11 +201,11 @@ fun AuctionViewPrototype(auction: AuctionState?) {
 
             Text(
                 "Highest Bid: ${auction.highestBid}",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
             Text(
                 "By: ${auction.highestBidderId ?: "No bids yet"}",
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
 
             // TODO: Add numeric input and "Place Bid" button
@@ -209,34 +215,43 @@ fun AuctionViewPrototype(auction: AuctionState?) {
 }
 
 @Composable
-fun PlayerFarmPrototype(player: PlayerState?, isMyTurn: Boolean) {
+fun PlayerFarmPrototype(
+    player: PlayerState?,
+    isMyTurn: Boolean,
+) {
     Surface(
         tonalElevation = 8.dp,
         shadowElevation = 4.dp,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        border = if (isMyTurn) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null
+        border = if (isMyTurn) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Default.Info,
                 contentDescription = "Stats",
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             )
             Spacer(modifier = Modifier.width(20.dp))
             Column {
                 Text(
                     if (isMyTurn) "YOUR TURN" else "YOUR FARM",
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (isMyTurn) MaterialTheme.colorScheme.primary else Color.Unspecified
+                    color = if (isMyTurn) MaterialTheme.colorScheme.primary else Color.Unspecified,
                 )
                 // TODO: Map MoneyCards to interactive UI (chips/cards)
-                Text("${player?.moneyCards?.size ?: 0} Money Cards in hand", style = MaterialTheme.typography.bodyMedium)
-                Text("Total: ${player?.totalMoney() ?: 0}", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "${player?.moneyCards?.size ?: 0} Money Cards in hand",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "Total: ${player?.totalMoney() ?: 0}",
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }

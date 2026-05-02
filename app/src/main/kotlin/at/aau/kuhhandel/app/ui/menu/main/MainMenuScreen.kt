@@ -113,7 +113,7 @@ fun MainMenuScreen(
                 Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(onClick = onGamePrototype) {
                 Text("Game Prototype")
@@ -140,7 +140,7 @@ fun MainMenuScreen(
                                     ).show()
                             }
                     }
-                }
+                },
             ) {
                 Text("Ping-Server")
             }

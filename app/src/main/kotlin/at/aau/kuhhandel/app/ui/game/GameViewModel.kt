@@ -23,15 +23,17 @@ data class GameUiState(
     val isConnected: Boolean = false,
     val canRevealCard: Boolean = false,
     val canStartGame: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 ) {
-    val isMyTurn: Boolean get() = gameState?.currentPlayerIndex?.let {
-        gameState.players.getOrNull(it)?.id == myPlayerId
-    } ?: false
+    val isMyTurn: Boolean get() =
+        gameState?.currentPlayerIndex?.let {
+            gameState.players.getOrNull(it)?.id == myPlayerId
+        } ?: false
 
-    val activePlayerName: String get() = gameState?.let {
-        it.players.getOrNull(it.currentPlayerIndex)?.name
-    } ?: "Unknown"
+    val activePlayerName: String get() =
+        gameState?.let {
+            it.players.getOrNull(it.currentPlayerIndex)?.name
+        } ?: "Unknown"
 }
 
 class GameViewModel(
@@ -55,7 +57,7 @@ class GameViewModel(
                     isConnected = repoState.isConnected,
                     canRevealCard = repoState.isConnected && currentPhase == GamePhase.PLAYER_TURN,
                     canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
-                    errorMessage = repoState.errorMessage
+                    errorMessage = repoState.errorMessage,
                 )
             }.stateIn(
                 scope = scope,

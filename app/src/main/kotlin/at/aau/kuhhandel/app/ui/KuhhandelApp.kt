@@ -66,7 +66,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onCreateLobby = { navController.navigate(Screen.RoomCreation) },
                     onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                     onRules = { navController.navigate(Screen.Rules) },
-                    onGamePrototype = { navController.navigate(Screen.GamePrototype) }
+                    onGamePrototype = { navController.navigate(Screen.GamePrototype) },
                 )
             }
 
