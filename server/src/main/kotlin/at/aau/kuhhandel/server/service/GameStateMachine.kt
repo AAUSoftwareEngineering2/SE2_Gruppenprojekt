@@ -6,6 +6,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
@@ -19,11 +20,12 @@ class GameStateMachine {
             GameCommand.RevealCard -> revealCard(state)
             GameCommand.ChooseAuction -> chooseAuction(state)
             is GameCommand.ChooseTrade -> chooseTrade(state, command)
+            is GameCommand.OfferTrade -> offerTrade(state, command)
+            is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
-            // Server Side TODO: Add missing command branches here:
+            // Server Side TODO: Add missing command branches for the auction loop:
             // is GameCommand.PlaceBid -> handlePlaceBid(state, command)
             // is GameCommand.ResolveAuction -> handleResolveAuction(state, command)
-            // is GameCommand.RespondToTrade -> handleRespondToTrade(state, command)
         }
 
     private fun startGame(state: GameState): GameState {
@@ -125,8 +127,99 @@ class GameStateMachine {
         )
     }
 
-    // Server Side TODO: Implement handleRespondToTrade
-    // Logic: Handle the hidden money card exchange and animal ownership transfer.
+    private fun offerTrade(
+        state: GameState,
+        command: GameCommand.OfferTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot offer money for a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state)
+        check(!tradeState.isResolved) {
+            "Cannot modify the offer after the trade is resolved"
+        }
+        require(command.offeredMoneyCardIds.isNotEmpty()) {
+            "Trade offer must include at least one money card"
+        }
+
+        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
+        val offeredCards = collectMoneyCards(initiator, command.offeredMoneyCardIds)
+
+        return state.copy(
+            tradeState =
+                tradeState.copy(
+                    offeredMoney = offeredCards.sumOf { it.value },
+                    offeredMoneyCardIds = command.offeredMoneyCardIds,
+                ),
+        )
+    }
+
+    private fun respondToTrade(
+        state: GameState,
+        command: GameCommand.RespondToTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot respond to a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state)
+        check(!tradeState.isResolved) {
+            "Trade is already resolved"
+        }
+        require(command.respondingPlayerId == tradeState.challengedPlayerId) {
+            "Only the challenged player can respond to the trade"
+        }
+
+        if (!command.accepted) {
+            // Trade rejected: no transfer happens, the active player's turn ends.
+            return state.copy(
+                phase = GamePhase.ROUND_END,
+                tradeState = null,
+            )
+        }
+
+        require(tradeState.offeredMoneyCardIds.isNotEmpty()) {
+            "Cannot accept a trade before the initiator has placed a money offer"
+        }
+
+        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
+        val challenged = requirePlayer(state, tradeState.challengedPlayerId)
+
+        val animalToTransfer =
+            challenged.animals.firstOrNull { it.type == tradeState.requestedAnimalType }
+                ?: throw IllegalStateException(
+                    "Challenged player ${challenged.id} no longer owns an animal of type " +
+                        "${tradeState.requestedAnimalType}",
+                )
+        val moneyCardsToTransfer = collectMoneyCards(initiator, tradeState.offeredMoneyCardIds)
+
+        val updatedPlayers =
+            state.players.map { player ->
+                when (player.id) {
+                    initiator.id ->
+                        player.copy(
+                            animals = player.animals + animalToTransfer,
+                            moneyCards =
+                                player.moneyCards.filterNot {
+                                    it.id in tradeState.offeredMoneyCardIds
+                                },
+                        )
+                    challenged.id ->
+                        player.copy(
+                            animals = player.animals.filterNot { it.id == animalToTransfer.id },
+                            moneyCards = player.moneyCards + moneyCardsToTransfer,
+                        )
+                    else -> player
+                }
+            }
+
+        return state.copy(
+            phase = GamePhase.ROUND_END,
+            players = updatedPlayers,
+            tradeState = null,
+        )
+    }
 
     private fun finishRound(state: GameState): GameState {
         check(
@@ -171,6 +264,29 @@ class GameStateMachine {
     private fun requireActivePlayer(state: GameState): PlayerState =
         state.players.getOrNull(state.currentPlayerIndex)
             ?: throw IllegalStateException("No active player at index ${state.currentPlayerIndex}")
+
+    private fun requireActiveTrade(state: GameState): TradeState =
+        requireNotNull(state.tradeState) {
+            "No active trade in the current state"
+        }
+
+    private fun requirePlayer(
+        state: GameState,
+        playerId: String,
+    ): PlayerState =
+        state.players.firstOrNull { it.id == playerId }
+            ?: throw IllegalArgumentException("Unknown player $playerId")
+
+    private fun collectMoneyCards(
+        owner: PlayerState,
+        cardIds: List<String>,
+    ): List<MoneyCard> =
+        cardIds.map { id ->
+            owner.moneyCards.firstOrNull { it.id == id }
+                ?: throw IllegalArgumentException(
+                    "Player ${owner.id} does not own money card $id",
+                )
+        }
 
     private fun requireSharedAnimalType(
         activePlayer: PlayerState,

@@ -32,14 +32,7 @@ class GameSession(
         return gameState
     }
 
-    // Server Side TODO: Implement interactive methods to be called by GameService:
-    // fun placeBid(playerId: String, amount: Int) {
-    //    gameState = stateMachine.apply(gameState, GameCommand.PlaceBid(playerId, amount))
-    // }
-
-    // fun resolveAuction(buyBack: Boolean) { ... }
-
-    // fun respondToTrade(accepted: Boolean, money: List<MoneyCard>) { ... }
+    // Server Side TODO: Implement auction interactive methods (placeBid, resolveAuction).
 
     fun chooseAuction(): GameState {
         gameState = stateMachine.apply(gameState, GameCommand.ChooseAuction)
@@ -51,6 +44,27 @@ class GameSession(
             stateMachine.apply(
                 gameState,
                 GameCommand.ChooseTrade(challengedPlayerId),
+            )
+        return gameState
+    }
+
+    fun offerTrade(offeredMoneyCardIds: List<String>): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.OfferTrade(offeredMoneyCardIds),
+            )
+        return gameState
+    }
+
+    fun respondToTrade(
+        respondingPlayerId: String,
+        accepted: Boolean,
+    ): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.RespondToTrade(respondingPlayerId, accepted),
             )
         return gameState
     }

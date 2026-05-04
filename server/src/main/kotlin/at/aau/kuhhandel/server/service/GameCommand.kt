@@ -14,10 +14,18 @@ sealed interface GameCommand {
         val challengedPlayerId: String,
     ) : GameCommand
 
+    data class OfferTrade(
+        val offeredMoneyCardIds: List<String>,
+    ) : GameCommand
+
+    data class RespondToTrade(
+        val respondingPlayerId: String,
+        val accepted: Boolean,
+    ) : GameCommand
+
     data object FinishRound : GameCommand
 
-    // Server Side TODO: Add commands for the interactive parts of the phases:
+    // Server Side TODO: Add commands for the auction loop:
     // - PlaceBid(playerId: String, amount: Int)
     // - ResolveAuction(buyBack: Boolean)
-    // - RespondToTrade(accepted: Boolean, moneyCards: List<MoneyCard>?)
 }
