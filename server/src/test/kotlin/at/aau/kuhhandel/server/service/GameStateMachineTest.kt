@@ -483,6 +483,44 @@ class GameStateMachineTest {
     }
 
     @Test
+    fun test_offerTrade_rejectsWhenTradeStateIsMissing() {
+        val state =
+            GameState(
+                phase = GamePhase.TRADE,
+                players =
+                    listOf(
+                        PlayerState(
+                            id = "player-1",
+                            name = "player-1",
+                            moneyCards = listOf(MoneyCard(id = "m-1", value = 10)),
+                        ),
+                    ),
+                tradeState = null,
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(state, GameCommand.OfferTrade(offeredMoneyCardIds = listOf("m-1")))
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWhenTradeStateIsMissing() {
+        val state =
+            GameState(
+                phase = GamePhase.TRADE,
+                players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                tradeState = null,
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = false),
+            )
+        }
+    }
+
+    @Test
     fun test_respondToTrade_rejectsIfChallengedNoLongerOwnsAnimalType() {
         val baseState =
             tradeState(
