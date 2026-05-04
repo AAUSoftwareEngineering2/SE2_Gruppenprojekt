@@ -57,6 +57,15 @@ class GameService {
         return updatedState
     }
 
+    // Server Side TODO: Implement placeBid
+    // fun placeBid(gameId: String, playerId: String, amount: Int): GameState? { ... }
+
+    // Server Side TODO: Implement resolveAuction (Buy-back or sell)
+    // fun resolveAuction(gameId: String, buyBack: Boolean): GameState? { ... }
+
+    // Server Side TODO: Implement respondToTrade (Accept or Counter-offer)
+    // fun respondToTrade(gameId: String, playerId: String, accepted: Boolean, money: List<MoneyCard>): GameState? { ... }
+
     fun chooseAuction(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
         return session.chooseAuction()

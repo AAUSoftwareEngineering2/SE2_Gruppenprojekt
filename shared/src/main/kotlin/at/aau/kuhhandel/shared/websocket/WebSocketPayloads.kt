@@ -35,3 +35,8 @@ data class GameStatePayload(
 data class ErrorPayload(
     val message: String,
 )
+
+// Server Side TODO: Add payloads for the following actions:
+// - BidPayload (amount: Int)
+// - TradeResponsePayload (accepted: Boolean, moneyCards: List<MoneyCard>?)
+// - AuctionChoicePayload (buyBack: Boolean)

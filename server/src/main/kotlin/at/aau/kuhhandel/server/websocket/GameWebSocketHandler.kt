@@ -40,6 +40,11 @@ class GameWebSocketHandler(
             WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
             WebSocketType.START_GAME -> handleStartGame(session, envelope)
             WebSocketType.REVEAL_CARD -> handleRevealCard(session, envelope)
+            // Server Side TODO: Handle new message types for Bidding and Trading
+            // - WebSocketType.PLACE_BID
+            // - WebSocketType.RESPOND_TO_AUCTION
+            // - WebSocketType.INITIATE_TRADE
+            // - WebSocketType.RESPOND_TO_TRADE
             else -> sendError(session, envelope.requestId, "Unsupported message type")
         }
     }

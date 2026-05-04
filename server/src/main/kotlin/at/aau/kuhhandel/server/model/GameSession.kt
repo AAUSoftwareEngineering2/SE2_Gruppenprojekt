@@ -11,6 +11,7 @@ class GameSession(
     private val stateMachine: GameStateMachine = GameStateMachine(),
 ) {
     // Each session manages its own current game state
+    // Server Side TODO: Handle joining of multiple players instead of hardcoding one player
     var gameState: GameState =
         GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
         private set
@@ -30,6 +31,15 @@ class GameSession(
         gameState = stateMachine.apply(gameState, GameCommand.RevealCard)
         return gameState
     }
+
+    // Server Side TODO: Implement interactive methods to be called by GameService:
+    // fun placeBid(playerId: String, amount: Int) {
+    //    gameState = stateMachine.apply(gameState, GameCommand.PlaceBid(playerId, amount))
+    // }
+
+    // fun resolveAuction(buyBack: Boolean) { ... }
+
+    // fun respondToTrade(accepted: Boolean, money: List<MoneyCard>) { ... }
 
     fun chooseAuction(): GameState {
         gameState = stateMachine.apply(gameState, GameCommand.ChooseAuction)

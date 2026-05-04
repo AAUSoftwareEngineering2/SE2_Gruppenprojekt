@@ -15,4 +15,9 @@ sealed interface GameCommand {
     ) : GameCommand
 
     data object FinishRound : GameCommand
+
+    // Server Side TODO: Add commands for the interactive parts of the phases:
+    // - PlaceBid(playerId: String, amount: Int)
+    // - ResolveAuction(buyBack: Boolean)
+    // - RespondToTrade(accepted: Boolean, moneyCards: List<MoneyCard>?)
 }
