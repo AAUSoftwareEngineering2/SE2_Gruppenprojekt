@@ -109,7 +109,10 @@ class GameStateMachineTest {
 
         assertEquals(GamePhase.AUCTION, updatedState.phase)
         assertEquals(
-            AuctionState(auctionCard = AnimalCard(id = "2", type = AnimalType.DOG)),
+            AuctionState(
+                auctionCard = AnimalCard(id = "2", type = AnimalType.DOG),
+                auctioneerId = "player-1",
+            ),
             updatedState.auctionState,
         )
         assertEquals(1, updatedState.deck.size())
@@ -140,6 +143,247 @@ class GameStateMachineTest {
 
         assertFailsWith<IllegalStateException> {
             stateMachine.apply(state, GameCommand.ChooseAuction)
+        }
+    }
+
+    @Test
+    fun test_placeBid_updatesHighestBidAndBidder() {
+        val state = activeAuctionState()
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-2", amount = 10),
+            )
+
+        assertEquals(GamePhase.AUCTION, updatedState.phase)
+        assertEquals(10, updatedState.auctionState?.highestBid)
+        assertEquals("player-2", updatedState.auctionState?.highestBidderId)
+    }
+
+    @Test
+    fun test_placeBid_rejectsOutsideAuction() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-2", amount = 10),
+            )
+        }
+    }
+
+    @Test
+    fun test_placeBid_rejectsMissingAuctionState() {
+        val state =
+            GameState(
+                phase = GamePhase.AUCTION,
+                players = listOf(player("player-1"), player("player-2")),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-2", amount = 10),
+            )
+        }
+    }
+
+    @Test
+    fun test_placeBid_rejectsClosedAuction() {
+        val state =
+            activeAuctionState(
+                auctionState =
+                    auctionFixture(
+                        highestBid = 10,
+                        highestBidderId = "player-2",
+                        isClosed = true,
+                    ),
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-3", amount = 20),
+            )
+        }
+    }
+
+    @Test
+    fun test_placeBid_rejectsAuctioneer() {
+        val state = activeAuctionState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-1", amount = 10),
+            )
+        }
+    }
+
+    @Test
+    fun test_placeBid_rejectsUnknownBidder() {
+        val state = activeAuctionState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-unknown", amount = 10),
+            )
+        }
+    }
+
+    @Test
+    fun test_placeBid_rejectsLowerOrEqualBid() {
+        val state =
+            activeAuctionState(
+                auctionState =
+                    auctionFixture(
+                        highestBid = 10,
+                        highestBidderId = "player-2",
+                    ),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-3", amount = 10),
+            )
+        }
+    }
+
+    @Test
+    fun test_closeAuction_marksAuctionClosed() {
+        val state = activeAuctionState()
+
+        val updatedState = stateMachine.apply(state, GameCommand.CloseAuction)
+
+        assertEquals(true, updatedState.auctionState?.isClosed)
+    }
+
+    @Test
+    fun test_closeAuction_rejectsOutsideAuction() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_closeAuction_rejectsMissingAuctionState() {
+        val state =
+            GameState(
+                phase = GamePhase.AUCTION,
+                players = listOf(player("player-1"), player("player-2")),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_closeAuction_rejectsAlreadyClosedAuction() {
+        val state =
+            activeAuctionState(
+                auctionFixture(isClosed = true),
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.CloseAuction)
+        }
+    }
+
+    @Test
+    fun test_resolveAuction_sellsCardToHighestBidder() {
+        val state =
+            activeAuctionState(
+                auctionFixture(
+                    highestBid = 10,
+                    highestBidderId = "player-2",
+                    isClosed = true,
+                ),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[1].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_allowsAuctioneerToBuyCard() {
+        val state =
+            activeAuctionState(
+                auctionFixture(
+                    highestBid = 10,
+                    highestBidderId = "player-2",
+                    isClosed = true,
+                ),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = true),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[0].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_withoutBidGivesCardToAuctioneer() {
+        val state = activeAuctionState(auctionFixture(isClosed = true))
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(
+            listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
+            updatedState.players[0].animals,
+        )
+        assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_rejectsOutsideAuction() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
+        }
+    }
+
+    @Test
+    fun test_resolveAuction_rejectsOpenAuction() {
+        val state = activeAuctionState()
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = false),
+            )
         }
     }
 
@@ -275,7 +519,7 @@ class GameStateMachineTest {
                 currentPlayerIndex = 0,
                 deck = AnimalDeck(listOf(AnimalCard(id = "1", type = AnimalType.COW))),
                 currentFaceUpCard = AnimalCard(id = "2", type = AnimalType.DOG),
-                auctionState = AuctionState(AnimalCard(id = "3", type = AnimalType.CAT)),
+                auctionState = auctionFixture(AnimalCard(id = "3", type = AnimalType.CAT)),
             )
 
         val updatedState = stateMachine.apply(state, GameCommand.FinishRound)
@@ -310,7 +554,7 @@ class GameStateMachineTest {
                 phase = GamePhase.ROUND_END,
                 roundNumber = 1,
                 currentFaceUpCard = AnimalCard(id = "1", type = AnimalType.COW),
-                auctionState = AuctionState(AnimalCard(id = "2", type = AnimalType.DOG)),
+                auctionState = auctionFixture(AnimalCard(id = "2", type = AnimalType.DOG)),
             )
 
         val updatedState = stateMachine.apply(state, GameCommand.FinishRound)
@@ -338,5 +582,33 @@ class GameStateMachineTest {
             id = id,
             name = id,
             animals = animals,
+        )
+
+    private fun activeAuctionState(): GameState = activeAuctionState(auctionFixture())
+
+    private fun activeAuctionState(auctionState: AuctionState): GameState =
+        GameState(
+            phase = GamePhase.AUCTION,
+            players =
+                listOf(
+                    player("player-1"),
+                    player("player-2"),
+                    player("player-3"),
+                ),
+            auctionState = auctionState,
+        )
+
+    private fun auctionFixture(
+        auctionCard: AnimalCard = AnimalCard(id = "auction-card", type = AnimalType.COW),
+        highestBid: Int = 0,
+        highestBidderId: String? = null,
+        isClosed: Boolean = false,
+    ): AuctionState =
+        AuctionState(
+            auctionCard = auctionCard,
+            auctioneerId = "player-1",
+            highestBid = highestBid,
+            highestBidderId = highestBidderId,
+            isClosed = isClosed,
         )
 }
