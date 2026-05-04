@@ -82,7 +82,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onCreateLobby = creationViewModel::createLobby,
                     onBack = {
                         repository.disconnect()
-                        navController.popBackStack()
+                        navController.popBackStack(Screen.Main, inclusive = false)
                     },
                     onLobbyCreated = { lobbyCode ->
                         navController.navigate(Screen.Lobby(lobbyCode)) {
@@ -105,7 +105,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onJoinLobby = joiningViewModel::joinLobby,
                     onBack = {
                         repository.disconnect()
-                        navController.popBackStack()
+                        navController.popBackStack(Screen.Main, inclusive = false)
                     },
                     onLobbyJoined = { lobbyCode ->
                         navController.navigate(Screen.Lobby(lobbyCode)) {
@@ -136,7 +136,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
             composable<Screen.Rules> {
                 RulesScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.popBackStack(Screen.Main, inclusive = false) },
                 )
             }
 
