@@ -28,6 +28,7 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(libs.postgresql)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)

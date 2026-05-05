@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.websocket
 
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -7,6 +8,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
@@ -21,6 +23,27 @@ class GameWebSocketHandler(
     private val gameService: GameService,
     private val connectionRegistry: ConnectionRegistry,
 ) : TextWebSocketHandler() {
+
+    @EventListener
+    fun handleGameStateChanged(event: GameStateChangedEvent) {
+        val sessions = connectionRegistry.getSessionsForGame(event.gameId)
+        val envelope = WebSocketEnvelope(
+            type = WebSocketType.GAME_STATE_UPDATED,
+            requestId = event.requestId,
+            payload = WebSocketJson.json.encodeToJsonElement(
+                GameStatePayload.serializer(),
+                GameStatePayload(event.newState),
+            ),
+        )
+        val json = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
+        val message = TextMessage(json)
+
+        sessions.forEach { session ->
+            if (session.isOpen) {
+                session.sendMessage(message)
+            }
+        }
+    }
     override fun handleTextMessage(
         session: WebSocketSession,
         message: TextMessage,
@@ -61,7 +84,7 @@ class GameWebSocketHandler(
     ) {
         // Uses a temporary player ID for now; will be changed when multiplayer is implemented
         val game = gameService.createGame("player-1")
-        connectionRegistry.bind(session.id, game.gameId)
+        connectionRegistry.bind(session, game.gameId)
 
         send(
             session,
