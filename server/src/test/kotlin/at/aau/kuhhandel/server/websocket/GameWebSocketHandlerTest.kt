@@ -72,7 +72,7 @@ class GameWebSocketHandlerTest {
         )
 
         verify(gameService).createGame(any())
-        verify(connectionRegistry).bind("session-1", "game-1")
+        verify(connectionRegistry).bind(session, "game-1")
 
         val response = captureResponse(session)
         assertEquals(WebSocketType.GAME_CREATED, response.type)

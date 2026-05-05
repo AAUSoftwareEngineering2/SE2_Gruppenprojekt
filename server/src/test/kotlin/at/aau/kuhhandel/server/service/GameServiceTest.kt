@@ -1,7 +1,9 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.shared.enums.GamePhase
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
@@ -9,9 +11,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class GameServiceTest {
+    private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+
     @Test
     fun test_createGame_generatesFiveDigitCode() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val session = service.createGame("player-1")
 
@@ -22,7 +26,7 @@ class GameServiceTest {
 
     @Test
     fun test_createGame_generatesDifferentCodes() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val firstSession = service.createGame("player-1")
         val secondSession = service.createGame("player-1")
@@ -32,7 +36,7 @@ class GameServiceTest {
 
     @Test
     fun test_getGame_returnsCorrectSession() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
 
         val loadedSession = service.getGame(session.gameId)
@@ -43,7 +47,7 @@ class GameServiceTest {
 
     @Test
     fun test_getGame_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val loadedSession = service.getGame("99999")
 
@@ -52,7 +56,7 @@ class GameServiceTest {
 
     @Test
     fun test_startGame_startsExistingGame() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
 
         val state = service.startGame(session.gameId)
@@ -65,7 +69,7 @@ class GameServiceTest {
 
     @Test
     fun test_startGame_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val state = service.startGame("99999")
 
@@ -74,7 +78,7 @@ class GameServiceTest {
 
     @Test
     fun test_removeGame_removesGameSession() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         val gameId = session.gameId
 
@@ -87,7 +91,7 @@ class GameServiceTest {
 
     @Test
     fun test_revealNextCard_updatesGameState() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
@@ -101,7 +105,7 @@ class GameServiceTest {
 
     @Test
     fun test_revealNextCard_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.revealNextCard("99999")
 
@@ -110,7 +114,7 @@ class GameServiceTest {
 
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
@@ -126,7 +130,7 @@ class GameServiceTest {
 
     @Test
     fun test_chooseAuction_updatesGameState() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
@@ -141,7 +145,7 @@ class GameServiceTest {
 
     @Test
     fun test_chooseAuction_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.chooseAuction("99999")
 
@@ -150,7 +154,7 @@ class GameServiceTest {
 
     @Test
     fun test_placeBid_propagatesInvalidBid() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
@@ -162,7 +166,7 @@ class GameServiceTest {
 
     @Test
     fun test_placeBid_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.placeBid("99999", "player-2", 10)
 
@@ -171,7 +175,7 @@ class GameServiceTest {
 
     @Test
     fun test_closeAuction_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.closeAuction("99999")
 
@@ -180,7 +184,7 @@ class GameServiceTest {
 
     @Test
     fun test_resolveAuction_updatesGameState() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
@@ -196,7 +200,7 @@ class GameServiceTest {
 
     @Test
     fun test_resolveAuction_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.resolveAuction("99999", auctioneerBuysCard = false)
 
@@ -205,7 +209,7 @@ class GameServiceTest {
 
     @Test
     fun test_chooseTrade_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.chooseTrade("99999", "player-2")
 
@@ -214,7 +218,7 @@ class GameServiceTest {
 
     @Test
     fun test_chooseTrade_propagatesInvalidTrade() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
@@ -225,7 +229,7 @@ class GameServiceTest {
 
     @Test
     fun test_finishRound_updatesGameState() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
@@ -241,7 +245,7 @@ class GameServiceTest {
 
     @Test
     fun test_finishRound_returnsNull_forInvalidGameId() {
-        val service = GameService()
+        val service = GameService(eventPublisher)
 
         val result = service.finishRound("99999")
 

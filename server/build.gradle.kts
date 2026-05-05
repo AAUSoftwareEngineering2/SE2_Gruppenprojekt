@@ -34,6 +34,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.mockk)
 }
 
 tasks.withType<Test> {
