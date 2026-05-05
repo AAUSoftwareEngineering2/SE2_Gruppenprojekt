@@ -36,7 +36,7 @@ class GameStateMachine {
         return state.copy(
             phase = GamePhase.PLAYER_TURN,
             roundNumber = 1,
-            deck = createPrototypeDeck(),
+            deck = createInitialDeck(),
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
             auctionState = null,
@@ -252,7 +252,7 @@ class GameStateMachine {
         )
     }
 
-    private fun createPrototypeDeck(): AnimalDeck =
+    private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
             listOf(
                 AnimalCard(id = "1", type = AnimalType.COW),

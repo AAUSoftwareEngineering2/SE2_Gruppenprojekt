@@ -77,7 +77,7 @@ class GameViewModel(
         }
     }
 
-    // --- TODO: CONTRACT EXPANSION ---
+    // --- CONTRACT EXPANSION ---
     // The following actions need to be added to the shared WebSocketType and implemented in GameWebSocketClient/Server
 
     fun placeBid(amount: Int) {

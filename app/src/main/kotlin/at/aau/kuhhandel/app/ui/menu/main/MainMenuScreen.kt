@@ -36,7 +36,7 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
-    onGamePrototype: () -> Unit,
+    onGame: () -> Unit,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -57,7 +57,6 @@ fun MainMenuScreen(
 
     MenuBackground(modifier = modifier) {
         // Title
-        // TODO: Fancy drawable later
         Text(
             text = "KUHHANDEL",
             style = MaterialTheme.typography.displayLarge,
@@ -115,8 +114,8 @@ fun MainMenuScreen(
                     .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(onClick = onGamePrototype) {
-                Text("Game Prototype")
+            Button(onClick = onGame) {
+                Text("Game Screen")
             }
 
             Button(

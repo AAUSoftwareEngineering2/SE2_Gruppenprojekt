@@ -1,89 +1,143 @@
 package at.aau.kuhhandel.app.ui.game
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.ui.components.FarmColor
+import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.MainBackground
-import at.aau.kuhhandel.app.ui.components.OtherFarm
+import at.aau.kuhhandel.app.ui.components.OpponentList
+import at.aau.kuhhandel.app.ui.components.PlayerFarm
+import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.shared.enums.GamePhase
 
 @Composable
 fun GameScreen(
-    modifier: Modifier = Modifier,
     uiState: GameUiState,
     onStartGame: () -> Unit,
     onRevealCard: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     MainBackground(modifier = modifier)
-    OtherFarm(farmColor = FarmColor.BLUE, onClick = {})
-    // some placeholder overlay for Game Logic (to be integrated into the farm design later)
+
     Column(
         modifier =
             Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
-                        shape = MaterialTheme.shapes.medium,
-                    ).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = "Game Phase: ${uiState.currentPhase.name}",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = uiState.deckCountText,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "Active Card: ${uiState.activeCardLabel}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
+        // --- TOP: OPPONENTS ---
+        OpponentList(
+            players = uiState.gameState?.players ?: emptyList(),
+            myId = uiState.myPlayerId,
+        )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
-        Row(
+        // --- CENTER: THE BOARD ---
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            if (uiState.canStartGame) {
-                Button(
-                    onClick = onStartGame,
-                    modifier = Modifier.weight(1f),
-                    enabled = uiState.isConnected,
-                ) {
-                    Text("Start Game")
+            when (uiState.currentPhase) {
+                GamePhase.NOT_STARTED -> {
+                    if (uiState.canStartGame) {
+                        Button(onClick = onStartGame) {
+                            Text("START MATCH")
+                        }
+                    } else {
+                        Text(
+                            "Waiting for host to start...",
+                            style = MaterialTheme.typography.headlineSmall,
+                        )
+                    }
                 }
-            }
 
-            if (uiState.canRevealCard) {
-                Button(
-                    onClick = onRevealCard,
-                    modifier = Modifier.weight(1f),
-                    enabled = uiState.isConnected,
-                ) {
-                    Text("Reveal Card")
+                GamePhase.PLAYER_TURN -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        uiState.gameState?.currentFaceUpCard?.let { card ->
+                            Image(
+                                painter = painterResource(id = getAnimalDrawable(card.type)),
+                                contentDescription = null,
+                                modifier = Modifier.size(100.dp),
+                            )
+                        } ?: run {
+                            // Placeholder for the deck/back of card if no card is revealed
+                            Text("Deck", style = MaterialTheme.typography.headlineMedium)
+                        }
+
+                        Text(uiState.deckCountText, style = MaterialTheme.typography.titleMedium)
+
+                        if (uiState.isMyTurn) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = onRevealCard) {
+                                Text("REVEAL CARD")
+                            }
+                        } else {
+                            Text(
+                                "Waiting for ${uiState.activePlayerName}...",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+                }
+
+                GamePhase.AUCTION -> {
+                    AuctionView(uiState.gameState?.auctionState)
+                }
+
+                GamePhase.TRADE -> {
+                    val trade = uiState.gameState?.tradeState
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "TRADE CHALLENGE",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                        if (trade != null) {
+                            Text(
+                                "Between ${trade.initiatingPlayerId} and ${trade.challengedPlayerId}",
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                "For: ${trade.requestedAnimalType.name}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                }
+
+                GamePhase.FINISHED -> {
+                    Text("GAME OVER", style = MaterialTheme.typography.headlineLarge)
+                }
+
+                else -> {
+                    Text("Current Phase: ${uiState.currentPhase}")
                 }
             }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // --- BOTTOM: PLAYER'S OWN AREA ---
+        PlayerFarm(
+            player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
+            isMyTurn = uiState.isMyTurn,
+        )
     }
 }
