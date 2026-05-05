@@ -19,9 +19,12 @@ class ConnectionRegistry {
 
     fun gameIdFor(sessionId: String): String? = gameBySessionId[sessionId]
 
-    fun getSessionsForGame(gameId: String): List<WebSocketSession> {
-        return gameBySessionId.filterValues { it == gameId }.keys.mapNotNull { sessionsById[it] }
-    }
+    fun getSessionsForGame(gameId: String): List<WebSocketSession> =
+        gameBySessionId
+            .filterValues {
+                it == gameId
+            }.keys
+            .mapNotNull { sessionsById[it] }
 
     fun unbind(sessionId: String) {
         gameBySessionId.remove(sessionId)

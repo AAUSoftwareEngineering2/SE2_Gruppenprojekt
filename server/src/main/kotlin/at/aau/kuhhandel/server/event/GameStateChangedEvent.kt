@@ -5,5 +5,5 @@ import at.aau.kuhhandel.shared.model.GameState
 data class GameStateChangedEvent(
     val gameId: String,
     val newState: GameState,
-    val requestId: String? = null
+    val requestId: String? = null,
 )

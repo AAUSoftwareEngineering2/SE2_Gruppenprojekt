@@ -23,18 +23,19 @@ class GameWebSocketHandler(
     private val gameService: GameService,
     private val connectionRegistry: ConnectionRegistry,
 ) : TextWebSocketHandler() {
-
     @EventListener
     fun handleGameStateChanged(event: GameStateChangedEvent) {
         val sessions = connectionRegistry.getSessionsForGame(event.gameId)
-        val envelope = WebSocketEnvelope(
-            type = WebSocketType.GAME_STATE_UPDATED,
-            requestId = event.requestId,
-            payload = WebSocketJson.json.encodeToJsonElement(
-                GameStatePayload.serializer(),
-                GameStatePayload(event.newState),
-            ),
-        )
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.GAME_STATE_UPDATED,
+                requestId = event.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(event.newState),
+                    ),
+            )
         val json = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
         val message = TextMessage(json)
 
@@ -44,6 +45,7 @@ class GameWebSocketHandler(
             }
         }
     }
+
     override fun handleTextMessage(
         session: WebSocketSession,
         message: TextMessage,
