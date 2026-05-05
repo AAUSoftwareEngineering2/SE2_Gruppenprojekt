@@ -63,6 +63,10 @@ subprojects {
     // Configure Sonar properties for each subproject
     apply(plugin = "org.sonarqube")
 
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+
     // This allows each subproject to report its own coverage to Sonar
     extensions.configure<SonarExtension> {
         properties {
