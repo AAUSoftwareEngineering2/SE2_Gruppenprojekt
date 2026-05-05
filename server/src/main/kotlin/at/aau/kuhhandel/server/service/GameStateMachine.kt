@@ -26,9 +26,6 @@ class GameStateMachine {
             is GameCommand.OfferTrade -> offerTrade(state, command)
             is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
-            // Server Side TODO: Add missing command branches for the auction loop:
-            // is GameCommand.PlaceBid -> handlePlaceBid(state, command)
-            // is GameCommand.ResolveAuction -> handleResolveAuction(state, command)
         }
 
     private fun startGame(state: GameState): GameState {
@@ -178,12 +175,6 @@ class GameStateMachine {
             tradeState = null,
         )
     }
-
-    // Server Side TODO: Implement handlePlaceBid
-    // Logic: If amount > highestBid, update auctionState. If timer expires, transition to ROUND_END or ResolveAuction.
-
-    // Server Side TODO: Implement handleResolveAuction
-    // Logic: Player receives card, money is exchanged. If auctioneer buys back, they pay the highest bidder.
 
     private fun chooseTrade(
         state: GameState,

@@ -32,8 +32,6 @@ class GameSession(
         return gameState
     }
 
-    // Server Side TODO: Implement auction interactive methods (placeBid, resolveAuction).
-
     fun chooseAuction(): GameState {
         gameState = stateMachine.apply(gameState, GameCommand.ChooseAuction)
         return gameState

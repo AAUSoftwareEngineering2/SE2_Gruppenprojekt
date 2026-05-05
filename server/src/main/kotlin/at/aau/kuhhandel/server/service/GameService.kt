@@ -57,8 +57,6 @@ class GameService {
         return updatedState
     }
 
-    // Server Side TODO: Implement auction interactive methods (placeBid, resolveAuction).
-
     fun chooseAuction(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
         return session.chooseAuction()

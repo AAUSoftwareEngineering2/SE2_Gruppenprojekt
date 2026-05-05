@@ -35,8 +35,4 @@ sealed interface GameCommand {
     ) : GameCommand
 
     data object FinishRound : GameCommand
-
-    // Server Side TODO: Add commands for the auction loop:
-    // - PlaceBid(playerId: String, amount: Int)
-    // - ResolveAuction(buyBack: Boolean)
 }
