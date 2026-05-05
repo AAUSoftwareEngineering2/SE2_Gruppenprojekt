@@ -25,11 +25,6 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
 }
 
-dependencyLocking {
-    lockAllConfigurations()
-    lockFile.set(layout.projectDirectory.file("gradle.lockfile"))
-}
-
 apply(plugin = "org.sonarqube")
 
 configure<SonarExtension> {
@@ -70,7 +65,6 @@ subprojects {
 
     dependencyLocking {
         lockAllConfigurations()
-        lockFile.set(rootProject.layout.projectDirectory.file("gradle.lockfile"))
     }
 
     // This allows each subproject to report its own coverage to Sonar
