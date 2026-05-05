@@ -6,6 +6,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
@@ -392,4 +393,24 @@ class GameStateMachine {
             ?: throw IllegalArgumentException(
                 "Players ${activePlayer.id} and ${challengedPlayer.id} do not share an animal type",
             )
+
+    private fun requireActiveTrade(state: GameState): TradeState =
+        requireNotNull(state.tradeState) {
+            "Cannot perform trade operation without an active trade"
+        }
+
+    private fun requirePlayer(
+        state: GameState,
+        playerId: String,
+    ): PlayerState =
+        state.players.firstOrNull { player -> player.id == playerId }
+            ?: throw IllegalStateException("Player $playerId not found")
+
+    private fun collectMoneyCards(
+        player: PlayerState,
+        cardIds: List<String>,
+    ): List<MoneyCard> =
+        cardIds.mapNotNull { cardId ->
+            player.moneyCards.firstOrNull { it.id == cardId }
+        }
 }
