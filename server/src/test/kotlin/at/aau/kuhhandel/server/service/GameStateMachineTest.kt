@@ -108,13 +108,10 @@ class GameStateMachineTest {
         val updatedState = stateMachine.apply(state, GameCommand.ChooseAuction)
 
         assertEquals(GamePhase.AUCTION, updatedState.phase)
-        assertEquals(
-            AuctionState(
-                auctionCard = AnimalCard(id = "2", type = AnimalType.DOG),
-                auctioneerId = "player-1",
-            ),
-            updatedState.auctionState,
-        )
+        val auctionState = updatedState.auctionState
+        assertEquals(AnimalCard(id = "2", type = AnimalType.DOG), auctionState?.auctionCard)
+        assertEquals("player-1", auctionState?.auctioneerId)
+        assert(auctionState?.timerEndTime != null)
         assertEquals(1, updatedState.deck.size())
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.tradeState)
