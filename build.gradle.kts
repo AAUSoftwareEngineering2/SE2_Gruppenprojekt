@@ -25,10 +25,6 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
 }
 
-dependencyLocking {
-    lockAllConfigurations()
-}
-
 apply(plugin = "org.sonarqube")
 
 configure<SonarExtension> {
