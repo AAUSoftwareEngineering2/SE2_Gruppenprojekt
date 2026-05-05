@@ -27,6 +27,7 @@ plugins {
 
 dependencyLocking {
     lockAllConfigurations()
+    lockFile.set(layout.projectDirectory.file("gradle.lockfile"))
 }
 
 apply(plugin = "org.sonarqube")
@@ -69,6 +70,7 @@ subprojects {
 
     dependencyLocking {
         lockAllConfigurations()
+        lockFile.set(rootProject.layout.projectDirectory.file("gradle.lockfile"))
     }
 
     // This allows each subproject to report its own coverage to Sonar
