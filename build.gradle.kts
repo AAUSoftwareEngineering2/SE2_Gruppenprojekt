@@ -25,6 +25,10 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 apply(plugin = "org.sonarqube")
 
 configure<SonarExtension> {
@@ -62,6 +66,10 @@ subprojects {
 
     // Configure Sonar properties for each subproject
     apply(plugin = "org.sonarqube")
+
+    dependencyLocking {
+        lockAllConfigurations()
+    }
 
     // This allows each subproject to report its own coverage to Sonar
     extensions.configure<SonarExtension> {
