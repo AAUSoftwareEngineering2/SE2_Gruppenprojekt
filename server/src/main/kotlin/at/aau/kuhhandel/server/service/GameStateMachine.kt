@@ -410,7 +410,10 @@ class GameStateMachine {
         player: PlayerState,
         cardIds: List<String>,
     ): List<MoneyCard> =
-        cardIds.mapNotNull { cardId ->
+        cardIds.map { cardId ->
             player.moneyCards.firstOrNull { it.id == cardId }
+                ?: throw IllegalArgumentException(
+                    "Player ${player.id} does not own money card $cardId",
+                )
         }
 }
