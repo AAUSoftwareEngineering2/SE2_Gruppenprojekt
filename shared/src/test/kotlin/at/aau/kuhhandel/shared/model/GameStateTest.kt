@@ -24,7 +24,7 @@ class GameStateTest {
     @Test
     fun test_gameState_withCustomValues() {
         val card = AnimalCard(id = "1", type = at.aau.kuhhandel.shared.enums.AnimalType.COW)
-        val auctionState = AuctionState(auctionCard = card)
+        val auctionState = AuctionState(auctionCard = card, auctioneerId = "p1")
         val tradeState =
             TradeState(
                 initiatingPlayerId = "p1",
