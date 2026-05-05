@@ -31,20 +31,26 @@ class GameViewModel(
     private val repository: GameRepository,
     private val scope: CoroutineScope,
 ) {
-    private val auctionTimerSeconds = repository.state
-        .map { it.gameState?.auctionState?.timerEndTime }
-        .distinctUntilChanged()
-        .flatMapLatest { endTime ->
-            if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
-            flow<Int?> {
-                while (true) {
-                    val remaining = ((endTime - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
-                    emit(remaining)
-                    if (remaining <= 0) break
-                    delay(250)
+    private val auctionTimerSeconds =
+        repository.state
+            .map { it.gameState?.auctionState?.timerEndTime }
+            .distinctUntilChanged()
+            .flatMapLatest { endTime ->
+                if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
+                flow<Int?> {
+                    while (true) {
+                        val remaining =
+                            ((endTime - System.currentTimeMillis()) / 1000)
+                                .toInt()
+                                .coerceAtLeast(
+                                    0,
+                                )
+                        emit(remaining)
+                        if (remaining <= 0) break
+                        delay(250)
+                    }
                 }
             }
-        }
 
     val uiState: StateFlow<GameUiState> =
         combine(repository.state, auctionTimerSeconds) { repoState, timer ->
