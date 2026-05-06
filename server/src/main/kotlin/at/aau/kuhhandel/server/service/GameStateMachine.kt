@@ -2,10 +2,12 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.enums.TradeStep
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
@@ -22,6 +24,7 @@ class GameStateMachine {
             GameCommand.CloseAuction -> closeAuction(state)
             is GameCommand.ResolveAuction -> resolveAuction(state, command)
             is GameCommand.ChooseTrade -> chooseTrade(state, command)
+            is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
         }
 
@@ -193,6 +196,7 @@ class GameStateMachine {
                 )
 
         val requestedAnimalType = requireSharedAnimalType(activePlayer, challengedPlayer)
+        val offeredMoneyCards = requireMoneyCards(activePlayer, command.offeredMoneyCardIds)
 
         return state.copy(
             phase = GamePhase.TRADE,
@@ -202,7 +206,87 @@ class GameStateMachine {
                     initiatingPlayerId = activePlayer.id,
                     challengedPlayerId = challengedPlayer.id,
                     requestedAnimalType = requestedAnimalType,
+                    step = TradeStep.WAITING_FOR_RESPONSE,
+                    offeredMoney = offeredMoneyCards.sumOf { it.value },
+                    offeredMoneyCardIds = command.offeredMoneyCardIds,
+                    offeredMoneyCardCount = command.offeredMoneyCardIds.size,
                 ),
+        )
+    }
+
+    private fun respondToTrade(
+        state: GameState,
+        command: GameCommand.RespondToTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot respond to a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state, "Cannot respond without an active trade")
+        check(tradeState.step == TradeStep.WAITING_FOR_RESPONSE && !tradeState.isResolved) {
+            "Trade is already resolved"
+        }
+        require(command.respondingPlayerId == tradeState.challengedPlayerId) {
+            "Only challenged player can respond to the trade"
+        }
+
+        val initiatingPlayer = requirePlayer(state.players, tradeState.initiatingPlayerId)
+        val challengedPlayer = requirePlayer(state.players, tradeState.challengedPlayerId)
+        val offeredMoneyCards = requireMoneyCards(initiatingPlayer, tradeState.offeredMoneyCardIds)
+        val counterOfferCards =
+            if (command.acceptsOffer) {
+                emptyList()
+            } else {
+                requireMoneyCards(challengedPlayer, command.counterOfferedMoneyCardIds)
+            }
+
+        // Acceptance skips the counter-offer comparison; otherwise higher money wins the animal type.
+        val initiatingPlayerWins =
+            command.acceptsOffer ||
+                offeredMoneyCards.sumOf { it.value } >= counterOfferCards.sumOf { it.value }
+        val winnerId =
+            if (initiatingPlayerWins) {
+                tradeState.initiatingPlayerId
+            } else {
+                tradeState.challengedPlayerId
+            }
+        val loserId =
+            if (initiatingPlayerWins) {
+                tradeState.challengedPlayerId
+            } else {
+                tradeState.initiatingPlayerId
+            }
+
+        var updatedPlayers =
+            moveAnimalTypeBetweenPlayers(
+                players = state.players,
+                fromPlayerId = loserId,
+                toPlayerId = winnerId,
+                animalType = tradeState.requestedAnimalType,
+            )
+
+        // When both players placed money, Kuhhandel swaps the committed money cards.
+        updatedPlayers =
+            transferMoneyCards(
+                players = updatedPlayers,
+                fromPlayerId = tradeState.initiatingPlayerId,
+                toPlayerId = tradeState.challengedPlayerId,
+                moneyCardIds = tradeState.offeredMoneyCardIds,
+            )
+        updatedPlayers =
+            transferMoneyCards(
+                players = updatedPlayers,
+                fromPlayerId = tradeState.challengedPlayerId,
+                toPlayerId = tradeState.initiatingPlayerId,
+                moneyCardIds = counterOfferCards.map { it.id },
+            )
+
+        return state.copy(
+            phase = GamePhase.ROUND_END,
+            players = updatedPlayers,
+            currentFaceUpCard = null,
+            auctionState = null,
+            tradeState = null,
         )
     }
 
@@ -258,6 +342,37 @@ class GameStateMachine {
             message
         }
 
+    private fun requireActiveTrade(
+        state: GameState,
+        message: String,
+    ): TradeState =
+        requireNotNull(state.tradeState) {
+            message
+        }
+
+    private fun requirePlayer(
+        players: List<PlayerState>,
+        playerId: String,
+    ): PlayerState =
+        players.firstOrNull { it.id == playerId }
+            ?: throw IllegalArgumentException("Unknown player $playerId")
+
+    private fun requireMoneyCards(
+        player: PlayerState,
+        moneyCardIds: List<String>,
+    ): List<MoneyCard> {
+        require(moneyCardIds.distinct().size == moneyCardIds.size) {
+            "Money cards cannot be used more than once"
+        }
+
+        return moneyCardIds.map { moneyCardId ->
+            player.moneyCards.firstOrNull { it.id == moneyCardId }
+                ?: throw IllegalArgumentException(
+                    "Player ${player.id} does not own money card $moneyCardId",
+                )
+        }
+    }
+
     private fun addAnimalToPlayer(
         players: List<PlayerState>,
         playerId: String,
@@ -273,6 +388,67 @@ class GameStateMachine {
                 player.copy(animals = player.animals + animalCard)
             } else {
                 player
+            }
+        }
+    }
+
+    private fun moveAnimalTypeBetweenPlayers(
+        players: List<PlayerState>,
+        fromPlayerId: String,
+        toPlayerId: String,
+        animalType: AnimalType,
+    ): List<PlayerState> {
+        val animalCardsToMove =
+            requirePlayer(players, fromPlayerId)
+                .animals
+                .filter { it.type == animalType }
+
+        require(animalCardsToMove.isNotEmpty()) {
+            "Player $fromPlayerId does not own animal type $animalType"
+        }
+
+        return players.map { player ->
+            when (player.id) {
+                fromPlayerId ->
+                    player.copy(
+                        animals =
+                            player.animals.filterNot { animalCard ->
+                                animalCardsToMove.any { it.id == animalCard.id }
+                            },
+                    )
+                toPlayerId -> player.copy(animals = player.animals + animalCardsToMove)
+                else -> player
+            }
+        }
+    }
+
+    private fun transferMoneyCards(
+        players: List<PlayerState>,
+        fromPlayerId: String,
+        toPlayerId: String,
+        moneyCardIds: List<String>,
+    ): List<PlayerState> {
+        if (moneyCardIds.isEmpty()) {
+            return players
+        }
+
+        val moneyCardsToTransfer =
+            requireMoneyCards(
+                requirePlayer(players, fromPlayerId),
+                moneyCardIds,
+            )
+
+        return players.map { player ->
+            when (player.id) {
+                fromPlayerId ->
+                    player.copy(
+                        moneyCards =
+                            player.moneyCards.filterNot { moneyCard ->
+                                moneyCardsToTransfer.any { it.id == moneyCard.id }
+                            },
+                    )
+                toPlayerId -> player.copy(moneyCards = player.moneyCards + moneyCardsToTransfer)
+                else -> player
             }
         }
     }

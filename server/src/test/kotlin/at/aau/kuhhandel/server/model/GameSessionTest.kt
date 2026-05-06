@@ -166,6 +166,19 @@ class GameSessionTest {
     }
 
     @Test
+    fun test_respondToTrade_rejectsWrongPhase() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+
+        assertFailsWith<IllegalStateException> {
+            session.respondToTrade(
+                respondingPlayerId = "player-2",
+                acceptsOffer = true,
+            )
+        }
+    }
+
+    @Test
     fun test_finishRound_updatesStoredState() {
         val session = GameSession("12345", "player-1")
         session.startGame()

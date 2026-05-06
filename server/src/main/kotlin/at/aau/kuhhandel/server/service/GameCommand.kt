@@ -23,6 +23,13 @@ sealed interface GameCommand {
 
     data class ChooseTrade(
         val challengedPlayerId: String,
+        val offeredMoneyCardIds: List<String> = emptyList(),
+    ) : GameCommand
+
+    data class RespondToTrade(
+        val respondingPlayerId: String,
+        val acceptsOffer: Boolean,
+        val counterOfferedMoneyCardIds: List<String> = emptyList(),
     ) : GameCommand
 
     data object FinishRound : GameCommand
