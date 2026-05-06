@@ -73,25 +73,48 @@ fun GameScreen(
                             Image(
                                 painter = painterResource(id = getAnimalDrawable(card.type)),
                                 contentDescription = null,
-                                modifier = Modifier.size(100.dp),
+                                modifier = Modifier.size(150.dp),
+                            )
+                            Text(
+                                card.type.name,
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.padding(top = 8.dp),
                             )
                         } ?: run {
-                            // Placeholder for the deck/back of card if no card is revealed
+                            // Deck back / Placeholder
+                            Image(
+                                painter =
+                                    painterResource(
+                                        id = at.aau.kuhhandel.app.R.drawable.ig_tall_bush,
+                                    ),
+                                // Placeholder for card back
+                                contentDescription = "Deck",
+                                modifier = Modifier.size(150.dp),
+                                alpha = 0.5f,
+                            )
                             Text("Deck", style = MaterialTheme.typography.headlineMedium)
                         }
 
-                        Text(uiState.deckCountText, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            uiState.deckCountText,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
 
                         if (uiState.isMyTurn) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = onRevealCard) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = onRevealCard,
+                                modifier = Modifier.height(56.dp).fillMaxWidth(0.6f),
+                            ) {
                                 Text("REVEAL CARD")
                             }
                         } else {
                             Text(
                                 "Waiting for ${uiState.activePlayerName}...",
+                                style = MaterialTheme.typography.bodyLarge,
                                 color = Color.Gray,
-                                modifier = Modifier.padding(top = 8.dp),
+                                modifier = Modifier.padding(top = 16.dp),
                             )
                         }
                     }

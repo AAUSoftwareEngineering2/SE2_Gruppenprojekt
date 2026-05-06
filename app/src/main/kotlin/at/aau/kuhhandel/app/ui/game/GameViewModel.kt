@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
  */
 data class GameUiState(
     val gameState: GameState? = null,
-    val myPlayerId: String = "player-1", // TODO: Fetch real player ID from Session/Auth manager
+    val myPlayerId: String? = null,
     val currentPhase: GamePhase = GamePhase.NOT_STARTED,
     val deckCountText: String = "0 cards left",
     val activeCardLabel: String = "No card revealed",
@@ -48,6 +48,7 @@ class GameViewModel(
 
                 GameUiState(
                     gameState = gameState,
+                    myPlayerId = repoState.myPlayerId,
                     currentPhase = currentPhase,
                     deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
                     activeCardLabel =
@@ -81,10 +82,10 @@ class GameViewModel(
     // The following actions need to be added to the shared WebSocketType and implemented in GameWebSocketClient/Server
 
     fun placeBid(amount: Int) {
-        // TODO: repository.placeBid(amount)
+        // Logic for placing a bid will be implemented here
     }
 
     fun initiateTrade(targetPlayerId: String) {
-        // TODO: repository.initiateTrade(targetPlayerId)
+        // Logic for initiating a trade will be implemented here
     }
 }

@@ -36,7 +36,6 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
-    onGame: () -> Unit,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -114,10 +113,6 @@ fun MainMenuScreen(
                     .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(onClick = onGame) {
-                Text("Game Screen")
-            }
-
             Button(
                 onClick = {
                     scope.launch {

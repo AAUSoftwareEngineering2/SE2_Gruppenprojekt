@@ -23,6 +23,7 @@ data class GameRepositoryState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val gameId: String? = null,
+    val myPlayerId: String? = null,
     val gameState: GameState? = null,
     val errorMessage: String? = null,
 )
@@ -49,6 +50,15 @@ class GameRepository(
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.createGame(playerName)
+    }
+
+    suspend fun joinGame(
+        gameId: String,
+        playerName: String? = null,
+    ) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.joinGame(gameId, playerName)
     }
 
     suspend fun startGame() {
@@ -203,6 +213,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameId = payload.gameId,
+                        myPlayerId = payload.playerId,
                         gameState = payload.state,
                         errorMessage = null,
                     )

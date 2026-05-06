@@ -59,12 +59,7 @@ class LobbyJoiningViewModel(
             localErrorMessage.value = null
             scope.launch {
                 try {
-                    // Assuming the repository might have a joinGame method or we use createGame for now
-                    // if that's how the backend handles it.
-                    // Based on existing code, I'll use repository.createGame() as a placeholder
-                    // or wait for the actual join implementation.
-                    // For now, let's assume createGame can also be used or we need a joinGame.
-                    repository.createGame()
+                    repository.joinGame(code)
                 } catch (e: Exception) {
                     isLoading.value = false
                 }
