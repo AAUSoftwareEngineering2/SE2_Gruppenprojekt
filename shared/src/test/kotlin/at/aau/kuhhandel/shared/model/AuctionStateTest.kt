@@ -11,9 +11,10 @@ class AuctionStateTest {
     @Test
     fun test_defaultAuctionState() {
         val card = AnimalCard(id = "1", type = AnimalType.COW)
-        val state = AuctionState(auctionCard = card)
+        val state = AuctionState(auctionCard = card, auctioneerId = "p1")
 
         assertEquals(card, state.auctionCard)
+        assertEquals("p1", state.auctioneerId)
         assertEquals(0, state.highestBid)
         assertNull(state.highestBidderId)
         assertFalse(state.isClosed)
@@ -25,12 +26,14 @@ class AuctionStateTest {
         val state =
             AuctionState(
                 auctionCard = card,
+                auctioneerId = "p3",
                 highestBid = 10,
                 highestBidderId = "p1",
                 isClosed = true,
             )
 
         assertEquals(card, state.auctionCard)
+        assertEquals("p3", state.auctioneerId)
         assertEquals(10, state.highestBid)
         assertEquals("p1", state.highestBidderId)
         assertTrue(state.isClosed)
