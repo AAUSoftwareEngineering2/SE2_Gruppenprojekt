@@ -11,12 +11,11 @@ class ConnectionRegistry {
     fun bind(
         sessionId: String,
         gameId: String,
-    ): Boolean {
+    ) {
         val existing = gameBySessionId.putIfAbsent(sessionId, gameId)
-        if (existing != null) return false
+        if (existing != null) return
 
         sessionsByGameId.computeIfAbsent(gameId) { mutableSetOf() }.add(sessionId)
-        return true
     }
 
     fun gameIdFor(sessionId: String): String? = gameBySessionId[sessionId]

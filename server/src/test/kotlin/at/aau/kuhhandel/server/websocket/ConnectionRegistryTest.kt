@@ -1,9 +1,7 @@
 package at.aau.kuhhandel.server.websocket
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -21,8 +19,8 @@ class ConnectionRegistryTest {
         val sessionId2 = "session-2"
         val gameId = "game-1"
 
-        assertTrue(registry.bind(sessionId1, gameId))
-        assertTrue(registry.bind(sessionId2, gameId))
+        registry.bind(sessionId1, gameId)
+        registry.bind(sessionId2, gameId)
 
         assertEquals(gameId, registry.gameIdFor(sessionId1))
         assertEquals(gameId, registry.gameIdFor(sessionId2))
@@ -36,8 +34,8 @@ class ConnectionRegistryTest {
         val gameId2 = "game-2"
 
         registry.bind(sessionId, gameId1)
+        registry.bind(sessionId, gameId2)
 
-        assertFalse(registry.bind(sessionId, gameId2))
         assertEquals(gameId1, registry.gameIdFor(sessionId))
         assertEquals(setOf<String>(), registry.sessionIdsFor(gameId2))
     }

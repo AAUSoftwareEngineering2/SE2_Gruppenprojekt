@@ -19,6 +19,7 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
@@ -86,6 +87,48 @@ class GameWebSocketHandlerTest {
 
         assertEquals("game-1", payload.gameId)
         assertEquals(createdSession.gameState, payload.state)
+    }
+
+    @Test
+    fun `CREATE_GAME with bound session returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.CREATE_GAME,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        CreateGamePayload.serializer(),
+                        CreateGamePayload(),
+                    ),
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verifyNoInteractions(gameService)
+        verify(connectionRegistry).gameIdFor("session-1")
+        verify(connectionRegistry, never()).bind(any(), any())
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.ERROR, response.type)
+        assertEquals("req-1", response.requestId)
+
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                ErrorPayload.serializer(),
+                requireNotNull(response.payload),
+            )
+
+        assertEquals("This connection is already bound to a game", payload.message)
     }
 
     @Test

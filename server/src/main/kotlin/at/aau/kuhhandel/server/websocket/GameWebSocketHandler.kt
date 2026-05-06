@@ -59,6 +59,14 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
+        if (connectionRegistry.gameIdFor(session.id) != null) {
+            return sendError(
+                session,
+                envelope.requestId,
+                "This connection is already bound to a game",
+            )
+        }
+
         // Uses a temporary player ID for now; will be changed when multiplayer is implemented
         val game = gameService.createGame("player-1")
         connectionRegistry.bind(session.id, game.gameId)
