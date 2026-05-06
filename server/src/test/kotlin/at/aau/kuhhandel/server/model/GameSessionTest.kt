@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.model
 
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.PlayerState
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,7 +12,7 @@ import kotlin.test.assertTrue
 class GameSessionTest {
     @Test
     fun test_newSession_isNotStarted() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
 
         assertEquals("12345", session.gameId)
         assertEquals(GamePhase.NOT_STARTED, session.gameState.phase)
@@ -30,7 +31,7 @@ class GameSessionTest {
 
     @Test
     fun test_startGame_initializesGame() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
 
         val state = session.startGame()
 
@@ -50,7 +51,7 @@ class GameSessionTest {
 
     @Test
     fun test_startGame_updatesStoredState() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
 
         session.startGame()
 
@@ -60,8 +61,42 @@ class GameSessionTest {
     }
 
     @Test
+    fun test_addPlayer_addsPlayer() {
+        val session = GameSession("12345", "player-1", "Player 1")
+
+        session.addPlayer("player-2", "Player 2")
+
+        assertEquals(
+            listOf(
+                PlayerState("player-1", "Player 1"),
+                PlayerState("player-2", "Player 2"),
+            ),
+            session.gameState.players,
+        )
+    }
+
+    @Test
+    fun test_addPlayer_rejectsWrongPhase() {
+        val session = GameSession("12345", "player-1", "Player 1")
+        session.startGame()
+
+        assertFailsWith<IllegalStateException> {
+            session.addPlayer("player-2", "Player 2")
+        }
+    }
+
+    @Test
+    fun test_addPlayer_rejectsExistingId() {
+        val session = GameSession("12345", "player-1", "Player 1")
+
+        assertFailsWith<IllegalStateException> {
+            session.addPlayer("player-1", "Player with same ID")
+        }
+    }
+
+    @Test
     fun test_revealNextCard_revealsCard() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         val state = session.revealNextCard()
@@ -75,7 +110,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_updatesStoredState() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         session.revealNextCard()
@@ -87,7 +122,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_lastCardDoesNotImmediatelyFinishGame() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         session.revealNextCard()
@@ -101,7 +136,7 @@ class GameSessionTest {
 
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         session.revealNextCard()
@@ -117,7 +152,7 @@ class GameSessionTest {
 
     @Test
     fun test_chooseAuction_updatesStoredState() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         val state = session.chooseAuction()
@@ -131,7 +166,7 @@ class GameSessionTest {
 
     @Test
     fun test_placeBid_rejectsUnknownBidder() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
         session.chooseAuction()
 
@@ -142,7 +177,7 @@ class GameSessionTest {
 
     @Test
     fun test_resolveAuction_updatesStoredState() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
         session.chooseAuction()
         session.closeAuction()
@@ -157,7 +192,7 @@ class GameSessionTest {
 
     @Test
     fun test_chooseTrade_rejectsUnknownPlayer() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
 
         assertFailsWith<IllegalArgumentException> {
@@ -167,7 +202,7 @@ class GameSessionTest {
 
     @Test
     fun test_finishRound_updatesStoredState() {
-        val session = GameSession("12345", "player-1")
+        val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()
         session.chooseAuction()
 

@@ -13,7 +13,7 @@ class GameServiceTest {
     fun test_createGame_generatesFiveDigitCode() {
         val service = GameService()
 
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
 
         assertNotNull(session)
         assertEquals(5, session.gameId.length)
@@ -24,8 +24,8 @@ class GameServiceTest {
     fun test_createGame_generatesDifferentCodes() {
         val service = GameService()
 
-        val firstSession = service.createGame("player-1")
-        val secondSession = service.createGame("player-1")
+        val firstSession = service.createGame("Player 1")
+        val secondSession = service.createGame("Player 1")
 
         assertNotEquals(firstSession.gameId, secondSession.gameId)
     }
@@ -33,7 +33,7 @@ class GameServiceTest {
     @Test
     fun test_getGame_returnsCorrectSession() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
 
         val loadedSession = service.getGame(session.gameId)
 
@@ -53,7 +53,7 @@ class GameServiceTest {
     @Test
     fun test_startGame_startsExistingGame() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
 
         val state = service.startGame(session.gameId)
 
@@ -75,7 +75,7 @@ class GameServiceTest {
     @Test
     fun test_removeGame_removesGameSession() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         val gameId = session.gameId
 
         assertNotNull(service.getGame(gameId))
@@ -86,9 +86,30 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_joinGame_updatesGameState() {
+        val service = GameService()
+        val session = service.createGame("Player 1")
+
+        val state = service.joinGame(session.gameId, "Player 2")
+
+        assertNotNull(state)
+        assertEquals(2, state.players.size)
+        assertEquals("Player 2", state.players[1].name)
+    }
+
+    @Test
+    fun test_joinGame_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val state = service.joinGame("fake code", "Player 1")
+
+        assertNull(state)
+    }
+
+    @Test
     fun test_revealNextCard_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
 
         val state = service.revealNextCard(session.gameId)
@@ -111,7 +132,7 @@ class GameServiceTest {
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
 
         service.revealNextCard(session.gameId)
@@ -127,7 +148,7 @@ class GameServiceTest {
     @Test
     fun test_chooseAuction_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
 
         val state = service.chooseAuction(session.gameId)
@@ -151,7 +172,7 @@ class GameServiceTest {
     @Test
     fun test_placeBid_propagatesInvalidBid() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
 
@@ -181,7 +202,7 @@ class GameServiceTest {
     @Test
     fun test_resolveAuction_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
         service.closeAuction(session.gameId)
@@ -215,7 +236,7 @@ class GameServiceTest {
     @Test
     fun test_chooseTrade_propagatesInvalidTrade() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
 
         assertFailsWith<IllegalArgumentException> {
@@ -226,7 +247,7 @@ class GameServiceTest {
     @Test
     fun test_finishRound_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("player-1")
+        val session = service.createGame("Player 1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
 

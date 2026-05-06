@@ -67,8 +67,8 @@ class GameWebSocketHandler(
             )
         }
 
-        // Uses a temporary player ID for now; will be changed when multiplayer is implemented
-        val game = gameService.createGame("player-1")
+        // Uses a temporary player name for now; will be changed when name passing is implemented
+        val game = gameService.createGame("Player ${session.id.takeLast(4)}")
         connectionRegistry.bind(session.id, game.gameId)
 
         send(

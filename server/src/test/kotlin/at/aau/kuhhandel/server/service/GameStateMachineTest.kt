@@ -17,6 +17,39 @@ class GameStateMachineTest {
     private val stateMachine = GameStateMachine()
 
     @Test
+    fun test_addPlayer_addsPlayer() {
+        val state = GameState()
+
+        val updatedState = stateMachine.apply(state, GameCommand.AddPlayer("player-1", "Player 1"))
+
+        assertEquals(listOf(PlayerState("player-1", "Player 1")), updatedState.players)
+    }
+
+    @Test
+    fun test_addPlayer_rejectsWrongPhase() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.AddPlayer("player-1", "Player 1"),
+            )
+        }
+    }
+
+    @Test
+    fun test_addPlayer_rejectsExistingId() {
+        val state = GameState(players = listOf(PlayerState("player-1", "Player 1")))
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.AddPlayer("player-1", "Player with same ID"),
+            )
+        }
+    }
+
+    @Test
     fun test_startGame_initializesPlayerTurnAndRoundOne() {
         val state = GameState(players = listOf(player("player-1")))
 
