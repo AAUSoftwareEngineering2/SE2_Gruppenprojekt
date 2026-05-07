@@ -61,7 +61,7 @@ class GameRepository(
         _state.update { it.copy(errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
-    */
+     */
 
     suspend fun startGame() {
         ensureConnected()

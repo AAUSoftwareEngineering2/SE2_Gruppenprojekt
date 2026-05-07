@@ -3,7 +3,6 @@ package at.aau.kuhhandel.app.network.game
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-// import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -22,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
+// import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 
 class OpenedSession(
     val session: WebSocketSession,
@@ -182,7 +182,7 @@ class GameWebSocketClient(
         send(WebSocketEnvelope(WebSocketType.JOIN_GAME, requestId, payload))
         return requestId
     }
-    */
+     */
 
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
