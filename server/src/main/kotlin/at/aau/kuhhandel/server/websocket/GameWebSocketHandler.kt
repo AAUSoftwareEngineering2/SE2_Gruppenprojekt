@@ -156,7 +156,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
+                return sendError(
+                    session,
+                    envelope.requestId,
+                    e.message ?: ERROR_INVALID_TRADE_STATE,
+                )
             }
 
         if (state == null) {
@@ -184,7 +188,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade offer")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
+                return sendError(
+                    session,
+                    envelope.requestId,
+                    e.message ?: ERROR_INVALID_TRADE_STATE,
+                )
             }
 
         if (state == null) {
@@ -212,7 +220,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade response")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
+                return sendError(
+                    session,
+                    envelope.requestId,
+                    e.message ?: ERROR_INVALID_TRADE_STATE,
+                )
             }
 
         if (state == null) {
