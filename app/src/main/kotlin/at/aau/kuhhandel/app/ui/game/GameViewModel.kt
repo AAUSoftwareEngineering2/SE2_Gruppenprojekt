@@ -56,7 +56,7 @@ class GameViewModel(
                             "${card.type.name} (#${card.id})"
                         } ?: "No card revealed",
                     isConnected = repoState.isConnected,
-                    canRevealCard = repoState.isConnected && currentPhase == GamePhase.PLAYER_TURN,
+                    canRevealCard = repoState.isConnected && currentPhase == GamePhase.PLAYER_TURN && (gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id == repoState.myPlayerId),
                     canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
                     errorMessage = repoState.errorMessage,
                 )

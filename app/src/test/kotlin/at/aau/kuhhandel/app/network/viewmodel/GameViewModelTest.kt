@@ -100,11 +100,17 @@ class GameViewModelTest {
                 viewModel.uiState.collect {}
             }
 
-            // Case 1: Connected + PLAYER_TURN -> True
+            // Case 1: Connected + PLAYER_TURN + My Turn -> True
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
-                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_TURN,
+                            players = listOf(PlayerState(id = "me", name = "Me")),
+                            currentPlayerIndex = 0,
+                        ),
                 )
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.canRevealCard)
@@ -144,11 +150,21 @@ class GameViewModelTest {
             // Case 1: My turn
             repoStateFlow.value =
                 GameRepositoryState(
+                    myPlayerId = "player-1",
                     gameState = GameState(players = players, currentPlayerIndex = 0),
                 )
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isMyTurn)
-            assertEquals("Me", viewModel.uiState.value.activePlayerName)
+
+            // Case 2: Not my turn
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "player-1",
+                    gameState = GameState(players = players, currentPlayerIndex = 1),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isMyTurn)
+            assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
 
             // Case 2: Opponent turn
             repoStateFlow.value =

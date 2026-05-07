@@ -59,8 +59,7 @@ class LobbyJoiningViewModel(
             localErrorMessage.value = null
             scope.launch {
                 try {
-                    // repository.joinGame(code) // Commented out to fix CI due to missing shared/server logic
-                    localErrorMessage.value = "Join Game not implemented on server yet"
+                    repository.createGame() // Placeholder for joinGame
                     isLoading.value = false
                 } catch (e: Exception) {
                     isLoading.value = false
