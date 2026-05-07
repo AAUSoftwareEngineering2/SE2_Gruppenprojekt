@@ -92,11 +92,11 @@ class GameWebSocketHandler(
     ) {
         val gameId =
             connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, "No game bound to this connection")
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val state =
             gameService.startGame(gameId)
-                ?: return sendError(session, envelope.requestId, "Game not found")
+                ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
 
         send(
             session,
@@ -118,11 +118,11 @@ class GameWebSocketHandler(
     ) {
         val gameId =
             connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, "No game bound to this connection")
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val state =
             gameService.revealNextCard(gameId)
-                ?: return sendError(session, envelope.requestId, "Game not found")
+                ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
 
         send(
             session,
@@ -144,7 +144,7 @@ class GameWebSocketHandler(
     ) {
         val gameId =
             connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, "No game bound to this connection")
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val payload =
             decodePayload(session, envelope, InitiateTradePayload.serializer())
@@ -156,11 +156,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid trade state")
+                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
             }
 
         if (state == null) {
-            return sendError(session, envelope.requestId, "Game not found")
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
         }
 
         sendStateUpdate(session, envelope.requestId, state)
@@ -172,7 +172,7 @@ class GameWebSocketHandler(
     ) {
         val gameId =
             connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, "No game bound to this connection")
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val payload =
             decodePayload(session, envelope, OfferTradePayload.serializer())
@@ -184,11 +184,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade offer")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid trade state")
+                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
             }
 
         if (state == null) {
-            return sendError(session, envelope.requestId, "Game not found")
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
         }
 
         sendStateUpdate(session, envelope.requestId, state)
@@ -200,7 +200,7 @@ class GameWebSocketHandler(
     ) {
         val gameId =
             connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, "No game bound to this connection")
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val payload =
             decodePayload(session, envelope, RespondToTradePayload.serializer())
@@ -212,11 +212,11 @@ class GameWebSocketHandler(
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade response")
             } catch (e: IllegalStateException) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid trade state")
+                return sendError(session, envelope.requestId, e.message ?: ERROR_INVALID_TRADE_STATE)
             }
 
         if (state == null) {
-            return sendError(session, envelope.requestId, "Game not found")
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
         }
 
         sendStateUpdate(session, envelope.requestId, state)
@@ -283,5 +283,11 @@ class GameWebSocketHandler(
                     ),
             )
         send(session, envelope)
+    }
+
+    companion object {
+        private const val ERROR_NO_GAME_BOUND = "No game bound to this connection"
+        private const val ERROR_GAME_NOT_FOUND = "Game not found"
+        private const val ERROR_INVALID_TRADE_STATE = "Invalid trade state"
     }
 }
