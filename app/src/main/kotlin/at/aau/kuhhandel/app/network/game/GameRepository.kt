@@ -52,6 +52,7 @@ class GameRepository(
         client.createGame(playerName)
     }
 
+    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -60,6 +61,7 @@ class GameRepository(
         _state.update { it.copy(errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
+    */
 
     suspend fun startGame() {
         ensureConnected()
@@ -213,7 +215,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameId = payload.gameId,
-                        myPlayerId = payload.playerId,
+                        // myPlayerId = payload.playerId, // Missing in shared
                         gameState = payload.state,
                         errorMessage = null,
                     )

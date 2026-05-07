@@ -3,7 +3,7 @@ package at.aau.kuhhandel.app.network.game
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-import at.aau.kuhhandel.shared.websocket.JoinGamePayload
+// import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -168,6 +168,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -181,6 +182,7 @@ class GameWebSocketClient(
         send(WebSocketEnvelope(WebSocketType.JOIN_GAME, requestId, payload))
         return requestId
     }
+    */
 
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
