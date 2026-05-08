@@ -224,31 +224,42 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_respondToTrade_returnsNull_forInvalidGameId() {
+    fun test_offerTrade_returnsNull_forInvalidGameId() {
         val service = GameService()
 
-        val result =
-            service.respondToTrade(
-                gameId = "99999",
-                respondingPlayerId = "player-2",
-                acceptsOffer = true,
-            )
+        val result = service.offerTrade("99999", listOf("m-1"))
 
         assertNull(result)
     }
 
     @Test
-    fun test_respondToTrade_propagatesInvalidTrade() {
+    fun test_offerTrade_propagatesInvalidPhase() {
         val service = GameService()
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
         assertFailsWith<IllegalStateException> {
-            service.respondToTrade(
-                gameId = session.gameId,
-                respondingPlayerId = "player-2",
-                acceptsOffer = true,
-            )
+            service.offerTrade(session.gameId, listOf("m-1"))
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val result = service.respondToTrade("99999", "player-2", true)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun test_respondToTrade_propagatesInvalidPhase() {
+        val service = GameService()
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+
+        assertFailsWith<IllegalStateException> {
+            service.respondToTrade(session.gameId, "player-2", false)
         }
     }
 

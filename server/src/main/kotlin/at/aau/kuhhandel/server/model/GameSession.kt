@@ -11,6 +11,7 @@ class GameSession(
     private val stateMachine: GameStateMachine = GameStateMachine(),
 ) {
     // Each session manages its own current game state
+    // Server Side TODO: Handle joining of multiple players instead of hardcoding one player
     var gameState: GameState =
         GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
         private set
@@ -87,6 +88,15 @@ class GameSession(
                     acceptsOffer = acceptsOffer,
                     counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
                 ),
+            )
+        return gameState
+    }
+
+    fun offerTrade(offeredMoneyCardIds: List<String>): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.OfferTrade(offeredMoneyCardIds),
             )
         return gameState
     }

@@ -107,6 +107,14 @@ class GameService {
         )
     }
 
+    fun offerTrade(
+        gameId: String,
+        offeredMoneyCardIds: List<String>,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.offerTrade(offeredMoneyCardIds)
+    }
+
     fun finishRound(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
         return session.finishRound()

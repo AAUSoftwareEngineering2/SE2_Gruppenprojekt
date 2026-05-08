@@ -1,12 +1,19 @@
 package at.aau.kuhhandel.server.model
 
+import at.aau.kuhhandel.server.service.GameCommand
+import at.aau.kuhhandel.server.service.GameStateMachine
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.GameState
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.mockito.Mockito.`when` as whenever
 
 class GameSessionTest {
     @Test
@@ -166,16 +173,69 @@ class GameSessionTest {
     }
 
     @Test
-    fun test_respondToTrade_rejectsWrongPhase() {
+    fun test_offerTrade_rejectsWhenNotInTradePhase() {
         val session = GameSession("12345", "player-1")
         session.startGame()
 
         assertFailsWith<IllegalStateException> {
-            session.respondToTrade(
-                respondingPlayerId = "player-2",
-                acceptsOffer = true,
-            )
+            session.offerTrade(listOf("m-1"))
         }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWhenNotInTradePhase() {
+        val session = GameSession("12345", "player-1")
+        session.startGame()
+
+        assertFailsWith<IllegalStateException> {
+            session.respondToTrade("player-2", true)
+        }
+    }
+
+    @Test
+    fun test_offerTrade_rejectsBeforeGameStarted() {
+        val session = GameSession("12345", "player-1")
+
+        assertFailsWith<IllegalStateException> {
+            session.offerTrade(listOf("m-1"))
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsBeforeGameStarted() {
+        val session = GameSession("12345", "player-1")
+
+        assertFailsWith<IllegalStateException> {
+            session.respondToTrade("player-2", false)
+        }
+    }
+
+    @Test
+    fun test_offerTrade_returnsAndStoresStateFromStateMachine() {
+        val mockMachine = mock(GameStateMachine::class.java)
+        val expected = GameState(phase = GamePhase.TRADE)
+        whenever(mockMachine.apply(any(), any<GameCommand.OfferTrade>())).thenReturn(expected)
+
+        val session = GameSession("12345", "player-1", mockMachine)
+        val result = session.offerTrade(listOf("m-1"))
+
+        assertEquals(expected, result)
+        assertEquals(expected, session.gameState)
+    }
+
+    @Test
+    fun test_respondToTrade_returnsAndStoresStateFromStateMachine() {
+        val mockMachine = mock(GameStateMachine::class.java)
+        val expected = GameState(phase = GamePhase.ROUND_END)
+        whenever(
+            mockMachine.apply(any(), eq(GameCommand.RespondToTrade("player-2", true))),
+        ).thenReturn(expected)
+
+        val session = GameSession("12345", "player-1", mockMachine)
+        val result = session.respondToTrade("player-2", true)
+
+        assertEquals(expected, result)
+        assertEquals(expected, session.gameState)
     }
 
     @Test

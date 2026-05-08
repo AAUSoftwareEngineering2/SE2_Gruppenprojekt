@@ -24,6 +24,7 @@ class GameStateMachine {
             GameCommand.CloseAuction -> closeAuction(state)
             is GameCommand.ResolveAuction -> resolveAuction(state, command)
             is GameCommand.ChooseTrade -> chooseTrade(state, command)
+            is GameCommand.OfferTrade -> offerTrade(state, command)
             is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
         }
@@ -36,7 +37,7 @@ class GameStateMachine {
         return state.copy(
             phase = GamePhase.PLAYER_TURN,
             roundNumber = 1,
-            deck = createPrototypeDeck(),
+            deck = createInitialDeck(),
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
             auctionState = null,
@@ -214,6 +215,35 @@ class GameStateMachine {
         )
     }
 
+    private fun offerTrade(
+        state: GameState,
+        command: GameCommand.OfferTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot offer money for a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state, "Cannot offer money without an active trade")
+        check(tradeState.step == TradeStep.WAITING_FOR_RESPONSE && !tradeState.isResolved) {
+            "Cannot modify the offer after the trade is resolved"
+        }
+        require(command.offeredMoneyCardIds.isNotEmpty()) {
+            "Trade offer must include at least one money card"
+        }
+
+        val initiator = requirePlayer(state.players, tradeState.initiatingPlayerId)
+        val offeredCards = requireMoneyCards(initiator, command.offeredMoneyCardIds)
+
+        return state.copy(
+            tradeState =
+                tradeState.copy(
+                    offeredMoney = offeredCards.sumOf { it.value },
+                    offeredMoneyCardIds = command.offeredMoneyCardIds,
+                    offeredMoneyCardCount = command.offeredMoneyCardIds.size,
+                ),
+        )
+    }
+
     private fun respondToTrade(
         state: GameState,
         command: GameCommand.RespondToTrade,
@@ -228,6 +258,19 @@ class GameStateMachine {
         }
         require(command.respondingPlayerId == tradeState.challengedPlayerId) {
             "Only challenged player can respond to the trade"
+        }
+
+        if (!command.acceptsOffer && command.counterOfferedMoneyCardIds.isEmpty()) {
+            return state.copy(
+                phase = GamePhase.ROUND_END,
+                currentFaceUpCard = null,
+                auctionState = null,
+                tradeState = null,
+            )
+        }
+
+        require(tradeState.offeredMoneyCardIds.isNotEmpty()) {
+            "Cannot accept or counter a trade before the initiator has placed a money offer"
         }
 
         val initiatingPlayer = requirePlayer(state.players, tradeState.initiatingPlayerId)
@@ -321,7 +364,7 @@ class GameStateMachine {
         )
     }
 
-    private fun createPrototypeDeck(): AnimalDeck =
+    private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
             listOf(
                 AnimalCard(id = "1", type = AnimalType.COW),
