@@ -8,6 +8,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.PlayerState
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -99,11 +100,17 @@ class GameViewModelTest {
                 viewModel.uiState.collect {}
             }
 
-            // Case 1: Connected + PLAYER_TURN -> True
+            // Case 1: Connected + PLAYER_TURN + My Turn -> True
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
-                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_TURN,
+                            players = listOf(PlayerState(id = "me", name = "Me")),
+                            currentPlayerIndex = 0,
+                        ),
                 )
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.canRevealCard)
@@ -125,6 +132,74 @@ class GameViewModelTest {
                 )
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canRevealCard)
+        }
+
+    @Test
+    fun `isMyTurn logic works correctly`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val players =
+                listOf(
+                    PlayerState(id = "player-1", name = "Me"),
+                    PlayerState(id = "player-2", name = "Opponent"),
+                )
+
+            // Case 1: My turn
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "player-1",
+                    gameState = GameState(players = players, currentPlayerIndex = 0),
+                )
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isMyTurn)
+
+            // Case 2: Not my turn
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "player-1",
+                    gameState = GameState(players = players, currentPlayerIndex = 1),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isMyTurn)
+            assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
+
+            // Case 2: Opponent turn
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameState = GameState(players = players, currentPlayerIndex = 1),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isMyTurn)
+            assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
+        }
+
+    @Test
+    fun `canStartGame logic works correctly`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Case 1: Connected + NOT_STARTED -> True
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = GameState(phase = GamePhase.NOT_STARTED),
+                )
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.canStartGame)
+
+            // Case 2: Connected + PLAYER_TURN -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canStartGame)
         }
 
     @Test

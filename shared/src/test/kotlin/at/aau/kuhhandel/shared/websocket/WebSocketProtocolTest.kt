@@ -94,6 +94,47 @@ class WebSocketProtocolTest {
         assertEquals(payload, decoded)
     }
 
+    @Test
+    fun `InitiateTradePayload round-trips and exposes its fields`() {
+        val payload = InitiateTradePayload(challengedPlayerId = "player-2")
+
+        assertEquals("player-2", payload.challengedPlayerId)
+
+        val encoded = json.encodeToString(InitiateTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(InitiateTradePayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `OfferTradePayload round-trips and exposes its fields`() {
+        val payload = OfferTradePayload(moneyCardIds = listOf("m-10", "m-50"))
+
+        assertEquals(listOf("m-10", "m-50"), payload.moneyCardIds)
+
+        val encoded = json.encodeToString(OfferTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(OfferTradePayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `RespondToTradePayload round-trips and exposes its fields`() {
+        val payload =
+            RespondToTradePayload(
+                respondingPlayerId = "player-2",
+                accepted = true,
+            )
+
+        assertEquals("player-2", payload.respondingPlayerId)
+        assertEquals(true, payload.accepted)
+
+        val encoded = json.encodeToString(RespondToTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
     // WebSocketJson tests
 
     @Test
