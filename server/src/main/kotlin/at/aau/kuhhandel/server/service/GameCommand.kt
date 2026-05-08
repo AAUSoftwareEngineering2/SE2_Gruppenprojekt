@@ -25,5 +25,14 @@ sealed interface GameCommand {
         val challengedPlayerId: String,
     ) : GameCommand
 
+    data class OfferTrade(
+        val offeredMoneyCardIds: List<String>,
+    ) : GameCommand
+
+    data class RespondToTrade(
+        val respondingPlayerId: String,
+        val accepted: Boolean,
+    ) : GameCommand
+
     data object FinishRound : GameCommand
 }

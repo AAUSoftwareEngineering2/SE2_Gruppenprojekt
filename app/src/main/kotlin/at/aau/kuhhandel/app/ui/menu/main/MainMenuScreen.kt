@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -55,7 +56,6 @@ fun MainMenuScreen(
 
     MenuBackground(modifier = modifier) {
         // Title
-        // TODO: Fancy drawable later
         Text(
             text = "KUHHANDEL",
             style = MaterialTheme.typography.displayLarge,
@@ -105,35 +105,39 @@ fun MainMenuScreen(
             }
         }
 
-        // DEBUG: Ping Server Button
-        Button(
-            onClick = {
-                scope.launch {
-                    val result = PingService().isServerReachable()
-                    result
-                        .onSuccess {
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Server is reachable!",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        }.onFailure { e ->
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Server error: ${e.message}",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        }
-                }
-            },
+        // DEBUG: Navigation & Ping Buttons
+        Row(
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Ping-Server")
+            Button(
+                onClick = {
+                    scope.launch {
+                        val result = PingService().isServerReachable()
+                        result
+                            .onSuccess {
+                                Toast
+                                    .makeText(
+                                        context,
+                                        "Server is reachable!",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                            }.onFailure { e ->
+                                Toast
+                                    .makeText(
+                                        context,
+                                        "Server error: ${e.message}",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                            }
+                    }
+                },
+            ) {
+                Text("Ping-Server")
+            }
         }
     }
 }
