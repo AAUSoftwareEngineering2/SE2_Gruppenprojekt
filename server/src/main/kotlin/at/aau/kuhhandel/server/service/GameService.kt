@@ -106,6 +106,23 @@ class GameService {
         return session.chooseTrade(challengedPlayerId)
     }
 
+    fun offerTrade(
+        gameId: String,
+        offeredMoneyCardIds: List<String>,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.offerTrade(offeredMoneyCardIds)
+    }
+
+    fun respondToTrade(
+        gameId: String,
+        respondingPlayerId: String,
+        accepted: Boolean,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.respondToTrade(respondingPlayerId, accepted)
+    }
+
     fun finishRound(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
         return session.finishRound()

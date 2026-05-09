@@ -11,8 +11,10 @@ data class TradeState(
     val challengedPlayerId: String,
     // Animal type that is requested in the trade
     val requestedAnimalType: AnimalType,
-    // Initial money offer
+    // Initial money offer (sum of values of offeredMoneyCardIds; kept in sync for convenience)
     val offeredMoney: Int = 0,
+    // Concrete money cards the initiator has placed on the offer
+    val offeredMoneyCardIds: List<String> = emptyList(),
     // Optional counter offer from the challenged player
     val counterOfferedMoney: Int? = null,
     // Can later be used to mark the trade as finished

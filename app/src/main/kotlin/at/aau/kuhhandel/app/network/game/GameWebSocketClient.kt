@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
+// import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 
 class OpenedSession(
     val session: WebSocketSession,
@@ -166,6 +167,22 @@ class GameWebSocketClient(
         send(WebSocketEnvelope(WebSocketType.CREATE_GAME, requestId, payload))
         return requestId
     }
+
+    /*
+    suspend fun joinGame(
+        gameId: String,
+        playerName: String? = null,
+    ): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                JoinGamePayload.serializer(),
+                JoinGamePayload(gameId, playerName),
+            )
+        send(WebSocketEnvelope(WebSocketType.JOIN_GAME, requestId, payload))
+        return requestId
+    }
+     */
 
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
