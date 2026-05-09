@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
@@ -76,8 +77,12 @@ class GameWebSocketHandler(
             )
         }
 
-        // Uses a temporary player name for now; will be changed when name passing is implemented
-        val game = gameService.createGame("Player ${session.id.takeLast(4)}")
+        // For now, uses a temporary player name if no name is provided; will be changed in the future
+        val playerName =
+            decodePayload(session, envelope, CreateGamePayload.serializer())?.playerName
+                ?: "Player ${session.id.takeLast(4)}"
+
+        val game = gameService.createGame(playerName)
         connectionRegistry.bind(session.id, game.gameId)
 
         send(

@@ -22,7 +22,6 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.never
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
@@ -54,7 +53,7 @@ class GameWebSocketHandlerTest {
                 hostPlayerName = "Player 1",
             )
 
-        whenever(gameService.createGame(anyOrNull())).thenReturn(createdSession)
+        whenever(gameService.createGame("Player 1")).thenReturn(createdSession)
 
         val envelope =
             WebSocketEnvelope(
@@ -63,7 +62,7 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         CreateGamePayload.serializer(),
-                        CreateGamePayload(),
+                        CreateGamePayload("Player 1"),
                     ),
             )
 
@@ -77,7 +76,7 @@ class GameWebSocketHandlerTest {
             ),
         )
 
-        verify(gameService).createGame(anyOrNull())
+        verify(gameService).createGame("Player 1")
         verify(connectionRegistry).bind("session-1", "game-1")
 
         val response = captureResponse(session)
@@ -105,7 +104,7 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         CreateGamePayload.serializer(),
-                        CreateGamePayload(),
+                        CreateGamePayload("Player 1"),
                     ),
             )
 
