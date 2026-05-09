@@ -102,6 +102,40 @@ class GameSessionTest {
     }
 
     @Test
+    fun test_removePlayer_removesPlayer() {
+        val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
+
+        session.removePlayer("player-1")
+
+        assertEquals(
+            listOf(
+                PlayerState("player-2", "Player 2"),
+            ),
+            session.gameState.players,
+        )
+    }
+
+    @Test
+    fun test_removePlayer_rejectsWrongPhase() {
+        val session = GameSession("12345", "player-1", "Player 1")
+        session.startGame()
+
+        assertFailsWith<IllegalStateException> {
+            session.removePlayer("player-1")
+        }
+    }
+
+    @Test
+    fun test_removePlayer_rejectsNonexistentId() {
+        val session = GameSession("12345", "player-1", "Player 1")
+
+        assertFailsWith<IllegalStateException> {
+            session.removePlayer("player-2")
+        }
+    }
+
+    @Test
     fun test_revealNextCard_revealsCard() {
         val session = GameSession("12345", "player-1", "Player 1")
         session.startGame()

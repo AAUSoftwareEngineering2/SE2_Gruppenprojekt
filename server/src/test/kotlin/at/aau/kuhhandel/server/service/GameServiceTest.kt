@@ -13,32 +13,42 @@ class GameServiceTest {
     fun test_createGame_generatesFiveDigitCode() {
         val service = GameService()
 
-        val session = service.createGame("Player 1")
+        val result = service.createGame("Player 1")
 
-        assertNotNull(session)
-        assertEquals(5, session.gameId.length)
-        assertEquals(GamePhase.NOT_STARTED, session.gameState.phase)
+        assertEquals(5, result.gameId.length)
+        assertEquals(GamePhase.NOT_STARTED, result.gameState.phase)
     }
 
     @Test
     fun test_createGame_generatesDifferentCodes() {
         val service = GameService()
 
-        val firstSession = service.createGame("Player 1")
-        val secondSession = service.createGame("Player 1")
+        val firstResult = service.createGame("Player 1")
+        val secondResult = service.createGame("Player 1")
 
-        assertNotEquals(firstSession.gameId, secondSession.gameId)
+        assertNotEquals(firstResult.gameId, secondResult.gameId)
+    }
+
+    @Test
+    fun test_createGame_returnsCorrectResult() {
+        val service = GameService()
+
+        val result = service.createGame("Player 1")
+
+        assertEquals(1, result.gameState.players.size)
+        assertEquals(result.playerId, result.gameState.players[0].id)
+        assertEquals("Player 1", result.gameState.players[0].name)
     }
 
     @Test
     fun test_getGame_returnsCorrectSession() {
         val service = GameService()
-        val session = service.createGame("Player 1")
+        val result = service.createGame("Player 1")
 
-        val loadedSession = service.getGame(session.gameId)
+        val loadedSession = service.getGame(result.gameId)
 
         assertNotNull(loadedSession)
-        assertEquals(session.gameId, loadedSession.gameId)
+        assertEquals(result.gameId, loadedSession.gameId)
     }
 
     @Test
@@ -88,20 +98,43 @@ class GameServiceTest {
     @Test
     fun test_joinGame_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("Player 1")
+        val initialResult = service.createGame("Player 1")
 
-        val state = service.joinGame(session.gameId, "Player 2")
+        val result = service.joinGame(initialResult.gameId, "Player 2")
 
-        assertNotNull(state)
-        assertEquals(2, state.players.size)
-        assertEquals("Player 2", state.players[1].name)
+        assertNotNull(result)
+        assertEquals(2, result.gameState.players.size)
+        assertEquals(result.playerId, result.gameState.players[1].id)
+        assertEquals("Player 2", result.gameState.players[1].name)
     }
 
     @Test
     fun test_joinGame_returnsNull_forInvalidGameId() {
         val service = GameService()
 
-        val state = service.joinGame("fake code", "Player 1")
+        val result = service.joinGame("fake code", "Player 1")
+
+        assertNull(result)
+    }
+
+    @Test
+    fun test_leaveGame_updatesGameState() {
+        val service = GameService()
+        val session = service.createGame("Player 1")
+        val result = service.joinGame(session.gameId, "Player 2")
+
+        val state = service.leaveGame(session.gameId, result!!.playerId)
+
+        assertNotNull(state)
+        assertEquals(1, state.players.size)
+        assertEquals("Player 1", state.players[0].name)
+    }
+
+    @Test
+    fun test_leaveGame_returnsNull_forInvalidGameId() {
+        val service = GameService()
+
+        val state = service.leaveGame("fake code", "player-1")
 
         assertNull(state)
     }

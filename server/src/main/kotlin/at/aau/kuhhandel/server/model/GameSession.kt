@@ -37,6 +37,14 @@ class GameSession(
     }
 
     /**
+     * Removes a player from the game session
+     */
+    fun removePlayer(playerId: String): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.RemovePlayer(playerId))
+        return gameState
+    }
+
+    /**
      * Reveals the next card from the deck.
      */
     fun revealNextCard(): GameState {

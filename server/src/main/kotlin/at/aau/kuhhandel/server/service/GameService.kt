@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import org.springframework.stereotype.Service
@@ -15,13 +16,13 @@ class GameService {
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(hostPlayerName: String): GameSession {
+    fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId = generateGameCode()
         val playerId = UUID.randomUUID().toString()
         val session = GameSession(gameId, playerId, hostPlayerName)
 
         sessions[gameId] = session
-        return session
+        return RoomActionResult(gameId, playerId, session.gameState)
     }
 
     /**
@@ -50,10 +51,24 @@ class GameService {
     fun joinGame(
         gameId: String,
         playerName: String,
-    ): GameState? {
+    ): RoomActionResult? {
         val session = sessions[gameId] ?: return null
         val playerId = UUID.randomUUID().toString()
-        return session.addPlayer(playerId, playerName)
+
+        val updatedState = session.addPlayer(playerId, playerName)
+
+        return RoomActionResult(gameId, playerId, updatedState)
+    }
+
+    /**
+     * Removes a player from a game
+     */
+    fun leaveGame(
+        gameId: String,
+        playerId: String,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.removePlayer(playerId)
     }
 
     /**

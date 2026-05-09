@@ -17,6 +17,7 @@ class GameStateMachine {
     ): GameState =
         when (command) {
             is GameCommand.AddPlayer -> addPlayer(state, command)
+            is GameCommand.RemovePlayer -> removePlayer(state, command)
             GameCommand.StartGame -> startGame(state)
             GameCommand.RevealCard -> revealCard(state)
             GameCommand.ChooseAuction -> chooseAuction(state)
@@ -45,6 +46,34 @@ class GameStateMachine {
 
         return state.copy(
             players = state.players + player,
+            hostPlayerId = state.hostPlayerId ?: player.id,
+        )
+    }
+
+    private fun removePlayer(
+        state: GameState,
+        command: GameCommand.RemovePlayer,
+    ): GameState {
+        check(state.phase == GamePhase.NOT_STARTED) {
+            "Cannot remove a player during phase ${state.phase}"
+        }
+
+        val newPlayers = state.players.filterNot { it.id == command.playerId }
+
+        check(newPlayers.size < state.players.size) {
+            "The player with ID ${command.playerId} is not in the game"
+        }
+
+        val newHostPlayerId =
+            if (command.playerId == state.hostPlayerId) {
+                newPlayers.firstOrNull()?.id
+            } else {
+                state.hostPlayerId
+            }
+
+        return state.copy(
+            players = newPlayers,
+            hostPlayerId = newHostPlayerId,
         )
     }
 
@@ -307,11 +336,13 @@ class GameStateMachine {
                                     it.id in tradeState.offeredMoneyCardIds
                                 },
                         )
+
                     challenged.id ->
                         player.copy(
                             animals = player.animals.filterNot { it.id == animalToTransfer.id },
                             moneyCards = player.moneyCards + moneyCardsToTransfer,
                         )
+
                     else -> player
                 }
             }

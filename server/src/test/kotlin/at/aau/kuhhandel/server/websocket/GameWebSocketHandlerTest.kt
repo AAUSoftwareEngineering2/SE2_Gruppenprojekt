@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
@@ -53,7 +54,14 @@ class GameWebSocketHandlerTest {
                 hostPlayerName = "Player 1",
             )
 
-        whenever(gameService.createGame("Player 1")).thenReturn(createdSession)
+        val returnedResult =
+            RoomActionResult(
+                "game-1",
+                "player-1",
+                createdSession.gameState,
+            )
+
+        whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
 
         val envelope =
             WebSocketEnvelope(

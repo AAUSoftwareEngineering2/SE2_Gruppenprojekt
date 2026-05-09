@@ -9,6 +9,10 @@ sealed interface GameCommand {
         val playerName: String,
     ) : GameCommand
 
+    data class RemovePlayer(
+        val playerId: String,
+    ) : GameCommand
+
     data object StartGame : GameCommand
 
     data object RevealCard : GameCommand
