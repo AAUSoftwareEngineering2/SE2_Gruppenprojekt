@@ -68,7 +68,11 @@ class GameService {
         playerId: String,
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.removePlayer(playerId)
+
+        val updatedState = session.removePlayer(playerId)
+        if (updatedState.players.isEmpty()) sessions.remove(gameId)
+
+        return updatedState
     }
 
     /**

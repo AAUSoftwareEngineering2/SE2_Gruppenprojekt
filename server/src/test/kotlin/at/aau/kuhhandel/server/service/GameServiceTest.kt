@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GameServiceTest {
     @Test
@@ -63,9 +64,9 @@ class GameServiceTest {
     @Test
     fun test_startGame_startsExistingGame() {
         val service = GameService()
-        val session = service.createGame("Player 1")
+        val result = service.createGame("Player 1")
 
-        val state = service.startGame(session.gameId)
+        val state = service.startGame(result.gameId)
 
         assertNotNull(state)
         assertEquals(GamePhase.PLAYER_TURN, state.phase)
@@ -85,8 +86,8 @@ class GameServiceTest {
     @Test
     fun test_removeGame_removesGameSession() {
         val service = GameService()
-        val session = service.createGame("Player 1")
-        val gameId = session.gameId
+        val result = service.createGame("Player 1")
+        val gameId = result.gameId
 
         assertNotNull(service.getGame(gameId))
 
@@ -98,14 +99,14 @@ class GameServiceTest {
     @Test
     fun test_joinGame_updatesGameState() {
         val service = GameService()
-        val initialResult = service.createGame("Player 1")
+        val createResult = service.createGame("Player 1")
 
-        val result = service.joinGame(initialResult.gameId, "Player 2")
+        val joinResult = service.joinGame(createResult.gameId, "Player 2")
 
-        assertNotNull(result)
-        assertEquals(2, result.gameState.players.size)
-        assertEquals(result.playerId, result.gameState.players[1].id)
-        assertEquals("Player 2", result.gameState.players[1].name)
+        assertNotNull(joinResult)
+        assertEquals(2, joinResult.gameState.players.size)
+        assertEquals(joinResult.playerId, joinResult.gameState.players[1].id)
+        assertEquals("Player 2", joinResult.gameState.players[1].name)
     }
 
     @Test
@@ -120,14 +121,26 @@ class GameServiceTest {
     @Test
     fun test_leaveGame_updatesGameState() {
         val service = GameService()
-        val session = service.createGame("Player 1")
-        val result = service.joinGame(session.gameId, "Player 2")
+        val createResult = service.createGame("Player 1")
+        val joinResult = service.joinGame(createResult.gameId, "Player 2")
 
-        val state = service.leaveGame(session.gameId, result!!.playerId)
+        val state = service.leaveGame(createResult.gameId, joinResult!!.playerId)
 
         assertNotNull(state)
         assertEquals(1, state.players.size)
         assertEquals("Player 1", state.players[0].name)
+    }
+
+    @Test
+    fun test_leaveGame_removesGameWhenEmpty() {
+        val service = GameService()
+        val result = service.createGame("Player 1")
+
+        val state = service.leaveGame(result.gameId, result.playerId)
+
+        assertNotNull(state)
+        assertTrue(state.players.isEmpty())
+        assertNull(service.getGame(result.gameId))
     }
 
     @Test
