@@ -75,32 +75,32 @@ class GameViewModel(
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
 
-                GameUiState(
-                    gameState = gameState,
-                    myPlayerId = repoState.myPlayerId,
-                    currentPhase = currentPhase,
-                    deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
-                    activeCardLabel =
-                        gameState?.currentFaceUpCard?.let { card ->
-                            "${card.type.name} (#${card.id})"
-                        } ?: "No card revealed",
-                    isConnected = repoState.isConnected,
-                    canRevealCard =
-                        repoState.isConnected &&
-                            currentPhase == GamePhase.PLAYER_TURN &&
-                            (
-                                gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id ==
-                                    repoState.myPlayerId
-                            ),
-                    canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
-                    errorMessage = repoState.errorMessage,
-                    auctionTimerSeconds = timer,
-                )
-            }.stateIn(
-                scope = scope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = GameUiState(),
+            GameUiState(
+                gameState = gameState,
+                myPlayerId = repoState.myPlayerId,
+                currentPhase = currentPhase,
+                deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
+                activeCardLabel =
+                    gameState?.currentFaceUpCard?.let { card ->
+                        "${card.type.name} (#${card.id})"
+                    } ?: "No card revealed",
+                isConnected = repoState.isConnected,
+                canRevealCard =
+                    repoState.isConnected &&
+                        currentPhase == GamePhase.PLAYER_TURN &&
+                        (
+                            gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id ==
+                                repoState.myPlayerId
+                        ),
+                canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
+                errorMessage = repoState.errorMessage,
+                auctionTimerSeconds = timer,
             )
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = GameUiState(),
+        )
 
     fun startGame() {
         scope.launch {
