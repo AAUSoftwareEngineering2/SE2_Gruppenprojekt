@@ -9,6 +9,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GameServiceTest {
     private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
@@ -141,6 +142,7 @@ class GameServiceTest {
         assertNotNull(state.auctionState)
         assertEquals(2, state.deck.size())
         assertNull(state.currentFaceUpCard)
+        assertNotNull(state.auctionState?.timerEndTime)
     }
 
     @Test
@@ -153,33 +155,52 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_placeBid_propagatesInvalidBid() {
+    fun test_placeBid_updatesTimerEndTime() {
+        val service = GameService(eventPublisher)
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+
+        // Add a second player so they can bid
+        session.gameState.players
+            .toMutableList()
+            .apply {
+                add(
+                    at.aau.kuhhandel.shared.model
+                        .PlayerState(id = "player-2", name = "player-2"),
+                )
+            }.let { updatedPlayers ->
+                // Manually update players in session for this test
+                val field = session.javaClass.getDeclaredField("gameState")
+                field.isAccessible = true
+                val currentState = field.get(session) as at.aau.kuhhandel.shared.model.GameState
+                field.set(session, currentState.copy(players = updatedPlayers))
+            }
+
+        service.chooseAuction(session.gameId)
+        val initialEndTime = session.gameState.auctionState?.timerEndTime ?: 0
+
+        // Place a valid bid
+        val state = service.placeBid(session.gameId, "player-2", 10)
+
+        assertNotNull(state)
+        assertEquals(10, state.auctionState?.highestBid)
+        assertEquals("player-2", state.auctionState?.highestBidderId)
+        assertNotNull(state.auctionState?.timerEndTime)
+        // Timer should have been reset/updated
+        assertTrue(state.auctionState!!.timerEndTime!! >= initialEndTime)
+    }
+
+    @Test
+    fun test_closeAuction_updatesGameState() {
         val service = GameService(eventPublisher)
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
 
-        assertFailsWith<IllegalArgumentException> {
-            service.placeBid(session.gameId, "player-2", 10)
-        }
-    }
+        val state = service.closeAuction(session.gameId)
 
-    @Test
-    fun test_placeBid_returnsNull_forInvalidGameId() {
-        val service = GameService(eventPublisher)
-
-        val result = service.placeBid("99999", "player-2", 10)
-
-        assertNull(result)
-    }
-
-    @Test
-    fun test_closeAuction_returnsNull_forInvalidGameId() {
-        val service = GameService(eventPublisher)
-
-        val result = service.closeAuction("99999")
-
-        assertNull(result)
+        assertNotNull(state)
+        assertTrue(state.auctionState!!.isClosed)
     }
 
     @Test

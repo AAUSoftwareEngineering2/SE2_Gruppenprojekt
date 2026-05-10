@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.websocket
 
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -41,6 +42,40 @@ class GameWebSocketHandlerTest {
 
         session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-1")
+    }
+
+    @Test
+    fun `handleGameStateChanged sends GAME_STATE_UPDATED to all sessions`() {
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
+
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.isOpen).thenReturn(true)
+        whenever(session.isOpen).thenReturn(true)
+
+        whenever(
+            connectionRegistry.getSessionsForGame("game-1"),
+        ).thenReturn(listOf(session, session2))
+
+        handler.handleGameStateChanged(event)
+
+        val captor1 = ArgumentCaptor.forClass(TextMessage::class.java)
+        verify(session).sendMessage(captor1.capture())
+        val response1 =
+            WebSocketJson.json.decodeFromString(
+                WebSocketEnvelope.serializer(),
+                captor1.value.payload,
+            )
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+
+        val captor2 = ArgumentCaptor.forClass(TextMessage::class.java)
+        verify(session2).sendMessage(captor2.capture())
+        val response2 =
+            WebSocketJson.json.decodeFromString(
+                WebSocketEnvelope.serializer(),
+                captor2.value.payload,
+            )
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
     }
 
     @Test

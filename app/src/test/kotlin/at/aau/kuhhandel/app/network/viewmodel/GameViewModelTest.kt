@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
+import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
 import io.mockk.coVerify
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -26,6 +28,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -216,5 +219,62 @@ class GameViewModelTest {
             viewModel.revealCard()
             advanceUntilIdle()
             coVerify { mockRepository.revealCard() }
+        }
+
+    @Test
+    fun `auction timer updates correctly`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val endTime = System.currentTimeMillis() + 5000
+            val gameState =
+                GameState(
+                    phase = GamePhase.AUCTION,
+                    auctionState =
+                        AuctionState(
+                            auctioneerId = "p1",
+                            auctionCard = AnimalCard("1", AnimalType.COW),
+                            timerEndTime = endTime,
+                        ),
+                    players = listOf(PlayerState(id = "p1", name = "P1")),
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                )
+
+            advanceUntilIdle()
+
+            // Check initial timer value (approx 5 seconds)
+            val timerValue = viewModel.uiState.value.auctionTimerSeconds
+            assertTrue(timerValue != null && timerValue >= 4)
+
+            // Advance time and check again
+            advanceTimeBy(2000)
+            val updatedTimer = viewModel.uiState.value.auctionTimerSeconds
+            assertTrue(updatedTimer != null && updatedTimer <= 3)
+
+            // Advance past end time
+            advanceTimeBy(4000)
+            assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
+        }
+
+    @Test
+    fun `auction timer is null when no auction is active`() =
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                )
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.auctionTimerSeconds)
         }
 }
