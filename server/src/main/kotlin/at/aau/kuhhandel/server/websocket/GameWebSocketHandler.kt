@@ -61,10 +61,6 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
-        val gameId = connectionRegistry.gameIdFor(session.id)
-        if (gameId != null) {
-            gameService.removeGame(gameId)
-        }
         connectionRegistry.unbind(session.id)
     }
 

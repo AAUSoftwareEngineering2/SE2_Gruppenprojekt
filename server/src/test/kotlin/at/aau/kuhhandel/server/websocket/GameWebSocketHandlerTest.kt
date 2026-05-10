@@ -497,23 +497,10 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `afterConnectionClosed removes game and unbinds session`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-
-        handler.afterConnectionClosed(session, CloseStatus.NORMAL)
-
-        verify(gameService).removeGame("game-1")
-        verify(connectionRegistry).unbind("session-1")
-    }
-
-    @Test
-    fun `afterConnectionClosed unbinds session even when no game is bound`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
-
+    fun `afterConnectionClosed unbinds session`() {
         handler.afterConnectionClosed(session, CloseStatus.NORMAL)
 
         verify(connectionRegistry).unbind("session-1")
-        verifyNoInteractions(gameService)
     }
 
     @Test
