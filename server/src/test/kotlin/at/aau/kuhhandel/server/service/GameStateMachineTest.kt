@@ -6,12 +6,14 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GameStateMachineTest {
     private val stateMachine = GameStateMachine()
@@ -569,6 +571,263 @@ class GameStateMachineTest {
         assertFailsWith<IllegalStateException> {
             stateMachine.apply(state, GameCommand.FinishRound)
         }
+    }
+
+    @Test
+    fun test_offerTrade_setsOfferedMoneyAndCardsOnTradeState() {
+        val state = tradeState()
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.OfferTrade(offeredMoneyCardIds = listOf("m-10", "m-50")),
+            )
+
+        assertEquals(GamePhase.TRADE, updatedState.phase)
+        assertEquals(60, updatedState.tradeState?.offeredMoney)
+        assertEquals(listOf("m-10", "m-50"), updatedState.tradeState?.offeredMoneyCardIds)
+    }
+
+    @Test
+    fun test_offerTrade_rejectsWrongPhase() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.OfferTrade(offeredMoneyCardIds = listOf("m-10")))
+        }
+    }
+
+    @Test
+    fun test_offerTrade_rejectsEmptyOffer() {
+        val state = tradeState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(state, GameCommand.OfferTrade(offeredMoneyCardIds = emptyList()))
+        }
+    }
+
+    @Test
+    fun test_offerTrade_rejectsUnknownMoneyCardId() {
+        val state = tradeState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.OfferTrade(offeredMoneyCardIds = listOf("does-not-exist")),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_acceptTransfersAnimalAndMoney() {
+        val state =
+            tradeState(
+                offeredMoneyCardIds = listOf("m-10", "m-50"),
+                offeredMoney = 60,
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    accepted = true,
+                ),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertNull(updatedState.tradeState)
+
+        val initiator = updatedState.players.first { it.id == "player-1" }
+        val challenged = updatedState.players.first { it.id == "player-2" }
+
+        // Initiator receives one COW from challenged player
+        assertEquals(2, initiator.animals.count { it.type == AnimalType.COW })
+        assertEquals(1, challenged.animals.count { it.type == AnimalType.COW })
+
+        // Money cards moved from initiator to challenged
+        val transferredIds = listOf("m-10", "m-50")
+        assertTrue(initiator.moneyCards.none { it.id in transferredIds })
+        val transferredSum =
+            challenged.moneyCards
+                .filter { it.id in transferredIds }
+                .sumOf { it.value }
+        assertEquals(60, transferredSum)
+    }
+
+    @Test
+    fun test_respondToTrade_rejectMovesToRoundEndWithoutTransfer() {
+        val state =
+            tradeState(
+                offeredMoneyCardIds = listOf("m-10", "m-50"),
+                offeredMoney = 60,
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    accepted = false,
+                ),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertNull(updatedState.tradeState)
+
+        // No transfer happened
+        val initiator = updatedState.players.first { it.id == "player-1" }
+        val challenged = updatedState.players.first { it.id == "player-2" }
+        assertEquals(1, initiator.animals.count { it.type == AnimalType.COW })
+        assertEquals(2, challenged.animals.count { it.type == AnimalType.COW })
+        assertEquals(2, initiator.moneyCards.size)
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWrongPhase() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsNonChallengedResponder() {
+        val state =
+            tradeState(
+                offeredMoneyCardIds = listOf("m-10"),
+                offeredMoney = 10,
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-1", accepted = true),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsAcceptanceWithoutPriorOffer() {
+        val state = tradeState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+            )
+        }
+    }
+
+    @Test
+    fun test_offerTrade_rejectsWhenTradeStateIsMissing() {
+        val state =
+            GameState(
+                phase = GamePhase.TRADE,
+                players =
+                    listOf(
+                        PlayerState(
+                            id = "player-1",
+                            name = "player-1",
+                            moneyCards = listOf(MoneyCard(id = "m-1", value = 10)),
+                        ),
+                    ),
+                tradeState = null,
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(state, GameCommand.OfferTrade(offeredMoneyCardIds = listOf("m-1")))
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWhenTradeStateIsMissing() {
+        val state =
+            GameState(
+                phase = GamePhase.TRADE,
+                players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                tradeState = null,
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = false),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsIfChallengedNoLongerOwnsAnimalType() {
+        val baseState =
+            tradeState(
+                offeredMoneyCardIds = listOf("m-10"),
+                offeredMoney = 10,
+            )
+        // Strip the cow off the challenged player to simulate a state inconsistency.
+        val state =
+            baseState.copy(
+                players =
+                    baseState.players.map { p ->
+                        if (p.id == "player-2") p.copy(animals = emptyList()) else p
+                    },
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+            )
+        }
+    }
+
+    /**
+     * Helper that builds a GameState in TRADE phase with two players that share a COW
+     * animal type so it can be used as a fixture for OfferTrade and RespondToTrade tests.
+     */
+    private fun tradeState(
+        offeredMoneyCardIds: List<String> = emptyList(),
+        offeredMoney: Int = 0,
+    ): GameState {
+        val initiator =
+            PlayerState(
+                id = "player-1",
+                name = "player-1",
+                animals = listOf(AnimalCard(id = "cow-1", type = AnimalType.COW)),
+                moneyCards =
+                    listOf(
+                        MoneyCard(id = "m-10", value = 10),
+                        MoneyCard(id = "m-50", value = 50),
+                    ),
+            )
+        val challenged =
+            PlayerState(
+                id = "player-2",
+                name = "player-2",
+                animals =
+                    listOf(
+                        AnimalCard(id = "cow-2", type = AnimalType.COW),
+                        AnimalCard(id = "cow-3", type = AnimalType.COW),
+                    ),
+            )
+        return GameState(
+            phase = GamePhase.TRADE,
+            roundNumber = 1,
+            currentPlayerIndex = 0,
+            players = listOf(initiator, challenged),
+            tradeState =
+                TradeState(
+                    initiatingPlayerId = "player-1",
+                    challengedPlayerId = "player-2",
+                    requestedAnimalType = AnimalType.COW,
+                    offeredMoney = offeredMoney,
+                    offeredMoneyCardIds = offeredMoneyCardIds,
+                ),
+        )
     }
 
     private fun player(

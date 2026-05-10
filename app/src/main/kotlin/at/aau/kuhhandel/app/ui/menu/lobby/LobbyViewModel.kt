@@ -49,6 +49,10 @@ class LobbyViewModel(
                             )
                         }
 
+                val isHost =
+                    gameState?.players?.firstOrNull()?.id == repoState.myPlayerId ||
+                        gameState == null
+
                 LobbyUiState(
                     lobbyCode = repoState.gameId ?: initialLobbyCode,
                     players = players,
@@ -62,6 +66,7 @@ class LobbyViewModel(
                     errorMessage = repoState.errorMessage,
                     canStartGame =
                         repoState.isConnected &&
+                            isHost &&
                             (gameState?.phase == GamePhase.NOT_STARTED || gameState == null),
                 )
             }.stateIn(

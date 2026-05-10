@@ -6,6 +6,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
@@ -22,6 +23,8 @@ class GameStateMachine {
             GameCommand.CloseAuction -> closeAuction(state)
             is GameCommand.ResolveAuction -> resolveAuction(state, command)
             is GameCommand.ChooseTrade -> chooseTrade(state, command)
+            is GameCommand.OfferTrade -> offerTrade(state, command)
+            is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
         }
 
@@ -33,7 +36,7 @@ class GameStateMachine {
         return state.copy(
             phase = GamePhase.PLAYER_TURN,
             roundNumber = 1,
-            deck = createPrototypeDeck(),
+            deck = createInitialDeck(),
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
             auctionState = null,
@@ -208,6 +211,100 @@ class GameStateMachine {
         )
     }
 
+    private fun offerTrade(
+        state: GameState,
+        command: GameCommand.OfferTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot offer money for a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state)
+        check(!tradeState.isResolved) {
+            "Cannot modify the offer after the trade is resolved"
+        }
+        require(command.offeredMoneyCardIds.isNotEmpty()) {
+            "Trade offer must include at least one money card"
+        }
+
+        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
+        val offeredCards = collectMoneyCards(initiator, command.offeredMoneyCardIds)
+
+        return state.copy(
+            tradeState =
+                tradeState.copy(
+                    offeredMoney = offeredCards.sumOf { it.value },
+                    offeredMoneyCardIds = command.offeredMoneyCardIds,
+                ),
+        )
+    }
+
+    private fun respondToTrade(
+        state: GameState,
+        command: GameCommand.RespondToTrade,
+    ): GameState {
+        check(state.phase == GamePhase.TRADE) {
+            "Cannot respond to a trade during phase ${state.phase}"
+        }
+
+        val tradeState = requireActiveTrade(state)
+        check(!tradeState.isResolved) {
+            "Trade is already resolved"
+        }
+        require(command.respondingPlayerId == tradeState.challengedPlayerId) {
+            "Only the challenged player can respond to the trade"
+        }
+
+        if (!command.accepted) {
+            // Trade rejected: no transfer happens, the active player's turn ends.
+            return state.copy(
+                phase = GamePhase.ROUND_END,
+                tradeState = null,
+            )
+        }
+
+        require(tradeState.offeredMoneyCardIds.isNotEmpty()) {
+            "Cannot accept a trade before the initiator has placed a money offer"
+        }
+
+        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
+        val challenged = requirePlayer(state, tradeState.challengedPlayerId)
+
+        val animalToTransfer =
+            challenged.animals.firstOrNull { it.type == tradeState.requestedAnimalType }
+                ?: throw IllegalStateException(
+                    "Challenged player ${challenged.id} no longer owns an animal of type " +
+                        "${tradeState.requestedAnimalType}",
+                )
+        val moneyCardsToTransfer = collectMoneyCards(initiator, tradeState.offeredMoneyCardIds)
+
+        val updatedPlayers =
+            state.players.map { player ->
+                when (player.id) {
+                    initiator.id ->
+                        player.copy(
+                            animals = player.animals + animalToTransfer,
+                            moneyCards =
+                                player.moneyCards.filterNot {
+                                    it.id in tradeState.offeredMoneyCardIds
+                                },
+                        )
+                    challenged.id ->
+                        player.copy(
+                            animals = player.animals.filterNot { it.id == animalToTransfer.id },
+                            moneyCards = player.moneyCards + moneyCardsToTransfer,
+                        )
+                    else -> player
+                }
+            }
+
+        return state.copy(
+            phase = GamePhase.ROUND_END,
+            players = updatedPlayers,
+            tradeState = null,
+        )
+    }
+
     private fun finishRound(state: GameState): GameState {
         check(
             state.phase == GamePhase.AUCTION ||
@@ -239,7 +336,7 @@ class GameStateMachine {
         )
     }
 
-    private fun createPrototypeDeck(): AnimalDeck =
+    private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
             listOf(
                 AnimalCard(id = "1", type = AnimalType.COW),
@@ -289,4 +386,27 @@ class GameStateMachine {
             ?: throw IllegalArgumentException(
                 "Players ${activePlayer.id} and ${challengedPlayer.id} do not share an animal type",
             )
+
+    private fun requireActiveTrade(state: GameState): TradeState =
+        requireNotNull(state.tradeState) {
+            "Cannot perform trade operation without an active trade"
+        }
+
+    private fun requirePlayer(
+        state: GameState,
+        playerId: String,
+    ): PlayerState =
+        state.players.firstOrNull { player -> player.id == playerId }
+            ?: throw IllegalStateException("Player $playerId not found")
+
+    private fun collectMoneyCards(
+        player: PlayerState,
+        cardIds: List<String>,
+    ): List<MoneyCard> =
+        cardIds.map { cardId ->
+            player.moneyCards.firstOrNull { it.id == cardId }
+                ?: throw IllegalArgumentException(
+                    "Player ${player.id} does not own money card $cardId",
+                )
+        }
 }

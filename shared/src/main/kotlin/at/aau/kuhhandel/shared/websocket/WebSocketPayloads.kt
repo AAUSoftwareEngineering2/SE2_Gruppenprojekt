@@ -35,3 +35,36 @@ data class GameStatePayload(
 data class ErrorPayload(
     val message: String,
 )
+
+/**
+ * Payload used by INITIATE_TRADE commands.
+ * Sent by the active (initiating) player to start a trade challenge against another player.
+ */
+@Serializable
+data class InitiateTradePayload(
+    val challengedPlayerId: String,
+)
+
+/**
+ * Payload used by OFFER_TRADE commands.
+ * Sent by the initiating player to attach an offer of one or more of their money cards to the
+ * pending trade. Cards are referenced by id and must exist in the initiator's hand.
+ */
+@Serializable
+data class OfferTradePayload(
+    val moneyCardIds: List<String>,
+)
+
+/**
+ * Payload used by RESPOND_TO_TRADE commands.
+ * Sent by the challenged player to accept or reject the pending trade offer.
+ */
+@Serializable
+data class RespondToTradePayload(
+    val respondingPlayerId: String,
+    val accepted: Boolean,
+)
+
+// Server Side TODO: Add payloads for the auction loop:
+// - BidPayload (amount: Int)
+// - AuctionChoicePayload (buyBack: Boolean)

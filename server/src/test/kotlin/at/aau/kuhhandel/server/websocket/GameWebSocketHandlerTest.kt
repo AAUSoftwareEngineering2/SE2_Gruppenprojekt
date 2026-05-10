@@ -8,6 +8,9 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
+import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
+import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -375,6 +378,352 @@ class GameWebSocketHandlerTest {
 
         verify(connectionRegistry).unbind("session-1")
         verifyNoInteractions(gameService)
+    }
+
+    @Test
+    fun `INITIATE_TRADE happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.TRADE)
+        whenever(gameService.chooseTrade("game-1", "player-2")).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(challengedPlayerId = "player-2"),
+                ),
+        )
+
+        verify(gameService).chooseTrade("game-1", "player-2")
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-trade-1", response.requestId)
+    }
+
+    @Test
+    fun `INITIATE_TRADE without bound game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(challengedPlayerId = "player-2"),
+                ),
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse("No game bound to this connection")
+    }
+
+    @Test
+    fun `INITIATE_TRADE with missing payload returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        sendEnvelope(type = WebSocketType.INITIATE_TRADE, requestId = "req-trade-3")
+
+        assertErrorResponse("Missing payload for INITIATE_TRADE")
+    }
+
+    @Test
+    fun `INITIATE_TRADE with invalid payload returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-4",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-1")),
+                ),
+        )
+
+        assertErrorResponse("Invalid payload for INITIATE_TRADE")
+    }
+
+    @Test
+    fun `INITIATE_TRADE when service rejects with IllegalArgument returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.chooseTrade("game-1", "player-2"))
+            .thenThrow(IllegalArgumentException("Unknown challenged player player-2"))
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-5",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(challengedPlayerId = "player-2"),
+                ),
+        )
+
+        assertErrorResponse("Unknown challenged player player-2")
+    }
+
+    @Test
+    fun `INITIATE_TRADE when service rejects with IllegalState returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.chooseTrade("game-1", "player-2"))
+            .thenThrow(IllegalStateException("Cannot start a trade during phase NOT_STARTED"))
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-6",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(challengedPlayerId = "player-2"),
+                ),
+        )
+
+        assertErrorResponse("Cannot start a trade during phase NOT_STARTED")
+    }
+
+    @Test
+    fun `INITIATE_TRADE with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.chooseTrade("game-1", "player-2")).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.INITIATE_TRADE,
+            requestId = "req-trade-7",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(challengedPlayerId = "player-2"),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `OFFER_TRADE happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.TRADE)
+        whenever(gameService.offerTrade("game-1", listOf("m-10"))).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.OFFER_TRADE,
+            requestId = "req-offer-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-10")),
+                ),
+        )
+
+        verify(gameService).offerTrade("game-1", listOf("m-10"))
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-offer-1", response.requestId)
+    }
+
+    @Test
+    fun `OFFER_TRADE without bound game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.OFFER_TRADE,
+            requestId = "req-offer-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-10")),
+                ),
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse("No game bound to this connection")
+    }
+
+    @Test
+    fun `OFFER_TRADE when service rejects with IllegalArgument returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.offerTrade("game-1", listOf("m-10")))
+            .thenThrow(IllegalArgumentException("Player player-1 does not own money card m-10"))
+
+        sendEnvelope(
+            type = WebSocketType.OFFER_TRADE,
+            requestId = "req-offer-3",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-10")),
+                ),
+        )
+
+        assertErrorResponse("Player player-1 does not own money card m-10")
+    }
+
+    @Test
+    fun `OFFER_TRADE when service rejects with IllegalState returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.offerTrade("game-1", listOf("m-10")))
+            .thenThrow(IllegalStateException("Cannot offer money for a trade during phase AUCTION"))
+
+        sendEnvelope(
+            type = WebSocketType.OFFER_TRADE,
+            requestId = "req-offer-4",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-10")),
+                ),
+        )
+
+        assertErrorResponse("Cannot offer money for a trade during phase AUCTION")
+    }
+
+    @Test
+    fun `OFFER_TRADE with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.offerTrade("game-1", listOf("m-10"))).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.OFFER_TRADE,
+            requestId = "req-offer-5",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    OfferTradePayload.serializer(),
+                    OfferTradePayload(moneyCardIds = listOf("m-10")),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `RESPOND_TO_TRADE happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.ROUND_END)
+        whenever(gameService.respondToTrade("game-1", "player-2", true)).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.RESPOND_TO_TRADE,
+            requestId = "req-resp-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    RespondToTradePayload.serializer(),
+                    RespondToTradePayload(respondingPlayerId = "player-2", accepted = true),
+                ),
+        )
+
+        verify(gameService).respondToTrade("game-1", "player-2", true)
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-resp-1", response.requestId)
+    }
+
+    @Test
+    fun `RESPOND_TO_TRADE without bound game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.RESPOND_TO_TRADE,
+            requestId = "req-resp-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    RespondToTradePayload.serializer(),
+                    RespondToTradePayload(respondingPlayerId = "player-2", accepted = false),
+                ),
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse("No game bound to this connection")
+    }
+
+    @Test
+    fun `RESPOND_TO_TRADE when service rejects with IllegalArgument returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        val errorMessage = "Only the challenged player can respond to the trade"
+        whenever(gameService.respondToTrade("game-1", "player-1", true))
+            .thenThrow(IllegalArgumentException(errorMessage))
+
+        sendEnvelope(
+            type = WebSocketType.RESPOND_TO_TRADE,
+            requestId = "req-resp-3",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    RespondToTradePayload.serializer(),
+                    RespondToTradePayload(respondingPlayerId = "player-1", accepted = true),
+                ),
+        )
+
+        assertErrorResponse("Only the challenged player can respond to the trade")
+    }
+
+    @Test
+    fun `RESPOND_TO_TRADE when service rejects with IllegalState returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.respondToTrade("game-1", "player-2", true))
+            .thenThrow(IllegalStateException("Cannot respond to a trade during phase AUCTION"))
+
+        sendEnvelope(
+            type = WebSocketType.RESPOND_TO_TRADE,
+            requestId = "req-resp-4",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    RespondToTradePayload.serializer(),
+                    RespondToTradePayload(respondingPlayerId = "player-2", accepted = true),
+                ),
+        )
+
+        assertErrorResponse("Cannot respond to a trade during phase AUCTION")
+    }
+
+    @Test
+    fun `RESPOND_TO_TRADE with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.respondToTrade("game-1", "player-2", false)).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.RESPOND_TO_TRADE,
+            requestId = "req-resp-5",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    RespondToTradePayload.serializer(),
+                    RespondToTradePayload(respondingPlayerId = "player-2", accepted = false),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    private fun sendEnvelope(
+        type: WebSocketType,
+        requestId: String,
+        payload: kotlinx.serialization.json.JsonElement? = null,
+    ) {
+        val envelope = WebSocketEnvelope(type = type, requestId = requestId, payload = payload)
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope),
+            ),
+        )
+    }
+
+    private fun assertErrorResponse(expectedMessage: String) {
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.ERROR, response.type)
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                ErrorPayload.serializer(),
+                requireNotNull(response.payload),
+            )
+        assertEquals(expectedMessage, payload.message)
     }
 
     private fun captureResponse(session: WebSocketSession): WebSocketEnvelope {
