@@ -47,6 +47,18 @@ class GameRepositoryTest {
             repository.revealCard()
         }
 
+        suspend fun placeBid(amount: Int) {
+            repository.placeBid(amount)
+        }
+
+        suspend fun buyBack(buyBack: Boolean) {
+            repository.buyBack(buyBack)
+        }
+
+        suspend fun initiateTrade(targetPlayerId: String) {
+            repository.initiateTrade(targetPlayerId)
+        }
+
         fun clearError() {
             repository.clearError()
         }
@@ -163,7 +175,7 @@ class GameRepositoryTest {
         )
 
     @Test
-    fun `createGame sends request and applies GAME_CREATED payload`() =
+    fun `createGame sends request and applies GAME_CREATED payload`() {
         runBlocking {
             val harness = createHarness()
             val createdState = sampleState(deckSize = 2)
@@ -187,9 +199,10 @@ class GameRepositoryTest {
             assertEquals(createdState, harness.state.gameState)
             assertNull(harness.state.errorMessage)
         }
+    }
 
     @Test
-    fun `startGame reuses the active connection and updates the game state`() =
+    fun `startGame reuses the active connection and updates the game state`() {
         runBlocking {
             val session = FakeWebSocketSession()
             var openCount = 0
@@ -217,9 +230,10 @@ class GameRepositoryTest {
             assertEquals(startedState, harness.state.gameState)
             assertTrue(harness.state.isConnected)
         }
+    }
 
     @Test
-    fun `revealCard updates the current game state`() =
+    fun `revealCard updates the current game state`() {
         runBlocking {
             val harness = createHarness()
             val revealedCard = AnimalCard(id = "face-up", type = AnimalType.COW)
@@ -238,9 +252,37 @@ class GameRepositoryTest {
             assertEquals(updatedState, harness.state.gameState)
             assertEquals(revealedCard, harness.state.gameState?.currentFaceUpCard)
         }
+    }
 
     @Test
-    fun `error envelopes update the state and can be cleared`() =
+    fun `placeBid sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.placeBid(100)
+            assertEquals(WebSocketType.PLACE_BID, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `buyBack sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.buyBack(true)
+            assertEquals(WebSocketType.AUCTION_BUY_BACK, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `initiateTrade sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.initiateTrade("p2")
+            assertEquals(WebSocketType.INITIATE_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `error envelopes update the state and can be cleared`() {
         runBlocking {
             val harness = createHarness()
 
@@ -252,9 +294,10 @@ class GameRepositoryTest {
             harness.clearError()
             assertNull(harness.state.errorMessage)
         }
+    }
 
     @Test
-    fun `invalid payloads surface a readable error`() =
+    fun `invalid payloads surface a readable error`() {
         runBlocking {
             val harness = createHarness()
 
@@ -264,9 +307,10 @@ class GameRepositoryTest {
 
             assertEquals("Invalid GAME_CREATED message", harness.state.errorMessage)
         }
+    }
 
     @Test
-    fun `failed connection keeps the repository disconnected and stores the reason`() =
+    fun `failed connection keeps the repository disconnected and stores the reason`() {
         runBlocking {
             val harness =
                 createHarness(
@@ -288,9 +332,10 @@ class GameRepositoryTest {
                 harness.state.errorMessage,
             )
         }
+    }
 
     @Test
-    fun `close frames report that the connection was lost`() =
+    fun `close frames report that the connection was lost`() {
         runBlocking {
             val harness = createHarness()
 
@@ -303,9 +348,10 @@ class GameRepositoryTest {
                 harness.state.errorMessage,
             )
         }
+    }
 
     @Test
-    fun `disconnect resets the state and closes the session`() =
+    fun `disconnect resets the state and closes the session`() {
         runBlocking {
             val harness = createHarness()
             val createdState = sampleState(deckSize = 2)
@@ -319,4 +365,5 @@ class GameRepositoryTest {
             assertEquals(GameRepositoryState(), harness.state)
             assertTrue(harness.session.wasClosed)
         }
+    }
 }

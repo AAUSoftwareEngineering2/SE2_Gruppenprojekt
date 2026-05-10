@@ -39,6 +39,10 @@ class GameViewModelTest {
     private val testScope = TestScope(testDispatcher)
     private val mockRepository = mockk<GameRepository>(relaxed = true)
     private val repoStateFlow = MutableStateFlow(GameRepositoryState())
+    private val mockTimeProvider =
+        object : at.aau.kuhhandel.app.ui.game.TimeProvider {
+            override fun currentTimeMillis(): Long = testDispatcher.scheduler.currentTime
+        }
 
     private lateinit var viewModel: GameViewModel
 
@@ -46,7 +50,7 @@ class GameViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { mockRepository.state } returns repoStateFlow
-        viewModel = GameViewModel(mockRepository, testScope)
+        viewModel = GameViewModel(mockRepository, testScope, mockTimeProvider)
     }
 
     @AfterEach
@@ -55,7 +59,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `initial state is correct`() =
+    fun `initial state is correct`() {
         runTest {
             val uiState = viewModel.uiState.value
             assertEquals(GamePhase.NOT_STARTED, uiState.currentPhase)
@@ -63,9 +67,10 @@ class GameViewModelTest {
             assertEquals("No card revealed", uiState.activeCardLabel)
             assertFalse(uiState.isConnected)
         }
+    }
 
     @Test
-    fun `state updates from repository correctly`() =
+    fun `state updates from repository correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -95,9 +100,10 @@ class GameViewModelTest {
             assertTrue(uiState.canRevealCard)
             assertFalse(uiState.canStartGame)
         }
+    }
 
     @Test
-    fun `canRevealCard depends on connection and phase`() =
+    fun `canRevealCard depends on connection and phase`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -136,9 +142,10 @@ class GameViewModelTest {
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canRevealCard)
         }
+    }
 
     @Test
-    fun `isMyTurn logic works correctly`() =
+    fun `isMyTurn logic works correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -178,9 +185,10 @@ class GameViewModelTest {
             assertFalse(viewModel.uiState.value.isMyTurn)
             assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
         }
+    }
 
     @Test
-    fun `canStartGame logic works correctly`() =
+    fun `canStartGame logic works correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -204,31 +212,62 @@ class GameViewModelTest {
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canStartGame)
         }
+    }
 
     @Test
-    fun `startGame calls repository`() =
+    fun `startGame calls repository`() {
         runTest {
             viewModel.startGame()
             advanceUntilIdle()
             coVerify { mockRepository.startGame() }
         }
+    }
 
     @Test
-    fun `revealCard calls repository`() =
+    fun `revealCard calls repository`() {
         runTest {
             viewModel.revealCard()
             advanceUntilIdle()
             coVerify { mockRepository.revealCard() }
         }
+    }
 
     @Test
-    fun `auction timer updates correctly`() =
+    fun `placeBid calls repository`() {
+        runTest {
+            viewModel.placeBid(50)
+            advanceUntilIdle()
+            coVerify { mockRepository.placeBid(50) }
+        }
+    }
+
+    @Test
+    fun `buyBack calls repository`() {
+        runTest {
+            viewModel.buyBack(true)
+            advanceUntilIdle()
+            coVerify { mockRepository.buyBack(true) }
+        }
+    }
+
+    @Test
+    fun `initiateTrade calls repository`() {
+        runTest {
+            viewModel.initiateTrade("player-2")
+            advanceUntilIdle()
+            coVerify { mockRepository.initiateTrade("player-2") }
+        }
+    }
+
+    @Test
+    fun `auction timer updates correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            val endTime = System.currentTimeMillis() + 5000
+            // Set endTime to be 5 seconds in the future relative to current scheduler time
+            val endTime = testScheduler.currentTime + 5000
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION,
@@ -247,24 +286,24 @@ class GameViewModelTest {
                     gameState = gameState,
                 )
 
-            advanceUntilIdle()
+            // No advanceUntilIdle() here as it might loop through the 250ms delays
+            advanceTimeBy(1) // Trigger initial emission
 
-            // Check initial timer value (approx 5 seconds)
-            val timerValue = viewModel.uiState.value.auctionTimerSeconds
-            assertTrue(timerValue != null && timerValue >= 4)
+            // Check initial timer value
+            assertEquals(5, viewModel.uiState.value.auctionTimerSeconds)
 
             // Advance time and check again
             advanceTimeBy(2000)
-            val updatedTimer = viewModel.uiState.value.auctionTimerSeconds
-            assertTrue(updatedTimer != null && updatedTimer <= 3)
+            assertEquals(3, viewModel.uiState.value.auctionTimerSeconds)
 
             // Advance past end time
-            advanceTimeBy(4000)
+            advanceTimeBy(3000)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
         }
+    }
 
     @Test
-    fun `auction timer is null when no auction is active`() =
+    fun `auction timer is null when no auction is active`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -277,4 +316,5 @@ class GameViewModelTest {
             advanceUntilIdle()
             assertNull(viewModel.uiState.value.auctionTimerSeconds)
         }
+    }
 }

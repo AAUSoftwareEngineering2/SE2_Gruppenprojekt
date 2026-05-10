@@ -51,15 +51,16 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `initial state reflects initial set lobby code`() =
+    fun `initial state reflects initial set lobby code`() {
         runTest {
             val uiState = viewModel.uiState.value
             assertEquals("12345", uiState.lobbyCode)
             assertEquals("Not connected", uiState.connectionStatus)
         }
+    }
 
     @Test
-    fun `the state updates when repository state changes`() =
+    fun `the state updates when repository state changes`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -77,9 +78,10 @@ class LobbyViewModelTest {
             assertEquals("ABCDE", uiState.lobbyCode)
             assertEquals("Connected", uiState.connectionStatus)
         }
+    }
 
     @Test
-    fun `all players are mapped correctly from game state`() =
+    fun `all players are mapped correctly from game state`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -107,9 +109,10 @@ class LobbyViewModelTest {
             assertEquals("Bob", uiState.players[1].name)
             assertFalse(uiState.players[1].isHost)
         }
+    }
 
     @Test
-    fun `canStartGame is true only when host and connected and not started yet`() =
+    fun `canStartGame is true only when host and connected and not started yet`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -133,20 +136,23 @@ class LobbyViewModelTest {
 
             assertFalse(viewModel.uiState.value.canStartGame)
         }
+    }
 
     @Test
-    fun `startGame calls repository`() =
+    fun `startGame calls repository`() {
         runTest {
             viewModel.startGame()
             advanceUntilIdle()
             coVerify { mockRepository.startGame() }
         }
+    }
 
     @Test
-    fun `clearError calls repository`() =
+    fun `clearError calls repository`() {
         runTest {
             viewModel.clearError()
             advanceUntilIdle()
             verify { mockRepository.clearError() }
         }
+    }
 }

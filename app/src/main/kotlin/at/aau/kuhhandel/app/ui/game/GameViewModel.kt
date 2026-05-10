@@ -44,10 +44,22 @@ data class GameUiState(
         } ?: "Unknown"
 }
 
+/**
+ * Interface to provide the current time, allowing for better testability.
+ */
+interface TimeProvider {
+    fun currentTimeMillis(): Long
+}
+
+class SystemTimeProvider : TimeProvider {
+    override fun currentTimeMillis(): Long = System.currentTimeMillis()
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class GameViewModel(
     private val repository: GameRepository,
     private val scope: CoroutineScope,
+    private val timeProvider: TimeProvider = SystemTimeProvider(),
 ) {
     private val auctionTimerSeconds =
         repository.state
@@ -58,7 +70,7 @@ class GameViewModel(
                 flow<Int?> {
                     while (true) {
                         val remaining =
-                            ((endTime - System.currentTimeMillis()) / 1000)
+                            ((endTime - timeProvider.currentTimeMillis()) / 1000)
                                 .toInt()
                                 .coerceAtLeast(
                                     0,
@@ -118,10 +130,32 @@ class GameViewModel(
     // The following actions need to be added to the shared WebSocketType and implemented in GameWebSocketClient/Server
 
     fun placeBid(amount: Int) {
-        // Logic for placing a bid will be implemented here
+        scope.launch {
+            try {
+                repository.placeBid(amount)
+            } catch (e: Exception) {
+                // Error handled by repository
+            }
+        }
+    }
+
+    fun buyBack(buyBack: Boolean) {
+        scope.launch {
+            try {
+                repository.buyBack(buyBack)
+            } catch (e: Exception) {
+                // Error handled by repository
+            }
+        }
     }
 
     fun initiateTrade(targetPlayerId: String) {
-        // Logic for initiating a trade will be implemented here
+        scope.launch {
+            try {
+                repository.initiateTrade(targetPlayerId)
+            } catch (e: Exception) {
+                // Error handled by repository
+            }
+        }
     }
 }

@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 
 class PingServiceTest {
     @Test
-    fun `isServerReachable returns success when server responds 200`() =
+    fun `isServerReachable returns success when server responds 200`() {
         runBlocking {
             val mockEngine =
                 MockEngine { _ ->
@@ -35,9 +35,10 @@ class PingServiceTest {
 
             assertTrue(result.isSuccess)
         }
+    }
 
     @Test
-    fun `isServerReachable returns failure when server responds 500`() =
+    fun `isServerReachable returns failure when server responds 500`() {
         runBlocking {
             val mockEngine =
                 MockEngine { _ ->
@@ -53,9 +54,10 @@ class PingServiceTest {
 
             assertTrue(result.isFailure)
         }
+    }
 
     @Test
-    fun `isServerReachable returns failure when exception is thrown`() =
+    fun `isServerReachable returns failure when exception is thrown`() {
         runBlocking {
             val mockEngine =
                 MockEngine { _ ->
@@ -68,4 +70,5 @@ class PingServiceTest {
 
             assertTrue(result.isFailure)
         }
+    }
 }

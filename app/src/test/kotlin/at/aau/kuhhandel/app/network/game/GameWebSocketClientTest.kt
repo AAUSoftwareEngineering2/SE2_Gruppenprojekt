@@ -120,47 +120,74 @@ class GameWebSocketClientTest {
     // === Negativ-Tests: alles, was Verbindung braucht, muss ohne Connect knallen ===
 
     @Test
-    fun `connect twice throws`() =
+    fun `connect twice throws`() {
         runBlocking {
             client.connect()
             assertFailsWith<IllegalStateException> { client.connect() }
             client.disconnect()
         }
+    }
 
     @Test
-    fun `awaitConnected without connect throws`() =
+    fun `awaitConnected without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.awaitConnected() }
         }
+    }
 
     @Test
-    fun `createGame without connect throws`() =
+    fun `createGame without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.createGame("Fabio") }
         }
+    }
 
     @Test
-    fun `startGame without connect throws`() =
+    fun `startGame without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.startGame() }
         }
+    }
 
     @Test
-    fun `revealCard without connect throws`() =
+    fun `revealCard without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.revealCard() }
         }
+    }
 
     @Test
-    fun `disconnect without connect does not throw`() =
+    fun `placeBid without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.placeBid(50) }
+        }
+    }
+
+    @Test
+    fun `buyBack without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.buyBack(true) }
+        }
+    }
+
+    @Test
+    fun `initiateTrade without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.initiateTrade("p2") }
+        }
+    }
+
+    @Test
+    fun `disconnect without connect does not throw`() {
         runBlocking {
             client.disconnect()
         }
+    }
 
     // === Send-Tests: was schickt der Client an den Server? ===
 
     @Test
-    fun `createGame sends envelope with payload`() =
+    fun `createGame sends envelope with payload`() {
         runBlocking {
             // ARRANGE: Verbindung aufbauen
             val connection = connectClient()
@@ -181,9 +208,10 @@ class GameWebSocketClientTest {
             // CLEANUP: Verbindung sauber zumachen
             connection.disconnect()
         }
+    }
 
     @Test
-    fun `startGame sends envelope`() =
+    fun `startGame sends envelope`() {
         runBlocking {
             val connection = connectClient()
 
@@ -195,9 +223,10 @@ class GameWebSocketClientTest {
 
             connection.disconnect()
         }
+    }
 
     @Test
-    fun `revealCard sends envelope`() =
+    fun `revealCard sends envelope`() {
         runBlocking {
             val connection = connectClient()
 
@@ -209,9 +238,58 @@ class GameWebSocketClientTest {
 
             connection.disconnect()
         }
+    }
 
     @Test
-    fun `disconnect closes session`() =
+    fun `placeBid sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+
+            val requestId = client.placeBid(100)
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.PLACE_BID, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertNotNull(sent.payload)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `buyBack sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+
+            val requestId = client.buyBack(true)
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.AUCTION_BUY_BACK, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertNotNull(sent.payload)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `initiateTrade sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+
+            val requestId = client.initiateTrade("player-456")
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.INITIATE_TRADE, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertNotNull(sent.payload)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `disconnect closes session`() {
         runBlocking {
             val connection = connectClient()
 
@@ -219,11 +297,12 @@ class GameWebSocketClientTest {
 
             assertTrue(connection.session.wasClosed)
         }
+    }
 
     // === Receive-Tests: was passiert mit eingehenden Server-Nachrichten? ===
 
     @Test
-    fun `flow emits incoming envelopes`() =
+    fun `flow emits incoming envelopes`() {
         runBlocking {
             val events = collectEvents()
 
@@ -235,9 +314,10 @@ class GameWebSocketClientTest {
             assertEquals(WebSocketType.GAME_CREATED, received[0].type)
             assertEquals("req-123", received[0].requestId)
         }
+    }
 
     @Test
-    fun `flow ignores malformed JSON`() =
+    fun `flow ignores malformed JSON`() {
         runBlocking {
             val events = collectEvents()
 
@@ -246,11 +326,12 @@ class GameWebSocketClientTest {
 
             assertEquals(0, events.await().size)
         }
+    }
 
     // === Lifecycle-Tests: Cleanup, Reconnect, Retry ===
 
     @Test
-    fun `flow completion closes session and allows reconnect`() =
+    fun `flow completion closes session and allows reconnect`() {
         runBlocking {
             val firstSession = FakeWebSocketSession()
             val secondSession = FakeWebSocketSession()
@@ -270,9 +351,10 @@ class GameWebSocketClientTest {
             secondSession.closeIncoming()
             assertEquals(0, secondEvents.await().size)
         }
+    }
 
     @Test
-    fun `flow completion invokes extra cleanup`() =
+    fun `flow completion invokes extra cleanup`() {
         runBlocking {
             var cleanupCalls = 0
             val customClient =
@@ -286,9 +368,10 @@ class GameWebSocketClientTest {
 
             assertEquals(1, cleanupCalls)
         }
+    }
 
     @Test
-    fun `disconnect invokes extra cleanup`() =
+    fun `disconnect invokes extra cleanup`() {
         runBlocking {
             var cleanupCalls = 0
             val customClient =
@@ -301,9 +384,10 @@ class GameWebSocketClientTest {
 
             assertEquals(1, cleanupCalls)
         }
+    }
 
     @Test
-    fun `extra cleanup exception does not bubble up`() =
+    fun `extra cleanup exception does not bubble up`() {
         runBlocking {
             val customClient =
                 testClient(session) {
@@ -313,9 +397,10 @@ class GameWebSocketClientTest {
             val connection = connectClient(customClient)
             connection.disconnect()
         }
+    }
 
     @Test
-    fun `failed connection allows a later retry`() =
+    fun `failed connection allows a later retry`() {
         runBlocking {
             val retrySession = FakeWebSocketSession()
             var shouldFail = true
@@ -345,11 +430,12 @@ class GameWebSocketClientTest {
 
             assertTrue(retrySession.wasClosed)
         }
+    }
 
     // === Default-Code-Pfad: echte HttpClient-Factory mit MockEngine ===
 
     @Test
-    fun `defaultOpenSession opens the configured websocket url`() =
+    fun `defaultOpenSession opens the configured websocket url`() {
         runBlocking {
             val defaultSession = FakeWebSocketSession()
             var seenUrl: String? = null
@@ -365,4 +451,5 @@ class GameWebSocketClientTest {
             connection.disconnect()
             assertTrue(defaultSession.wasClosed)
         }
+    }
 }
