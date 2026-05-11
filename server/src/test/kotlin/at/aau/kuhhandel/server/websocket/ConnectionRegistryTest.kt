@@ -40,4 +40,35 @@ class ConnectionRegistryTest {
 
         assertNull(registry.gameIdFor(sessionId))
     }
+
+    @Test
+    fun `getSessionsForGame returns all sessions for a specific game`() {
+        val game1 = "G1"
+        val game2 = "G2"
+
+        val s1 = mockk<WebSocketSession>()
+        every { s1.id } returns "s1"
+        val s2 = mockk<WebSocketSession>()
+        every { s2.id } returns "s2"
+        val s3 = mockk<WebSocketSession>()
+        every { s3.id } returns "s3"
+
+        registry.bind(s1, game1)
+        registry.bind(s2, game1)
+        registry.bind(s3, game2)
+
+        val sessionsG1 = registry.getSessionsForGame(game1)
+        assertEquals(2, sessionsG1.size)
+        assertEquals(setOf(s1, s2), sessionsG1.toSet())
+
+        val sessionsG2 = registry.getSessionsForGame(game2)
+        assertEquals(1, sessionsG2.size)
+        assertEquals(s3, sessionsG2[0])
+    }
+
+    @Test
+    fun `getSessionsForGame returns empty list if no sessions for game`() {
+        val sessions = registry.getSessionsForGame("unknown")
+        assertEquals(0, sessions.size)
+    }
 }

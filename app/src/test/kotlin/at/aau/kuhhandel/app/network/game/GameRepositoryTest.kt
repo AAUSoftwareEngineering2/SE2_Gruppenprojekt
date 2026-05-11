@@ -302,10 +302,30 @@ class GameRepositoryTest {
             val harness = createHarness()
 
             harness.createGame()
+            // Missing payload
             harness.session.deliverEnvelope(WebSocketEnvelope(type = WebSocketType.GAME_CREATED))
             flushRepository()
-
             assertEquals("Invalid GAME_CREATED message", harness.state.errorMessage)
+
+            // Invalid payload for GAME_STARTED
+            harness.session.deliverEnvelope(
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_STARTED,
+                    payload = WebSocketJson.json.parseToJsonElement("{}"),
+                ),
+            )
+            flushRepository()
+            assertEquals("Invalid GameState message", harness.state.errorMessage)
+
+            // Invalid payload for ERROR
+            harness.session.deliverEnvelope(
+                WebSocketEnvelope(
+                    type = WebSocketType.ERROR,
+                    payload = WebSocketJson.json.parseToJsonElement("{}"),
+                ),
+            )
+            flushRepository()
+            assertEquals("Invalid ERROR message", harness.state.errorMessage)
         }
     }
 

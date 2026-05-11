@@ -5,12 +5,14 @@ import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -730,6 +732,90 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(respondingPlayerId = "player-2", accepted = false),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `PLACE_BID happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        verify(gameService).placeBid("game-1", "player-1", 100)
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-bid-1", response.requestId)
+    }
+
+    @Test
+    fun `PLACE_BID with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.ROUND_END)
+        whenever(gameService.resolveAuction("game-1", true)).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-buyback-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
+                ),
+        )
+
+        verify(gameService).resolveAuction("game-1", true)
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-buyback-1", response.requestId)
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.resolveAuction("game-1", true)).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-buyback-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
                 ),
         )
 

@@ -3,11 +3,13 @@ package at.aau.kuhhandel.server.websocket
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -73,7 +75,8 @@ class GameWebSocketHandler(
             WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
             WebSocketType.OFFER_TRADE -> handleOfferTrade(session, envelope)
             WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
-            // Server Side TODO: Handle auction message types: PLACE_BID, AUCTION_BUY_BACK
+            WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
+            WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
             else -> sendError(session, envelope.requestId, "Unsupported message type")
         }
     }
@@ -250,6 +253,60 @@ class GameWebSocketHandler(
                     envelope.requestId,
                     e.message ?: ERROR_INVALID_TRADE_STATE,
                 )
+            }
+
+        if (state == null) {
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        }
+
+        sendStateUpdate(session, envelope.requestId, state)
+    }
+
+    private fun handlePlaceBid(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id)
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+
+        val payload =
+            decodePayload(session, envelope, PlaceBidPayload.serializer())
+                ?: return
+
+        // For now, we use a fixed player ID until we have session-based player tracking
+        // In a real scenario, this would come from the connection or a token.
+        val state =
+            try {
+                gameService.placeBid(gameId, "player-1", payload.amount)
+            } catch (e: Exception) {
+                return sendError(session, envelope.requestId, e.message ?: "Invalid bid")
+            }
+
+        if (state == null) {
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        }
+
+        sendStateUpdate(session, envelope.requestId, state)
+    }
+
+    private fun handleAuctionBuyBack(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id)
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+
+        val payload =
+            decodePayload(session, envelope, AuctionBuyBackPayload.serializer())
+                ?: return
+
+        val state =
+            try {
+                gameService.resolveAuction(gameId, payload.buyBack)
+            } catch (e: Exception) {
+                return sendError(session, envelope.requestId, e.message ?: "Invalid buy back")
             }
 
         if (state == null) {

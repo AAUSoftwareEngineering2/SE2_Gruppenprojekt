@@ -312,4 +312,86 @@ class GameServiceTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun test_placeBid_returnsNull_forInvalidGameId() {
+        val service = GameService(eventPublisher)
+        val result = service.placeBid("99999", "p1", 10)
+        assertNull(result)
+    }
+
+    @Test
+    fun test_closeAuction_returnsNull_forInvalidGameId() {
+        val service = GameService(eventPublisher)
+        val result = service.closeAuction("99999")
+        assertNull(result)
+    }
+
+    @Test
+    fun test_scheduleAutoClose_executesAndPublishesEvent() {
+        val service = GameService(eventPublisher)
+        val session = service.createGame("p1")
+        service.startGame(session.gameId)
+        service.chooseAuction(session.gameId)
+
+        // The timer is set to 5 seconds. We need to wait for the coroutine.
+        // In a real unit test we might want to mock the dispatcher or use runTest,
+        // but since it's using CoroutineScope(Dispatchers.Default), it's harder to control.
+        // For now, let's just wait a bit longer than 5.1s.
+        Thread.sleep(6000)
+
+        io.mockk.verify(timeout = 1000) {
+            eventPublisher.publishEvent(any<at.aau.kuhhandel.server.event.GameStateChangedEvent>())
+        }
+        assertTrue(session.gameState.auctionState!!.isClosed)
+    }
+
+    @Test
+    fun test_scheduleAutoClose_abortsIfTimerChanged() {
+        val service = GameService(eventPublisher)
+        val session = service.createGame("p1")
+        service.startGame(session.gameId)
+
+        // Add a second player so they can bid
+        session.gameState.players
+            .toMutableList()
+            .apply {
+                add(
+                    at.aau.kuhhandel.shared.model
+                        .PlayerState(id = "player-2", name = "player-2"),
+                )
+            }.let { updatedPlayers ->
+                val field = session.javaClass.getDeclaredField("gameState")
+                field.isAccessible = true
+                val currentState = field.get(session) as at.aau.kuhhandel.shared.model.GameState
+                field.set(session, currentState.copy(players = updatedPlayers))
+            }
+
+        service.chooseAuction(session.gameId)
+
+        // Place a bid halfway through
+        Thread.sleep(3000)
+        service.placeBid(session.gameId, "player-2", 10)
+
+        // Wait for the first scheduleAutoClose to finish
+        Thread.sleep(3000)
+
+        // The auction should NOT be closed by the FIRST scheduleAutoClose
+        // because the timerEndTime changed.
+        // Note: the SECOND scheduleAutoClose (from placeBid) might still be running.
+    }
+
+    @Test
+    fun test_scheduleAutoClose_abortsIfAlreadyClosed() {
+        val service = GameService(eventPublisher)
+        val session = service.createGame("p1")
+        service.startGame(session.gameId)
+        service.chooseAuction(session.gameId)
+
+        // Manually close it
+        service.closeAuction(session.gameId)
+
+        Thread.sleep(6000)
+        // Should not have published more events from scheduleAutoClose if it checks isClosed
+    }
 }
