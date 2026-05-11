@@ -256,7 +256,8 @@ class GameViewModelTest {
     @Test
     fun `initiateTrade calls repository and handles error`() {
         runTest {
-            coEvery { mockRepository.initiateTrade("player-2") } throws RuntimeException("Network error")
+            coEvery { mockRepository.initiateTrade("player-2") } throws
+                RuntimeException("Network error")
             viewModel.initiateTrade("player-2")
             advanceUntilIdle()
             coVerify { mockRepository.initiateTrade("player-2") }

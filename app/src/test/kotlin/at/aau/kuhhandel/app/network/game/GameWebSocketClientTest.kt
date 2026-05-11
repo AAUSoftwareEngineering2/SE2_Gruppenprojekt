@@ -333,7 +333,10 @@ class GameWebSocketClientTest {
         runBlocking {
             val events = collectEvents()
 
-            session.deliverFrame(io.ktor.websocket.Frame.Binary(true, byteArrayOf(1, 2, 3)))
+            session.deliverFrame(
+                io.ktor.websocket.Frame
+                    .Binary(true, byteArrayOf(1, 2, 3)),
+            )
             session.closeIncoming()
 
             assertEquals(0, events.await().size)
@@ -351,9 +354,10 @@ class GameWebSocketClientTest {
 
             session.deliverClose(io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR, "Server crash")
 
-            val e = assertFailsWith<IllegalStateException> {
-                events.await()
-            }
+            val e =
+                assertFailsWith<IllegalStateException> {
+                    events.await()
+                }
             assertTrue(e.message?.contains("WebSocket closed (1011): Server crash") == true)
         }
     }
@@ -367,11 +371,15 @@ class GameWebSocketClientTest {
                 }
             client.awaitConnected()
 
-            session.deliverFrame(io.ktor.websocket.Frame.Close())
+            session.deliverFrame(
+                io.ktor.websocket.Frame
+                    .Close(),
+            )
 
-            val e = assertFailsWith<IllegalStateException> {
-                events.await()
-            }
+            val e =
+                assertFailsWith<IllegalStateException> {
+                    events.await()
+                }
             assertTrue(e.message?.contains("WebSocket closed without a close reason") == true)
         }
     }
@@ -387,9 +395,10 @@ class GameWebSocketClientTest {
 
             session.deliverClose(io.ktor.websocket.CloseReason.Codes.NORMAL, "")
 
-            val e = assertFailsWith<IllegalStateException> {
-                events.await()
-            }
+            val e =
+                assertFailsWith<IllegalStateException> {
+                    events.await()
+                }
             assertTrue(e.message?.contains("Kein Grund angegeben") == true)
         }
     }
