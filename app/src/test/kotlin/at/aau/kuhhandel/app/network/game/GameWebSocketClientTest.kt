@@ -354,7 +354,10 @@ class GameWebSocketClientTest {
                     }
                 client.awaitConnected()
 
-                session.deliverClose(io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR, "Server crash")
+                session.deliverClose(
+                    io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR,
+                    "Server crash",
+                )
 
                 val e =
                     assertFailsWith<IllegalStateException> {
