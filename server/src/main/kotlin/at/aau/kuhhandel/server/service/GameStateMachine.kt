@@ -89,6 +89,7 @@ class GameStateMachine {
                 AuctionState(
                     auctionCard = requireNotNull(auctionCard),
                     auctioneerId = activePlayer.id,
+                    timerEndTime = System.currentTimeMillis() + 5000,
                 ),
             tradeState = null,
         )
@@ -126,6 +127,7 @@ class GameStateMachine {
                 auctionState.copy(
                     highestBid = command.amount,
                     highestBidderId = command.bidderId,
+                    timerEndTime = System.currentTimeMillis() + 5000,
                 ),
         )
     }

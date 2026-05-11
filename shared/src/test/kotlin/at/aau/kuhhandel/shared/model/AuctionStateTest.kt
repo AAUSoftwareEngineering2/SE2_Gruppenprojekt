@@ -23,6 +23,7 @@ class AuctionStateTest {
     @Test
     fun test_customAuctionState() {
         val card = AnimalCard(id = "2", type = AnimalType.DOG)
+        val endTime = System.currentTimeMillis() + 5000
         val state =
             AuctionState(
                 auctionCard = card,
@@ -30,6 +31,7 @@ class AuctionStateTest {
                 highestBid = 10,
                 highestBidderId = "p1",
                 isClosed = true,
+                timerEndTime = endTime,
             )
 
         assertEquals(card, state.auctionCard)
@@ -37,5 +39,6 @@ class AuctionStateTest {
         assertEquals(10, state.highestBid)
         assertEquals("p1", state.highestBidderId)
         assertTrue(state.isClosed)
+        assertEquals(endTime, state.timerEndTime)
     }
 }
