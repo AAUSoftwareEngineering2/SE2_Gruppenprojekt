@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.coroutines.coroutineContext
@@ -346,60 +347,66 @@ class GameWebSocketClientTest {
     @Test
     fun `flow throws error on close frame`() {
         runBlocking {
-            val events =
-                async(start = CoroutineStart.UNDISPATCHED) {
-                    client.connect().toList()
-                }
-            client.awaitConnected()
+            supervisorScope {
+                val events =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        client.connect().toList()
+                    }
+                client.awaitConnected()
 
-            session.deliverClose(io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR, "Server crash")
+                session.deliverClose(io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR, "Server crash")
 
-            val e =
-                assertFailsWith<IllegalStateException> {
-                    events.await()
-                }
-            assertTrue(e.message?.contains("WebSocket closed (1011): Server crash") == true)
+                val e =
+                    assertFailsWith<IllegalStateException> {
+                        events.await()
+                    }
+                assertTrue(e.message?.contains("WebSocket closed (1011): Server crash") == true)
+            }
         }
     }
 
     @Test
     fun `flow throws error on close frame without reason`() {
         runBlocking {
-            val events =
-                async(start = CoroutineStart.UNDISPATCHED) {
-                    client.connect().toList()
-                }
-            client.awaitConnected()
+            supervisorScope {
+                val events =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        client.connect().toList()
+                    }
+                client.awaitConnected()
 
-            session.deliverFrame(
-                io.ktor.websocket.Frame
-                    .Close(),
-            )
+                session.deliverFrame(
+                    io.ktor.websocket.Frame
+                        .Close(),
+                )
 
-            val e =
-                assertFailsWith<IllegalStateException> {
-                    events.await()
-                }
-            assertTrue(e.message?.contains("WebSocket closed without a close reason") == true)
+                val e =
+                    assertFailsWith<IllegalStateException> {
+                        events.await()
+                    }
+                assertTrue(e.message?.contains("WebSocket closed without a close reason") == true)
+            }
         }
     }
 
     @Test
     fun `flow throws error on close frame with blank message`() {
         runBlocking {
-            val events =
-                async(start = CoroutineStart.UNDISPATCHED) {
-                    client.connect().toList()
-                }
-            client.awaitConnected()
+            supervisorScope {
+                val events =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        client.connect().toList()
+                    }
+                client.awaitConnected()
 
-            session.deliverClose(io.ktor.websocket.CloseReason.Codes.NORMAL, "")
+                session.deliverClose(io.ktor.websocket.CloseReason.Codes.NORMAL, "")
 
-            val e =
-                assertFailsWith<IllegalStateException> {
-                    events.await()
-                }
-            assertTrue(e.message?.contains("Kein Grund angegeben") == true)
+                val e =
+                    assertFailsWith<IllegalStateException> {
+                        events.await()
+                    }
+                assertTrue(e.message?.contains("Kein Grund angegeben") == true)
+            }
         }
     }
 
