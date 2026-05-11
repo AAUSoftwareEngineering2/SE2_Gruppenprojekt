@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -233,8 +234,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `placeBid calls repository`() {
+    fun `placeBid calls repository and handles error`() {
         runTest {
+            coEvery { mockRepository.placeBid(50) } throws RuntimeException("Network error")
             viewModel.placeBid(50)
             advanceUntilIdle()
             coVerify { mockRepository.placeBid(50) }
@@ -242,8 +244,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `buyBack calls repository`() {
+    fun `buyBack calls repository and handles error`() {
         runTest {
+            coEvery { mockRepository.buyBack(true) } throws RuntimeException("Network error")
             viewModel.buyBack(true)
             advanceUntilIdle()
             coVerify { mockRepository.buyBack(true) }
@@ -251,8 +254,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `initiateTrade calls repository`() {
+    fun `initiateTrade calls repository and handles error`() {
         runTest {
+            coEvery { mockRepository.initiateTrade("player-2") } throws RuntimeException("Network error")
             viewModel.initiateTrade("player-2")
             advanceUntilIdle()
             coVerify { mockRepository.initiateTrade("player-2") }

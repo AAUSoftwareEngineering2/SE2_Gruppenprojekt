@@ -328,6 +328,81 @@ class GameWebSocketClientTest {
         }
     }
 
+    @Test
+    fun `flow ignores binary frames`() {
+        runBlocking {
+            val events = collectEvents()
+
+            session.deliverFrame(io.ktor.websocket.Frame.Binary(true, byteArrayOf(1, 2, 3)))
+            session.closeIncoming()
+
+            assertEquals(0, events.await().size)
+        }
+    }
+
+    @Test
+    fun `flow throws error on close frame`() {
+        runBlocking {
+            val events =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    client.connect().toList()
+                }
+            client.awaitConnected()
+
+            session.deliverClose(io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR, "Server crash")
+
+            val e = assertFailsWith<IllegalStateException> {
+                events.await()
+            }
+            assertTrue(e.message?.contains("WebSocket closed (1011): Server crash") == true)
+        }
+    }
+
+    @Test
+    fun `flow throws error on close frame without reason`() {
+        runBlocking {
+            val events =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    client.connect().toList()
+                }
+            client.awaitConnected()
+
+            session.deliverFrame(io.ktor.websocket.Frame.Close())
+
+            val e = assertFailsWith<IllegalStateException> {
+                events.await()
+            }
+            assertTrue(e.message?.contains("WebSocket closed without a close reason") == true)
+        }
+    }
+
+    @Test
+    fun `flow throws error on close frame with blank message`() {
+        runBlocking {
+            val events =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    client.connect().toList()
+                }
+            client.awaitConnected()
+
+            session.deliverClose(io.ktor.websocket.CloseReason.Codes.NORMAL, "")
+
+            val e = assertFailsWith<IllegalStateException> {
+                events.await()
+            }
+            assertTrue(e.message?.contains("Kein Grund angegeben") == true)
+        }
+    }
+
+    @Test
+    fun `awaitConnected returns immediately if already connected`() {
+        runBlocking {
+            val connection = connectClient()
+            client.awaitConnected() // Should not throw or hang
+            connection.disconnect()
+        }
+    }
+
     // === Lifecycle-Tests: Cleanup, Reconnect, Retry ===
 
     @Test
