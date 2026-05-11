@@ -45,6 +45,10 @@ internal class FakeWebSocketSession : WebSocketSession {
         incomingChannel.trySend(Frame.Close(CloseReason(code, message)))
     }
 
+    fun deliverFrame(frame: Frame) {
+        incomingChannel.trySend(frame)
+    }
+
     fun closeIncoming() {
         incomingChannel.close()
     }

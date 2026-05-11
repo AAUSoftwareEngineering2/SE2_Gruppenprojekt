@@ -47,7 +47,7 @@ class LobbyCreationViewModelTest {
     }
 
     @Test
-    fun `initial state is fully correct`() =
+    fun `initial state is fully correct`() {
         runTest {
             val uiState = viewModel.uiState.value
             assertFalse(uiState.isConnecting)
@@ -55,17 +55,19 @@ class LobbyCreationViewModelTest {
             assertNull(uiState.errorMessage)
             assertFalse(uiState.isCreated)
         }
+    }
 
     @Test
-    fun `createLobby shall call repository`() =
+    fun `createLobby shall call repository`() {
         runTest {
             viewModel.createLobby()
             advanceUntilIdle()
             coVerify { mockRepository.createGame() }
         }
+    }
 
     @Test
-    fun `state reflects repository updates`() =
+    fun `state reflects repository updates`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -94,4 +96,5 @@ class LobbyCreationViewModelTest {
             advanceUntilIdle()
             assertEquals("Error occurred", viewModel.uiState.value.errorMessage)
         }
+    }
 }
