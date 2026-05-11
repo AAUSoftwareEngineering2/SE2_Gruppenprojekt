@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.enums.TradeStep
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
@@ -198,6 +199,7 @@ class GameStateMachine {
                 )
 
         val requestedAnimalType = requireSharedAnimalType(activePlayer, challengedPlayer)
+        val offeredMoneyCards = requireMoneyCards(activePlayer, command.offeredMoneyCardIds)
 
         return state.copy(
             phase = GamePhase.TRADE,
@@ -207,6 +209,10 @@ class GameStateMachine {
                     initiatingPlayerId = activePlayer.id,
                     challengedPlayerId = challengedPlayer.id,
                     requestedAnimalType = requestedAnimalType,
+                    step = TradeStep.WAITING_FOR_RESPONSE,
+                    offeredMoney = offeredMoneyCards.sumOf { it.value },
+                    offeredMoneyCardIds = command.offeredMoneyCardIds,
+                    offeredMoneyCardCount = command.offeredMoneyCardIds.size,
                 ),
         )
     }
@@ -219,22 +225,23 @@ class GameStateMachine {
             "Cannot offer money for a trade during phase ${state.phase}"
         }
 
-        val tradeState = requireActiveTrade(state)
-        check(!tradeState.isResolved) {
+        val tradeState = requireActiveTrade(state, "Cannot offer money without an active trade")
+        check(tradeState.step == TradeStep.WAITING_FOR_RESPONSE && !tradeState.isResolved) {
             "Cannot modify the offer after the trade is resolved"
         }
         require(command.offeredMoneyCardIds.isNotEmpty()) {
             "Trade offer must include at least one money card"
         }
 
-        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
-        val offeredCards = collectMoneyCards(initiator, command.offeredMoneyCardIds)
+        val initiator = requirePlayer(state.players, tradeState.initiatingPlayerId)
+        val offeredCards = requireMoneyCards(initiator, command.offeredMoneyCardIds)
 
         return state.copy(
             tradeState =
                 tradeState.copy(
                     offeredMoney = offeredCards.sumOf { it.value },
                     offeredMoneyCardIds = command.offeredMoneyCardIds,
+                    offeredMoneyCardCount = command.offeredMoneyCardIds.size,
                 ),
         )
     }
@@ -247,60 +254,83 @@ class GameStateMachine {
             "Cannot respond to a trade during phase ${state.phase}"
         }
 
-        val tradeState = requireActiveTrade(state)
-        check(!tradeState.isResolved) {
+        val tradeState = requireActiveTrade(state, "Cannot respond without an active trade")
+        check(tradeState.step == TradeStep.WAITING_FOR_RESPONSE && !tradeState.isResolved) {
             "Trade is already resolved"
         }
         require(command.respondingPlayerId == tradeState.challengedPlayerId) {
-            "Only the challenged player can respond to the trade"
+            "Only challenged player can respond to the trade"
         }
 
-        if (!command.accepted) {
-            // Trade rejected: no transfer happens, the active player's turn ends.
+        if (!command.acceptsOffer && command.counterOfferedMoneyCardIds.isEmpty()) {
             return state.copy(
                 phase = GamePhase.ROUND_END,
+                currentFaceUpCard = null,
+                auctionState = null,
                 tradeState = null,
             )
         }
 
         require(tradeState.offeredMoneyCardIds.isNotEmpty()) {
-            "Cannot accept a trade before the initiator has placed a money offer"
+            "Cannot accept or counter a trade before the initiator has placed a money offer"
         }
 
-        val initiator = requirePlayer(state, tradeState.initiatingPlayerId)
-        val challenged = requirePlayer(state, tradeState.challengedPlayerId)
-
-        val animalToTransfer =
-            challenged.animals.firstOrNull { it.type == tradeState.requestedAnimalType }
-                ?: throw IllegalStateException(
-                    "Challenged player ${challenged.id} no longer owns an animal of type " +
-                        "${tradeState.requestedAnimalType}",
-                )
-        val moneyCardsToTransfer = collectMoneyCards(initiator, tradeState.offeredMoneyCardIds)
-
-        val updatedPlayers =
-            state.players.map { player ->
-                when (player.id) {
-                    initiator.id ->
-                        player.copy(
-                            animals = player.animals + animalToTransfer,
-                            moneyCards =
-                                player.moneyCards.filterNot {
-                                    it.id in tradeState.offeredMoneyCardIds
-                                },
-                        )
-                    challenged.id ->
-                        player.copy(
-                            animals = player.animals.filterNot { it.id == animalToTransfer.id },
-                            moneyCards = player.moneyCards + moneyCardsToTransfer,
-                        )
-                    else -> player
-                }
+        val initiatingPlayer = requirePlayer(state.players, tradeState.initiatingPlayerId)
+        val challengedPlayer = requirePlayer(state.players, tradeState.challengedPlayerId)
+        val offeredMoneyCards = requireMoneyCards(initiatingPlayer, tradeState.offeredMoneyCardIds)
+        val counterOfferCards =
+            if (command.acceptsOffer) {
+                emptyList()
+            } else {
+                requireMoneyCards(challengedPlayer, command.counterOfferedMoneyCardIds)
             }
+
+        // Acceptance skips the counter-offer comparison; otherwise higher money wins the animal type.
+        val initiatingPlayerWins =
+            command.acceptsOffer ||
+                offeredMoneyCards.sumOf { it.value } >= counterOfferCards.sumOf { it.value }
+        val winnerId =
+            if (initiatingPlayerWins) {
+                tradeState.initiatingPlayerId
+            } else {
+                tradeState.challengedPlayerId
+            }
+        val loserId =
+            if (initiatingPlayerWins) {
+                tradeState.challengedPlayerId
+            } else {
+                tradeState.initiatingPlayerId
+            }
+
+        var updatedPlayers =
+            moveAnimalTypeBetweenPlayers(
+                players = state.players,
+                fromPlayerId = loserId,
+                toPlayerId = winnerId,
+                animalType = tradeState.requestedAnimalType,
+            )
+
+        // When both players placed money, Kuhhandel swaps the committed money cards.
+        updatedPlayers =
+            transferMoneyCards(
+                players = updatedPlayers,
+                fromPlayerId = tradeState.initiatingPlayerId,
+                toPlayerId = tradeState.challengedPlayerId,
+                moneyCardIds = tradeState.offeredMoneyCardIds,
+            )
+        updatedPlayers =
+            transferMoneyCards(
+                players = updatedPlayers,
+                fromPlayerId = tradeState.challengedPlayerId,
+                toPlayerId = tradeState.initiatingPlayerId,
+                moneyCardIds = counterOfferCards.map { it.id },
+            )
 
         return state.copy(
             phase = GamePhase.ROUND_END,
             players = updatedPlayers,
+            currentFaceUpCard = null,
+            auctionState = null,
             tradeState = null,
         )
     }
@@ -357,6 +387,37 @@ class GameStateMachine {
             message
         }
 
+    private fun requireActiveTrade(
+        state: GameState,
+        message: String,
+    ): TradeState =
+        requireNotNull(state.tradeState) {
+            message
+        }
+
+    private fun requirePlayer(
+        players: List<PlayerState>,
+        playerId: String,
+    ): PlayerState =
+        players.firstOrNull { it.id == playerId }
+            ?: throw IllegalArgumentException("Unknown player $playerId")
+
+    private fun requireMoneyCards(
+        player: PlayerState,
+        moneyCardIds: List<String>,
+    ): List<MoneyCard> {
+        require(moneyCardIds.distinct().size == moneyCardIds.size) {
+            "Money cards cannot be used more than once"
+        }
+
+        return moneyCardIds.map { moneyCardId ->
+            player.moneyCards.firstOrNull { it.id == moneyCardId }
+                ?: throw IllegalArgumentException(
+                    "Player ${player.id} does not own money card $moneyCardId",
+                )
+        }
+    }
+
     private fun addAnimalToPlayer(
         players: List<PlayerState>,
         playerId: String,
@@ -376,6 +437,67 @@ class GameStateMachine {
         }
     }
 
+    private fun moveAnimalTypeBetweenPlayers(
+        players: List<PlayerState>,
+        fromPlayerId: String,
+        toPlayerId: String,
+        animalType: AnimalType,
+    ): List<PlayerState> {
+        val animalCardsToMove =
+            requirePlayer(players, fromPlayerId)
+                .animals
+                .filter { it.type == animalType }
+
+        require(animalCardsToMove.isNotEmpty()) {
+            "Player $fromPlayerId does not own animal type $animalType"
+        }
+
+        return players.map { player ->
+            when (player.id) {
+                fromPlayerId ->
+                    player.copy(
+                        animals =
+                            player.animals.filterNot { animalCard ->
+                                animalCardsToMove.any { it.id == animalCard.id }
+                            },
+                    )
+                toPlayerId -> player.copy(animals = player.animals + animalCardsToMove)
+                else -> player
+            }
+        }
+    }
+
+    private fun transferMoneyCards(
+        players: List<PlayerState>,
+        fromPlayerId: String,
+        toPlayerId: String,
+        moneyCardIds: List<String>,
+    ): List<PlayerState> {
+        if (moneyCardIds.isEmpty()) {
+            return players
+        }
+
+        val moneyCardsToTransfer =
+            requireMoneyCards(
+                requirePlayer(players, fromPlayerId),
+                moneyCardIds,
+            )
+
+        return players.map { player ->
+            when (player.id) {
+                fromPlayerId ->
+                    player.copy(
+                        moneyCards =
+                            player.moneyCards.filterNot { moneyCard ->
+                                moneyCardsToTransfer.any { it.id == moneyCard.id }
+                            },
+                    )
+                toPlayerId -> player.copy(moneyCards = player.moneyCards + moneyCardsToTransfer)
+                else -> player
+            }
+        }
+    }
+
     private fun requireSharedAnimalType(
         activePlayer: PlayerState,
         challengedPlayer: PlayerState,
@@ -386,27 +508,4 @@ class GameStateMachine {
             ?: throw IllegalArgumentException(
                 "Players ${activePlayer.id} and ${challengedPlayer.id} do not share an animal type",
             )
-
-    private fun requireActiveTrade(state: GameState): TradeState =
-        requireNotNull(state.tradeState) {
-            "Cannot perform trade operation without an active trade"
-        }
-
-    private fun requirePlayer(
-        state: GameState,
-        playerId: String,
-    ): PlayerState =
-        state.players.firstOrNull { player -> player.id == playerId }
-            ?: throw IllegalStateException("Player $playerId not found")
-
-    private fun collectMoneyCards(
-        player: PlayerState,
-        cardIds: List<String>,
-    ): List<MoneyCard> =
-        cardIds.map { cardId ->
-            player.moneyCards.firstOrNull { it.id == cardId }
-                ?: throw IllegalArgumentException(
-                    "Player ${player.id} does not own money card $cardId",
-                )
-        }
 }

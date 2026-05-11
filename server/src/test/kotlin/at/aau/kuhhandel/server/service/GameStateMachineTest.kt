@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.enums.TradeStep
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
@@ -422,6 +423,243 @@ class GameStateMachineTest {
     }
 
     @Test
+    fun test_chooseTrade_storesOfferedMoneyCards() {
+        val state =
+            tradeReadyState(
+                initiatingMoneyCards =
+                    listOf(
+                        MoneyCard(id = "money-10", value = 10),
+                        MoneyCard(id = "money-50", value = 50),
+                    ),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    offeredMoneyCardIds = listOf("money-10", "money-50"),
+                ),
+            )
+
+        assertEquals(60, updatedState.tradeState?.offeredMoney)
+        assertEquals(listOf("money-10", "money-50"), updatedState.tradeState?.offeredMoneyCardIds)
+        assertEquals(2, updatedState.tradeState?.offeredMoneyCardCount)
+        assertEquals(TradeStep.WAITING_FOR_RESPONSE, updatedState.tradeState?.step)
+    }
+
+    @Test
+    fun test_chooseTrade_rejectsUnknownOfferedMoneyCard() {
+        val state = tradeReadyState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    offeredMoneyCardIds = listOf("missing-card"),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_acceptOfferMovesAnimalToInitiatingPlayerAndMoneyToChallengedPlayer() {
+        val state =
+            activeTradeState(
+                initiatingMoneyCards = listOf(MoneyCard(id = "money-10", value = 10)),
+                offeredMoneyCardIds = listOf("money-10"),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = true,
+                ),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(listOf("cow-1", "cow-2"), updatedState.players[0].animals.map { it.id })
+        assertEquals(emptyList(), updatedState.players[1].animals)
+        assertEquals(emptyList(), updatedState.players[0].moneyCards)
+        assertEquals(listOf("money-10"), updatedState.players[1].moneyCards.map { it.id })
+        assertNull(updatedState.tradeState)
+    }
+
+    @Test
+    fun test_respondToTrade_acceptOfferIgnoresCounterOfferCards() {
+        val state =
+            activeTradeState(
+                initiatingMoneyCards = listOf(MoneyCard(id = "money-10", value = 10)),
+                challengedMoneyCards = listOf(MoneyCard(id = "money-50", value = 50)),
+                offeredMoneyCardIds = listOf("money-10"),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = true,
+                    counterOfferedMoneyCardIds = listOf("money-50"),
+                ),
+            )
+
+        assertEquals(listOf("cow-1", "cow-2"), updatedState.players[0].animals.map { it.id })
+        assertEquals(
+            listOf("money-50", "money-10"),
+            updatedState.players[1].moneyCards.map { it.id },
+        )
+    }
+
+    @Test
+    fun test_respondToTrade_counterOfferHigherMovesAnimalToChallengedPlayerAndSwapsMoney() {
+        val state =
+            activeTradeState(
+                initiatingMoneyCards = listOf(MoneyCard(id = "money-10", value = 10)),
+                challengedMoneyCards = listOf(MoneyCard(id = "money-50", value = 50)),
+                offeredMoneyCardIds = listOf("money-10"),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = false,
+                    counterOfferedMoneyCardIds = listOf("money-50"),
+                ),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertEquals(emptyList(), updatedState.players[0].animals)
+        assertEquals(listOf("cow-2", "cow-1"), updatedState.players[1].animals.map { it.id })
+        assertEquals(listOf("money-50"), updatedState.players[0].moneyCards.map { it.id })
+        assertEquals(listOf("money-10"), updatedState.players[1].moneyCards.map { it.id })
+        assertNull(updatedState.tradeState)
+    }
+
+    @Test
+    fun test_respondToTrade_equalCounterOfferLetsInitiatingPlayerWin() {
+        val state =
+            activeTradeState(
+                initiatingMoneyCards = listOf(MoneyCard(id = "money-a", value = 10)),
+                challengedMoneyCards = listOf(MoneyCard(id = "money-b", value = 10)),
+                offeredMoneyCardIds = listOf("money-a"),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = false,
+                    counterOfferedMoneyCardIds = listOf("money-b"),
+                ),
+            )
+
+        assertEquals(listOf("cow-1", "cow-2"), updatedState.players[0].animals.map { it.id })
+        assertEquals(emptyList(), updatedState.players[1].animals)
+        assertEquals(listOf("money-b"), updatedState.players[0].moneyCards.map { it.id })
+        assertEquals(listOf("money-a"), updatedState.players[1].moneyCards.map { it.id })
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWrongPhaseWithoutOffer() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = true,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsWrongResponder() {
+        val state = activeTradeState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-1",
+                    acceptsOffer = true,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsUnknownCounterOfferCard() {
+        val state = activeTradeState()
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = false,
+                    counterOfferedMoneyCardIds = listOf("missing-card"),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsResolvedTradeState() {
+        val state =
+            activeTradeState().copy(
+                tradeState =
+                    requireNotNull(activeTradeState().tradeState).copy(
+                        step = TradeStep.RESOLVED,
+                        isResolved = true,
+                    ),
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = true,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun test_respondToTrade_rejectsMissingAnimalAtResolution() {
+        val state =
+            activeTradeState().copy(
+                players =
+                    listOf(
+                        player(
+                            id = "player-1",
+                            animals = listOf(AnimalCard(id = "cow-1", type = AnimalType.COW)),
+                        ),
+                        player(id = "player-2"),
+                    ),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = true,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun test_chooseTrade_rejectsSelfChallenge() {
         val state =
             GameState(
@@ -631,7 +869,7 @@ class GameStateMachineTest {
                 state,
                 GameCommand.RespondToTrade(
                     respondingPlayerId = "player-2",
-                    accepted = true,
+                    acceptsOffer = true,
                 ),
             )
 
@@ -641,9 +879,9 @@ class GameStateMachineTest {
         val initiator = updatedState.players.first { it.id == "player-1" }
         val challenged = updatedState.players.first { it.id == "player-2" }
 
-        // Initiator receives one COW from challenged player
-        assertEquals(2, initiator.animals.count { it.type == AnimalType.COW })
-        assertEquals(1, challenged.animals.count { it.type == AnimalType.COW })
+        // Initiator receives all matching COW cards from challenged player.
+        assertEquals(3, initiator.animals.count { it.type == AnimalType.COW })
+        assertEquals(0, challenged.animals.count { it.type == AnimalType.COW })
 
         // Money cards moved from initiator to challenged
         val transferredIds = listOf("m-10", "m-50")
@@ -668,7 +906,7 @@ class GameStateMachineTest {
                 state,
                 GameCommand.RespondToTrade(
                     respondingPlayerId = "player-2",
-                    accepted = false,
+                    acceptsOffer = false,
                 ),
             )
 
@@ -690,7 +928,7 @@ class GameStateMachineTest {
         assertFailsWith<IllegalStateException> {
             stateMachine.apply(
                 state,
-                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", acceptsOffer = true),
             )
         }
     }
@@ -706,7 +944,7 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.RespondToTrade(respondingPlayerId = "player-1", accepted = true),
+                GameCommand.RespondToTrade(respondingPlayerId = "player-1", acceptsOffer = true),
             )
         }
     }
@@ -718,7 +956,7 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", acceptsOffer = true),
             )
         }
     }
@@ -756,7 +994,7 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = false),
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", acceptsOffer = false),
             )
         }
     }
@@ -777,10 +1015,10 @@ class GameStateMachineTest {
                     },
             )
 
-        assertFailsWith<IllegalStateException> {
+        assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.RespondToTrade(respondingPlayerId = "player-2", accepted = true),
+                GameCommand.RespondToTrade(respondingPlayerId = "player-2", acceptsOffer = true),
             )
         }
     }
@@ -833,12 +1071,69 @@ class GameStateMachineTest {
     private fun player(
         id: String,
         animals: List<AnimalCard> = emptyList(),
+        moneyCards: List<MoneyCard> = emptyList(),
     ): PlayerState =
         PlayerState(
             id = id,
             name = id,
             animals = animals,
+            moneyCards = moneyCards,
         )
+
+    private fun tradeReadyState(
+        initiatingMoneyCards: List<MoneyCard> = emptyList(),
+        challengedMoneyCards: List<MoneyCard> = emptyList(),
+    ): GameState =
+        GameState(
+            phase = GamePhase.PLAYER_TURN,
+            roundNumber = 1,
+            players =
+                listOf(
+                    player(
+                        id = "player-1",
+                        animals = listOf(AnimalCard(id = "cow-1", type = AnimalType.COW)),
+                        moneyCards = initiatingMoneyCards,
+                    ),
+                    player(
+                        id = "player-2",
+                        animals = listOf(AnimalCard(id = "cow-2", type = AnimalType.COW)),
+                        moneyCards = challengedMoneyCards,
+                    ),
+                ),
+        )
+
+    private fun activeTradeState(
+        initiatingMoneyCards: List<MoneyCard> = emptyList(),
+        challengedMoneyCards: List<MoneyCard> = emptyList(),
+        offeredMoneyCardIds: List<String> = emptyList(),
+    ): GameState {
+        val baseState =
+            tradeReadyState(
+                initiatingMoneyCards = initiatingMoneyCards,
+                challengedMoneyCards = challengedMoneyCards,
+            )
+        val offeredMoney =
+            initiatingMoneyCards
+                .filter { moneyCard ->
+                    moneyCard.id in offeredMoneyCardIds
+                }.sumOf { moneyCard ->
+                    moneyCard.value
+                }
+
+        return baseState.copy(
+            phase = GamePhase.TRADE,
+            tradeState =
+                TradeState(
+                    initiatingPlayerId = "player-1",
+                    challengedPlayerId = "player-2",
+                    requestedAnimalType = AnimalType.COW,
+                    step = TradeStep.WAITING_FOR_RESPONSE,
+                    offeredMoney = offeredMoney,
+                    offeredMoneyCardIds = offeredMoneyCardIds,
+                    offeredMoneyCardCount = offeredMoneyCardIds.size,
+                ),
+        )
+    }
 
     private fun activeAuctionState(): GameState = activeAuctionState(auctionFixture())
 
