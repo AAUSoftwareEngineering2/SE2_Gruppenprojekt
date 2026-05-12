@@ -124,7 +124,7 @@ class WebSocketProtocolTest {
             InitiateTradePayload(
                 challengedPlayerId = "player-2",
                 animalType = AnimalType.COW,
-                moneyCardIds = emptyList()
+                moneyCardIds = emptyList(),
             )
 
         assertEquals("player-2", payload.challengedPlayerId)
