@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.spring)
+    alias(libs.plugins.kotlin.jpa)
     alias(libs.plugins.spring.boot)
     application
 }
@@ -25,6 +26,7 @@ dependencies {
     implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.websocket)
+    implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.kotlin.reflect)
     implementation(libs.postgresql)
     implementation(libs.kotlinx.serialization.json)
@@ -33,8 +35,10 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.data.jpa.test)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.mockk)
+    testRuntimeOnly(libs.h2)
 }
 
 tasks.withType<Test> {

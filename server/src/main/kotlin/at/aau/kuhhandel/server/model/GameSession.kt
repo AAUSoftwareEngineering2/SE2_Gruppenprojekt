@@ -9,11 +9,12 @@ class GameSession(
     val gameId: String,
     val playerId: String,
     private val stateMachine: GameStateMachine = GameStateMachine(),
+    initialState: GameState? = null,
 ) {
     // Each session manages its own current game state
     // Server Side TODO: Handle joining of multiple players instead of hardcoding one player
     var gameState: GameState =
-        GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
+        initialState ?: GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
         private set
 
     /**
