@@ -549,7 +549,10 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
-                    InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList()), // re-check this!
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        moneyCardIds = emptyList(),
+                    ), // re-check this!
                 ),
         )
 
@@ -570,7 +573,10 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
-                    InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList()), // re-check this!
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        moneyCardIds = emptyList(),
+                    ), // re-check this!
                 ),
         )
 
@@ -616,7 +622,10 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
-                    InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList()), // re-check this!
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        moneyCardIds = emptyList(),
+                    ), // re-check this!
                 ),
         )
 
@@ -635,7 +644,10 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
-                    InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList()), // re-check this!
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        moneyCardIds = emptyList(),
+                    ), // re-check this!
                 ),
         )
 
@@ -653,7 +665,10 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
-                    InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList()), // re-check this!
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        moneyCardIds = emptyList(),
+                    ), // re-check this!
                 ),
         )
 
@@ -772,10 +787,10 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                    respondingPlayerId = "player-2",
-                    accepted = true,
-                    counterOfferedMoneyCardIds = emptyList() // re-check this!
-                ),
+                        respondingPlayerId = "player-2",
+                        accepted = true,
+                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                    ),
                 ),
         )
 
@@ -797,10 +812,10 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                    respondingPlayerId = "player-2",
-                    accepted = false,
-                    counterOfferedMoneyCardIds = emptyList() // re-check this!
-                ),
+                        respondingPlayerId = "player-2",
+                        accepted = false,
+                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                    ),
                 ),
         )
 
@@ -822,10 +837,10 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                    respondingPlayerId = "player-1",
-                    accepted = true,
-                    counterOfferedMoneyCardIds = emptyList() // re-check this!
-                ),
+                        respondingPlayerId = "player-1",
+                        accepted = true,
+                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                    ),
                 ),
         )
 
@@ -845,10 +860,10 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                    respondingPlayerId = "player-2",
-                    accepted = true,
-                    counterOfferedMoneyCardIds = emptyList() // re-check this!
-                ),
+                        respondingPlayerId = "player-2",
+                        accepted = true,
+                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                    ),
                 ),
         )
 
@@ -867,10 +882,10 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                    respondingPlayerId = "player-2",
-                    accepted = false,
-                    counterOfferedMoneyCardIds = emptyList() // re-check this!
-                ),
+                        respondingPlayerId = "player-2",
+                        accepted = false,
+                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                    ),
                 ),
         )
 

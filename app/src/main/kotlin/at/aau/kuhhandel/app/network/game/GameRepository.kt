@@ -86,12 +86,18 @@ class GameRepository(
     }
 
     suspend fun initiateTrade(
-        targetPlayerId: String,
-        moneyCardIds: List<String> = emptyList()
+        challengedPlayerId: String,
+        moneyCardIds: List<String> = emptyList(),
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.initiateTrade(targetPlayerId, moneyCardIds)
+        client.initiateTrade(challengedPlayerId, moneyCardIds)
+    }
+
+    suspend fun leaveGame() {
+        ensureConnected()
+        client.leaveGame()
+        disconnect()
     }
 
     suspend fun offerTrade(moneyCardIds: List<String>) {
@@ -102,7 +108,7 @@ class GameRepository(
 
     suspend fun respondToTrade(
         accepted: Boolean,
-        counterOfferedMoneyCardIds: List<String> = emptyList()
+        counterOfferedMoneyCardIds: List<String> = emptyList(),
     ) {
         ensureConnected()
         val myId = _state.value.myPlayerId ?: return

@@ -25,6 +25,7 @@ import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase
+import kotlinx.coroutines.launch
 
 @Composable
 fun KuhhandelApp(modifier: Modifier = Modifier) {
@@ -152,6 +153,14 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onPlaceBid = gameViewModel::placeBid,
                     onBuyBack = gameViewModel::buyBack,
                     onRespondToTrade = gameViewModel::respondToTrade,
+                    onInitiateTrade = gameViewModel::initiateTrade,
+                    onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
+                    onLeaveGame = {
+                        scope.launch {
+                            repository.leaveGame()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        }
+                    },
                 )
             }
         }

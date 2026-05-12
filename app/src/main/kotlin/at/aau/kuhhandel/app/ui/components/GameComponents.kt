@@ -102,6 +102,7 @@ fun OtherFarm(
 fun OpponentList(
     players: List<PlayerState>,
     myId: String?,
+    onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val opponents = players.filter { it.id != myId }
@@ -117,7 +118,11 @@ fun OpponentList(
                 rowPlayers.forEachIndexed { colIndex, player ->
                     val index = (rowIndex * 2) + colIndex
                     val color = FarmColor.entries[index % FarmColor.entries.size]
-                    OtherFarm(player = player, farmColor = color, onClick = {})
+                    OtherFarm(
+                        player = player,
+                        farmColor = color,
+                        onClick = { onOpponentClick(player.id) },
+                    )
                 }
             }
         }
@@ -192,7 +197,7 @@ fun AuctionView(
                     "Time left: ${it}s",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -223,7 +228,7 @@ fun AuctionView(
 fun AuctionControls(
     onBid: (Int) -> Unit,
     currentBid: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier.padding(16.dp),
@@ -240,12 +245,19 @@ fun TradeView(
     trade: TradeState?,
     onAccept: () -> Unit,
     onCounter: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    myId: String? = null,
 ) {
     if (trade == null) return
 
+    val isInitiator = trade.initiatingPlayerId == myId
+    val isChallenged = trade.challengedPlayerId == myId
+
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
         modifier = modifier.padding(16.dp),
     ) {
         Column(
@@ -254,10 +266,25 @@ fun TradeView(
         ) {
             Text("TRADE CHALLENGE", style = MaterialTheme.typography.titleMedium)
             Text("For: ${trade.requestedAnimalType.name}")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (isInitiator) {
+                if (trade.offeredMoneyCardCount == 0) {
+                    Text("Select cards and send your offer")
+                } else {
+                    Text("Waiting for response...")
+                }
+            } else if (isChallenged) {
+                Text("Offer received: ${trade.offeredMoneyCardCount} cards")
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onAccept) { Text("Accept") }
-                Button(onClick = onCounter) { Text("Counter") }
+                if (isChallenged) {
+                    Button(onClick = onAccept) { Text("Accept") }
+                    Button(onClick = onCounter) { Text("Counter") }
+                }
             }
         }
     }
@@ -267,6 +294,8 @@ fun TradeView(
 fun PlayerFarm(
     player: PlayerState?,
     isMyTurn: Boolean,
+    selectedMoneyCardIds: Set<String> = emptySet(),
+    onCardClick: (MoneyCard) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -284,6 +313,8 @@ fun PlayerFarm(
             if (player != null) {
                 MoneyHand(
                     cards = player.moneyCards,
+                    selectedCardIds = selectedMoneyCardIds,
+                    onCardClick = onCardClick,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
@@ -354,8 +385,9 @@ fun PlayerFarm(
 @Composable
 fun MoneyHand(
     cards: List<MoneyCard>,
-    modifier: Modifier = Modifier,
+    selectedCardIds: Set<String> = emptySet(),
     onCardClick: (MoneyCard) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     LazyRow(
         modifier = modifier.fillMaxWidth(),
@@ -364,6 +396,7 @@ fun MoneyHand(
         items(cards) { card ->
             MoneyCardView(
                 card = card,
+                isSelected = selectedCardIds.contains(card.id),
                 onClick = { onCardClick(card) },
                 modifier = Modifier.padding(horizontal = 2.dp),
             )
@@ -374,14 +407,20 @@ fun MoneyHand(
 @Composable
 fun MoneyCardView(
     card: MoneyCard,
+    isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = WhitePurple,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else WhitePurple,
         shape = MaterialTheme.shapes.small,
-        shadowElevation = 4.dp,
-        modifier = modifier.size(width = 60.dp, height = 90.dp).clickable { onClick() },
+        shadowElevation = if (isSelected) 8.dp else 4.dp,
+        modifier =
+            modifier
+                .size(width = 60.dp, height = 90.dp)
+                .offset(y = if (isSelected) (-10).dp else 0.dp)
+                .clickable { onClick() },
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(

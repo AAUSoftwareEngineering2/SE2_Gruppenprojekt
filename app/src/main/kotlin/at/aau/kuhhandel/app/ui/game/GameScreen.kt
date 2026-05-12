@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +45,9 @@ fun GameScreen(
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
     onRespondToTrade: (Boolean) -> Unit,
+    onInitiateTrade: (String) -> Unit,
+    onToggleMoneyCard: (String) -> Unit,
+    onLeaveGame: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     MainBackground(modifier = modifier)
@@ -76,11 +83,24 @@ fun GameScreen(
         OpponentList(
             players = uiState.gameState?.players ?: emptyList(),
             myId = uiState.myPlayerId,
+            onOpponentClick = onInitiateTrade,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 16.dp),
+                    .padding(top = 48.dp),
         )
+
+        // --- TOP RIGHT: EXIT ---
+        IconButton(
+            onClick = onLeaveGame,
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = "Leave Game",
+                tint = Color.White,
+            )
+        }
 
         // --- CENTER: THE BOARD ---
         Box(
@@ -139,28 +159,59 @@ fun GameScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         AuctionView(
                             auction = uiState.gameState?.auctionState,
-                            timerSeconds = uiState.auctionTimerSeconds
+                            timerSeconds = uiState.auctionTimerSeconds,
                         )
-                        if (uiState.isConnected && !uiState.isAuctioneer && (uiState.gameState?.auctionState?.isClosed != true)) {
+                        if (uiState.isConnected &&
+                            !uiState.isAuctioneer &&
+                            (uiState.gameState?.auctionState?.isClosed != true)
+                        ) {
                             AuctionControls(
                                 onBid = onPlaceBid,
                                 currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
                             )
-                        } else if (uiState.isAuctioneer && (uiState.gameState?.auctionState?.isClosed == true)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                                Button(onClick = { onBuyBack(false) }) { Text("Let Winner Buy") }
+                        } else if (uiState.isAuctioneer &&
+                            (uiState.gameState?.auctionState?.isClosed == true)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Auction Closed. Choose your action:",
+                                    color = Color.White,
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
+                                    Button(
+                                        onClick = { onBuyBack(false) },
+                                    ) { Text("Let Winner Buy") }
+                                }
                             }
                         }
                     }
                 }
 
                 GamePhase.TRADE -> {
-                    TradeView(
-                        trade = uiState.gameState?.tradeState,
-                        onAccept = { onRespondToTrade(true) },
-                        onCounter = { onRespondToTrade(false) },
-                    )
+                    val trade = uiState.gameState?.tradeState
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        TradeView(
+                            trade = trade,
+                            onAccept = { onRespondToTrade(true) },
+                            onCounter = { onRespondToTrade(false) },
+                            modifier = Modifier,
+                            myId = uiState.myPlayerId,
+                        )
+                        // If I am the initiator, I might need to send my first offer
+                        if (trade?.initiatingPlayerId == uiState.myPlayerId &&
+                            (trade?.offeredMoneyCardCount ?: 0) == 0
+                        ) {
+                            Button(
+                                onClick = { onRespondToTrade(true) },
+                                modifier = Modifier.padding(top = 8.dp),
+                                enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
+                            ) {
+                                Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
+                            }
+                        }
+                    }
                 }
 
                 GamePhase.FINISHED -> {
@@ -181,6 +232,8 @@ fun GameScreen(
         PlayerFarm(
             player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
             isMyTurn = uiState.isMyTurn,
+            selectedMoneyCardIds = uiState.selectedMoneyCardIds,
+            onCardClick = { onToggleMoneyCard(it.id) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
@@ -219,5 +272,8 @@ fun GameScreenPreview() {
         onPlaceBid = {},
         onBuyBack = {},
         onRespondToTrade = {},
+        onInitiateTrade = {},
+        onToggleMoneyCard = {},
+        onLeaveGame = {},
     )
 }

@@ -128,7 +128,7 @@ class GameWebSocketHandler(
                         GameCreatedPayload(
                             gameId = result.gameId,
                             playerId = result.playerId, // re-check this!
-                            state = result.gameState
+                            state = result.gameState,
                         ),
                     ),
             ),
@@ -197,11 +197,12 @@ class GameWebSocketHandler(
                 requestId = envelope.requestId,
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
-                        GameCreatedPayload.serializer(), // re-check this! Use GameCreatedPayload to send playerId
+                        // re-check this! Use GameCreatedPayload to send playerId
+                        GameCreatedPayload.serializer(),
                         GameCreatedPayload(
                             gameId = result.gameId,
                             playerId = result.playerId,
-                            state = result.gameState
+                            state = result.gameState,
                         ),
                     ),
             ),
@@ -281,7 +282,7 @@ class GameWebSocketHandler(
                 gameService.chooseTrade(
                     gameId,
                     payload.challengedPlayerId,
-                    payload.moneyCardIds // re-check this!
+                    payload.moneyCardIds, // re-check this!
                 )
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
@@ -350,7 +351,7 @@ class GameWebSocketHandler(
                     gameId,
                     payload.respondingPlayerId,
                     payload.accepted,
-                    payload.counterOfferedMoneyCardIds // re-check this!
+                    payload.counterOfferedMoneyCardIds, // re-check this!
                 )
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade response")
@@ -385,7 +386,7 @@ class GameWebSocketHandler(
             connectionRegistry.playerIdFor(session.id) ?: return sendError(
                 session,
                 envelope.requestId,
-                ERROR_NO_PLAYER_BOUND
+                ERROR_NO_PLAYER_BOUND,
             ) // re-check this!
 
         val state =
