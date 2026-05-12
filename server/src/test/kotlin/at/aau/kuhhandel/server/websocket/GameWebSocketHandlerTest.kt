@@ -542,7 +542,9 @@ class GameWebSocketHandlerTest {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
 
         val gameState = GameState(phase = GamePhase.TRADE)
-        whenever(gameService.chooseTrade("game-1", "player-2", emptyList())).thenReturn(gameState)
+        whenever(
+            gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()),
+        ).thenReturn(gameState)
 
         sendEnvelope(
             type = WebSocketType.INITIATE_TRADE,
@@ -558,7 +560,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).chooseTrade("game-1", "player-2", emptyList())
+        verify(gameService).chooseTrade("game-1", "player-2", AnimalType.COW, emptyList())
 
         val response = captureResponse(session)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
@@ -616,7 +618,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE when service rejects with IllegalArgument returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseTrade("game-1", "player-2", emptyList()))
+        whenever(gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()))
             .thenThrow(IllegalArgumentException("Unknown challenged player player-2"))
 
         sendEnvelope(
@@ -639,7 +641,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE when service rejects with IllegalState returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseTrade("game-1", "player-2", emptyList()))
+        whenever(gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()))
             .thenThrow(IllegalStateException("Cannot start a trade during phase NOT_STARTED"))
 
         sendEnvelope(
@@ -662,7 +664,9 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseTrade("game-1", "player-2", emptyList())).thenReturn(null)
+        whenever(
+            gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()),
+        ).thenReturn(null)
 
         sendEnvelope(
             type = WebSocketType.INITIATE_TRADE,

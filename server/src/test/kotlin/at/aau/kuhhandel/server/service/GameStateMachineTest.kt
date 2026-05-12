@@ -525,7 +525,10 @@ class GameStateMachineTest {
         val updatedState =
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-2"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
+                ),
             )
 
         assertEquals(GamePhase.TRADE, updatedState.phase)
@@ -556,6 +559,7 @@ class GameStateMachineTest {
                 state,
                 GameCommand.ChooseTrade(
                     challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
                     offeredMoneyCardIds = listOf("money-10", "money-50"),
                 ),
             )
@@ -575,6 +579,7 @@ class GameStateMachineTest {
                 state,
                 GameCommand.ChooseTrade(
                     challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
                     offeredMoneyCardIds = listOf("missing-card"),
                 ),
             )
@@ -788,7 +793,10 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-1"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-1",
+                    animalType = AnimalType.COW,
+                ),
             )
         }
     }
@@ -800,7 +808,10 @@ class GameStateMachineTest {
         assertFailsWith<IllegalStateException> {
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-2"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
+                ),
             )
         }
     }
@@ -817,7 +828,10 @@ class GameStateMachineTest {
         assertFailsWith<IllegalStateException> {
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-2"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
+                ),
             )
         }
     }
@@ -833,7 +847,10 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-2"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
+                ),
             )
         }
     }
@@ -859,7 +876,10 @@ class GameStateMachineTest {
         assertFailsWith<IllegalArgumentException> {
             stateMachine.apply(
                 state,
-                GameCommand.ChooseTrade(challengedPlayerId = "player-2"),
+                GameCommand.ChooseTrade(
+                    challengedPlayerId = "player-2",
+                    animalType = AnimalType.COW,
+                ),
             )
         }
     }

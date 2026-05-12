@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -294,7 +295,7 @@ class GameServiceTest {
     fun test_chooseTrade_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.chooseTrade("fake code", "player-2")
+        val result = service.chooseTrade("fake code", "player-2", AnimalType.COW)
 
         assertNull(result)
     }
@@ -306,7 +307,7 @@ class GameServiceTest {
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalArgumentException> {
-            service.chooseTrade(result.gameId, "player-2")
+            service.chooseTrade(result.gameId, "player-2", AnimalType.COW)
         }
     }
 

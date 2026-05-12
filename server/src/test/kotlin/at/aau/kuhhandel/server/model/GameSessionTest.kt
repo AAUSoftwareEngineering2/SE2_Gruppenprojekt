@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.model
 
 import at.aau.kuhhandel.server.service.GameCommand
 import at.aau.kuhhandel.server.service.GameStateMachine
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -237,7 +238,7 @@ class GameSessionTest {
         session.startGame()
 
         assertFailsWith<IllegalArgumentException> {
-            session.chooseTrade("player-2")
+            session.chooseTrade("player-2", AnimalType.COW)
         }
     }
 
