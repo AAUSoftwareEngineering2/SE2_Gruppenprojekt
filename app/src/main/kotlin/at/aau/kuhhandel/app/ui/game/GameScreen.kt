@@ -67,7 +67,14 @@ fun GameScreen(
                         Text("No shared animals found.")
                     } else {
                         uiState.sharedAnimalsWithSelectedPlayer.forEach { animal ->
-                            TextButton(onClick = { onInitiateTrade(uiState.selectedTargetPlayerId, animal) }) {
+                            TextButton(
+                                onClick = {
+                                    onInitiateTrade(
+                                        uiState.selectedTargetPlayerId,
+                                        animal,
+                                    )
+                                },
+                            ) {
                                 Text(animal.name)
                             }
                         }

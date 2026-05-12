@@ -85,12 +85,13 @@ class GameSession(
 
     fun chooseTrade(
         challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         offeredMoneyCardIds: List<String> = emptyList(),
     ): GameState {
         gameState =
             stateMachine.apply(
                 gameState,
-                GameCommand.ChooseTrade(challengedPlayerId, offeredMoneyCardIds),
+                GameCommand.ChooseTrade(challengedPlayerId, animalType, offeredMoneyCardIds),
             )
         return gameState
     }

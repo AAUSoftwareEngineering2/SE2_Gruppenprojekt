@@ -105,13 +105,29 @@ class GameViewModel(
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
 
-            val sharedAnimals = if (targetId != null && gameState != null && repoState.myPlayerId != null) {
-                val myAnimals = gameState.players.find { it.id == repoState.myPlayerId }?.animals?.map { it.type }?.toSet() ?: emptySet()
-                val targetAnimals = gameState.players.find { it.id == targetId }?.animals?.map { it.type }?.toSet() ?: emptySet()
-                myAnimals.intersect(targetAnimals).toList()
-            } else {
-                emptyList()
-            }
+            val sharedAnimals =
+                if (targetId != null &&
+                    gameState != null &&
+                    repoState.myPlayerId != null
+                ) {
+                    val myAnimals =
+                        gameState.players
+                            .find { it.id == repoState.myPlayerId }
+                            ?.animals
+                            ?.map { it.type }
+                            ?.toSet()
+                            ?: emptySet()
+                    val targetAnimals =
+                        gameState.players
+                            .find { it.id == targetId }
+                            ?.animals
+                            ?.map { it.type }
+                            ?.toSet()
+                            ?: emptySet()
+                    myAnimals.intersect(targetAnimals).toList()
+                } else {
+                    emptyList()
+                }
 
             GameUiState(
                 gameState = gameState,
@@ -222,10 +238,17 @@ class GameViewModel(
         }
     }
 
-    fun initiateTrade(targetPlayerId: String, animalType: AnimalType) {
+    fun initiateTrade(
+        targetPlayerId: String,
+        animalType: AnimalType,
+    ) {
         scope.launch {
             try {
-                repository.initiateTrade(targetPlayerId, animalType, selectedMoneyCardIds.value.toList())
+                repository.initiateTrade(
+                    targetPlayerId,
+                    animalType,
+                    selectedMoneyCardIds.value.toList(),
+                )
                 clearSelection()
                 selectedTargetPlayerId.value = null
             } catch (_: Exception) {

@@ -32,6 +32,7 @@ sealed interface GameCommand {
 
     data class ChooseTrade(
         val challengedPlayerId: String,
+        val animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         val offeredMoneyCardIds: List<String> = emptyList(),
     ) : GameCommand
 

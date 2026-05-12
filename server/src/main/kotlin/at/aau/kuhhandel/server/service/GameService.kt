@@ -153,10 +153,11 @@ class GameService(
     fun chooseTrade(
         gameId: String,
         challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         offeredMoneyCardIds: List<String> = emptyList(),
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.chooseTrade(challengedPlayerId, offeredMoneyCardIds)
+        return session.chooseTrade(challengedPlayerId, animalType, offeredMoneyCardIds)
     }
 
     fun respondToTrade(

@@ -247,7 +247,13 @@ class GameStateMachine {
                     "Unknown challenged player ${command.challengedPlayerId}",
                 )
 
-        val requestedAnimalType = requireSharedAnimalType(activePlayer, challengedPlayer)
+        require(
+            activePlayer.animals.any { it.type == command.animalType } &&
+                challengedPlayer.animals.any { it.type == command.animalType },
+        ) {
+            "Both players must share animal type ${command.animalType}"
+        }
+
         val offeredMoneyCards = requireMoneyCards(activePlayer, command.offeredMoneyCardIds)
 
         return state.copy(
@@ -257,7 +263,7 @@ class GameStateMachine {
                 TradeState(
                     initiatingPlayerId = activePlayer.id,
                     challengedPlayerId = challengedPlayer.id,
-                    requestedAnimalType = requestedAnimalType,
+                    requestedAnimalType = command.animalType,
                     step = TradeStep.WAITING_FOR_RESPONSE,
                     offeredMoney = offeredMoneyCards.sumOf { it.value },
                     offeredMoneyCardIds = command.offeredMoneyCardIds,
@@ -546,15 +552,4 @@ class GameStateMachine {
             }
         }
     }
-
-    private fun requireSharedAnimalType(
-        activePlayer: PlayerState,
-        challengedPlayer: PlayerState,
-    ): AnimalType =
-        activePlayer.animals
-            .map { it.type }
-            .firstOrNull { animalType -> challengedPlayer.animals.any { it.type == animalType } }
-            ?: throw IllegalArgumentException(
-                "Players ${activePlayer.id} and ${challengedPlayer.id} do not share an animal type",
-            )
 }
