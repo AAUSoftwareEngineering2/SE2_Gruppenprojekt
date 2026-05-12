@@ -22,11 +22,20 @@ data class GameCreatedPayload(
 )
 
 /**
- * Payload used by GAME_STARTED and GAME_STATE_UPDATED events
+ * Payload used by GAME_STARTED, GAME_JOINED, and GAME_STATE_UPDATED events
  */
 @Serializable
 data class GameStatePayload(
     val state: GameState,
+)
+
+/**
+ * Payload used by JOIN_GAME commands
+ */
+@Serializable
+data class JoinGamePayload(
+    val gameId: String,
+    val playerName: String? = null,
 )
 
 /**
