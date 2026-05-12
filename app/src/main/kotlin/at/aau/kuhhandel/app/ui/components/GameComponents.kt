@@ -167,7 +167,10 @@ fun DeckView(
 }
 
 @Composable
-fun AuctionView(auction: AuctionState?) {
+fun AuctionView(
+    auction: AuctionState?,
+    timerSeconds: Int? = null,
+) {
     if (auction == null) return
 
     Card(
@@ -183,6 +186,16 @@ fun AuctionView(auction: AuctionState?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("LIVE AUCTION", style = MaterialTheme.typography.labelLarge)
+
+            timerSeconds?.let {
+                Text(
+                    "Time left: ${it}s",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Image(

@@ -53,6 +53,7 @@ data class ErrorPayload(
 @Serializable
 data class InitiateTradePayload(
     val challengedPlayerId: String,
+    val moneyCardIds: List<String> = emptyList(), // re-check this!
 )
 
 /**
@@ -73,6 +74,7 @@ data class OfferTradePayload(
 data class RespondToTradePayload(
     val respondingPlayerId: String,
     val accepted: Boolean,
+    val counterOfferedMoneyCardIds: List<String> = emptyList(), // re-check this!
 )
 
 /**

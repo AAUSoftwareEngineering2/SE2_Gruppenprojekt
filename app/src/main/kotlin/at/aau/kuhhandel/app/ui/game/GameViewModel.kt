@@ -166,7 +166,17 @@ class GameViewModel(
     fun respondToTrade(accepted: Boolean) {
         scope.launch {
             try {
-                repository.respondToTrade(accepted)
+                // For minimal actions, we just send empty list or could add selection logic later
+                repository.respondToTrade(accepted, emptyList())
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    fun initiateTrade(targetPlayerId: String) {
+        scope.launch {
+            try {
+                repository.initiateTrade(targetPlayerId, emptyList())
             } catch (e: Exception) {
             }
         }

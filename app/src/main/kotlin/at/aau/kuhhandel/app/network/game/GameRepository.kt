@@ -52,7 +52,6 @@ class GameRepository(
         client.createGame(playerName)
     }
 
-    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -61,7 +60,6 @@ class GameRepository(
         _state.update { it.copy(errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
-     */
 
     suspend fun startGame() {
         ensureConnected()
@@ -87,10 +85,13 @@ class GameRepository(
         client.buyBack(buyBack)
     }
 
-    suspend fun initiateTrade(targetPlayerId: String) {
+    suspend fun initiateTrade(
+        targetPlayerId: String,
+        moneyCardIds: List<String> = emptyList()
+    ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.initiateTrade(targetPlayerId)
+        client.initiateTrade(targetPlayerId, moneyCardIds)
     }
 
     suspend fun offerTrade(moneyCardIds: List<String>) {
@@ -99,10 +100,14 @@ class GameRepository(
         client.offerTrade(moneyCardIds)
     }
 
-    suspend fun respondToTrade(accepted: Boolean) {
+    suspend fun respondToTrade(
+        accepted: Boolean,
+        counterOfferedMoneyCardIds: List<String> = emptyList()
+    ) {
         ensureConnected()
+        val myId = _state.value.myPlayerId ?: return
         _state.update { it.copy(errorMessage = null) }
-        client.respondToTrade(accepted)
+        client.respondToTrade(myId, accepted, counterOfferedMoneyCardIds)
     }
 
     fun clearError() {
@@ -234,12 +239,14 @@ class GameRepository(
 
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
         when (envelope.type) {
-            WebSocketType.GAME_CREATED -> {
+            WebSocketType.GAME_CREATED,
+            WebSocketType.GAME_JOINED,
+            -> {
                 val payload =
                     decodePayload(
                         envelope = envelope,
                         serializer = GameCreatedPayload.serializer(),
-                        invalidMessage = "Invalid GAME_CREATED message",
+                        invalidMessage = "Invalid GAME_CREATED/JOINED message",
                     ) ?: return
 
                 _state.update {

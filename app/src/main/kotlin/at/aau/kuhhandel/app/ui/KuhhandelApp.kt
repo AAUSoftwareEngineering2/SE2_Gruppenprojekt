@@ -149,6 +149,9 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     uiState = gameUiState,
                     onStartGame = gameViewModel::startGame,
                     onRevealCard = gameViewModel::revealCard,
+                    onPlaceBid = gameViewModel::placeBid,
+                    onBuyBack = gameViewModel::buyBack,
+                    onRespondToTrade = gameViewModel::respondToTrade,
                 )
             }
         }

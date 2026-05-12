@@ -137,8 +137,11 @@ fun GameScreen(
 
                 GamePhase.AUCTION -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AuctionView(uiState.gameState?.auctionState)
-                        if (uiState.isConnected && !uiState.isAuctioneer) {
+                        AuctionView(
+                            auction = uiState.gameState?.auctionState,
+                            timerSeconds = uiState.auctionTimerSeconds
+                        )
+                        if (uiState.isConnected && !uiState.isAuctioneer && (uiState.gameState?.auctionState?.isClosed != true)) {
                             AuctionControls(
                                 onBid = onPlaceBid,
                                 currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,

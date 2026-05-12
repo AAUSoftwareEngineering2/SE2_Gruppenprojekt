@@ -173,7 +173,6 @@ class GameWebSocketClient(
         return requestId
     }
 
-    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -187,7 +186,6 @@ class GameWebSocketClient(
         send(WebSocketEnvelope(WebSocketType.JOIN_GAME, requestId, payload))
         return requestId
     }
-     */
 
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
@@ -223,12 +221,15 @@ class GameWebSocketClient(
         return requestId
     }
 
-    suspend fun initiateTrade(targetPlayerId: String): String {
+    suspend fun initiateTrade(
+        targetPlayerId: String,
+        moneyCardIds: List<String> = emptyList()
+    ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 InitiateTradePayload.serializer(),
-                InitiateTradePayload(targetPlayerId),
+                InitiateTradePayload(targetPlayerId, moneyCardIds),
             )
         send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
         return requestId
@@ -245,14 +246,16 @@ class GameWebSocketClient(
         return requestId
     }
 
-    suspend fun respondToTrade(accepted: Boolean): String {
+    suspend fun respondToTrade(
+        respondingPlayerId: String,
+        accepted: Boolean,
+        counterOfferedMoneyCardIds: List<String> = emptyList()
+    ): String {
         val requestId = UUID.randomUUID().toString()
-        // We need respondingPlayerId? The server handles it from session usually, but payload has it.
-        // Let's use a placeholder or check RespondToTradePayload definition again.
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 RespondToTradePayload.serializer(),
-                RespondToTradePayload("player-1", accepted),
+                RespondToTradePayload(respondingPlayerId, accepted, counterOfferedMoneyCardIds),
             )
         send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))
         return requestId

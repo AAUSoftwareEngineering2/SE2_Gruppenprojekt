@@ -125,7 +125,11 @@ class GameWebSocketHandler(
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         GameCreatedPayload.serializer(),
-                        GameCreatedPayload(gameId = result.gameId, state = result.gameState),
+                        GameCreatedPayload(
+                            gameId = result.gameId,
+                            playerId = result.playerId, // re-check this!
+                            state = result.gameState
+                        ),
                     ),
             ),
         )
@@ -193,8 +197,12 @@ class GameWebSocketHandler(
                 requestId = envelope.requestId,
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
-                        GameStatePayload.serializer(),
-                        GameStatePayload(result.gameState),
+                        GameCreatedPayload.serializer(), // re-check this! Use GameCreatedPayload to send playerId
+                        GameCreatedPayload(
+                            gameId = result.gameId,
+                            playerId = result.playerId,
+                            state = result.gameState
+                        ),
                     ),
             ),
         )
@@ -270,7 +278,11 @@ class GameWebSocketHandler(
 
         val state =
             try {
-                gameService.chooseTrade(gameId, payload.challengedPlayerId)
+                gameService.chooseTrade(
+                    gameId,
+                    payload.challengedPlayerId,
+                    payload.moneyCardIds // re-check this!
+                )
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
             } catch (e: IllegalStateException) {
@@ -334,7 +346,12 @@ class GameWebSocketHandler(
 
         val state =
             try {
-                gameService.respondToTrade(gameId, payload.respondingPlayerId, payload.accepted)
+                gameService.respondToTrade(
+                    gameId,
+                    payload.respondingPlayerId,
+                    payload.accepted,
+                    payload.counterOfferedMoneyCardIds // re-check this!
+                )
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade response")
             } catch (e: IllegalStateException) {
@@ -364,11 +381,16 @@ class GameWebSocketHandler(
             decodePayload(session, envelope, PlaceBidPayload.serializer())
                 ?: return
 
-        // For now, we use a fixed player ID until we have session-based player tracking
-        // In a real scenario, this would come from the connection or a token.
+        val playerId =
+            connectionRegistry.playerIdFor(session.id) ?: return sendError(
+                session,
+                envelope.requestId,
+                ERROR_NO_PLAYER_BOUND
+            ) // re-check this!
+
         val state =
             try {
-                gameService.placeBid(gameId, "player-1", payload.amount)
+                gameService.placeBid(gameId, playerId, payload.amount) // re-check this!
             } catch (e: Exception) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid bid")
             }
