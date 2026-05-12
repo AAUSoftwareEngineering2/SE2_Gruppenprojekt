@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.app.network.game
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -174,7 +175,7 @@ class GameWebSocketClientTest {
     @Test
     fun `initiateTrade without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.initiateTrade("p2") }
+            assertFailsWith<IllegalStateException> { client.initiateTrade("p2", AnimalType.COW) }
         }
     }
 
@@ -278,7 +279,7 @@ class GameWebSocketClientTest {
         runBlocking {
             val connection = connectClient()
 
-            val requestId = client.initiateTrade("player-456")
+            val requestId = client.initiateTrade("player-456", AnimalType.COW)
             val sent = connection.session.onlySentEnvelope()
 
             assertEquals(WebSocketType.INITIATE_TRADE, sent.type)

@@ -55,8 +55,11 @@ class GameRepositoryTest {
             repository.buyBack(buyBack)
         }
 
-        suspend fun initiateTrade(targetPlayerId: String) {
-            repository.initiateTrade(targetPlayerId)
+        suspend fun initiateTrade(
+            targetPlayerId: String,
+            animalType: AnimalType = AnimalType.COW,
+        ) {
+            repository.initiateTrade(targetPlayerId, animalType)
         }
 
         fun clearError() {
@@ -147,7 +150,7 @@ class GameRepositoryTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     GameCreatedPayload.serializer(),
-                    GameCreatedPayload(gameId = gameId, state = state),
+                    GameCreatedPayload(gameId = gameId, playerId = "me", state = state),
                 ),
         )
 
