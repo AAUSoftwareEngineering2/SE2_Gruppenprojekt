@@ -55,7 +55,7 @@ class ConnectionRegistryTest {
     }
 
     @Test
-    fun `bindPlayer with unbound sessions stores mapping`() {
+    fun `bindPlayer with unbound session stores mapping`() {
         val sessionId = "session-1"
         val playerId = "player-1"
 
@@ -74,30 +74,6 @@ class ConnectionRegistryTest {
         registry.bindPlayer(sessionId, playerId2)
 
         assertEquals(playerId1, registry.playerIdFor(sessionId))
-    }
-
-    @Test
-    fun `unbind removes the mapping`() {
-        val session1 = mock(WebSocketSession::class.java)
-        whenever(session1.id).thenReturn("session-1")
-        val playerId1 = "player-1"
-        val session2 = mock(WebSocketSession::class.java)
-        whenever(session2.id).thenReturn("session-2")
-        val playerId2 = "player-2"
-        val gameId = "game-1"
-        registry.bindSession(session1)
-        registry.bindGame(session1.id, gameId)
-        registry.bindPlayer(session1.id, playerId1)
-        registry.bindSession(session2)
-        registry.bindGame(session2.id, gameId)
-        registry.bindPlayer(session2.id, playerId2)
-
-        registry.unbind(session1.id)
-
-        assertNull(registry.gameIdFor(session1.id))
-        assertNull(registry.playerIdFor(session1.id))
-        assertEquals(setOf(session2.id), registry.sessionIdsFor(gameId))
-        assertEquals(setOf(session2), registry.sessionsFor(gameId))
     }
 
     @Test
@@ -133,5 +109,29 @@ class ConnectionRegistryTest {
         val sessions = registry.sessionsFor("unknown")
 
         assertEquals(0, sessions.size)
+    }
+
+    @Test
+    fun `unbind removes the mapping`() {
+        val session1 = mock(WebSocketSession::class.java)
+        whenever(session1.id).thenReturn("session-1")
+        val playerId1 = "player-1"
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.id).thenReturn("session-2")
+        val playerId2 = "player-2"
+        val gameId = "game-1"
+        registry.bindSession(session1)
+        registry.bindGame(session1.id, gameId)
+        registry.bindPlayer(session1.id, playerId1)
+        registry.bindSession(session2)
+        registry.bindGame(session2.id, gameId)
+        registry.bindPlayer(session2.id, playerId2)
+
+        registry.unbind(session1.id)
+
+        assertNull(registry.gameIdFor(session1.id))
+        assertNull(registry.playerIdFor(session1.id))
+        assertEquals(setOf(session2.id), registry.sessionIdsFor(gameId))
+        assertEquals(setOf(session2), registry.sessionsFor(gameId))
     }
 }
