@@ -93,6 +93,18 @@ class GameRepository(
         client.initiateTrade(targetPlayerId)
     }
 
+    suspend fun offerTrade(moneyCardIds: List<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.offerTrade(moneyCardIds)
+    }
+
+    suspend fun respondToTrade(accepted: Boolean) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.respondToTrade(accepted)
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }
@@ -233,7 +245,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameId = payload.gameId,
-                        // myPlayerId = payload.playerId, // Missing in shared
+                        myPlayerId = payload.playerId,
                         gameState = payload.state,
                         errorMessage = null,
                     )

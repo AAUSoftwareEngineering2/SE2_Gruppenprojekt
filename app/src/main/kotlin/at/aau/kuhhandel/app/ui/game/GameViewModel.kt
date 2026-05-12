@@ -32,11 +32,15 @@ data class GameUiState(
     val canStartGame: Boolean = false,
     val auctionTimerSeconds: Int? = null,
     val errorMessage: String? = null,
+    val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
 ) {
     val isMyTurn: Boolean get() =
         gameState?.currentPlayerIndex?.let {
             gameState.players.getOrNull(it)?.id == myPlayerId
         } ?: false
+
+    val isAuctioneer: Boolean get() =
+        gameState?.auctionState?.auctioneerId == myPlayerId
 
     val activePlayerName: String get() =
         gameState?.let {
@@ -98,15 +102,16 @@ class GameViewModel(
                     } ?: "No card revealed",
                 isConnected = repoState.isConnected,
                 canRevealCard =
-                    repoState.isConnected &&
+                    (repoState.isConnected &&
                         currentPhase == GamePhase.PLAYER_TURN &&
                         (
                             gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id ==
                                 repoState.myPlayerId
-                        ),
+                        )),
                 canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
                 errorMessage = repoState.errorMessage,
                 auctionTimerSeconds = timer,
+                myMoneyCards = gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards ?: emptyList(),
             )
         }.stateIn(
             scope = scope,
@@ -149,12 +154,20 @@ class GameViewModel(
         }
     }
 
-    fun initiateTrade(targetPlayerId: String) {
+    fun offerTrade(moneyCardIds: List<String>) {
         scope.launch {
             try {
-                repository.initiateTrade(targetPlayerId)
+                repository.offerTrade(moneyCardIds)
             } catch (e: Exception) {
-                // Error handled by repository
+            }
+        }
+    }
+
+    fun respondToTrade(accepted: Boolean) {
+        scope.launch {
+            try {
+                repository.respondToTrade(accepted)
+            } catch (e: Exception) {
             }
         }
     }

@@ -1,8 +1,10 @@
 package at.aau.kuhhandel.app.ui.game
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,11 +20,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
+import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
@@ -34,6 +38,9 @@ fun GameScreen(
     uiState: GameUiState,
     onStartGame: () -> Unit,
     onRevealCard: () -> Unit,
+    onPlaceBid: (Int) -> Unit,
+    onBuyBack: (Boolean) -> Unit,
+    onRespondToTrade: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     MainBackground(modifier = modifier)
@@ -44,7 +51,6 @@ fun GameScreen(
                 .fillMaxSize(),
     ) {
         // --- DECOR ---
-        // Left side bush
         Image(
             painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
             contentDescription = null,
@@ -55,7 +61,6 @@ fun GameScreen(
                     .size(60.dp),
             alpha = 0.6f,
         )
-        // Right side bush
         Image(
             painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_tall_bush),
             contentDescription = null,
@@ -64,17 +69,6 @@ fun GameScreen(
                     .align(Alignment.CenterEnd)
                     .padding(end = 32.dp, top = 420.dp)
                     .size(80.dp),
-            alpha = 0.6f,
-        )
-        // Bottom decor
-        Image(
-            painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 40.dp, bottom = 220.dp)
-                    .size(70.dp),
             alpha = 0.6f,
         )
 
@@ -142,28 +136,28 @@ fun GameScreen(
                 }
 
                 GamePhase.AUCTION -> {
-                    AuctionView(uiState.gameState?.auctionState)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        AuctionView(uiState.gameState?.auctionState)
+                        if (uiState.isConnected && !uiState.isAuctioneer) {
+                            AuctionControls(
+                                onBid = onPlaceBid,
+                                currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
+                            )
+                        } else if (uiState.isAuctioneer && (uiState.gameState?.auctionState?.isClosed == true)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
+                                Button(onClick = { onBuyBack(false) }) { Text("Let Winner Buy") }
+                            }
+                        }
+                    }
                 }
 
                 GamePhase.TRADE -> {
-                    val trade = uiState.gameState?.tradeState
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "TRADE CHALLENGE",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                        if (trade != null) {
-                            Text(
-                                "Between ${trade.initiatingPlayerId} and ${trade.challengedPlayerId}",
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            Text(
-                                "For: ${trade.requestedAnimalType.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                    }
+                    TradeView(
+                        trade = uiState.gameState?.tradeState,
+                        onAccept = { onRespondToTrade(true) },
+                        onCounter = { onRespondToTrade(false) },
+                    )
                 }
 
                 GamePhase.FINISHED -> {
@@ -213,10 +207,14 @@ fun GameScreenPreview() {
             currentPhase = GamePhase.PLAYER_TURN,
             deckCountText = "5",
             canRevealCard = true,
+            myMoneyCards = players[4].moneyCards,
         )
     GameScreen(
         uiState = uiState,
         onStartGame = {},
         onRevealCard = {},
+        onPlaceBid = {},
+        onBuyBack = {},
+        onRespondToTrade = {},
     )
 }

@@ -17,6 +17,7 @@ data class CreateGamePayload(
 @Serializable
 data class GameCreatedPayload(
     val gameId: String,
+    val playerId: String,
     val state: GameState,
 )
 

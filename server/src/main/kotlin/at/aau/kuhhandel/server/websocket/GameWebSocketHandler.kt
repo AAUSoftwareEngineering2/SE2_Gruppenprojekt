@@ -108,7 +108,11 @@ class GameWebSocketHandler(
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         GameCreatedPayload.serializer(),
-                        GameCreatedPayload(gameId = game.gameId, state = game.gameState),
+                        GameCreatedPayload(
+                            gameId = game.gameId,
+                            playerId = "player-1",
+                            state = game.gameState,
+                        ),
                     ),
             ),
         )

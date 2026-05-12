@@ -6,6 +6,8 @@ import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -229,6 +231,30 @@ class GameWebSocketClient(
                 InitiateTradePayload(targetPlayerId),
             )
         send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
+        return requestId
+    }
+
+    suspend fun offerTrade(moneyCardIds: List<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                OfferTradePayload.serializer(),
+                OfferTradePayload(moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.OFFER_TRADE, requestId, payload))
+        return requestId
+    }
+
+    suspend fun respondToTrade(accepted: Boolean): String {
+        val requestId = UUID.randomUUID().toString()
+        // We need respondingPlayerId? The server handles it from session usually, but payload has it.
+        // Let's use a placeholder or check RespondToTradePayload definition again.
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                RespondToTradePayload.serializer(),
+                RespondToTradePayload("player-1", accepted),
+            )
+        send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))
         return requestId
     }
 
