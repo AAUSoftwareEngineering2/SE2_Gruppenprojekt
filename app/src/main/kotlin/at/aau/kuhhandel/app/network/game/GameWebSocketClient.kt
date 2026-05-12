@@ -236,7 +236,8 @@ class GameWebSocketClient(
     }
 
     suspend fun initiateTrade(
-        targetPlayerId: String,
+        challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         moneyCardIds: List<String> = emptyList(),
     ): String {
         val requestId = UUID.randomUUID().toString()
@@ -244,7 +245,8 @@ class GameWebSocketClient(
             WebSocketJson.json.encodeToJsonElement(
                 InitiateTradePayload.serializer(),
                 InitiateTradePayload(
-                    challengedPlayerId = targetPlayerId,
+                    challengedPlayerId = challengedPlayerId,
+                    animalType = animalType,
                     moneyCardIds = moneyCardIds,
                 ),
             )

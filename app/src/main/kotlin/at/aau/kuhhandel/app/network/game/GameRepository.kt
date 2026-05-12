@@ -87,11 +87,12 @@ class GameRepository(
 
     suspend fun initiateTrade(
         challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         moneyCardIds: List<String> = emptyList(),
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.initiateTrade(challengedPlayerId, moneyCardIds)
+        client.initiateTrade(challengedPlayerId, animalType, moneyCardIds)
     }
 
     suspend fun leaveGame() {

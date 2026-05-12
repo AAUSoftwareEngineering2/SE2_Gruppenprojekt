@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +34,7 @@ import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
@@ -45,12 +48,37 @@ fun GameScreen(
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
     onRespondToTrade: (Boolean) -> Unit,
-    onInitiateTrade: (String) -> Unit,
+    onInitiateTrade: (String, AnimalType) -> Unit,
+    onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
     onLeaveGame: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     MainBackground(modifier = modifier)
+
+    // --- ANIMAL SELECTION DIALOG ---
+    if (uiState.selectedTargetPlayerId != null) {
+        AlertDialog(
+            onDismissRequest = { onSelectTargetPlayer(null) },
+            title = { Text("Pick animal to trade") },
+            text = {
+                Column {
+                    if (uiState.sharedAnimalsWithSelectedPlayer.isEmpty()) {
+                        Text("No shared animals found.")
+                    } else {
+                        uiState.sharedAnimalsWithSelectedPlayer.forEach { animal ->
+                            TextButton(onClick = { onInitiateTrade(uiState.selectedTargetPlayerId, animal) }) {
+                                Text(animal.name)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onSelectTargetPlayer(null) }) { Text("Cancel") }
+            },
+        )
+    }
 
     Box(
         modifier =
@@ -83,7 +111,7 @@ fun GameScreen(
         OpponentList(
             players = uiState.gameState?.players ?: emptyList(),
             myId = uiState.myPlayerId,
-            onOpponentClick = onInitiateTrade,
+            onOpponentClick = onSelectTargetPlayer,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
@@ -272,7 +300,8 @@ fun GameScreenPreview() {
         onPlaceBid = {},
         onBuyBack = {},
         onRespondToTrade = {},
-        onInitiateTrade = {},
+        onInitiateTrade = { _, _ -> },
+        onSelectTargetPlayer = {},
         onToggleMoneyCard = {},
         onLeaveGame = {},
     )

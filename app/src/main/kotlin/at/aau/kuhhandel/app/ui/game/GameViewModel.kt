@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.ui.game
 
 import at.aau.kuhhandel.app.network.game.GameRepository
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,8 @@ data class GameUiState(
     val errorMessage: String? = null,
     val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
     val selectedMoneyCardIds: Set<String> = emptySet(),
+    val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
+    val selectedTargetPlayerId: String? = null,
 ) {
     val isMyTurn: Boolean get() =
         gameState?.currentPlayerIndex?.let {
@@ -69,6 +72,7 @@ class GameViewModel(
     private val timeProvider: TimeProvider = SystemTimeProvider(),
 ) {
     private val selectedMoneyCardIds = MutableStateFlow<Set<String>>(emptySet())
+    private val selectedTargetPlayerId = MutableStateFlow<String?>(null)
 
     private val auctionTimerSeconds =
         repository.state
@@ -96,9 +100,18 @@ class GameViewModel(
             repository.state,
             auctionTimerSeconds,
             selectedMoneyCardIds,
-        ) { repoState, timer, selectedIds ->
+            selectedTargetPlayerId,
+        ) { repoState, timer, selectedIds, targetId ->
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
+
+            val sharedAnimals = if (targetId != null && gameState != null && repoState.myPlayerId != null) {
+                val myAnimals = gameState.players.find { it.id == repoState.myPlayerId }?.animals?.map { it.type }?.toSet() ?: emptySet()
+                val targetAnimals = gameState.players.find { it.id == targetId }?.animals?.map { it.type }?.toSet() ?: emptySet()
+                myAnimals.intersect(targetAnimals).toList()
+            } else {
+                emptyList()
+            }
 
             GameUiState(
                 gameState = gameState,
@@ -126,6 +139,8 @@ class GameViewModel(
                     gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
                         ?: emptyList(),
                 selectedMoneyCardIds = selectedIds,
+                sharedAnimalsWithSelectedPlayer = sharedAnimals,
+                selectedTargetPlayerId = targetId,
             )
         }.stateIn(
             scope = scope,
@@ -178,7 +193,7 @@ class GameViewModel(
         }
     }
 
-    fun offerTrade() {
+    private fun offerTrade() {
         scope.launch {
             try {
                 repository.offerTrade(selectedMoneyCardIds.value.toList())
@@ -207,13 +222,18 @@ class GameViewModel(
         }
     }
 
-    fun initiateTrade(targetPlayerId: String) {
+    fun initiateTrade(targetPlayerId: String, animalType: AnimalType) {
         scope.launch {
             try {
-                repository.initiateTrade(targetPlayerId, selectedMoneyCardIds.value.toList())
+                repository.initiateTrade(targetPlayerId, animalType, selectedMoneyCardIds.value.toList())
                 clearSelection()
+                selectedTargetPlayerId.value = null
             } catch (_: Exception) {
             }
         }
+    }
+
+    fun selectTargetPlayer(playerId: String?) {
+        selectedTargetPlayerId.value = playerId
     }
 }

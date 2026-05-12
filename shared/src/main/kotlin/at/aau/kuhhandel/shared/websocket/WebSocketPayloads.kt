@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.serialization.Serializable
 
@@ -53,7 +54,8 @@ data class ErrorPayload(
 @Serializable
 data class InitiateTradePayload(
     val challengedPlayerId: String,
-    val moneyCardIds: List<String> = emptyList(), // re-check this!
+    val animalType: AnimalType,
+    val moneyCardIds: List<String> = emptyList(),
 )
 
 /**

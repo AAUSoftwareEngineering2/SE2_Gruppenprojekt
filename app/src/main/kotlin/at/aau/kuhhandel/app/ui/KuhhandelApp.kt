@@ -154,6 +154,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onBuyBack = gameViewModel::buyBack,
                     onRespondToTrade = gameViewModel::respondToTrade,
                     onInitiateTrade = gameViewModel::initiateTrade,
+                    onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onLeaveGame = {
                         scope.launch {
