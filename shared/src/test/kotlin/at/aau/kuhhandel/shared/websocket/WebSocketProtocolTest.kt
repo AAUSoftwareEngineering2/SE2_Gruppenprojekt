@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -120,10 +121,14 @@ class WebSocketProtocolTest {
     @Test
     fun `InitiateTradePayload round-trips and exposes its fields`() {
         val payload =
-            // re-check this!
-            InitiateTradePayload(challengedPlayerId = "player-2", moneyCardIds = emptyList())
+            InitiateTradePayload(
+                challengedPlayerId = "player-2",
+                animalType = AnimalType.COW,
+                moneyCardIds = emptyList()
+            )
 
         assertEquals("player-2", payload.challengedPlayerId)
+        assertEquals(AnimalType.COW, payload.animalType)
 
         val encoded = json.encodeToString(InitiateTradePayload.serializer(), payload)
         val decoded = json.decodeFromString(InitiateTradePayload.serializer(), encoded)
