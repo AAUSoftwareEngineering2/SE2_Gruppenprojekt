@@ -4,6 +4,7 @@ import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.RoomActionResult
+import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
@@ -13,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import java.util.UUID
@@ -22,17 +24,20 @@ import kotlin.random.Random
 @Service
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
+    private val persistenceService: GamePersistenceService? = null,
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
     // Used in tests
     private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     // Stores all active game sessions by their 5-digit game id
     private val rooms: ConcurrentHashMap<String, SyncGameRoom> = ConcurrentHashMap()
 
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    suspend fun createGame(hostPlayerName: String): RoomActionResult {
+    fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId: String
         val playerId = UUID.randomUUID().toString()
         val session: GameSession
@@ -40,23 +45,52 @@ class GameService(
         synchronized(rooms) {
             gameId = generateGameCode()
             session = gameSessionFactory(gameId, playerId, hostPlayerName)
-
             rooms[gameId] = SyncGameRoom(session)
         }
 
+        persistSafely(session)
         return RoomActionResult(gameId, playerId, session.state)
     }
 
     /**
-     * Returns a game session by its game id.
+     * Returns a game session by its game id. Falls back to a persisted snapshot when no live
+     * in-memory session exists, allowing reconnects after the original WebSocket closed.
      */
-    fun getGame(gameId: String): GameSession? = rooms[gameId]?.session
+    fun getGame(gameId: String): GameSession? {
+        rooms[gameId]?.session?.let { return it }
+        val loadedState = persistenceService?.loadGameState(gameId) ?: return null
+        val hostPlayer =
+            loadedState.players.firstOrNull { it.id == loadedState.hostPlayerId }
+                ?: loadedState.players.firstOrNull()
+        val session =
+            GameSession(
+                gameId = gameId,
+                hostPlayerId = hostPlayer?.id ?: "host",
+                hostPlayerName = hostPlayer?.name ?: "host",
+                initialState = loadedState,
+            )
+        rooms[gameId] = SyncGameRoom(session)
+        if (loadedState.auctionState != null) {
+            scheduleAuctionAutoClose(gameId)
+        }
+        return session
+    }
 
     /**
-     * Removes the game session with the given game id.
+     * Removes the in-memory game session. The persisted snapshot is left intact so a reconnect can
+     * reload it via [getGame]. Use [purgeGame] to wipe persistence as well.
      */
     fun removeGame(gameId: String) {
         rooms.remove(gameId)
+    }
+
+    /**
+     * Removes both the in-memory session and the persisted snapshot for [gameId].
+     */
+    fun purgeGame(gameId: String) {
+        rooms.remove(gameId)
+        runCatching { persistenceService?.deleteGame(gameId) }
+            .onFailure { logger.warn("Failed to purge persisted game $gameId", it) }
     }
 
     /**
@@ -69,7 +103,9 @@ class GameService(
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            return room.session.startGame(actorId)
+            val state = room.session.startGame(actorId)
+            persistSafely(room.session)
+            return state
         }
     }
 
@@ -88,6 +124,7 @@ class GameService(
 
         room.mutex.withLock {
             val updatedState = room.session.addPlayer(playerId, playerName)
+            persistSafely(room.session)
             return RoomActionResult(gameId, playerId, updatedState)
         }
     }
@@ -103,9 +140,8 @@ class GameService(
 
         room.mutex.withLock {
             val updatedState = room.session.removePlayer(playerId)
-
             if (updatedState.players.isEmpty()) rooms.remove(gameId)
-
+            persistSafely(room.session)
             return updatedState
         }
     }
@@ -135,6 +171,7 @@ class GameService(
 
         room.mutex.withLock {
             val state = room.session.chooseAuction(actorId)
+            persistSafely(room.session)
             scheduleAuctionAutoClose(gameId)
             return state
         }
@@ -149,6 +186,7 @@ class GameService(
 
         room.mutex.withLock {
             val state = room.session.placeBid(actorId, amount)
+            persistSafely(room.session)
             scheduleAuctionAutoClose(gameId)
             return state
         }
@@ -170,6 +208,7 @@ class GameService(
                         ?.timerEndTime == endTime
                 ) {
                     val updatedState = currentRoom.session.closeAuctionAfterTimeout()
+                    persistSafely(currentRoom.session)
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
                 }
             }
@@ -184,7 +223,9 @@ class GameService(
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            return room.session.resolveAuction(actorId, auctioneerBuysCard)
+            val state = room.session.resolveAuction(actorId, auctioneerBuysCard)
+            persistSafely(room.session)
+            return state
         }
     }
 
@@ -198,12 +239,15 @@ class GameService(
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            return room.session.chooseTrade(
-                actorId = actorId,
-                targetId = targetId,
-                animalType = animalType,
-                offeredMoneyCardIds = offeredMoneyCardIds,
-            )
+            val state =
+                room.session.chooseTrade(
+                    actorId = actorId,
+                    targetId = targetId,
+                    animalType = animalType,
+                    offeredMoneyCardIds = offeredMoneyCardIds,
+                )
+            persistSafely(room.session)
+            return state
         }
     }
 
@@ -215,10 +259,13 @@ class GameService(
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            return room.session.respondToTrade(
-                actorId = actorId,
-                counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-            )
+            val state =
+                room.session.respondToTrade(
+                    actorId = actorId,
+                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                )
+            persistSafely(room.session)
+            return state
         }
     }
 
@@ -229,8 +276,20 @@ class GameService(
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            return room.session.endTradeReveal()
+            val state = room.session.endTradeReveal()
+            persistSafely(room.session)
+            return state
         }
+    }
+
+    /**
+     * Best-effort persistence — failures are logged but never propagated so that in-memory game
+     * play continues to work if the database is briefly unavailable.
+     */
+    private fun persistSafely(session: GameSession) {
+        val service = persistenceService ?: return
+        runCatching { service.saveGameState(session.gameId, session.state) }
+            .onFailure { logger.warn("Failed to persist game ${session.gameId}", it) }
     }
 
     /**
