@@ -83,11 +83,31 @@ class GameSession(
         return gameState
     }
 
-    fun chooseTrade(challengedPlayerId: String): GameState {
+    fun chooseTrade(
+        challengedPlayerId: String,
+        offeredMoneyCardIds: List<String> = emptyList(),
+    ): GameState {
         gameState =
             stateMachine.apply(
                 gameState,
-                GameCommand.ChooseTrade(challengedPlayerId),
+                GameCommand.ChooseTrade(challengedPlayerId, offeredMoneyCardIds),
+            )
+        return gameState
+    }
+
+    fun respondToTrade(
+        respondingPlayerId: String,
+        acceptsOffer: Boolean,
+        counterOfferedMoneyCardIds: List<String> = emptyList(),
+    ): GameState {
+        gameState =
+            stateMachine.apply(
+                gameState,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = respondingPlayerId,
+                    acceptsOffer = acceptsOffer,
+                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                ),
             )
         return gameState
     }
@@ -97,18 +117,6 @@ class GameSession(
             stateMachine.apply(
                 gameState,
                 GameCommand.OfferTrade(offeredMoneyCardIds),
-            )
-        return gameState
-    }
-
-    fun respondToTrade(
-        respondingPlayerId: String,
-        accepted: Boolean,
-    ): GameState {
-        gameState =
-            stateMachine.apply(
-                gameState,
-                GameCommand.RespondToTrade(respondingPlayerId, accepted),
             )
         return gameState
     }

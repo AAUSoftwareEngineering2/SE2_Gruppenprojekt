@@ -14,9 +14,8 @@ enum class WebSocketType {
     INITIATE_TRADE,
     OFFER_TRADE,
     RESPOND_TO_TRADE,
-
-    // Server Side TODO: Add types for the auction loop:
-    // PLACE_BID, AUCTION_BUY_BACK
+    PLACE_BID,
+    AUCTION_BUY_BACK,
 
     // Server events
     GAME_CREATED,

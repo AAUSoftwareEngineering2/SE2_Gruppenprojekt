@@ -1,11 +1,13 @@
 package at.aau.kuhhandel.server.websocket
 
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -13,6 +15,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -45,6 +48,28 @@ class GameWebSocketHandlerTest {
 
         session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-1")
+    }
+
+    @Test
+    fun `handleGameStateChanged sends GAME_STATE_UPDATED to all sessions`() {
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
+
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.isOpen).thenReturn(true)
+        whenever(session.isOpen).thenReturn(true)
+
+        whenever(
+            connectionRegistry.sessionsFor("game-1"),
+        ).thenReturn(setOf(session, session2))
+
+        handler.handleGameStateChanged(event)
+
+        val response1 = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+
+        val response2 = captureResponse(session2)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
     }
 
     @Test
@@ -497,6 +522,13 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    fun `afterConnectionEstablished binds session`() {
+        handler.afterConnectionEstablished(session)
+
+        verify(connectionRegistry).bindSession(session)
+    }
+
+    @Test
     fun `afterConnectionClosed unbinds session`() {
         handler.afterConnectionClosed(session, CloseStatus.NORMAL)
 
@@ -818,6 +850,90 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(respondingPlayerId = "player-2", accepted = false),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `PLACE_BID happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        verify(gameService).placeBid("game-1", "player-1", 100)
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-bid-1", response.requestId)
+    }
+
+    @Test
+    fun `PLACE_BID with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK happy path returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.ROUND_END)
+        whenever(gameService.resolveAuction("game-1", true)).thenReturn(gameState)
+
+        sendEnvelope(
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-buyback-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
+                ),
+        )
+
+        verify(gameService).resolveAuction("game-1", true)
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-buyback-1", response.requestId)
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.resolveAuction("game-1", true)).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-buyback-2",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
                 ),
         )
 

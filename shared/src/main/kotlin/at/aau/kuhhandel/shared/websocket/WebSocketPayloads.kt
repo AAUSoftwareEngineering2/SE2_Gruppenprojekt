@@ -74,6 +74,18 @@ data class RespondToTradePayload(
     val accepted: Boolean,
 )
 
-// Server Side TODO: Add payloads for the auction loop:
-// - BidPayload (amount: Int)
-// - AuctionChoicePayload (buyBack: Boolean)
+/**
+ * Payload used by PLACE_BID commands.
+ */
+@Serializable
+data class PlaceBidPayload(
+    val amount: Int,
+)
+
+/**
+ * Payload used by AUCTION_BUY_BACK commands.
+ */
+@Serializable
+data class AuctionBuyBackPayload(
+    val buyBack: Boolean,
+)

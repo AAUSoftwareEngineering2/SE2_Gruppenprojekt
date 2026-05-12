@@ -2,7 +2,10 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
+import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
+import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
+import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -20,8 +23,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.encodeToJsonElement
 import java.util.UUID
-// import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 
 class OpenedSession(
     val session: WebSocketSession,
@@ -193,6 +196,39 @@ class GameWebSocketClient(
     suspend fun revealCard(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.REVEAL_CARD, requestId))
+        return requestId
+    }
+
+    suspend fun placeBid(amount: Int): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                PlaceBidPayload.serializer(),
+                PlaceBidPayload(amount),
+            )
+        send(WebSocketEnvelope(WebSocketType.PLACE_BID, requestId, payload))
+        return requestId
+    }
+
+    suspend fun buyBack(buyBack: Boolean): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                AuctionBuyBackPayload.serializer(),
+                AuctionBuyBackPayload(buyBack),
+            )
+        send(WebSocketEnvelope(WebSocketType.AUCTION_BUY_BACK, requestId, payload))
+        return requestId
+    }
+
+    suspend fun initiateTrade(targetPlayerId: String): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                InitiateTradePayload.serializer(),
+                InitiateTradePayload(targetPlayerId),
+            )
+        send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
         return requestId
     }
 

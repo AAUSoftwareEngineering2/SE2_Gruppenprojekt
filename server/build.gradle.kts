@@ -28,11 +28,13 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(libs.postgresql)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.mockk)
 }
 
 tasks.withType<Test> {
