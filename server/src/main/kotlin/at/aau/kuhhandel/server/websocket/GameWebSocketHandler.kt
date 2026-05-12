@@ -65,7 +65,7 @@ class GameWebSocketHandler(
                     WebSocketEnvelope.serializer(),
                     message.payload,
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 sendError(session, null, "Invalid message format")
                 return
             }
@@ -282,7 +282,8 @@ class GameWebSocketHandler(
                 gameService.chooseTrade(
                     gameId,
                     payload.challengedPlayerId,
-                    payload.moneyCardIds, // re-check this!
+                    payload.animalType,
+                    payload.moneyCardIds,
                 )
             } catch (e: IllegalArgumentException) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
@@ -441,7 +442,7 @@ class GameWebSocketHandler(
         }
         return try {
             WebSocketJson.json.decodeFromJsonElement(deserializer, payloadJson)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             sendError(session, envelope.requestId, "Invalid payload for ${envelope.type}")
             null
         }
