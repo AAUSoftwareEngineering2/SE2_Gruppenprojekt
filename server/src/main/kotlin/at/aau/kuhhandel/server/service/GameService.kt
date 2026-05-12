@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.coroutines.CoroutineScope
@@ -10,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
+import java.util.UUID
 import kotlin.random.Random
 
 @Service
@@ -24,12 +26,13 @@ class GameService(
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(playerId: String): GameSession {
+    fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId = generateGameCode()
-        val session = GameSession(gameId, playerId)
+        val playerId = UUID.randomUUID().toString()
+        val session = GameSession(gameId, playerId, hostPlayerName)
 
         sessions[gameId] = session
-        return session
+        return RoomActionResult(gameId, playerId, session.gameState)
     }
 
     /**
@@ -50,6 +53,36 @@ class GameService(
     fun startGame(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
         return session.startGame()
+    }
+
+    /**
+     * Adds a player to a game
+     */
+    fun joinGame(
+        gameId: String,
+        playerName: String,
+    ): RoomActionResult? {
+        val session = sessions[gameId] ?: return null
+        val playerId = UUID.randomUUID().toString()
+
+        val updatedState = session.addPlayer(playerId, playerName)
+
+        return RoomActionResult(gameId, playerId, updatedState)
+    }
+
+    /**
+     * Removes a player from a game
+     */
+    fun leaveGame(
+        gameId: String,
+        playerId: String,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+
+        val updatedState = session.removePlayer(playerId)
+        if (updatedState.players.isEmpty()) sessions.remove(gameId)
+
+        return updatedState
     }
 
     /**
