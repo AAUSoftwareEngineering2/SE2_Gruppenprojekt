@@ -308,7 +308,7 @@ class GameRepositoryTest {
             // Missing payload
             harness.session.deliverEnvelope(WebSocketEnvelope(type = WebSocketType.GAME_CREATED))
             flushRepository()
-            assertEquals("Invalid GAME_CREATED message", harness.state.errorMessage)
+            assertEquals("Invalid GAME_CREATED/JOINED message", harness.state.errorMessage)
 
             // Invalid payload for GAME_STARTED
             harness.session.deliverEnvelope(

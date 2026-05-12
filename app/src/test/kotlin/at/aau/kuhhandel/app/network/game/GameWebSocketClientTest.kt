@@ -409,7 +409,7 @@ class GameWebSocketClientTest {
                     assertFailsWith<IllegalStateException> {
                         events.await()
                     }
-                assertTrue(e.message?.contains("Kein Grund angegeben") == true)
+                assertTrue(e.message?.contains("No reason given") == true)
             }
         }
     }

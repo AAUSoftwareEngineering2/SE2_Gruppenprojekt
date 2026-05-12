@@ -116,15 +116,7 @@ class GameWebSocketClient(
 
     private fun closeDetails(frame: Frame): String? =
         (frame as? Frame.Close)?.let { closeFrame ->
-            val reason = closeFrame.readReason()
-            val code = reason?.code
-            if (code == CloseReason.Codes.NORMAL.code ||
-                code == CloseReason.Codes.GOING_AWAY.code
-            ) {
-                null
-            } else {
-                formatCloseDetails(reason)
-            }
+            formatCloseDetails(closeFrame.readReason())
         }
 
     private fun formatCloseDetails(reason: CloseReason?): String =
