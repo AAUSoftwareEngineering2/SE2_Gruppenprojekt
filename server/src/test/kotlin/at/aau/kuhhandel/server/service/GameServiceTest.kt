@@ -69,7 +69,7 @@ class GameServiceTest {
     fun test_getGame_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val loadedSession = service.getGame("99999")
+        val loadedSession = service.getGame("fake code")
 
         assertNull(loadedSession)
     }
@@ -91,7 +91,7 @@ class GameServiceTest {
     fun test_startGame_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val state = service.startGame("99999")
+        val state = service.startGame("fake code")
 
         assertNull(state)
     }
@@ -183,7 +183,7 @@ class GameServiceTest {
     fun test_revealNextCard_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.revealNextCard("99999")
+        val result = service.revealNextCard("fake code")
 
         assertNull(result)
     }
@@ -224,7 +224,7 @@ class GameServiceTest {
     fun test_chooseAuction_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.chooseAuction("99999")
+        val result = service.chooseAuction("fake code")
 
         assertNull(result)
     }
@@ -285,7 +285,7 @@ class GameServiceTest {
     fun test_resolveAuction_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.resolveAuction("99999", auctioneerBuysCard = false)
+        val result = service.resolveAuction("fake code", auctioneerBuysCard = false)
 
         assertNull(result)
     }
@@ -294,7 +294,7 @@ class GameServiceTest {
     fun test_chooseTrade_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.chooseTrade("99999", "player-2")
+        val result = service.chooseTrade("fake code", "player-2")
 
         assertNull(result)
     }
@@ -314,7 +314,7 @@ class GameServiceTest {
     fun test_offerTrade_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.offerTrade("99999", listOf("m-1"))
+        val result = service.offerTrade("fake code", listOf("m-1"))
 
         assertNull(result)
     }
@@ -334,7 +334,7 @@ class GameServiceTest {
     fun test_respondToTrade_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.respondToTrade("99999", "player-2", true)
+        val result = service.respondToTrade("fake code", "player-2", true)
 
         assertNull(result)
     }
@@ -370,7 +370,7 @@ class GameServiceTest {
     fun test_finishRound_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
-        val result = service.finishRound("99999")
+        val result = service.finishRound("fake code")
 
         assertNull(result)
     }
@@ -378,14 +378,14 @@ class GameServiceTest {
     @Test
     fun test_placeBid_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
-        val result = service.placeBid("99999", "p1", 10)
+        val result = service.placeBid("fake code", "p1", 10)
         assertNull(result)
     }
 
     @Test
     fun test_closeAuction_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
-        val result = service.closeAuction("99999")
+        val result = service.closeAuction("fake code")
         assertNull(result)
     }
 
