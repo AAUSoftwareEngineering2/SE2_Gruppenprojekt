@@ -59,7 +59,7 @@ class LobbyJoiningViewModel(
             localErrorMessage.value = null
             scope.launch {
                 try {
-                    repository.joinGame(code) // re-check this! Fix placeholder
+                    repository.joinGame(code)
                     isLoading.value = false
                 } catch (e: Exception) {
                     isLoading.value = false
