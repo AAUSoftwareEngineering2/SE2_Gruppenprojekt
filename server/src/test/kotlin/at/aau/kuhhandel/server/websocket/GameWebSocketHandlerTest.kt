@@ -22,6 +22,7 @@ import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
@@ -29,6 +30,7 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
@@ -138,12 +140,11 @@ class GameWebSocketHandlerTest {
             GameSession(
                 gameId = "game-1",
                 hostPlayerId = "player-1",
-                hostPlayerName = "Player session-1",
+                hostPlayerName = "Player fallback",
             )
         val result = RoomActionResult("game-1", "player-1", createdSession.gameState)
 
-        whenever(session.id).thenReturn("session-1")
-        whenever(gameService.createGame("Player ion-1")).thenReturn(result)
+        whenever(gameService.createGame(any())).thenReturn(result)
 
         sendEnvelope(
             type = WebSocketType.CREATE_GAME,
@@ -155,7 +156,9 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).createGame("Player ion-1")
+        verify(gameService).createGame(org.mockito.kotlin.check {
+            assertTrue(it.startsWith("Player "))
+        })
     }
 
     @Test
@@ -328,6 +331,28 @@ class GameWebSocketHandlerTest {
 
         verifyNoInteractions(gameService)
         assertErrorResponse("This connection is already bound to a game")
+    }
+
+    @Test
+    fun `JOIN_GAME uses fallback player name if none provided`() {
+        val state = GameState(players = listOf(PlayerState("player-1", "Player 1")))
+        val result = RoomActionResult("game-1", "player-1", state)
+
+        whenever(gameService.joinGame(any(), any())).thenReturn(result)
+
+        sendEnvelope(
+            type = WebSocketType.JOIN_GAME,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", null),
+                ),
+        )
+
+        verify(gameService).joinGame(eq("game-1"), org.mockito.kotlin.check {
+            assertTrue(it.startsWith("Player "))
+        })
     }
 
     @Test
