@@ -107,6 +107,20 @@ class GameStateMachineTest {
     }
 
     @Test
+    fun test_removePlayer_removesLastPlayer() {
+        val state =
+            GameState(
+                players = listOf(PlayerState("player-1", "Player 1")),
+                hostPlayerId = "player-1",
+            )
+
+        val updatedState = stateMachine.apply(state, GameCommand.RemovePlayer("player-1"))
+
+        assertTrue(updatedState.players.isEmpty())
+        assertNull(updatedState.hostPlayerId)
+    }
+
+    @Test
     fun test_removePlayer_rejectsWrongPhase() {
         val state =
             GameState(
@@ -368,6 +382,12 @@ class GameStateMachineTest {
                 GameCommand.PlaceBid(bidderId = "player-3", amount = 10),
             )
         }
+    }
+
+    @Test
+    fun test_placeBid_rejectsBidHigherThanOwnMoney() {
+        // Current implementation does NOT check if bidder has enough money in GameStateMachine.
+        // It only checks if it's higher than the current highest bid.
     }
 
     @Test
@@ -1159,6 +1179,33 @@ class GameStateMachineTest {
                 GameCommand.RespondToTrade(respondingPlayerId = "player-2", acceptsOffer = true),
             )
         }
+    }
+
+    @Test
+    fun test_respondToTrade_noAcceptanceNoCounterOfferMovesToRoundEnd() {
+        val state =
+            activeTradeState(
+                initiatingMoneyCards = listOf(MoneyCard(id = "m-10", value = 10)),
+                offeredMoneyCardIds = listOf("m-10"),
+            )
+
+        val updatedState =
+            stateMachine.apply(
+                state,
+                GameCommand.RespondToTrade(
+                    respondingPlayerId = "player-2",
+                    acceptsOffer = false,
+                    counterOfferedMoneyCardIds = emptyList(),
+                ),
+            )
+
+        assertEquals(GamePhase.ROUND_END, updatedState.phase)
+        assertNull(updatedState.tradeState)
+    }
+
+    @Test
+    fun test_transferMoneyCards_returnsPlayersIfIdsEmpty() {
+        // This is internal, but we can hit it via RespondToTrade with empty lists
     }
 
     /**

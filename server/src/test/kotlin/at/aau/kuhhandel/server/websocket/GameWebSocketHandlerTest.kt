@@ -74,6 +74,19 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    fun `handleGameStateChanged skips closed sessions`() {
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
+
+        whenever(session.isOpen).thenReturn(false)
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session))
+
+        handler.handleGameStateChanged(event)
+
+        verify(session, never()).sendMessage(any())
+    }
+
+    @Test
     fun `CREATE_GAME binds session and returns GAME_CREATED`() {
         val createdSession =
             GameSession(
@@ -117,6 +130,32 @@ class GameWebSocketHandlerTest {
 
         assertEquals("game-1", payload.gameId)
         assertEquals(createdSession.gameState, payload.state)
+    }
+
+    @Test
+    fun `CREATE_GAME uses fallback player name if none provided`() {
+        val createdSession =
+            GameSession(
+                gameId = "game-1",
+                hostPlayerId = "player-1",
+                hostPlayerName = "Player session-1",
+            )
+        val result = RoomActionResult("game-1", "player-1", createdSession.gameState)
+
+        whenever(session.id).thenReturn("session-1")
+        whenever(gameService.createGame("Player ion-1")).thenReturn(result)
+
+        sendEnvelope(
+            type = WebSocketType.CREATE_GAME,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    CreateGamePayload.serializer(),
+                    CreateGamePayload(null),
+                ),
+        )
+
+        verify(gameService).createGame("Player ion-1")
     }
 
     @Test
@@ -928,6 +967,45 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    fun `PLACE_BID with missing player bound returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        assertErrorResponse("No player bound to this connection")
+    }
+
+    @Test
+    fun `PLACE_BID when service throws exception returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(
+            gameService.placeBid("game-1", "player-1", 100),
+        ).thenThrow(RuntimeException("Too low"))
+
+        sendEnvelope(
+            type = WebSocketType.PLACE_BID,
+            requestId = "req-bid-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    PlaceBidPayload.serializer(),
+                    PlaceBidPayload(amount = 100),
+                ),
+        )
+
+        assertErrorResponse("Too low")
+    }
+
+    @Test
     fun `PLACE_BID with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
@@ -986,6 +1064,24 @@ class GameWebSocketHandlerTest {
         )
 
         assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK when service throws returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.resolveAuction("game-1", true)).thenThrow(RuntimeException("Error"))
+
+        sendEnvelope(
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-buyback-3",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
+                ),
+        )
+
+        assertErrorResponse("Error")
     }
 
     private fun sendEnvelope(

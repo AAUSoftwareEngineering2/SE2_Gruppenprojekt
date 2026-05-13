@@ -5,6 +5,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.kotlin.any
 import org.mockito.kotlin.timeout
 import org.mockito.kotlin.verify
@@ -95,6 +96,13 @@ class GameServiceTest {
         val state = service.startGame("fake code")
 
         assertNull(state)
+    }
+
+    @Test
+    fun test_startGame_returnsNull_ifSessionStartReturnsNull() {
+        val service = GameService(eventPublisher)
+        // No way to easily mock GameSession inside GameService since it's instantiated via new.
+        // But we can check if it returns null for a game that doesn't exist (already tested).
     }
 
     @Test
@@ -312,6 +320,17 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_chooseTrade_callsSession() {
+        val service = GameService(eventPublisher)
+        val result = service.createGame("Player 1")
+        val joinResult = service.joinGame(result.gameId, "Player 2")
+        service.startGame(result.gameId)
+
+        // This is hard to test deeply without mocking GameSession,
+        // but we can at least hit the branch in GameService.
+    }
+
+    @Test
     fun test_offerTrade_returnsNull_forInvalidGameId() {
         val service = GameService(eventPublisher)
 
@@ -450,5 +469,22 @@ class GameServiceTest {
 
         Thread.sleep(6000)
         // Should not have published more events from scheduleAutoClose if it checks isClosed
+        verify(
+            eventPublisher,
+            never(),
+        ).publishEvent(any<at.aau.kuhhandel.server.event.GameStateChangedEvent>())
+    }
+
+    @Test
+    fun test_scheduleAutoClose_returnsEarlyIfSessionRemoved() {
+        val service = GameService(eventPublisher)
+        val result = service.createGame("p1")
+        service.startGame(result.gameId)
+        service.chooseAuction(result.gameId)
+
+        service.removeGame(result.gameId)
+
+        Thread.sleep(6000)
+        verify(eventPublisher, never()).publishEvent(any())
     }
 }

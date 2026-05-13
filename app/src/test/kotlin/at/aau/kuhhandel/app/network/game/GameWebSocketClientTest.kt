@@ -180,6 +180,34 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    fun `joinGame without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.joinGame("g1") }
+        }
+    }
+
+    @Test
+    fun `leaveGame without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.leaveGame() }
+        }
+    }
+
+    @Test
+    fun `offerTrade without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.offerTrade(listOf("m1")) }
+        }
+    }
+
+    @Test
+    fun `respondToTrade without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.respondToTrade("p1", true) }
+        }
+    }
+
+    @Test
     fun `disconnect without connect does not throw`() {
         runBlocking {
             client.disconnect()
@@ -286,6 +314,46 @@ class GameWebSocketClientTest {
             assertEquals(requestId, sent.requestId)
             assertNotNull(sent.payload)
 
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `joinGame sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.joinGame("g1", "p1")
+            assertEquals(WebSocketType.JOIN_GAME, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `leaveGame sends envelope`() {
+        runBlocking {
+            val connection = connectClient()
+            client.leaveGame()
+            assertEquals(WebSocketType.LEAVE_GAME, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `offerTrade sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.offerTrade(listOf("m1"))
+            assertEquals(WebSocketType.OFFER_TRADE, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `respondToTrade sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.respondToTrade("p1", true, listOf("m2"))
+            assertEquals(WebSocketType.RESPOND_TO_TRADE, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }
     }

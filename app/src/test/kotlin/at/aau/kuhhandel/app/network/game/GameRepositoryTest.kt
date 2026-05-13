@@ -267,6 +267,54 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `joinGame sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.repository.joinGame("g1", "p1")
+            assertEquals(WebSocketType.JOIN_GAME, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `offerTrade sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.repository.offerTrade(listOf("m1"))
+            assertEquals(WebSocketType.OFFER_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `respondToTrade sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            // Need myPlayerId to respond
+            harness.receiveGameCreated("g1", sampleState())
+
+            harness.repository.respondToTrade(true, listOf("m2"))
+            assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `leaveGame sends request and disconnects`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame()
+            harness.repository.leaveGame()
+
+            assertEquals(
+                WebSocketType.LEAVE_GAME,
+                harness.session
+                    .sentEnvelopes()
+                    .last()
+                    .type,
+            )
+            assertFalse(harness.state.isConnected)
+        }
+    }
+
+    @Test
     fun `buyBack sends request`() {
         runBlocking {
             val harness = createHarness()
@@ -296,6 +344,33 @@ class GameRepositoryTest {
 
             harness.clearError()
             assertNull(harness.state.errorMessage)
+        }
+    }
+
+    @Test
+    fun `GAME_JOINED updates state`() {
+        runBlocking {
+            val harness = createHarness()
+            val state = sampleState()
+
+            harness.repository.createGame("me") // Ensure connected and setup
+
+            // Re-create the envelope manually to ensure correct requestId is NOT checked (handleEnvelope ignores it for JOINED)
+            val envelope =
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameCreatedPayload.serializer(),
+                            GameCreatedPayload(gameId = "g1", playerId = "me", state = state),
+                        ),
+                )
+
+            harness.session.deliverEnvelope(envelope)
+            flushRepository()
+
+            assertEquals("g1", harness.state.gameId)
+            assertEquals(state, harness.state.gameState)
         }
     }
 
@@ -370,6 +445,21 @@ class GameRepositoryTest {
                 "Connection lost: IllegalStateException - WebSocket closed (1000): bye",
                 harness.state.errorMessage,
             )
+        }
+    }
+
+    @Test
+    fun `collector failure reports error`() {
+        runBlocking {
+            val session = FakeWebSocketSession()
+            val harness = createHarness(session = session)
+            harness.createGame()
+
+            // Simulate exception in flow collection
+            session.deliverError(RuntimeException("crash"))
+            flushRepository()
+
+            assertEquals("Connection lost: RuntimeException - crash", harness.state.errorMessage)
         }
     }
 
