@@ -383,7 +383,10 @@ class GameRepositoryTest {
             // Missing payload
             harness.session.deliverEnvelope(WebSocketEnvelope(type = WebSocketType.GAME_CREATED))
             flushRepository()
-            assertEquals("Invalid GAME_CREATED/JOINED message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid GAME_CREATED/JOINED message (Payload is null for GAME_CREATED). Payload: null",
+                harness.state.errorMessage,
+            )
 
             // Invalid payload for GAME_STARTED
             harness.session.deliverEnvelope(
@@ -393,7 +396,10 @@ class GameRepositoryTest {
                 ),
             )
             flushRepository()
-            assertEquals("Invalid GameState message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid GameState message (Field 'state' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
+                harness.state.errorMessage,
+            )
 
             // Invalid payload for ERROR
             harness.session.deliverEnvelope(
@@ -403,7 +409,10 @@ class GameRepositoryTest {
                 ),
             )
             flushRepository()
-            assertEquals("Invalid ERROR message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid ERROR message (Field 'message' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.ErrorPayload', but it was missing). Payload: {}",
+                harness.state.errorMessage,
+            )
         }
     }
 

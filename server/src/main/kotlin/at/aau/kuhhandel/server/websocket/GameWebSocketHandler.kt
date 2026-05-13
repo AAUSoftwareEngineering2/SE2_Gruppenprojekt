@@ -108,14 +108,20 @@ class GameWebSocketHandler(
             )
         }
 
-        // For now, uses a temporary player name if no name is provided; will be changed in the future
-        val playerName =
-            decodePayload(session, envelope, CreateGamePayload.serializer())?.playerName
-                ?: "Player ${session.id.takeLast(4)}"
+        val payload =
+            if (envelope.payload != null) {
+                decodePayload(session, envelope, CreateGamePayload.serializer()) ?: return
+            } else {
+                null
+            }
+        val playerName = payload?.playerName ?: "Player ${session.id.takeLast(4)}"
 
         val result = gameService.createGame(playerName)
-        connectionRegistry.bindGame(session.id, result.gameId)
-        connectionRegistry.bindPlayer(session.id, result.playerId)
+        val gameId = result.gameId
+        val playerId = result.playerId
+
+        connectionRegistry.bindGame(session.id, gameId)
+        connectionRegistry.bindPlayer(session.id, playerId)
 
         send(
             session,
@@ -126,8 +132,8 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         GameCreatedPayload.serializer(),
                         GameCreatedPayload(
-                            gameId = result.gameId,
-                            playerId = result.playerId, // re-check this!
+                            gameId = gameId,
+                            playerId = playerId,
                             state = result.gameState,
                         ),
                     ),
@@ -187,8 +193,12 @@ class GameWebSocketHandler(
                 envelope.requestId,
                 ERROR_GAME_NOT_FOUND,
             )
-        connectionRegistry.bindGame(session.id, result.gameId)
-        connectionRegistry.bindPlayer(session.id, result.playerId)
+
+        val joinedGameId = result.gameId
+        val playerId = result.playerId
+
+        connectionRegistry.bindGame(session.id, joinedGameId)
+        connectionRegistry.bindPlayer(session.id, playerId)
 
         send(
             session,
@@ -197,11 +207,10 @@ class GameWebSocketHandler(
                 requestId = envelope.requestId,
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
-                        // re-check this! Use GameCreatedPayload to send playerId
                         GameCreatedPayload.serializer(),
                         GameCreatedPayload(
-                            gameId = result.gameId,
-                            playerId = result.playerId,
+                            gameId = joinedGameId,
+                            playerId = playerId,
                             state = result.gameState,
                         ),
                     ),

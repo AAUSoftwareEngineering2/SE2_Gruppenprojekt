@@ -307,10 +307,20 @@ class GameRepository(
         runCatching {
             WebSocketJson.json.decodeFromJsonElement(
                 serializer,
-                requireNotNull(envelope.payload),
+                requireNotNull(envelope.payload) { "Payload is null for ${envelope.type}" },
             )
-        }.getOrElse {
-            _state.update { it.copy(errorMessage = invalidMessage) }
+        }.getOrElse { throwable ->
+            val payloadString =
+                runCatching { envelope.payload.toString() }.getOrDefault(
+                    "unavailable",
+                )
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "$invalidMessage " +
+                            "(${throwable.message}). Payload: $payloadString",
+                )
+            }
             null
         }
 
