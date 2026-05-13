@@ -156,9 +156,11 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).createGame(org.mockito.kotlin.check {
-            assertTrue(it.startsWith("Player "))
-        })
+        verify(gameService).createGame(
+            org.mockito.kotlin.check {
+                assertTrue(it.startsWith("Player "))
+            },
+        )
     }
 
     @Test
@@ -350,9 +352,12 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).joinGame(eq("game-1"), org.mockito.kotlin.check {
-            assertTrue(it.startsWith("Player "))
-        })
+        verify(gameService).joinGame(
+            eq("game-1"),
+            org.mockito.kotlin.check {
+                assertTrue(it.startsWith("Player "))
+            },
+        )
     }
 
     @Test
