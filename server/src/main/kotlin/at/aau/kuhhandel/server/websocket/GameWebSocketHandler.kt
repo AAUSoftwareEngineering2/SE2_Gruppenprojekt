@@ -1,17 +1,23 @@
 package at.aau.kuhhandel.server.websocket
 
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
+import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
+import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
 import kotlinx.serialization.KSerializer
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
@@ -26,6 +32,29 @@ class GameWebSocketHandler(
     private val gameService: GameService,
     private val connectionRegistry: ConnectionRegistry,
 ) : TextWebSocketHandler() {
+    @EventListener
+    fun handleGameStateChanged(event: GameStateChangedEvent) {
+        val sessions = connectionRegistry.sessionsFor(event.gameId)
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.GAME_STATE_UPDATED,
+                requestId = event.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(event.newState),
+                    ),
+            )
+        val json = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
+        val message = TextMessage(json)
+
+        sessions.forEach { session ->
+            if (session.isOpen) {
+                session.sendMessage(message)
+            }
+        }
+    }
+
     override fun handleTextMessage(
         session: WebSocketSession,
         message: TextMessage,
@@ -44,23 +73,26 @@ class GameWebSocketHandler(
         when (envelope.type) {
             WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
             WebSocketType.START_GAME -> handleStartGame(session, envelope)
+            WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
+            WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
             WebSocketType.REVEAL_CARD -> handleRevealCard(session, envelope)
             WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
             WebSocketType.OFFER_TRADE -> handleOfferTrade(session, envelope)
             WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
-            // Server Side TODO: Handle auction message types: PLACE_BID, AUCTION_BUY_BACK
+            WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
+            WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
             else -> sendError(session, envelope.requestId, "Unsupported message type")
         }
+    }
+
+    override fun afterConnectionEstablished(session: WebSocketSession) {
+        connectionRegistry.bindSession(session)
     }
 
     override fun afterConnectionClosed(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
-        val gameId = connectionRegistry.gameIdFor(session.id)
-        if (gameId != null) {
-            gameService.removeGame(gameId)
-        }
         connectionRegistry.unbind(session.id)
     }
 
@@ -68,9 +100,22 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        // Uses a temporary player ID for now; will be changed when multiplayer is implemented
-        val game = gameService.createGame("player-1")
-        connectionRegistry.bind(session.id, game.gameId)
+        if (connectionRegistry.gameIdFor(session.id) != null) {
+            return sendError(
+                session,
+                envelope.requestId,
+                ERROR_GAME_ALREADY_BOUND,
+            )
+        }
+
+        // For now, uses a temporary player name if no name is provided; will be changed in the future
+        val playerName =
+            decodePayload(session, envelope, CreateGamePayload.serializer())?.playerName
+                ?: "Player ${session.id.takeLast(4)}"
+
+        val result = gameService.createGame(playerName)
+        connectionRegistry.bindGame(session.id, result.gameId)
+        connectionRegistry.bindPlayer(session.id, result.playerId)
 
         send(
             session,
@@ -80,7 +125,7 @@ class GameWebSocketHandler(
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         GameCreatedPayload.serializer(),
-                        GameCreatedPayload(gameId = game.gameId, state = game.gameState),
+                        GameCreatedPayload(gameId = result.gameId, state = result.gameState),
                     ),
             ),
         )
@@ -108,6 +153,79 @@ class GameWebSocketHandler(
                         GameStatePayload.serializer(),
                         GameStatePayload(state),
                     ),
+            ),
+        )
+    }
+
+    private fun handleJoinGame(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        if (connectionRegistry.gameIdFor(session.id) != null) {
+            return sendError(
+                session,
+                envelope.requestId,
+                ERROR_GAME_ALREADY_BOUND,
+            )
+        }
+
+        val payload =
+            decodePayload(session, envelope, JoinGamePayload.serializer())
+                ?: return
+
+        val gameId = payload.gameId
+        // For now, uses a temporary player name if no name is provided; will be changed in the future
+        val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
+
+        val result =
+            gameService.joinGame(gameId, playerName) ?: return sendError(
+                session,
+                envelope.requestId,
+                ERROR_GAME_NOT_FOUND,
+            )
+        connectionRegistry.bindGame(session.id, result.gameId)
+        connectionRegistry.bindPlayer(session.id, result.playerId)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.GAME_JOINED,
+                requestId = envelope.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(result.gameState),
+                    ),
+            ),
+        )
+    }
+
+    private fun handleLeaveGame(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id) ?: return sendError(
+                session,
+                envelope.requestId,
+                ERROR_NO_GAME_BOUND,
+            )
+
+        val playerId =
+            connectionRegistry.playerIdFor(session.id) ?: return sendError(
+                session,
+                envelope.requestId,
+                ERROR_NO_PLAYER_BOUND,
+            )
+
+        gameService.leaveGame(gameId, playerId)
+        connectionRegistry.unbind(session.id)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.GAME_LEFT,
+                requestId = envelope.requestId,
             ),
         )
     }
@@ -234,6 +352,60 @@ class GameWebSocketHandler(
         sendStateUpdate(session, envelope.requestId, state)
     }
 
+    private fun handlePlaceBid(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id)
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+
+        val payload =
+            decodePayload(session, envelope, PlaceBidPayload.serializer())
+                ?: return
+
+        // For now, we use a fixed player ID until we have session-based player tracking
+        // In a real scenario, this would come from the connection or a token.
+        val state =
+            try {
+                gameService.placeBid(gameId, "player-1", payload.amount)
+            } catch (e: Exception) {
+                return sendError(session, envelope.requestId, e.message ?: "Invalid bid")
+            }
+
+        if (state == null) {
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        }
+
+        sendStateUpdate(session, envelope.requestId, state)
+    }
+
+    private fun handleAuctionBuyBack(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id)
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+
+        val payload =
+            decodePayload(session, envelope, AuctionBuyBackPayload.serializer())
+                ?: return
+
+        val state =
+            try {
+                gameService.resolveAuction(gameId, payload.buyBack)
+            } catch (e: Exception) {
+                return sendError(session, envelope.requestId, e.message ?: "Invalid buy back")
+            }
+
+        if (state == null) {
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        }
+
+        sendStateUpdate(session, envelope.requestId, state)
+    }
+
     private fun <T> decodePayload(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -299,6 +471,8 @@ class GameWebSocketHandler(
 
     companion object {
         private const val ERROR_NO_GAME_BOUND = "No game bound to this connection"
+        private const val ERROR_GAME_ALREADY_BOUND = "This connection is already bound to a game"
+        private const val ERROR_NO_PLAYER_BOUND = "No player bound to this connection"
         private const val ERROR_GAME_NOT_FOUND = "Game not found"
         private const val ERROR_INVALID_TRADE_STATE = "Invalid trade state"
     }

@@ -7,13 +7,14 @@ import at.aau.kuhhandel.shared.model.PlayerState
 
 class GameSession(
     val gameId: String,
-    val playerId: String,
+    hostPlayerId: String,
+    hostPlayerName: String,
     private val stateMachine: GameStateMachine = GameStateMachine(),
 ) {
     // Each session manages its own current game state
     // Server Side TODO: Handle joining of multiple players instead of hardcoding one player
     var gameState: GameState =
-        GameState(players = listOf(PlayerState(id = playerId, name = playerId)))
+        GameState(players = listOf(PlayerState(id = hostPlayerId, name = hostPlayerName)))
         private set
 
     /**
@@ -21,6 +22,25 @@ class GameSession(
      */
     fun startGame(): GameState {
         gameState = stateMachine.apply(gameState, GameCommand.StartGame)
+        return gameState
+    }
+
+    /**
+     * Adds a player to the game session
+     */
+    fun addPlayer(
+        playerId: String,
+        playerName: String,
+    ): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.AddPlayer(playerId, playerName))
+        return gameState
+    }
+
+    /**
+     * Removes a player from the game session
+     */
+    fun removePlayer(playerId: String): GameState {
+        gameState = stateMachine.apply(gameState, GameCommand.RemovePlayer(playerId))
         return gameState
     }
 

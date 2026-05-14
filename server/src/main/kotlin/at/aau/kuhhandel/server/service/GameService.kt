@@ -1,25 +1,38 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
+import java.util.UUID
 import kotlin.random.Random
 
 @Service
-class GameService {
+class GameService(
+    private val eventPublisher: ApplicationEventPublisher,
+) {
+    private val serviceScope = CoroutineScope(Dispatchers.Default)
+
     // Stores all active game sessions by their 5-digit game id
     private val sessions: MutableMap<String, GameSession> = mutableMapOf()
 
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(playerId: String): GameSession {
+    fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId = generateGameCode()
-        val session = GameSession(gameId, playerId)
+        val playerId = UUID.randomUUID().toString()
+        val session = GameSession(gameId, playerId, hostPlayerName)
 
         sessions[gameId] = session
-        return session
+        return RoomActionResult(gameId, playerId, session.gameState)
     }
 
     /**
@@ -43,6 +56,36 @@ class GameService {
     }
 
     /**
+     * Adds a player to a game
+     */
+    fun joinGame(
+        gameId: String,
+        playerName: String,
+    ): RoomActionResult? {
+        val session = sessions[gameId] ?: return null
+        val playerId = UUID.randomUUID().toString()
+
+        val updatedState = session.addPlayer(playerId, playerName)
+
+        return RoomActionResult(gameId, playerId, updatedState)
+    }
+
+    /**
+     * Removes a player from a game
+     */
+    fun leaveGame(
+        gameId: String,
+        playerId: String,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+
+        val updatedState = session.removePlayer(playerId)
+        if (updatedState.players.isEmpty()) sessions.remove(gameId)
+
+        return updatedState
+    }
+
+    /**
      * Reveals the next card for an existing game.
      */
     fun revealNextCard(gameId: String): GameState? {
@@ -59,7 +102,9 @@ class GameService {
 
     fun chooseAuction(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.chooseAuction()
+        val state = session.chooseAuction()
+        scheduleAutoClose(gameId)
+        return state
     }
 
     fun placeBid(
@@ -68,7 +113,28 @@ class GameService {
         amount: Int,
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.placeBid(bidderId, amount)
+        val state = session.placeBid(bidderId, amount)
+        scheduleAutoClose(gameId)
+        return state
+    }
+
+    private fun scheduleAutoClose(gameId: String) {
+        val session = sessions[gameId] ?: return
+        val endTime = session.gameState.auctionState?.timerEndTime ?: return
+
+        serviceScope.launch {
+            delay(5100) // Wait slightly longer than the timer to be safe
+            val currentSession = sessions[gameId] ?: return@launch
+            // If the timerEndTime is still the same, it means no new bid happened
+            if (currentSession.gameState.auctionState?.timerEndTime == endTime &&
+                currentSession.gameState.auctionState?.isClosed == false
+            ) {
+                val updatedState = closeAuction(gameId)
+                if (updatedState != null) {
+                    eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
+                }
+            }
+        }
     }
 
     fun closeAuction(gameId: String): GameState? {

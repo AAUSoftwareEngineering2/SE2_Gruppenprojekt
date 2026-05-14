@@ -75,6 +75,24 @@ class GameRepository(
         client.revealCard()
     }
 
+    suspend fun placeBid(amount: Int) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.placeBid(amount)
+    }
+
+    suspend fun buyBack(buyBack: Boolean) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.buyBack(buyBack)
+    }
+
+    suspend fun initiateTrade(targetPlayerId: String) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.initiateTrade(targetPlayerId)
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }

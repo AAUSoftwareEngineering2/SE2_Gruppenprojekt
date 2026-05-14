@@ -21,11 +21,20 @@ data class GameCreatedPayload(
 )
 
 /**
- * Payload used by GAME_STARTED and GAME_STATE_UPDATED events
+ * Payload used by GAME_STARTED, GAME_JOINED, and GAME_STATE_UPDATED events
  */
 @Serializable
 data class GameStatePayload(
     val state: GameState,
+)
+
+/**
+ * Payload used by JOIN_GAME commands
+ */
+@Serializable
+data class JoinGamePayload(
+    val gameId: String,
+    val playerName: String? = null,
 )
 
 /**
@@ -65,6 +74,18 @@ data class RespondToTradePayload(
     val accepted: Boolean,
 )
 
-// Server Side TODO: Add payloads for the auction loop:
-// - BidPayload (amount: Int)
-// - AuctionChoicePayload (buyBack: Boolean)
+/**
+ * Payload used by PLACE_BID commands.
+ */
+@Serializable
+data class PlaceBidPayload(
+    val amount: Int,
+)
+
+/**
+ * Payload used by AUCTION_BUY_BACK commands.
+ */
+@Serializable
+data class AuctionBuyBackPayload(
+    val buyBack: Boolean,
+)

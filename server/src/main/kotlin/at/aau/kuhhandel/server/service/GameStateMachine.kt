@@ -17,6 +17,8 @@ class GameStateMachine {
         command: GameCommand,
     ): GameState =
         when (command) {
+            is GameCommand.AddPlayer -> addPlayer(state, command)
+            is GameCommand.RemovePlayer -> removePlayer(state, command)
             GameCommand.StartGame -> startGame(state)
             GameCommand.RevealCard -> revealCard(state)
             GameCommand.ChooseAuction -> chooseAuction(state)
@@ -28,6 +30,53 @@ class GameStateMachine {
             is GameCommand.RespondToTrade -> respondToTrade(state, command)
             GameCommand.FinishRound -> finishRound(state)
         }
+
+    private fun addPlayer(
+        state: GameState,
+        command: GameCommand.AddPlayer,
+    ): GameState {
+        check(state.phase == GamePhase.NOT_STARTED) {
+            "Cannot add a player during phase ${state.phase}"
+        }
+
+        check(state.players.none { it.id == command.playerId }) {
+            "The player with ID ${command.playerId} is already in the game"
+        }
+
+        val player = PlayerState(command.playerId, command.playerName)
+
+        return state.copy(
+            players = state.players + player,
+            hostPlayerId = state.hostPlayerId ?: player.id,
+        )
+    }
+
+    private fun removePlayer(
+        state: GameState,
+        command: GameCommand.RemovePlayer,
+    ): GameState {
+        check(state.phase == GamePhase.NOT_STARTED) {
+            "Cannot remove a player during phase ${state.phase}"
+        }
+
+        val newPlayers = state.players.filterNot { it.id == command.playerId }
+
+        check(newPlayers.size < state.players.size) {
+            "The player with ID ${command.playerId} is not in the game"
+        }
+
+        val newHostPlayerId =
+            if (command.playerId == state.hostPlayerId) {
+                newPlayers.firstOrNull()?.id
+            } else {
+                state.hostPlayerId
+            }
+
+        return state.copy(
+            players = newPlayers,
+            hostPlayerId = newHostPlayerId,
+        )
+    }
 
     private fun startGame(state: GameState): GameState {
         check(state.phase == GamePhase.NOT_STARTED) {
@@ -89,6 +138,7 @@ class GameStateMachine {
                 AuctionState(
                     auctionCard = requireNotNull(auctionCard),
                     auctioneerId = activePlayer.id,
+                    timerEndTime = System.currentTimeMillis() + 5000,
                 ),
             tradeState = null,
         )
@@ -126,6 +176,7 @@ class GameStateMachine {
                 auctionState.copy(
                     highestBid = command.amount,
                     highestBidderId = command.bidderId,
+                    timerEndTime = System.currentTimeMillis() + 5000,
                 ),
         )
     }

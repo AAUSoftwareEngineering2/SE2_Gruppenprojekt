@@ -20,6 +20,124 @@ class GameStateMachineTest {
     private val stateMachine = GameStateMachine()
 
     @Test
+    fun test_addPlayer_addsFirstPlayerAndSetsHost() {
+        val state = GameState()
+
+        val updatedState = stateMachine.apply(state, GameCommand.AddPlayer("player-1", "Player 1"))
+
+        assertEquals(1, updatedState.players.size)
+        assertEquals("player-1", updatedState.players[0].id)
+        assertEquals("Player 1", updatedState.players[0].name)
+        assertEquals("player-1", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun test_addPlayer_addsSubsequentPlayerAndDoesNotChangeHost() {
+        var state = GameState()
+        state = stateMachine.apply(state, GameCommand.AddPlayer("player-1", "Player 1"))
+
+        val updatedState = stateMachine.apply(state, GameCommand.AddPlayer("player-2", "Player 2"))
+
+        assertEquals(2, updatedState.players.size)
+        assertEquals("player-1", updatedState.players[0].id)
+        assertEquals("Player 1", updatedState.players[0].name)
+        assertEquals("player-2", updatedState.players[1].id)
+        assertEquals("Player 2", updatedState.players[1].name)
+        assertEquals("player-1", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun test_addPlayer_rejectsWrongPhase() {
+        val state = GameState(phase = GamePhase.PLAYER_TURN)
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.AddPlayer("player-1", "Player 1"),
+            )
+        }
+    }
+
+    @Test
+    fun test_addPlayer_rejectsExistingId() {
+        val state = GameState(players = listOf(PlayerState("player-1", "Player 1")))
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.AddPlayer("player-1", "Player with same ID"),
+            )
+        }
+    }
+
+    @Test
+    fun test_removePlayer_removesNonHostAndDoesNotChangeHost() {
+        val state =
+            GameState(
+                players =
+                    listOf(
+                        PlayerState("player-1", "Player 1"),
+                        PlayerState("player-2", "Player 2"),
+                    ),
+                hostPlayerId = "player-2",
+            )
+
+        val updatedState = stateMachine.apply(state, GameCommand.RemovePlayer("player-1"))
+
+        assertEquals(listOf(PlayerState("player-2", "Player 2")), updatedState.players)
+        assertEquals("player-2", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun test_removePlayer_removesHostAndUpdatesHost() {
+        val state =
+            GameState(
+                players =
+                    listOf(
+                        PlayerState("player-1", "Player 1"),
+                        PlayerState("player-2", "Player 2"),
+                    ),
+                hostPlayerId = "player-1",
+            )
+
+        val updatedState = stateMachine.apply(state, GameCommand.RemovePlayer("player-1"))
+
+        assertEquals(listOf(PlayerState("player-2", "Player 2")), updatedState.players)
+        assertEquals("player-2", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun test_removePlayer_rejectsWrongPhase() {
+        val state =
+            GameState(
+                phase = GamePhase.PLAYER_TURN,
+                players =
+                    listOf(
+                        PlayerState("player-1", "Player 1"),
+                    ),
+            )
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RemovePlayer("player-1"),
+            )
+        }
+    }
+
+    @Test
+    fun test_removePlayer_rejectsNonexistentId() {
+        val state = GameState(players = listOf(PlayerState("player-1", "Player 1")))
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(
+                state,
+                GameCommand.RemovePlayer("player-2"),
+            )
+        }
+    }
+
+    @Test
     fun test_startGame_initializesPlayerTurnAndRoundOne() {
         val state = GameState(players = listOf(player("player-1")))
 
@@ -111,13 +229,10 @@ class GameStateMachineTest {
         val updatedState = stateMachine.apply(state, GameCommand.ChooseAuction)
 
         assertEquals(GamePhase.AUCTION, updatedState.phase)
-        assertEquals(
-            AuctionState(
-                auctionCard = AnimalCard(id = "2", type = AnimalType.DOG),
-                auctioneerId = "player-1",
-            ),
-            updatedState.auctionState,
-        )
+        val auctionState = updatedState.auctionState
+        assertEquals(AnimalCard(id = "2", type = AnimalType.DOG), auctionState?.auctionCard)
+        assertEquals("player-1", auctionState?.auctioneerId)
+        assert(auctionState?.timerEndTime != null)
         assertEquals(1, updatedState.deck.size())
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.tradeState)
