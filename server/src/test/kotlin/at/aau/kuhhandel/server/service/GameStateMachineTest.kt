@@ -420,6 +420,21 @@ class GameStateMachineTest {
     }
 
     @Test
+    fun test_placeBid_rejectsBidderWithoutEnoughMoney() {
+        val state =
+            activeAuctionState(
+                bidderMoneyCards = listOf(MoneyCard(id = "p2-money-10", value = 10)),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.PlaceBid(bidderId = "player-2", amount = 20),
+            )
+        }
+    }
+
+    @Test
     fun test_closeAuction_marksAuctionClosed() {
         val state = activeAuctionState()
 
@@ -484,6 +499,11 @@ class GameStateMachineTest {
             listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
             updatedState.players[1].animals,
         )
+        assertEquals(listOf("p2-money-50"), updatedState.players[1].moneyCards.map { it.id })
+        assertEquals(
+            listOf("p1-money-10", "p1-money-50", "p2-money-10"),
+            updatedState.players[0].moneyCards.map { it.id },
+        )
         assertNull(updatedState.auctionState)
     }
 
@@ -509,6 +529,11 @@ class GameStateMachineTest {
             listOf(AnimalCard(id = "auction-card", type = AnimalType.COW)),
             updatedState.players[0].animals,
         )
+        assertEquals(listOf("p1-money-50"), updatedState.players[0].moneyCards.map { it.id })
+        assertEquals(
+            listOf("p2-money-10", "p2-money-50", "p1-money-10"),
+            updatedState.players[1].moneyCards.map { it.id },
+        )
         assertNull(updatedState.auctionState)
     }
 
@@ -528,6 +553,28 @@ class GameStateMachineTest {
             updatedState.players[0].animals,
         )
         assertNull(updatedState.auctionState)
+    }
+
+    @Test
+    fun test_resolveAuction_rejectsBuyBackWhenAuctioneerCannotPayHighestBidder() {
+        val state =
+            activeAuctionState(
+                auctionState =
+                    auctionFixture(
+                        highestBid = 10,
+                        highestBidderId = "player-2",
+                        isClosed = true,
+                    ),
+                auctioneerMoneyCards = emptyList(),
+                bidderMoneyCards = listOf(MoneyCard(id = "p2-money-10", value = 10)),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            stateMachine.apply(
+                state,
+                GameCommand.ResolveAuction(auctioneerBuysCard = true),
+            )
+        }
     }
 
     @Test
@@ -1404,15 +1451,30 @@ class GameStateMachineTest {
         )
     }
 
-    private fun activeAuctionState(): GameState = activeAuctionState(auctionFixture())
+    private fun activeAuctionState(): GameState =
+        activeAuctionState(
+            auctionState = auctionFixture(),
+        )
 
-    private fun activeAuctionState(auctionState: AuctionState): GameState =
+    private fun activeAuctionState(
+        auctionState: AuctionState = auctionFixture(),
+        auctioneerMoneyCards: List<MoneyCard> =
+            listOf(
+                MoneyCard(id = "p1-money-10", value = 10),
+                MoneyCard(id = "p1-money-50", value = 50),
+            ),
+        bidderMoneyCards: List<MoneyCard> =
+            listOf(
+                MoneyCard(id = "p2-money-10", value = 10),
+                MoneyCard(id = "p2-money-50", value = 50),
+            ),
+    ): GameState =
         GameState(
             phase = GamePhase.AUCTION,
             players =
                 listOf(
-                    player("player-1"),
-                    player("player-2"),
+                    player("player-1", moneyCards = auctioneerMoneyCards),
+                    player("player-2", moneyCards = bidderMoneyCards),
                     player("player-3"),
                 ),
             auctionState = auctionState,

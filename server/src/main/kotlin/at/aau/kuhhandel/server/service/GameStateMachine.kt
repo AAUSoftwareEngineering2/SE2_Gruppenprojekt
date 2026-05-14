@@ -182,6 +182,9 @@ class GameStateMachine {
         require(state.players.any { it.id == command.bidderId }) {
             "Unknown bidder ${command.bidderId}"
         }
+        require(requirePlayer(state.players, command.bidderId).totalMoney() >= command.amount) {
+            "Bidder ${command.bidderId} cannot cover bid ${command.amount}"
+        }
         require(command.amount > auctionState.highestBid) {
             "Bid must be higher than current highest bid"
         }
@@ -233,10 +236,16 @@ class GameStateMachine {
             } else {
                 auctionState.auctioneerId
             }
+        val playersAfterPayment =
+            applyAuctionPayment(
+                players = state.players,
+                auctionState = auctionState,
+                auctioneerBuysCard = command.auctioneerBuysCard,
+            )
 
         return state.copy(
             phase = GamePhase.ROUND_END,
-            players = addAnimalToPlayer(state.players, winnerId, auctionState.auctionCard),
+            players = addAnimalToPlayer(playersAfterPayment, winnerId, auctionState.auctionCard),
             currentFaceUpCard = null,
             auctionState = null,
             tradeState = null,
@@ -517,6 +526,83 @@ class GameStateMachine {
                 player
             }
         }
+    }
+
+    private fun applyAuctionPayment(
+        players: List<PlayerState>,
+        auctionState: AuctionState,
+        auctioneerBuysCard: Boolean,
+    ): List<PlayerState> {
+        val highestBidderId = auctionState.highestBidderId ?: return players
+        if (auctionState.highestBid <= 0) {
+            return players
+        }
+
+        val payerId =
+            if (auctioneerBuysCard) {
+                auctionState.auctioneerId
+            } else {
+                highestBidderId
+            }
+        val receiverId =
+            if (auctioneerBuysCard) {
+                highestBidderId
+            } else {
+                auctionState.auctioneerId
+            }
+        val payer = requirePlayer(players, payerId)
+        val paymentCardIds = selectMoneyCardsForPayment(payer, auctionState.highestBid)
+
+        return transferMoneyCards(
+            players = players,
+            fromPlayerId = payerId,
+            toPlayerId = receiverId,
+            moneyCardIds = paymentCardIds,
+        )
+    }
+
+    private fun selectMoneyCardsForPayment(
+        player: PlayerState,
+        amount: Int,
+    ): List<String> {
+        require(player.totalMoney() >= amount) {
+            "Player ${player.id} cannot cover payment $amount"
+        }
+
+        val bestBySum = mutableMapOf(0 to emptyList<MoneyCard>())
+        val sortedMoneyCards =
+            player.moneyCards
+                .filter { moneyCard -> moneyCard.value > 0 }
+                .sortedWith(
+                    compareBy<MoneyCard> { moneyCard ->
+                        moneyCard.value
+                    }.thenBy { moneyCard ->
+                        moneyCard.id
+                    },
+                )
+
+        sortedMoneyCards.forEach { moneyCard ->
+            val newOptions =
+                bestBySum.mapNotNull { (sum, cards) ->
+                    val newSum = sum + moneyCard.value
+                    if (bestBySum.containsKey(newSum)) {
+                        null
+                    } else {
+                        newSum to cards + moneyCard
+                    }
+                }
+            bestBySum.putAll(newOptions)
+        }
+
+        // Kuhhandel gives no change, so choose the smallest overpayment deterministically.
+        return requireNotNull(
+            bestBySum
+                .filterKeys { sum -> sum >= amount }
+                .minWithOrNull(
+                    compareBy<Map.Entry<Int, List<MoneyCard>>> { (sum, _) -> sum }
+                        .thenBy { (_, cards) -> cards.size },
+                ),
+        ).value.map { moneyCard -> moneyCard.id }
     }
 
     private fun moveAnimalTypeBetweenPlayers(
