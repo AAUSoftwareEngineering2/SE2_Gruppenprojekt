@@ -249,12 +249,50 @@ class GameRepository(
             WebSocketType.GAME_CREATED,
             WebSocketType.GAME_JOINED,
             -> {
+                val payloadJson = envelope.payload
+                if (payloadJson == null) {
+                    _state.update {
+                        it.copy(
+                            errorMessage = "Invalid GAME_CREATED/JOINED message (Payload is null for ${envelope.type}). Payload: null",
+                        )
+                    }
+                    return
+                }
+
+                // If the payload is actually a GameStatePayload, try to recover
                 val payload =
-                    decodePayload(
-                        envelope = envelope,
-                        serializer = GameCreatedPayload.serializer(),
-                        invalidMessage = "Invalid GAME_CREATED/JOINED message",
-                    ) ?: return
+                    runCatching {
+                        WebSocketJson.json.decodeFromJsonElement(
+                            GameCreatedPayload.serializer(),
+                            payloadJson,
+                        )
+                    }.getOrElse { throwable ->
+                        // Fallback: try to decode as GameStatePayload if gameId is missing
+                        val gameStatePayload =
+                            runCatching {
+                                WebSocketJson.json.decodeFromJsonElement(
+                                    GameStatePayload.serializer(),
+                                    payloadJson,
+                                )
+                            }.getOrNull()
+
+                        if (gameStatePayload != null) {
+                            GameCreatedPayload(
+                                gameId = _state.value.gameId ?: "unknown",
+                                playerId = _state.value.myPlayerId ?: "unknown",
+                                state = gameStatePayload.state,
+                            )
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    errorMessage =
+                                        "Invalid GAME_CREATED/JOINED message " +
+                                            "(${throwable.message}). Payload: $payloadJson",
+                                )
+                            }
+                            return
+                        }
+                    }
 
                 _state.update {
                     it.copy(

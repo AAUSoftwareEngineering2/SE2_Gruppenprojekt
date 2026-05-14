@@ -13,7 +13,7 @@ data class CreateGamePayload(
 )
 
 /**
- * Payload used by GAME_CREATED events
+ * Payload used by GAME_CREATED and GAME_JOINED events
  */
 @Serializable
 data class GameCreatedPayload(
@@ -23,7 +23,7 @@ data class GameCreatedPayload(
 )
 
 /**
- * Payload used by GAME_STARTED, GAME_JOINED, and GAME_STATE_UPDATED events
+ * Payload used by GAME_STARTED and GAME_STATE_UPDATED events
  */
 @Serializable
 data class GameStatePayload(

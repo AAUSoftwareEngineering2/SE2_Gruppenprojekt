@@ -401,6 +401,21 @@ class GameRepositoryTest {
                 harness.state.errorMessage,
             )
 
+            // REPRODUCE USER ISSUE: GAME_JOINED with GameStatePayload (missing gameId)
+            // The repository should now handle this gracefully via fallback
+            harness.session.deliverEnvelope(
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload = WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(state = sampleState())
+                    ),
+                ),
+            )
+            flushRepository()
+            assertNull(harness.state.errorMessage)
+            assertEquals("unknown", harness.state.gameId)
+
             // Invalid payload for ERROR
             harness.session.deliverEnvelope(
                 WebSocketEnvelope(
