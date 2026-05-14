@@ -51,6 +51,7 @@ class GameSessionTest {
         assertEquals(FULL_DECK_SIZE, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(0, state.currentPlayerIndex)
+        assertEquals("player-1", state.activePlayerId)
         assertEquals(1, session.gameState.players.size)
         assertEquals(
             "player-1",

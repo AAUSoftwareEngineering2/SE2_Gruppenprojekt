@@ -35,6 +35,7 @@ class GameStateMachineTest {
         assertEquals(1, updatedState.roundNumber)
         assertEquals(FULL_DECK_SIZE, updatedState.deck.size())
         assertEquals(0, updatedState.currentPlayerIndex)
+        assertEquals("player-1", updatedState.activePlayerId)
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.auctionState)
         assertNull(updatedState.tradeState)
@@ -812,6 +813,7 @@ class GameStateMachineTest {
         assertEquals(GamePhase.PLAYER_TURN, updatedState.phase)
         assertEquals(2, updatedState.roundNumber)
         assertEquals(1, updatedState.currentPlayerIndex)
+        assertEquals("player-2", updatedState.activePlayerId)
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.auctionState)
         assertNull(updatedState.tradeState)
@@ -833,6 +835,7 @@ class GameStateMachineTest {
         assertEquals(GamePhase.PLAYER_TURN, updatedState.phase)
         assertEquals(4, updatedState.roundNumber)
         assertEquals(0, updatedState.currentPlayerIndex)
+        assertEquals("player-1", updatedState.activePlayerId)
     }
 
     @Test
@@ -858,6 +861,7 @@ class GameStateMachineTest {
         assertEquals(GamePhase.PLAYER_TURN, nextTurnState.phase)
         assertEquals(2, nextTurnState.roundNumber)
         assertEquals(1, nextTurnState.currentPlayerIndex)
+        assertEquals("player-2", nextTurnState.activePlayerId)
         assertEquals(listOf("auction-card"), nextTurnState.players[0].animals.map { it.id })
         assertNull(nextTurnState.currentFaceUpCard)
         assertNull(nextTurnState.auctionState)
@@ -888,6 +892,7 @@ class GameStateMachineTest {
         assertEquals(GamePhase.PLAYER_TURN, nextTurnState.phase)
         assertEquals(2, nextTurnState.roundNumber)
         assertEquals(1, nextTurnState.currentPlayerIndex)
+        assertEquals("player-2", nextTurnState.activePlayerId)
         assertEquals(
             listOf("cow-1", "cow-2", "cow-3"),
             nextTurnState.players[0].animals.map { animal -> animal.id },

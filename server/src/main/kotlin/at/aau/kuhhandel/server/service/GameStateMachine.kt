@@ -54,6 +54,7 @@ class GameStateMachine {
                 },
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
+            activePlayerId = state.players.firstOrNull()?.id,
             auctionState = null,
             tradeState = null,
         )
@@ -359,6 +360,7 @@ class GameStateMachine {
         if (state.players.isEmpty()) {
             return state.copy(
                 phase = GamePhase.FINISHED,
+                activePlayerId = null,
                 currentFaceUpCard = null,
                 auctionState = null,
                 tradeState = null,
@@ -372,6 +374,7 @@ class GameStateMachine {
             phase = nextPhase,
             roundNumber = state.roundNumber + 1,
             currentPlayerIndex = nextPlayerIndex,
+            activePlayerId = state.players[nextPlayerIndex].id,
             currentFaceUpCard = null,
             auctionState = null,
             tradeState = null,
