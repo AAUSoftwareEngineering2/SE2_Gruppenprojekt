@@ -228,7 +228,7 @@ class GameRepositoryTest {
             )
             assertEquals(1, openCount)
 
-            harness.receiveGameState(WebSocketType.GAME_STARTED, startedState)
+            harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, startedState)
 
             assertEquals(startedState, harness.state.gameState)
             assertTrue(harness.state.isConnected)
@@ -388,10 +388,10 @@ class GameRepositoryTest {
                 harness.state.errorMessage,
             )
 
-            // Invalid payload for GAME_STARTED
+            // Invalid payload for GAME_STATE_UPDATED
             harness.session.deliverEnvelope(
                 WebSocketEnvelope(
-                    type = WebSocketType.GAME_STARTED,
+                    type = WebSocketType.GAME_STATE_UPDATED,
                     payload = WebSocketJson.json.parseToJsonElement("{}"),
                 ),
             )

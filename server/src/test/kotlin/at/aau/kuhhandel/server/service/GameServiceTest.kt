@@ -433,11 +433,10 @@ class GameServiceTest {
         // For now, let's just wait a bit longer than 5.1s.
         Thread.sleep(6000)
 
-        // The joinGame call now publishes an event, and the auto-close publishes another.
         // We verify that an event is published, and specifically one for the auto-close.
         verify(
             eventPublisher,
-            timeout(2000).atLeast(2),
+            timeout(1000),
         ).publishEvent(any<at.aau.kuhhandel.server.event.GameStateChangedEvent>())
         assertTrue(
             service

@@ -306,7 +306,6 @@ class GameRepository(
                 }
             }
 
-            WebSocketType.GAME_STARTED,
             WebSocketType.GAME_STATE_UPDATED,
             -> {
                 val payload =

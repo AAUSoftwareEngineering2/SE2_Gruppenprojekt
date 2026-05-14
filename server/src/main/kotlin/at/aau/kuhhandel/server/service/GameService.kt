@@ -22,7 +22,7 @@ class GameService(
     private val serviceScope = CoroutineScope(Dispatchers.Default)
 
     // Stores all active game sessions by their 5-digit game id
-    private val sessions: MutableMap<String, GameSession> = ConcurrentHashMap()
+    private val sessions: ConcurrentHashMap<String, GameSession> = ConcurrentHashMap()
 
     /**
      * Creates a new game with a unique 5-digit game id.
@@ -39,20 +39,20 @@ class GameService(
     /**
      * Returns a game session by its game id.
      */
-    fun getGame(gameId: String): GameSession? = sessions[gameId.trim()]
+    fun getGame(gameId: String): GameSession? = sessions[gameId]
 
     /**
      * Removes the game session with the given game id.
      */
     fun removeGame(gameId: String) {
-        sessions.remove(gameId.trim())
+        sessions.remove(gameId)
     }
 
     /**
      * Starts an existing game.
      */
     fun startGame(gameId: String): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.startGame()
     }
 
@@ -62,16 +62,13 @@ class GameService(
     fun joinGame(
         gameId: String,
         playerName: String,
-        requestId: String? = null,
     ): RoomActionResult? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         val playerId = UUID.randomUUID().toString()
 
         val updatedState = session.addPlayer(playerId, playerName)
 
-        eventPublisher.publishEvent(GameStateChangedEvent(gameId.trim(), updatedState, requestId))
-
-        return RoomActionResult(gameId.trim(), playerId, updatedState)
+        return RoomActionResult(gameId, playerId, updatedState)
     }
 
     /**
@@ -80,19 +77,12 @@ class GameService(
     fun leaveGame(
         gameId: String,
         playerId: String,
-        requestId: String? = null,
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
 
         val updatedState = session.removePlayer(playerId)
 
-        if (updatedState.players.isEmpty()) {
-            sessions.remove(gameId.trim())
-        } else {
-            eventPublisher.publishEvent(
-                GameStateChangedEvent(gameId.trim(), updatedState, requestId),
-            )
-        }
+        if (updatedState.players.isEmpty()) sessions.remove(gameId)
 
         return updatedState
     }
@@ -101,7 +91,7 @@ class GameService(
      * Reveals the next card for an existing game.
      */
     fun revealNextCard(gameId: String): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         val updatedState = session.revealNextCard()
 
         if (updatedState.phase == GamePhase.FINISHED) {
@@ -113,9 +103,9 @@ class GameService(
     }
 
     fun chooseAuction(gameId: String): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         val state = session.chooseAuction()
-        scheduleAutoClose(gameId.trim())
+        scheduleAutoClose(gameId)
         return state
     }
 
@@ -124,33 +114,33 @@ class GameService(
         bidderId: String,
         amount: Int,
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         val state = session.placeBid(bidderId, amount)
-        scheduleAutoClose(gameId.trim())
+        scheduleAutoClose(gameId)
         return state
     }
 
     private fun scheduleAutoClose(gameId: String) {
-        val session = sessions[gameId.trim()] ?: return
+        val session = sessions[gameId] ?: return
         val endTime = session.gameState.auctionState?.timerEndTime ?: return
 
         serviceScope.launch {
             delay(5100) // Wait slightly longer than the timer to be safe
-            val currentSession = sessions[gameId.trim()] ?: return@launch
+            val currentSession = sessions[gameId] ?: return@launch
             // If the timerEndTime is still the same, it means no new bid happened
             if (currentSession.gameState.auctionState?.timerEndTime == endTime &&
                 currentSession.gameState.auctionState?.isClosed == false
             ) {
-                val updatedState = closeAuction(gameId.trim())
+                val updatedState = closeAuction(gameId)
                 if (updatedState != null) {
-                    eventPublisher.publishEvent(GameStateChangedEvent(gameId.trim(), updatedState))
+                    eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
                 }
             }
         }
     }
 
     fun closeAuction(gameId: String): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.closeAuction()
     }
 
@@ -158,7 +148,7 @@ class GameService(
         gameId: String,
         auctioneerBuysCard: Boolean,
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.resolveAuction(auctioneerBuysCard)
     }
 
@@ -168,7 +158,7 @@ class GameService(
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
         offeredMoneyCardIds: List<String> = emptyList(),
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.chooseTrade(challengedPlayerId, animalType, offeredMoneyCardIds)
     }
 
@@ -178,7 +168,7 @@ class GameService(
         acceptsOffer: Boolean,
         counterOfferedMoneyCardIds: List<String> = emptyList(),
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.respondToTrade(
             respondingPlayerId = respondingPlayerId,
             acceptsOffer = acceptsOffer,
@@ -190,12 +180,12 @@ class GameService(
         gameId: String,
         offeredMoneyCardIds: List<String>,
     ): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.offerTrade(offeredMoneyCardIds)
     }
 
     fun finishRound(gameId: String): GameState? {
-        val session = sessions[gameId.trim()] ?: return null
+        val session = sessions[gameId] ?: return null
         return session.finishRound()
     }
 
