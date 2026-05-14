@@ -12,6 +12,13 @@ import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
 class GameStateMachine {
+    private companion object {
+        const val CARDS_PER_ANIMAL_TYPE = 4
+        const val INITIAL_ZERO_MONEY_CARDS = 2
+        const val INITIAL_TEN_MONEY_CARDS = 4
+        const val INITIAL_FIFTY_MONEY_CARDS = 1
+    }
+
     fun apply(
         state: GameState,
         command: GameCommand,
@@ -38,6 +45,13 @@ class GameStateMachine {
             phase = GamePhase.PLAYER_TURN,
             roundNumber = 1,
             deck = createInitialDeck(),
+            players =
+                state.players.map { player ->
+                    player.copy(
+                        animals = emptyList(),
+                        moneyCards = createInitialMoney(player.id),
+                    )
+                },
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
             auctionState = null,
@@ -337,9 +351,7 @@ class GameStateMachine {
 
     private fun finishRound(state: GameState): GameState {
         check(
-            state.phase == GamePhase.AUCTION ||
-                state.phase == GamePhase.TRADE ||
-                state.phase == GamePhase.ROUND_END,
+            state.phase == GamePhase.ROUND_END,
         ) {
             "Cannot finish a round during phase ${state.phase}"
         }
@@ -368,12 +380,30 @@ class GameStateMachine {
 
     private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
-            listOf(
-                AnimalCard(id = "1", type = AnimalType.COW),
-                AnimalCard(id = "2", type = AnimalType.DOG),
-                AnimalCard(id = "3", type = AnimalType.CAT),
-            ),
+            AnimalType.entries
+                .flatMap { type ->
+                    (1..CARDS_PER_ANIMAL_TYPE).map { copyNumber ->
+                        AnimalCard(
+                            id = "${type.name.lowercase()}-$copyNumber",
+                            type = type,
+                        )
+                    }
+                }.shuffled(),
         )
+
+    private fun createInitialMoney(playerId: String): List<MoneyCard> =
+        buildList {
+            // IDs include the player so money cards remain unique after transfers.
+            repeat(INITIAL_ZERO_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-0-${index + 1}", value = 0))
+            }
+            repeat(INITIAL_TEN_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-10-${index + 1}", value = 10))
+            }
+            repeat(INITIAL_FIFTY_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-50-${index + 1}", value = 50))
+            }
+        }
 
     private fun requireActivePlayer(state: GameState): PlayerState =
         state.players.getOrNull(state.currentPlayerIndex)

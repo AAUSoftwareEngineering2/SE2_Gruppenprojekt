@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
@@ -12,6 +13,11 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class GameServiceTest {
+    private companion object {
+        const val CARDS_PER_ANIMAL_TYPE = 4
+        val FULL_DECK_SIZE = AnimalType.entries.size * CARDS_PER_ANIMAL_TYPE
+    }
+
     private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
     @Test
@@ -64,7 +70,7 @@ class GameServiceTest {
 
         assertNotNull(state)
         assertEquals(GamePhase.PLAYER_TURN, state.phase)
-        assertEquals(3, state.deck.size())
+        assertEquals(FULL_DECK_SIZE, state.deck.size())
         assertNull(state.currentFaceUpCard)
     }
 
@@ -101,7 +107,7 @@ class GameServiceTest {
         assertNotNull(state)
         assertNotNull(state.currentFaceUpCard)
         assertEquals(GamePhase.PLAYER_TURN, state.phase)
-        assertEquals(2, state.deck.size())
+        assertEquals(FULL_DECK_SIZE - 1, state.deck.size())
     }
 
     @Test
@@ -119,9 +125,9 @@ class GameServiceTest {
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
 
-        service.revealNextCard(session.gameId)
-        service.revealNextCard(session.gameId)
-        service.revealNextCard(session.gameId)
+        repeat(FULL_DECK_SIZE) {
+            service.revealNextCard(session.gameId)
+        }
         val finalState = service.revealNextCard(session.gameId)
 
         assertNotNull(finalState)
@@ -140,7 +146,7 @@ class GameServiceTest {
         assertNotNull(state)
         assertEquals(GamePhase.AUCTION, state.phase)
         assertNotNull(state.auctionState)
-        assertEquals(2, state.deck.size())
+        assertEquals(FULL_DECK_SIZE - 1, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertNotNull(state.auctionState?.timerEndTime)
     }
@@ -294,6 +300,8 @@ class GameServiceTest {
         val session = service.createGame("player-1")
         service.startGame(session.gameId)
         service.chooseAuction(session.gameId)
+        service.closeAuction(session.gameId)
+        service.resolveAuction(session.gameId, auctioneerBuysCard = false)
 
         val state = service.finishRound(session.gameId)
 
@@ -302,6 +310,18 @@ class GameServiceTest {
         assertEquals(2, state.roundNumber)
         assertNull(state.auctionState)
         assertNull(state.tradeState)
+    }
+
+    @Test
+    fun test_finishRound_rejectsBeforeRoundEnd() {
+        val service = GameService(eventPublisher)
+        val session = service.createGame("player-1")
+        service.startGame(session.gameId)
+        service.chooseAuction(session.gameId)
+
+        assertFailsWith<IllegalStateException> {
+            service.finishRound(session.gameId)
+        }
     }
 
     @Test
