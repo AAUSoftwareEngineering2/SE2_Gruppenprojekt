@@ -12,6 +12,7 @@ data class GameState(
     val currentPlayerIndex: Int = 0,
     val activePlayerId: String? = null,
     val players: List<PlayerState> = emptyList(),
+    val hostPlayerId: String? = null,
     // Active auction state, null if no auction is running
     val auctionState: AuctionState? = null,
     // Active trade state, null if no trade is running

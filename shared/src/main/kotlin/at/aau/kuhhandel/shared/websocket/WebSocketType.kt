@@ -7,6 +7,8 @@ enum class WebSocketType {
     // Client commands
     CREATE_GAME,
     START_GAME,
+    JOIN_GAME,
+    LEAVE_GAME,
     REVEAL_CARD,
     RECONNECT,
     INITIATE_TRADE,
@@ -19,6 +21,8 @@ enum class WebSocketType {
     GAME_CREATED,
     GAME_STARTED,
     GAME_STATE_UPDATED,
+    GAME_JOINED,
+    GAME_LEFT,
     SNAPSHOT,
     ERROR,
 }

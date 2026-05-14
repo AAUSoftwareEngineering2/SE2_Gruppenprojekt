@@ -1,12 +1,12 @@
 package at.aau.kuhhandel.server.websocket
 
-import io.mockk.every
-import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
 import org.springframework.web.socket.WebSocketSession
+import org.mockito.Mockito.`when` as whenever
 
 class ConnectionRegistryTest {
     private lateinit var registry: ConnectionRegistry
@@ -17,58 +17,121 @@ class ConnectionRegistryTest {
     }
 
     @Test
-    fun `bind stores the game id for a session`() {
+    fun `bindSession stores mapping`() {
         val sessionId = "session-1"
+        val session = mock(WebSocketSession::class.java)
+        whenever(session.id).thenReturn(sessionId)
+
+        registry.bindSession(session)
+
+        assertEquals(session, registry.sessionFor(sessionId))
+    }
+
+    @Test
+    fun `bindGame with unbound sessions stores mapping`() {
+        val sessionId1 = "session-1"
+        val sessionId2 = "session-2"
         val gameId = "game-1"
-        val session = mockk<WebSocketSession>()
-        every { session.id } returns sessionId
 
-        registry.bind(session, gameId)
+        registry.bindGame(sessionId1, gameId)
+        registry.bindGame(sessionId2, gameId)
 
-        assertEquals(gameId, registry.gameIdFor(sessionId))
+        assertEquals(gameId, registry.gameIdFor(sessionId1))
+        assertEquals(gameId, registry.gameIdFor(sessionId2))
+        assertEquals(setOf(sessionId1, sessionId2), registry.sessionIdsFor(gameId))
+    }
+
+    @Test
+    fun `bindGame with bound session does not store mapping`() {
+        val sessionId = "session-1"
+        val gameId1 = "game-1"
+        val gameId2 = "game-2"
+        registry.bindGame(sessionId, gameId1)
+
+        registry.bindGame(sessionId, gameId2)
+
+        assertEquals(gameId1, registry.gameIdFor(sessionId))
+        assertEquals(setOf<String>(), registry.sessionIdsFor(gameId2))
+    }
+
+    @Test
+    fun `bindPlayer with unbound session stores mapping`() {
+        val sessionId = "session-1"
+        val playerId = "player-1"
+
+        registry.bindPlayer(sessionId, playerId)
+
+        assertEquals(playerId, registry.playerIdFor(sessionId))
+    }
+
+    @Test
+    fun `bindPlayer with bound session does not store mapping`() {
+        val sessionId = "session-1"
+        val playerId1 = "player-1"
+        val playerId2 = "player-2"
+        registry.bindPlayer(sessionId, playerId1)
+
+        registry.bindPlayer(sessionId, playerId2)
+
+        assertEquals(playerId1, registry.playerIdFor(sessionId))
+    }
+
+    @Test
+    fun `sessionsFor returns all sessions for a specific game`() {
+        val session1 = mock(WebSocketSession::class.java)
+        whenever(session1.id).thenReturn("session-1")
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.id).thenReturn("session-2")
+        val session3 = mock(WebSocketSession::class.java)
+        whenever(session3.id).thenReturn("session-3")
+
+        val gameId1 = "game-1"
+        val gameId2 = "game-2"
+
+        registry.bindSession(session1)
+        registry.bindGame(session1.id, gameId1)
+        registry.bindSession(session2)
+        registry.bindGame(session2.id, gameId1)
+        registry.bindSession(session3)
+        registry.bindGame(session3.id, gameId2)
+
+        val game1Sessions = registry.sessionsFor(gameId1)
+        assertEquals(2, game1Sessions.size)
+        assertEquals(setOf(session1, session2), game1Sessions.toSet())
+
+        val game2Sessions = registry.sessionsFor(gameId2)
+        assertEquals(1, game2Sessions.size)
+        assertEquals(setOf(session3), game2Sessions)
+    }
+
+    @Test
+    fun `sessionsFor returns empty list if no sessions for game`() {
+        val sessions = registry.sessionsFor("unknown")
+
+        assertEquals(0, sessions.size)
     }
 
     @Test
     fun `unbind removes the mapping`() {
-        val sessionId = "session-1"
+        val session1 = mock(WebSocketSession::class.java)
+        whenever(session1.id).thenReturn("session-1")
+        val playerId1 = "player-1"
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.id).thenReturn("session-2")
+        val playerId2 = "player-2"
         val gameId = "game-1"
-        val session = mockk<WebSocketSession>()
-        every { session.id } returns sessionId
-        registry.bind(session, gameId)
+        registry.bindSession(session1)
+        registry.bindGame(session1.id, gameId)
+        registry.bindPlayer(session1.id, playerId1)
+        registry.bindSession(session2)
+        registry.bindGame(session2.id, gameId)
+        registry.bindPlayer(session2.id, playerId2)
 
-        registry.unbind(sessionId)
+        registry.unbind(session1.id)
 
-        assertNull(registry.gameIdFor(sessionId))
-    }
-
-    @Test
-    fun `getSessionsForGame returns all sessions for a specific game`() {
-        val game1 = "G1"
-        val game2 = "G2"
-
-        val s1 = mockk<WebSocketSession>()
-        every { s1.id } returns "s1"
-        val s2 = mockk<WebSocketSession>()
-        every { s2.id } returns "s2"
-        val s3 = mockk<WebSocketSession>()
-        every { s3.id } returns "s3"
-
-        registry.bind(s1, game1)
-        registry.bind(s2, game1)
-        registry.bind(s3, game2)
-
-        val sessionsG1 = registry.getSessionsForGame(game1)
-        assertEquals(2, sessionsG1.size)
-        assertEquals(setOf(s1, s2), sessionsG1.toSet())
-
-        val sessionsG2 = registry.getSessionsForGame(game2)
-        assertEquals(1, sessionsG2.size)
-        assertEquals(s3, sessionsG2[0])
-    }
-
-    @Test
-    fun `getSessionsForGame returns empty list if no sessions for game`() {
-        val sessions = registry.getSessionsForGame("unknown")
-        assertEquals(0, sessions.size)
+        assertNull(registry.gameIdFor(session1.id))
+        assertNull(registry.playerIdFor(session1.id))
+        assertEquals(setOf(session2.id), registry.sessionIdsFor(gameId))
+        assertEquals(setOf(session2), registry.sessionsFor(gameId))
     }
 }
