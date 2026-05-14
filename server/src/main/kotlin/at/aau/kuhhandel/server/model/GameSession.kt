@@ -3,7 +3,6 @@ package at.aau.kuhhandel.server.model
 import at.aau.kuhhandel.server.service.GameCommand
 import at.aau.kuhhandel.server.service.GameStateMachine
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
 
 class GameSession(
     val gameId: String,
@@ -12,9 +11,7 @@ class GameSession(
     private val stateMachine: GameStateMachine = GameStateMachine(),
 ) {
     // Each session manages its own current game state
-    // Server Side TODO: Handle joining of multiple players instead of hardcoding one player
-    var gameState: GameState =
-        GameState(players = listOf(PlayerState(id = hostPlayerId, name = hostPlayerName)))
+    var gameState: GameState = GameState.fromCreatingPlayer(hostPlayerId, hostPlayerName)
         private set
 
     /**
