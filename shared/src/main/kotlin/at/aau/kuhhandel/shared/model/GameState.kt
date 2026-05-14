@@ -18,16 +18,19 @@ data class GameState(
     val tradeState: TradeState? = null,
 ) {
     companion object {
-        fun fromCreatingPlayer(id: String, name: String): GameState {
-            return GameState(
-                players = listOf(
-                    PlayerState(
-                        id = id,
-                        name = name,
+        fun fromCreatingPlayer(
+            id: String,
+            name: String,
+        ): GameState =
+            GameState(
+                players =
+                    listOf(
+                        PlayerState(
+                            id = id,
+                            name = name,
+                        ),
                     ),
-                ),
                 hostPlayerId = id,
             )
-        }
     }
 }
