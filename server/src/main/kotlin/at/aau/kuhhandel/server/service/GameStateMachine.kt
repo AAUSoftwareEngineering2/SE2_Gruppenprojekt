@@ -39,6 +39,10 @@ class GameStateMachine {
             "Cannot add a player during phase ${state.phase}"
         }
 
+        check(state.players.size < 5) {
+            "Maximum player limit (5) reached"
+        }
+
         check(state.players.none { it.id == command.playerId }) {
             "The player with ID ${command.playerId} is already in the game"
         }
@@ -81,6 +85,10 @@ class GameStateMachine {
     private fun startGame(state: GameState): GameState {
         check(state.phase == GamePhase.NOT_STARTED) {
             "Cannot start a game during phase ${state.phase}"
+        }
+
+        check(state.players.size in 2..5) {
+            "A game must have between 2 and 5 players to start (currently ${state.players.size})"
         }
 
         return state.copy(

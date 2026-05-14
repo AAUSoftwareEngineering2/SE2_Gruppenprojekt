@@ -188,7 +188,7 @@ class GameWebSocketHandler(
         val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
 
         val result =
-            gameService.joinGame(gameId, playerName) ?: return sendError(
+            gameService.joinGame(gameId, playerName, envelope.requestId) ?: return sendError(
                 session,
                 envelope.requestId,
                 ERROR_GAME_NOT_FOUND,
@@ -236,7 +236,7 @@ class GameWebSocketHandler(
                 ERROR_NO_PLAYER_BOUND,
             )
 
-        gameService.leaveGame(gameId, playerId)
+        gameService.leaveGame(gameId, playerId, envelope.requestId)
         connectionRegistry.unbind(session.id)
 
         send(
