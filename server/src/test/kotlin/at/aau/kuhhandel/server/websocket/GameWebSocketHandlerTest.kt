@@ -286,7 +286,9 @@ class GameWebSocketHandlerTest {
             )
 
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
-        whenever(gameService.joinGame(eq("game-1"), eq("Player 1"), any())).thenReturn(returnedResult)
+        whenever(
+            gameService.joinGame(eq("game-1"), eq("Player 1"), any()),
+        ).thenReturn(returnedResult)
 
         sendEnvelope(
             type = WebSocketType.JOIN_GAME,

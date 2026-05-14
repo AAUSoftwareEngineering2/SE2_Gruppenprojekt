@@ -406,10 +406,11 @@ class GameRepositoryTest {
             harness.session.deliverEnvelope(
                 WebSocketEnvelope(
                     type = WebSocketType.GAME_JOINED,
-                    payload = WebSocketJson.json.encodeToJsonElement(
-                        GameStatePayload.serializer(),
-                        GameStatePayload(state = sampleState())
-                    ),
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameStatePayload.serializer(),
+                            GameStatePayload(state = sampleState()),
+                        ),
                 ),
             )
             flushRepository()

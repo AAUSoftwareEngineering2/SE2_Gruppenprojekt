@@ -57,7 +57,7 @@ class GameRepository(
         playerName: String? = null,
     ) {
         ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(gameId = gameId, errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
 
@@ -253,7 +253,9 @@ class GameRepository(
                 if (payloadJson == null) {
                     _state.update {
                         it.copy(
-                            errorMessage = "Invalid GAME_CREATED/JOINED message (Payload is null for ${envelope.type}). Payload: null",
+                            errorMessage =
+                                "Invalid GAME_CREATED/JOINED message " +
+                                    "(Payload is null for ${envelope.type}). Payload: null",
                         )
                     }
                     return
