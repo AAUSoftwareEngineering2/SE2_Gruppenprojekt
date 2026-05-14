@@ -298,7 +298,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).joinGame("game-1", "Player 1")
+        verify(gameService).joinGame(eq("game-1"), eq("Player 1"), eq("req-1"))
         verify(connectionRegistry).bindGame("session-1", "game-1")
         verify(connectionRegistry).bindPlayer("session-1", "player-1")
 
@@ -340,7 +340,7 @@ class GameWebSocketHandlerTest {
         val state = GameState(players = listOf(PlayerState("player-1", "Player 1")))
         val result = RoomActionResult("game-1", "player-1", state)
 
-        whenever(gameService.joinGame(any(), any())).thenReturn(result)
+        whenever(gameService.joinGame(any(), any(), any())).thenReturn(result)
 
         sendEnvelope(
             type = WebSocketType.JOIN_GAME,
@@ -357,6 +357,7 @@ class GameWebSocketHandlerTest {
             org.mockito.kotlin.check {
                 assertTrue(it.startsWith("Player "))
             },
+            eq("req-1"),
         )
     }
 
@@ -397,7 +398,7 @@ class GameWebSocketHandlerTest {
             requestId = "req-1",
         )
 
-        verify(gameService).leaveGame("game-1", "player-1")
+        verify(gameService).leaveGame("game-1", "player-1", "req-1")
         verify(connectionRegistry).unbind("session-1")
 
         val response = captureResponse(session)

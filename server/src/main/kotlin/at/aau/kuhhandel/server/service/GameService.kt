@@ -89,7 +89,9 @@ class GameService(
         if (updatedState.players.isEmpty()) {
             sessions.remove(gameId.trim())
         } else {
-            eventPublisher.publishEvent(GameStateChangedEvent(gameId.trim(), updatedState, requestId))
+            eventPublisher.publishEvent(
+                GameStateChangedEvent(gameId.trim(), updatedState, requestId),
+            )
         }
 
         return updatedState
