@@ -2,6 +2,7 @@ package at.aau.kuhhandel.server.model
 
 import at.aau.kuhhandel.server.service.GameCommand
 import at.aau.kuhhandel.server.service.GameStateMachine
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -39,6 +40,7 @@ class GameSessionTest {
     @Test
     fun test_startGame_initializesGame() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
 
         val state = session.startGame()
 
@@ -46,7 +48,7 @@ class GameSessionTest {
         assertEquals(3, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(0, state.currentPlayerIndex)
-        assertEquals(1, session.gameState.players.size)
+        assertEquals(2, session.gameState.players.size)
         assertEquals(
             "player-1",
             session.gameState.players[0]
@@ -59,6 +61,7 @@ class GameSessionTest {
     @Test
     fun test_startGame_updatesStoredState() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
 
         session.startGame()
 
@@ -85,10 +88,11 @@ class GameSessionTest {
     @Test
     fun test_addPlayer_rejectsWrongPhase() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         assertFailsWith<IllegalStateException> {
-            session.addPlayer("player-2", "Player 2")
+            session.addPlayer("player-3", "Player 3")
         }
     }
 
@@ -119,6 +123,7 @@ class GameSessionTest {
     @Test
     fun test_removePlayer_rejectsWrongPhase() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         assertFailsWith<IllegalStateException> {
@@ -138,6 +143,7 @@ class GameSessionTest {
     @Test
     fun test_revealNextCard_revealsCard() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         val state = session.revealNextCard()
@@ -152,6 +158,7 @@ class GameSessionTest {
     @Test
     fun test_revealNextCard_updatesStoredState() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         session.revealNextCard()
@@ -164,6 +171,7 @@ class GameSessionTest {
     @Test
     fun test_revealNextCard_lastCardDoesNotImmediatelyFinishGame() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         session.revealNextCard()
@@ -178,6 +186,7 @@ class GameSessionTest {
     @Test
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         session.revealNextCard()
@@ -194,6 +203,7 @@ class GameSessionTest {
     @Test
     fun test_chooseAuction_updatesStoredState() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         val state = session.chooseAuction()
@@ -208,17 +218,19 @@ class GameSessionTest {
     @Test
     fun test_placeBid_rejectsUnknownBidder() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
         session.chooseAuction()
 
         assertFailsWith<IllegalArgumentException> {
-            session.placeBid("player-2", 10)
+            session.placeBid("player-3", 10)
         }
     }
 
     @Test
     fun test_resolveAuction_updatesStoredState() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
         session.chooseAuction()
         session.closeAuction()
@@ -234,16 +246,18 @@ class GameSessionTest {
     @Test
     fun test_chooseTrade_rejectsUnknownPlayer() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         assertFailsWith<IllegalArgumentException> {
-            session.chooseTrade("player-2")
+            session.chooseTrade("player-3", AnimalType.COW)
         }
     }
 
     @Test
     fun test_offerTrade_rejectsWhenNotInTradePhase() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         assertFailsWith<IllegalStateException> {
@@ -254,6 +268,7 @@ class GameSessionTest {
     @Test
     fun test_respondToTrade_rejectsWhenNotInTradePhase() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
 
         assertFailsWith<IllegalStateException> {
@@ -310,6 +325,7 @@ class GameSessionTest {
     @Test
     fun test_finishRound_updatesStoredState() {
         val session = GameSession("12345", "player-1", "Player 1")
+        session.addPlayer("player-2", "Player 2")
         session.startGame()
         session.chooseAuction()
 

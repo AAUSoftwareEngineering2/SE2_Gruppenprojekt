@@ -53,6 +53,10 @@ internal class FakeWebSocketSession : WebSocketSession {
         incomingChannel.close()
     }
 
+    fun deliverError(cause: Throwable) {
+        incomingChannel.close(cause)
+    }
+
     fun onlySentEnvelope(): WebSocketEnvelope {
         val text = sentFrames.filterIsInstance<Frame.Text>().single()
         return WebSocketJson.json.decodeFromString(WebSocketEnvelope.serializer(), text.readText())

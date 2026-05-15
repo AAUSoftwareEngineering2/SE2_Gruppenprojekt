@@ -57,9 +57,15 @@ class LobbyJoiningViewModel(
         if (code.length == 5) {
             isLoading.value = true
             localErrorMessage.value = null
+            repository.clearError()
             scope.launch {
                 try {
-                    repository.createGame() // Placeholder for joinGame
+                    repository.joinGame(code)
+                    // We don't set isLoading to false here immediately,
+                    // because we wait for the repository state to update
+                    // either with a gameId (success) or an errorMessage (failure).
+                    // However, to avoid being stuck in loading if something fails silently:
+                    kotlinx.coroutines.delay(1000)
                     isLoading.value = false
                 } catch (e: Exception) {
                     isLoading.value = false
