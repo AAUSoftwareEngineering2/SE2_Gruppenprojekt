@@ -87,8 +87,8 @@ class GameStateMachine {
             "Cannot start a game during phase ${state.phase}"
         }
 
-        check(state.players.size in 2..5) {
-            "A game must have between 2 and 5 players to start (currently ${state.players.size})"
+        check(state.players.size in 3..5) {
+            "A game must have between 3 and 5 players to start (currently ${state.players.size})"
         }
 
         return state.copy(
