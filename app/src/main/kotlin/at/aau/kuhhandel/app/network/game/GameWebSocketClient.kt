@@ -5,7 +5,10 @@ import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
+import at.aau.kuhhandel.shared.websocket.JoinGamePayload
+import at.aau.kuhhandel.shared.websocket.OfferTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -23,7 +26,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
-import kotlinx.serialization.json.encodeToJsonElement
 import java.util.UUID
 
 class OpenedSession(
@@ -112,7 +114,7 @@ class GameWebSocketClient(
         return null
     }
 
-    private suspend fun closeDetails(frame: Frame): String? =
+    private fun closeDetails(frame: Frame): String? =
         (frame as? Frame.Close)?.let { closeFrame ->
             formatCloseDetails(closeFrame.readReason())
         }
@@ -120,13 +122,13 @@ class GameWebSocketClient(
     private fun formatCloseDetails(reason: CloseReason?): String =
         if (reason != null) {
             "WebSocket closed (${reason.code}): ${
-                reason.message.ifBlank { "Kein Grund angegeben" }
+                reason.message.ifBlank { "No reason given" }
             }"
         } else {
             "WebSocket closed without a close reason"
         }
 
-    private suspend fun decodeEnvelope(frame: Frame): WebSocketEnvelope? {
+    private fun decodeEnvelope(frame: Frame): WebSocketEnvelope? {
         val textFrame = frame as? Frame.Text ?: return null
         return runCatching {
             WebSocketJson.json.decodeFromString(
@@ -165,13 +167,12 @@ class GameWebSocketClient(
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 CreateGamePayload.serializer(),
-                CreateGamePayload(playerName),
+                CreateGamePayload(playerName = playerName),
             )
         send(WebSocketEnvelope(WebSocketType.CREATE_GAME, requestId, payload))
         return requestId
     }
 
-    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -180,12 +181,17 @@ class GameWebSocketClient(
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 JoinGamePayload.serializer(),
-                JoinGamePayload(gameId, playerName),
+                JoinGamePayload(gameId = gameId, playerName = playerName),
             )
         send(WebSocketEnvelope(WebSocketType.JOIN_GAME, requestId, payload))
         return requestId
     }
-     */
+
+    suspend fun leaveGame(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.LEAVE_GAME, requestId))
+        return requestId
+    }
 
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
@@ -204,7 +210,7 @@ class GameWebSocketClient(
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 PlaceBidPayload.serializer(),
-                PlaceBidPayload(amount),
+                PlaceBidPayload(amount = amount),
             )
         send(WebSocketEnvelope(WebSocketType.PLACE_BID, requestId, payload))
         return requestId
@@ -215,20 +221,58 @@ class GameWebSocketClient(
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 AuctionBuyBackPayload.serializer(),
-                AuctionBuyBackPayload(buyBack),
+                AuctionBuyBackPayload(buyBack = buyBack),
             )
         send(WebSocketEnvelope(WebSocketType.AUCTION_BUY_BACK, requestId, payload))
         return requestId
     }
 
-    suspend fun initiateTrade(targetPlayerId: String): String {
+    suspend fun initiateTrade(
+        challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
+        moneyCardIds: List<String> = emptyList(),
+    ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 InitiateTradePayload.serializer(),
-                InitiateTradePayload(targetPlayerId),
+                InitiateTradePayload(
+                    challengedPlayerId = challengedPlayerId,
+                    animalType = animalType,
+                    moneyCardIds = moneyCardIds,
+                ),
             )
         send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
+        return requestId
+    }
+
+    suspend fun offerTrade(moneyCardIds: List<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                OfferTradePayload.serializer(),
+                OfferTradePayload(moneyCardIds = moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.OFFER_TRADE, requestId, payload))
+        return requestId
+    }
+
+    suspend fun respondToTrade(
+        respondingPlayerId: String,
+        accepted: Boolean,
+        counterOfferedMoneyCardIds: List<String> = emptyList(),
+    ): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                RespondToTradePayload.serializer(),
+                RespondToTradePayload(
+                    respondingPlayerId = respondingPlayerId,
+                    accepted = accepted,
+                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                ),
+            )
+        send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))
         return requestId
     }
 

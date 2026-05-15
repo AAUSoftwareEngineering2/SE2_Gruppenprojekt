@@ -55,8 +55,11 @@ class GameRepositoryTest {
             repository.buyBack(buyBack)
         }
 
-        suspend fun initiateTrade(targetPlayerId: String) {
-            repository.initiateTrade(targetPlayerId)
+        suspend fun initiateTrade(
+            targetPlayerId: String,
+            animalType: AnimalType = AnimalType.COW,
+        ) {
+            repository.initiateTrade(targetPlayerId, animalType)
         }
 
         fun clearError() {
@@ -147,7 +150,7 @@ class GameRepositoryTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     GameCreatedPayload.serializer(),
-                    GameCreatedPayload(gameId = gameId, state = state),
+                    GameCreatedPayload(gameId = gameId, playerId = "me", state = state),
                 ),
         )
 
@@ -225,7 +228,7 @@ class GameRepositoryTest {
             )
             assertEquals(1, openCount)
 
-            harness.receiveGameState(WebSocketType.GAME_STARTED, startedState)
+            harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, startedState)
 
             assertEquals(startedState, harness.state.gameState)
             assertTrue(harness.state.isConnected)
@@ -264,6 +267,54 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `joinGame sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.repository.joinGame("g1", "p1")
+            assertEquals(WebSocketType.JOIN_GAME, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `offerTrade sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.repository.offerTrade(listOf("m1"))
+            assertEquals(WebSocketType.OFFER_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `respondToTrade sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            // Need myPlayerId to respond
+            harness.receiveGameCreated("g1", sampleState())
+
+            harness.repository.respondToTrade(true, listOf("m2"))
+            assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `leaveGame sends request and disconnects`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame()
+            harness.repository.leaveGame()
+
+            assertEquals(
+                WebSocketType.LEAVE_GAME,
+                harness.session
+                    .sentEnvelopes()
+                    .last()
+                    .type,
+            )
+            assertFalse(harness.state.isConnected)
+        }
+    }
+
+    @Test
     fun `buyBack sends request`() {
         runBlocking {
             val harness = createHarness()
@@ -297,6 +348,33 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `GAME_JOINED updates state`() {
+        runBlocking {
+            val harness = createHarness()
+            val state = sampleState()
+
+            harness.repository.createGame("me") // Ensure connected and setup
+
+            // Re-create the envelope manually to ensure correct requestId is NOT checked (handleEnvelope ignores it for JOINED)
+            val envelope =
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameCreatedPayload.serializer(),
+                            GameCreatedPayload(gameId = "g1", playerId = "me", state = state),
+                        ),
+                )
+
+            harness.session.deliverEnvelope(envelope)
+            flushRepository()
+
+            assertEquals("g1", harness.state.gameId)
+            assertEquals(state, harness.state.gameState)
+        }
+    }
+
+    @Test
     fun `invalid payloads surface a readable error`() {
         runBlocking {
             val harness = createHarness()
@@ -305,17 +383,39 @@ class GameRepositoryTest {
             // Missing payload
             harness.session.deliverEnvelope(WebSocketEnvelope(type = WebSocketType.GAME_CREATED))
             flushRepository()
-            assertEquals("Invalid GAME_CREATED message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid GAME_CREATED/JOINED message (Payload is null for GAME_CREATED). Payload: null",
+                harness.state.errorMessage,
+            )
 
-            // Invalid payload for GAME_STARTED
+            // Invalid payload for GAME_STATE_UPDATED
             harness.session.deliverEnvelope(
                 WebSocketEnvelope(
-                    type = WebSocketType.GAME_STARTED,
+                    type = WebSocketType.GAME_STATE_UPDATED,
                     payload = WebSocketJson.json.parseToJsonElement("{}"),
                 ),
             )
             flushRepository()
-            assertEquals("Invalid GameState message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid GameState message (Field 'state' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
+                harness.state.errorMessage,
+            )
+
+            // REPRODUCE USER ISSUE: GAME_JOINED with GameStatePayload (missing gameId)
+            // The repository should now handle this gracefully via fallback
+            harness.session.deliverEnvelope(
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameStatePayload.serializer(),
+                            GameStatePayload(state = sampleState()),
+                        ),
+                ),
+            )
+            flushRepository()
+            assertNull(harness.state.errorMessage)
+            assertEquals("unknown", harness.state.gameId)
 
             // Invalid payload for ERROR
             harness.session.deliverEnvelope(
@@ -325,7 +425,10 @@ class GameRepositoryTest {
                 ),
             )
             flushRepository()
-            assertEquals("Invalid ERROR message", harness.state.errorMessage)
+            assertEquals(
+                "Invalid ERROR message (Field 'message' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.ErrorPayload', but it was missing). Payload: {}",
+                harness.state.errorMessage,
+            )
         }
     }
 
@@ -367,6 +470,21 @@ class GameRepositoryTest {
                 "Connection lost: IllegalStateException - WebSocket closed (1000): bye",
                 harness.state.errorMessage,
             )
+        }
+    }
+
+    @Test
+    fun `collector failure reports error`() {
+        runBlocking {
+            val session = FakeWebSocketSession()
+            val harness = createHarness(session = session)
+            harness.createGame()
+
+            // Simulate exception in flow collection
+            session.deliverError(RuntimeException("crash"))
+            flushRepository()
+
+            assertEquals("Connection lost: RuntimeException - crash", harness.state.errorMessage)
         }
     }
 

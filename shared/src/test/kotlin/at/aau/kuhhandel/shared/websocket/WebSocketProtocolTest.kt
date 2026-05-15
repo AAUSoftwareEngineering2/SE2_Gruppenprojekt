@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -69,7 +70,8 @@ class WebSocketProtocolTest {
 
     @Test
     fun `GameCreatedPayload round-trips`() {
-        val payload = GameCreatedPayload(gameId = "Id", state = GameState())
+        // re-check this!
+        val payload = GameCreatedPayload(gameId = "Id", playerId = "P1", state = GameState())
 
         val encoded = json.encodeToString(GameCreatedPayload.serializer(), payload)
         val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
@@ -104,6 +106,19 @@ class WebSocketProtocolTest {
     }
 
     @Test
+    fun `GameJoinedPayload round-trips`() {
+        val payload = GameJoinedPayload(playerId = "player-1", state = GameState())
+
+        val encoded = json.encodeToString(GameJoinedPayload.serializer(), payload)
+        val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+        assertEquals(payload.hashCode(), decoded.hashCode())
+        assertEquals(payload.toString(), decoded.toString())
+        assertEquals(payload, payload.copy())
+    }
+
+    @Test
     fun `ErrorPayload round-trips`() {
         val payload = ErrorPayload(message = "Something went wrong")
 
@@ -118,9 +133,15 @@ class WebSocketProtocolTest {
 
     @Test
     fun `InitiateTradePayload round-trips and exposes its fields`() {
-        val payload = InitiateTradePayload(challengedPlayerId = "player-2")
+        val payload =
+            InitiateTradePayload(
+                challengedPlayerId = "player-2",
+                animalType = AnimalType.COW,
+                moneyCardIds = emptyList(),
+            )
 
         assertEquals("player-2", payload.challengedPlayerId)
+        assertEquals(AnimalType.COW, payload.animalType)
 
         val encoded = json.encodeToString(InitiateTradePayload.serializer(), payload)
         val decoded = json.decodeFromString(InitiateTradePayload.serializer(), encoded)
@@ -152,6 +173,7 @@ class WebSocketProtocolTest {
             RespondToTradePayload(
                 respondingPlayerId = "player-2",
                 accepted = true,
+                counterOfferedMoneyCardIds = emptyList(), // re-check this!
             )
 
         assertEquals("player-2", payload.respondingPlayerId)

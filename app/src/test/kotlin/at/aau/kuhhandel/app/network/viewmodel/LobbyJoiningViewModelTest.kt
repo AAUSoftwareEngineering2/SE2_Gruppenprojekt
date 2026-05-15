@@ -117,8 +117,7 @@ class LobbyJoiningViewModelTest {
             viewModel.joinLobby()
             advanceUntilIdle()
 
-            // Based on current implementation using createGame as placeholder
-            coVerify { mockRepository.createGame() }
+            coVerify { mockRepository.joinGame("12345") }
         }
     }
 
