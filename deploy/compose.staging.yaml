@@ -12,7 +12,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:?APP_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
       # Cap the JVM heap and use a low-footprint GC so the container fits the 1 GB VM.
-      JAVA_TOOL_OPTIONS: "-Xmx192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xmx192m -XX:+UseSerialGC -XX:MaxRAMPercentage=60"
     mem_limit: 320m
     mem_reservation: 192m
     ports:
