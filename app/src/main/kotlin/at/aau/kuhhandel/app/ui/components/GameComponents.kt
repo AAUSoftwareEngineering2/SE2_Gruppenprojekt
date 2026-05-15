@@ -301,8 +301,7 @@ fun PlayerFarm(
     Box(
         modifier =
             modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
+                .fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
