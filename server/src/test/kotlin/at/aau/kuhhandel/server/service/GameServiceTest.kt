@@ -81,6 +81,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
 
         val state = service.startGame(result.gameId)
 
@@ -180,6 +181,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         val state = service.revealNextCard(result.gameId)
@@ -204,6 +206,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         service.revealNextCard(result.gameId)
@@ -221,6 +224,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         val state = service.chooseAuction(result.gameId)
@@ -247,8 +251,9 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val createResult = service.createGame("Player 1")
 
-        // Add a second player so they can bid
-        val joinResult = service.joinGame(createResult.gameId, "Player 2")
+        // Add enough players
+        service.joinGame(createResult.gameId, "Player 2")
+        val joinResult = service.joinGame(createResult.gameId, "Player 3")
 
         service.startGame(createResult.gameId)
         service.chooseAuction(createResult.gameId)
@@ -270,6 +275,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -284,6 +290,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
         service.closeAuction(result.gameId)
@@ -319,10 +326,11 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalArgumentException> {
-            service.chooseTrade(result.gameId, "player-3", AnimalType.COW)
+            service.chooseTrade(result.gameId, "player-4", AnimalType.COW)
         }
     }
 
@@ -330,7 +338,8 @@ class GameServiceTest {
     fun test_chooseTrade_callsSession() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
-        val joinResult = service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         // This is hard to test deeply without mocking GameSession,
@@ -351,6 +360,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("player-1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalStateException> {
@@ -372,6 +382,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("player-1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalStateException> {
@@ -384,6 +395,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
         service.joinGame(result.gameId, "Player 2")
+        service.joinGame(result.gameId, "Player 3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -424,6 +436,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
         service.joinGame(result.gameId, "p2")
+        service.joinGame(result.gameId, "p3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -451,8 +464,9 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val createResult = service.createGame("p1")
 
-        // Add a second player so they can bid
-        val joinResult = service.joinGame(createResult.gameId, "Player 2")
+        // Add enough players
+        service.joinGame(createResult.gameId, "Player 2")
+        val joinResult = service.joinGame(createResult.gameId, "Player 3")
 
         service.startGame(createResult.gameId)
         service.chooseAuction(createResult.gameId)
@@ -474,6 +488,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
         service.joinGame(result.gameId, "p2")
+        service.joinGame(result.gameId, "p3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -490,6 +505,7 @@ class GameServiceTest {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
         service.joinGame(result.gameId, "p2")
+        service.joinGame(result.gameId, "p3")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 

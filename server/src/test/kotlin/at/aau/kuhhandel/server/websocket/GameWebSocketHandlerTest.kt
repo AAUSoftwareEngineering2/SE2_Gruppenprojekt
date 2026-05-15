@@ -473,11 +473,12 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `REVEAL_CARD returns GAME_STATE_UPDATED`() {
+    fun `REVEAL_CARD returns GAME_STATE_UPDATED and broadcasts to others`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.PLAYER_TURN)
-        whenever(gameService.revealNextCard("game-1")).thenReturn(gameState)
+        val gameState = GameState(phase = GamePhase.AUCTION)
+        whenever(gameService.chooseAuction("game-1")).thenReturn(gameState)
 
         val envelope =
             WebSocketEnvelope(
@@ -495,19 +496,31 @@ class GameWebSocketHandlerTest {
             ),
         )
 
-        verify(gameService).revealNextCard("game-1")
+        verify(gameService).chooseAuction("game-1")
 
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
-        assertEquals("req-3", response.requestId)
+        val response1 = captureResponse(session1)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+        assertEquals("req-3", response1.requestId)
 
-        val payload =
+        val payload1 =
             WebSocketJson.json.decodeFromJsonElement(
                 GameStatePayload.serializer(),
-                requireNotNull(response.payload),
+                requireNotNull(response1.payload),
             )
 
-        assertEquals(gameState, payload.state)
+        assertEquals(gameState, payload1.state)
+
+        val response2 = captureResponse(session2)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+        assertNull(response2.requestId)
+
+        val payload2 =
+            WebSocketJson.json.decodeFromJsonElement(
+                GameStatePayload.serializer(),
+                requireNotNull(response2.payload),
+            )
+
+        assertEquals(gameState, payload2.state)
     }
 
     @Test
@@ -548,7 +561,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `REVEAL_CARD with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.revealNextCard("game-1")).thenReturn(null)
+        whenever(gameService.chooseAuction("game-1")).thenReturn(null)
 
         val envelope =
             WebSocketEnvelope(
@@ -566,7 +579,7 @@ class GameWebSocketHandlerTest {
             ),
         )
 
-        verify(gameService).revealNextCard("game-1")
+        verify(gameService).chooseAuction("game-1")
 
         val response = captureResponse(session1)
         assertEquals(WebSocketType.ERROR, response.type)
