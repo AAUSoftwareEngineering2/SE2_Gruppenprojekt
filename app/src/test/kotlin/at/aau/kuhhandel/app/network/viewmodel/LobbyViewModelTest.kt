@@ -112,26 +112,64 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `canStartGame is true only when host and connected and not started yet`() {
+    fun `canStartGame is true only when host and connected and at least 2 players`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            // case one, connecte no game state yet (waiting for creation)
-            repoStateFlow.value = GameRepositoryState(isConnected = true)
+            // case one, connected with 2 players
+            val lobbyState =
+                GameState(
+                    players = listOf(PlayerState("p1", "Alice"), PlayerState("p2", "Bob")),
+                    phase = GamePhase.NOT_STARTED,
+                )
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "p1",
+                    gameState = lobbyState,
+                )
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.canStartGame)
 
-            // Case two, Game already started
-            val startedGameState = GameState(phase = GamePhase.AUCTION)
+            // case two, only 1 player
+            val singlePlayerState =
+                GameState(
+                    players = listOf(PlayerState("p1", "Alice")),
+                    phase = GamePhase.NOT_STARTED,
+                )
             repoStateFlow.value =
-                GameRepositoryState(isConnected = true, gameState = startedGameState)
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "p1",
+                    gameState = singlePlayerState,
+                )
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canStartGame)
 
-            // disconnected
-            repoStateFlow.value = GameRepositoryState(isConnected = false)
+            // Case three, Game already started
+            val startedGameState =
+                GameState(
+                    players = listOf(PlayerState("p1", "Alice"), PlayerState("p2", "Bob")),
+                    phase = GamePhase.AUCTION,
+                )
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "p1",
+                    gameState = startedGameState,
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canStartGame)
+
+            // case four, disconnected
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = false,
+                    myPlayerId = "p1",
+                    gameState = lobbyState,
+                )
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.canStartGame)

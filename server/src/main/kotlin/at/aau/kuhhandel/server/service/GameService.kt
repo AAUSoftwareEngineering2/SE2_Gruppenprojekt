@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 @Service
@@ -21,7 +22,7 @@ class GameService(
     private val serviceScope = CoroutineScope(Dispatchers.Default)
 
     // Stores all active game sessions by their 5-digit game id
-    private val sessions: MutableMap<String, GameSession> = mutableMapOf()
+    private val sessions: ConcurrentHashMap<String, GameSession> = ConcurrentHashMap()
 
     /**
      * Creates a new game with a unique 5-digit game id.
@@ -80,6 +81,7 @@ class GameService(
         val session = sessions[gameId] ?: return null
 
         val updatedState = session.removePlayer(playerId)
+
         if (updatedState.players.isEmpty()) sessions.remove(gameId)
 
         return updatedState

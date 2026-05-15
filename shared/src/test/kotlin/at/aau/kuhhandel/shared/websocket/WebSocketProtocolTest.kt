@@ -106,6 +106,19 @@ class WebSocketProtocolTest {
     }
 
     @Test
+    fun `GameJoinedPayload round-trips`() {
+        val payload = GameJoinedPayload(playerId = "player-1", state = GameState())
+
+        val encoded = json.encodeToString(GameJoinedPayload.serializer(), payload)
+        val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+        assertEquals(payload.hashCode(), decoded.hashCode())
+        assertEquals(payload.toString(), decoded.toString())
+        assertEquals(payload, payload.copy())
+    }
+
+    @Test
     fun `ErrorPayload round-trips`() {
         val payload = ErrorPayload(message = "Something went wrong")
 

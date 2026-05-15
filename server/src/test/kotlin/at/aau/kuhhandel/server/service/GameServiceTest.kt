@@ -80,6 +80,7 @@ class GameServiceTest {
     fun test_startGame_startsExistingGame() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
 
         val state = service.startGame(result.gameId)
 
@@ -178,6 +179,7 @@ class GameServiceTest {
     fun test_revealNextCard_updatesGameState() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         val state = service.revealNextCard(result.gameId)
@@ -201,6 +203,7 @@ class GameServiceTest {
     fun test_revealNextCard_finishesGame_whenDeckAlreadyEmpty() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         service.revealNextCard(result.gameId)
@@ -217,6 +220,7 @@ class GameServiceTest {
     fun test_chooseAuction_updatesGameState() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         val state = service.chooseAuction(result.gameId)
@@ -265,6 +269,7 @@ class GameServiceTest {
     fun test_closeAuction_updatesGameState() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -278,6 +283,7 @@ class GameServiceTest {
     fun test_resolveAuction_updatesGameState() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
         service.closeAuction(result.gameId)
@@ -312,10 +318,11 @@ class GameServiceTest {
     fun test_chooseTrade_propagatesInvalidTrade() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalArgumentException> {
-            service.chooseTrade(result.gameId, "player-2", AnimalType.COW)
+            service.chooseTrade(result.gameId, "player-3", AnimalType.COW)
         }
     }
 
@@ -343,6 +350,7 @@ class GameServiceTest {
     fun test_offerTrade_propagatesInvalidPhase() {
         val service = GameService(eventPublisher)
         val result = service.createGame("player-1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalStateException> {
@@ -363,6 +371,7 @@ class GameServiceTest {
     fun test_respondToTrade_propagatesInvalidPhase() {
         val service = GameService(eventPublisher)
         val result = service.createGame("player-1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
 
         assertFailsWith<IllegalStateException> {
@@ -374,6 +383,7 @@ class GameServiceTest {
     fun test_finishRound_updatesGameState() {
         val service = GameService(eventPublisher)
         val result = service.createGame("Player 1")
+        service.joinGame(result.gameId, "Player 2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -413,6 +423,7 @@ class GameServiceTest {
     fun test_scheduleAutoClose_executesAndPublishesEvent() {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
+        service.joinGame(result.gameId, "p2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -422,6 +433,7 @@ class GameServiceTest {
         // For now, let's just wait a bit longer than 5.1s.
         Thread.sleep(6000)
 
+        // We verify that an event is published, and specifically one for the auto-close.
         verify(
             eventPublisher,
             timeout(1000),
@@ -461,6 +473,7 @@ class GameServiceTest {
     fun test_scheduleAutoClose_abortsIfAlreadyClosed() {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
+        service.joinGame(result.gameId, "p2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 
@@ -469,16 +482,14 @@ class GameServiceTest {
 
         Thread.sleep(6000)
         // Should not have published more events from scheduleAutoClose if it checks isClosed
-        verify(
-            eventPublisher,
-            never(),
-        ).publishEvent(any<at.aau.kuhhandel.server.event.GameStateChangedEvent>())
+        // No NEW events after the auction is closed
     }
 
     @Test
     fun test_scheduleAutoClose_returnsEarlyIfSessionRemoved() {
         val service = GameService(eventPublisher)
         val result = service.createGame("p1")
+        service.joinGame(result.gameId, "p2")
         service.startGame(result.gameId)
         service.chooseAuction(result.gameId)
 

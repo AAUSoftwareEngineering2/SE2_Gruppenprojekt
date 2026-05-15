@@ -228,7 +228,7 @@ class GameRepositoryTest {
             )
             assertEquals(1, openCount)
 
-            harness.receiveGameState(WebSocketType.GAME_STARTED, startedState)
+            harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, startedState)
 
             assertEquals(startedState, harness.state.gameState)
             assertTrue(harness.state.isConnected)
@@ -388,10 +388,10 @@ class GameRepositoryTest {
                 harness.state.errorMessage,
             )
 
-            // Invalid payload for GAME_STARTED
+            // Invalid payload for GAME_STATE_UPDATED
             harness.session.deliverEnvelope(
                 WebSocketEnvelope(
-                    type = WebSocketType.GAME_STARTED,
+                    type = WebSocketType.GAME_STATE_UPDATED,
                     payload = WebSocketJson.json.parseToJsonElement("{}"),
                 ),
             )
@@ -400,6 +400,22 @@ class GameRepositoryTest {
                 "Invalid GameState message (Field 'state' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
                 harness.state.errorMessage,
             )
+
+            // REPRODUCE USER ISSUE: GAME_JOINED with GameStatePayload (missing gameId)
+            // The repository should now handle this gracefully via fallback
+            harness.session.deliverEnvelope(
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameStatePayload.serializer(),
+                            GameStatePayload(state = sampleState()),
+                        ),
+                ),
+            )
+            flushRepository()
+            assertNull(harness.state.errorMessage)
+            assertEquals("unknown", harness.state.gameId)
 
             // Invalid payload for ERROR
             harness.session.deliverEnvelope(

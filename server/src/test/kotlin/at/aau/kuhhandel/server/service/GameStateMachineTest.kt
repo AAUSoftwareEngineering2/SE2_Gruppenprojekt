@@ -153,7 +153,7 @@ class GameStateMachineTest {
 
     @Test
     fun test_startGame_initializesPlayerTurnAndRoundOne() {
-        val state = GameState(players = listOf(player("player-1")))
+        val state = GameState(players = listOf(player("player-1"), player("player-2")))
 
         val updatedState = stateMachine.apply(state, GameCommand.StartGame)
 
@@ -164,6 +164,27 @@ class GameStateMachineTest {
         assertNull(updatedState.currentFaceUpCard)
         assertNull(updatedState.auctionState)
         assertNull(updatedState.tradeState)
+    }
+
+    @Test
+    fun test_startGame_rejectsWithOnlyOnePlayer() {
+        val state = GameState(players = listOf(player("player-1")))
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.StartGame)
+        }
+    }
+
+    @Test
+    fun test_addPlayer_rejectsWhenFull() {
+        var state = GameState()
+        for (i in 1..5) {
+            state = stateMachine.apply(state, GameCommand.AddPlayer("p$i", "Player $i"))
+        }
+
+        assertFailsWith<IllegalStateException> {
+            stateMachine.apply(state, GameCommand.AddPlayer("p6", "Player 6"))
+        }
     }
 
     @Test

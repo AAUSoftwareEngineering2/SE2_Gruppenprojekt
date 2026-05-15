@@ -67,7 +67,8 @@ class LobbyViewModel(
                     canStartGame =
                         repoState.isConnected &&
                             isHost &&
-                            (gameState?.phase == GamePhase.NOT_STARTED || gameState == null),
+                            (gameState?.phase == GamePhase.NOT_STARTED || gameState == null) &&
+                            (gameState?.players?.size ?: 0) >= 2,
                 )
             }.stateIn(
                 scope = scope,
