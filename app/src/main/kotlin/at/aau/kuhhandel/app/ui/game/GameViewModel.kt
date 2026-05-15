@@ -148,7 +148,11 @@ class GameViewModel(
                                     repoState.myPlayerId
                             )
                     ),
-                canStartGame = repoState.isConnected && currentPhase == GamePhase.NOT_STARTED,
+                canStartGame =
+                    repoState.isConnected &&
+                        currentPhase == GamePhase.NOT_STARTED &&
+                        (gameState?.players?.size ?: 0) >= 3 &&
+                        gameState?.hostPlayerId == repoState.myPlayerId,
                 errorMessage = repoState.errorMessage,
                 auctionTimerSeconds = timer,
                 myMoneyCards =

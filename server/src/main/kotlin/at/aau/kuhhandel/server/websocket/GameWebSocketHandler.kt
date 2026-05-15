@@ -236,21 +236,11 @@ class GameWebSocketHandler(
                 ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
 
         val state =
-            gameService.revealNextCard(gameId)
+            gameService.chooseAuction(gameId)
                 ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
 
-        send(
-            session,
-            WebSocketEnvelope(
-                type = WebSocketType.GAME_STATE_UPDATED,
-                requestId = envelope.requestId,
-                payload =
-                    WebSocketJson.json.encodeToJsonElement(
-                        GameStatePayload.serializer(),
-                        GameStatePayload(state),
-                    ),
-            ),
-        )
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
     }
 
     private fun handleInitiateTrade(
