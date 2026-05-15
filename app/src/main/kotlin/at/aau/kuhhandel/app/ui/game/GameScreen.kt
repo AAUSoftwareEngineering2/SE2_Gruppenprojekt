@@ -149,11 +149,12 @@ fun GameScreen(
                             Text("START MATCH")
                         }
                     } else {
-                        val message = if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
-                            "Waiting for players (min. 3)..."
-                        } else {
-                            "Waiting for host to start..."
-                        }
+                        val message =
+                            if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
+                                "Waiting for players (min. 3)..."
+                            } else {
+                                "Waiting for host to start..."
+                            }
                         Text(
                             text = message,
                             style = MaterialTheme.typography.headlineSmall,
