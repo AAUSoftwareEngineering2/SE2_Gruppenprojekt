@@ -16,4 +16,21 @@ data class GameState(
     val auctionState: AuctionState? = null,
     // Active trade state, null if no trade is running
     val tradeState: TradeState? = null,
-)
+) {
+    companion object {
+        fun fromCreatingPlayer(
+            id: String,
+            name: String,
+        ): GameState =
+            GameState(
+                players =
+                    listOf(
+                        PlayerState(
+                            id = id,
+                            name = name,
+                        ),
+                    ),
+                hostPlayerId = id,
+            )
+    }
+}

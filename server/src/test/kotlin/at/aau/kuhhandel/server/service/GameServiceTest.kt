@@ -475,7 +475,7 @@ class GameServiceTest {
         assertTrue(
             service
                 .getGame(result.gameId)!!
-                .gameState.auctionState!!
+                .state.auctionState!!
                 .isClosed,
         )
     }

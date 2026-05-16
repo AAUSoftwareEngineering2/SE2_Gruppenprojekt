@@ -103,7 +103,7 @@ class GameWebSocketHandlerTest {
             RoomActionResult(
                 "game-1",
                 "player-1",
-                createdSession.gameState,
+                createdSession.state,
             )
 
         whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
@@ -134,7 +134,7 @@ class GameWebSocketHandlerTest {
             )
 
         assertEquals("game-1", payload.gameId)
-        assertEquals(createdSession.gameState, payload.state)
+        assertEquals(createdSession.state, payload.state)
     }
 
     @Test
@@ -182,7 +182,7 @@ class GameWebSocketHandlerTest {
             RoomActionResult(
                 "game-1",
                 "player-1",
-                createdSession.gameState,
+                createdSession.state,
             )
 
         whenever(session1.isOpen).thenReturn(false)

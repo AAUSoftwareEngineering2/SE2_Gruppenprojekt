@@ -33,7 +33,7 @@ class GameService(
         val session = GameSession(gameId, playerId, hostPlayerName)
 
         sessions[gameId] = session
-        return RoomActionResult(gameId, playerId, session.gameState)
+        return RoomActionResult(gameId, playerId, session.state)
     }
 
     /**
@@ -122,14 +122,14 @@ class GameService(
 
     private fun scheduleAutoClose(gameId: String) {
         val session = sessions[gameId] ?: return
-        val endTime = session.gameState.auctionState?.timerEndTime ?: return
+        val endTime = session.state.auctionState?.timerEndTime ?: return
 
         serviceScope.launch {
             delay(5100) // Wait slightly longer than the timer to be safe
             val currentSession = sessions[gameId] ?: return@launch
             // If the timerEndTime is still the same, it means no new bid happened
-            if (currentSession.gameState.auctionState?.timerEndTime == endTime &&
-                currentSession.gameState.auctionState?.isClosed == false
+            if (currentSession.state.auctionState?.timerEndTime == endTime &&
+                currentSession.state.auctionState?.isClosed == false
             ) {
                 val updatedState = closeAuction(gameId)
                 if (updatedState != null) {
