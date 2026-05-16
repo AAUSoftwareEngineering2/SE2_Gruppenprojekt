@@ -46,6 +46,10 @@ class GameStateMachine {
             "Cannot add a player during phase ${state.phase}"
         }
 
+        check(state.players.size < 5) {
+            "Maximum player limit (5) reached"
+        }
+
         check(state.players.none { it.id == command.playerId }) {
             "The player with ID ${command.playerId} is already in the game"
         }
@@ -88,6 +92,10 @@ class GameStateMachine {
     private fun startGame(state: GameState): GameState {
         check(state.phase == GamePhase.NOT_STARTED) {
             "Cannot start a game during phase ${state.phase}"
+        }
+
+        check(state.players.size in 3..5) {
+            "A game must have between 3 and 5 players to start (currently ${state.players.size})"
         }
 
         return state.copy(
@@ -271,7 +279,13 @@ class GameStateMachine {
                     "Unknown challenged player ${command.challengedPlayerId}",
                 )
 
-        val requestedAnimalType = requireSharedAnimalType(activePlayer, challengedPlayer)
+        require(
+            activePlayer.animals.any { it.type == command.animalType } &&
+                challengedPlayer.animals.any { it.type == command.animalType },
+        ) {
+            "Both players must share animal type ${command.animalType}"
+        }
+
         val offeredMoneyCards = requireMoneyCards(activePlayer, command.offeredMoneyCardIds)
 
         return state.copy(
@@ -281,7 +295,7 @@ class GameStateMachine {
                 TradeState(
                     initiatingPlayerId = activePlayer.id,
                     challengedPlayerId = challengedPlayer.id,
-                    requestedAnimalType = requestedAnimalType,
+                    requestedAnimalType = command.animalType,
                     step = TradeStep.WAITING_FOR_RESPONSE,
                     offeredMoney = offeredMoneyCards.sumOf { it.value },
                     offeredMoneyCardIds = command.offeredMoneyCardIds,
@@ -665,15 +679,4 @@ class GameStateMachine {
             }
         }
     }
-
-    private fun requireSharedAnimalType(
-        activePlayer: PlayerState,
-        challengedPlayer: PlayerState,
-    ): AnimalType =
-        activePlayer.animals
-            .map { it.type }
-            .firstOrNull { animalType -> challengedPlayer.animals.any { it.type == animalType } }
-            ?: throw IllegalArgumentException(
-                "Players ${activePlayer.id} and ${challengedPlayer.id} do not share an animal type",
-            )
 }

@@ -52,16 +52,14 @@ class GameRepository(
         client.createGame(playerName)
     }
 
-    /*
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
     ) {
         ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(gameId = gameId, errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
-     */
 
     suspend fun startGame() {
         ensureConnected()
@@ -87,10 +85,36 @@ class GameRepository(
         client.buyBack(buyBack)
     }
 
-    suspend fun initiateTrade(targetPlayerId: String) {
+    suspend fun initiateTrade(
+        challengedPlayerId: String,
+        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
+        moneyCardIds: List<String> = emptyList(),
+    ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.initiateTrade(targetPlayerId)
+        client.initiateTrade(challengedPlayerId, animalType, moneyCardIds)
+    }
+
+    suspend fun leaveGame() {
+        ensureConnected()
+        client.leaveGame()
+        disconnect()
+    }
+
+    suspend fun offerTrade(moneyCardIds: List<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.offerTrade(moneyCardIds)
+    }
+
+    suspend fun respondToTrade(
+        accepted: Boolean,
+        counterOfferedMoneyCardIds: List<String> = emptyList(),
+    ) {
+        ensureConnected()
+        val myId = _state.value.myPlayerId ?: return
+        _state.update { it.copy(errorMessage = null) }
+        client.respondToTrade(myId, accepted, counterOfferedMoneyCardIds)
     }
 
     fun clearError() {
@@ -222,25 +246,66 @@ class GameRepository(
 
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
         when (envelope.type) {
-            WebSocketType.GAME_CREATED -> {
+            WebSocketType.GAME_CREATED,
+            WebSocketType.GAME_JOINED,
+            -> {
+                val payloadJson = envelope.payload
+                if (payloadJson == null) {
+                    _state.update {
+                        it.copy(
+                            errorMessage =
+                                "Invalid GAME_CREATED/JOINED message " +
+                                    "(Payload is null for ${envelope.type}). Payload: null",
+                        )
+                    }
+                    return
+                }
+
+                // If the payload is actually a GameStatePayload, try to recover
                 val payload =
-                    decodePayload(
-                        envelope = envelope,
-                        serializer = GameCreatedPayload.serializer(),
-                        invalidMessage = "Invalid GAME_CREATED message",
-                    ) ?: return
+                    runCatching {
+                        WebSocketJson.json.decodeFromJsonElement(
+                            GameCreatedPayload.serializer(),
+                            payloadJson,
+                        )
+                    }.getOrElse { throwable ->
+                        // Fallback: try to decode as GameStatePayload if gameId is missing
+                        val gameStatePayload =
+                            runCatching {
+                                WebSocketJson.json.decodeFromJsonElement(
+                                    GameStatePayload.serializer(),
+                                    payloadJson,
+                                )
+                            }.getOrNull()
+
+                        if (gameStatePayload != null) {
+                            GameCreatedPayload(
+                                gameId = _state.value.gameId ?: "unknown",
+                                playerId = _state.value.myPlayerId ?: "unknown",
+                                state = gameStatePayload.state,
+                            )
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    errorMessage =
+                                        "Invalid GAME_CREATED/JOINED message " +
+                                            "(${throwable.message}). Payload: $payloadJson",
+                                )
+                            }
+                            return
+                        }
+                    }
 
                 _state.update {
                     it.copy(
                         gameId = payload.gameId,
-                        // myPlayerId = payload.playerId, // Missing in shared
+                        myPlayerId = payload.playerId,
                         gameState = payload.state,
                         errorMessage = null,
                     )
                 }
             }
 
-            WebSocketType.GAME_STARTED,
             WebSocketType.GAME_STATE_UPDATED,
             -> {
                 val payload =
@@ -281,10 +346,20 @@ class GameRepository(
         runCatching {
             WebSocketJson.json.decodeFromJsonElement(
                 serializer,
-                requireNotNull(envelope.payload),
+                requireNotNull(envelope.payload) { "Payload is null for ${envelope.type}" },
             )
-        }.getOrElse {
-            _state.update { it.copy(errorMessage = invalidMessage) }
+        }.getOrElse { throwable ->
+            val payloadString =
+                runCatching { envelope.payload.toString() }.getOrDefault(
+                    "unavailable",
+                )
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "$invalidMessage " +
+                            "(${throwable.message}). Payload: $payloadString",
+                )
+            }
             null
         }
 

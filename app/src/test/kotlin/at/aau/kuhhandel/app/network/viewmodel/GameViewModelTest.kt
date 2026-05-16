@@ -195,16 +195,66 @@ class GameViewModelTest {
                 viewModel.uiState.collect {}
             }
 
-            // Case 1: Connected + NOT_STARTED -> True
+            // Case 1: Connected + NOT_STARTED + 3 Players + Host -> True
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
-                    gameState = GameState(phase = GamePhase.NOT_STARTED),
+                    myPlayerId = "host-id",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.NOT_STARTED,
+                            players =
+                                listOf(
+                                    PlayerState("host-id", "Host"),
+                                    PlayerState("p2", "P2"),
+                                    PlayerState("p3", "P3"),
+                                ),
+                            hostPlayerId = "host-id",
+                        ),
                 )
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.canStartGame)
 
-            // Case 2: Connected + PLAYER_TURN -> False
+            // Case 2: Connected + NOT_STARTED + 3 Players + NOT Host -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "p2",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.NOT_STARTED,
+                            players =
+                                listOf(
+                                    PlayerState("host-id", "Host"),
+                                    PlayerState("p2", "P2"),
+                                    PlayerState("p3", "P3"),
+                                ),
+                            hostPlayerId = "host-id",
+                        ),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canStartGame)
+
+            // Case 3: Connected + NOT_STARTED + 2 Players + Host -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "host-id",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.NOT_STARTED,
+                            players =
+                                listOf(
+                                    PlayerState("host-id", "Host"),
+                                    PlayerState("p2", "P2"),
+                                ),
+                            hostPlayerId = "host-id",
+                        ),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canStartGame)
+
+            // Case 4: Connected + PLAYER_TURN -> False
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
@@ -256,11 +306,11 @@ class GameViewModelTest {
     @Test
     fun `initiateTrade calls repository and handles error`() {
         runTest {
-            coEvery { mockRepository.initiateTrade("player-2") } throws
+            coEvery { mockRepository.initiateTrade("player-2", AnimalType.COW, any()) } throws
                 RuntimeException("Network error")
-            viewModel.initiateTrade("player-2")
+            viewModel.initiateTrade("player-2", AnimalType.COW)
             advanceUntilIdle()
-            coVerify { mockRepository.initiateTrade("player-2") }
+            coVerify { mockRepository.initiateTrade("player-2", AnimalType.COW, any()) }
         }
     }
 
