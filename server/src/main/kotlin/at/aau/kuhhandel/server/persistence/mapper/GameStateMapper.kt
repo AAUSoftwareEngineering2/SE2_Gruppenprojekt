@@ -24,13 +24,12 @@ import kotlinx.serialization.json.Json
 /**
  * Bridges the persistence entity model (server-only) and the shared `@Serializable` DTOs.
  *
- * The persisted schema is an intentionally lossy snapshot:
- *  - Individual money/animal card IDs are not stored — only aggregate counts. Synthetic IDs are
- *    generated on reload using deterministic prefixes so the in-memory game logic (which keys off
- *    card IDs) keeps working.
- *  - Transient auction details (auctioneer, timer, isClosed) live only in memory.
- *  - The currently revealed face-up card is not persisted; the active player can re-reveal after
- *    reconnect.
+ * Lossy fields the snapshot intentionally does not preserve:
+ *  - Individual money/animal card IDs (only aggregate counts are stored); synthetic IDs are
+ *    generated on reload so the in-memory game logic (which keys off card IDs) keeps working.
+ *  - The current trade step — restored as WAITING_FOR_RESPONSE.
+ *  - The auctioneer's user id (derived from `games.active_player_id` on reload; relies on the
+ *    invariant that the auctioneer is the active player when the auction starts).
  */
 object GameStateMapper {
     private val json = Json { ignoreUnknownKeys = true }
@@ -133,11 +132,16 @@ object GameStateMapper {
 
         val phase = toGamePhase(game.status, animalDeck, playerStates)
 
+        val faceUpCard =
+            game.faceUpAnimalType?.let { animalType ->
+                AnimalCard(id = "faceup-$gameIdString", type = animalType)
+            }
+
         return GameState(
             phase = phase,
             roundNumber = game.roundNumber,
             deck = animalDeck,
-            currentFaceUpCard = null,
+            currentFaceUpCard = faceUpCard,
             currentPlayerIndex = currentPlayerIndex,
             players = playerStates,
             auctionState = auctionDto,
@@ -207,8 +211,8 @@ object GameStateMapper {
             auctioneerId = auctioneerUsername,
             highestBid = entity.highestBid,
             highestBidderId = highestBidderUsername,
-            isClosed = false,
-            timerEndTime = null,
+            isClosed = entity.isClosed,
+            timerEndTime = entity.timerEndTime,
         )
     }
 

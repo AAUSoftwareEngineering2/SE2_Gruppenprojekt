@@ -36,6 +36,10 @@ class AuctionStateEntity(
     var highestBidder: GamePlayerEntity? = null,
     @Column(name = "passed_players", columnDefinition = "TEXT")
     var passedPlayersJson: String? = null,
+    @Column(name = "timer_end_time")
+    var timerEndTime: Long? = null,
+    @Column(name = "is_closed", nullable = false)
+    var isClosed: Boolean = false,
     @Id
     @Column(name = "game_id")
     var gameId: Long? = null,

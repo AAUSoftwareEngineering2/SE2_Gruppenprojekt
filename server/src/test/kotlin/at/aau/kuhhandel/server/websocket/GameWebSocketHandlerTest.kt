@@ -219,7 +219,161 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
+<<<<<<< HEAD
     fun `START_GAME with no bound game sends ERROR`() {
+=======
+    fun `START_GAME with missing game returns ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(gameService.startGame("game-1")).thenReturn(null)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.START_GAME,
+                requestId = "req-2",
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).startGame("game-1")
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.ERROR, response.type)
+        assertEquals("req-2", response.requestId)
+
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                ErrorPayload.serializer(),
+                requireNotNull(response.payload),
+            )
+
+        assertEquals("Game not found", payload.message)
+    }
+
+    @Test
+    fun `RECONNECT binds session and returns SNAPSHOT with persisted state`() {
+        val restoredState = GameState(phase = GamePhase.AUCTION)
+        val restoredSession =
+            GameSession(
+                gameId = "game-1",
+                playerId = "player-1",
+                initialState = restoredState,
+            )
+        whenever(gameService.getGame("game-1")).thenReturn(restoredSession)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.RECONNECT,
+                requestId = "req-rc",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload(gameId = "game-1"),
+                    ),
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).getGame("game-1")
+        verify(connectionRegistry).bind(session, "game-1")
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.SNAPSHOT, response.type)
+        assertEquals("req-rc", response.requestId)
+
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                GameStatePayload.serializer(),
+                requireNotNull(response.payload),
+            )
+        assertEquals(restoredState, payload.state)
+    }
+
+    @Test
+    fun `RECONNECT with unknown game id returns ERROR`() {
+        whenever(gameService.getGame("99999")).thenReturn(null)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.RECONNECT,
+                requestId = "req-rc",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload(gameId = "99999"),
+                    ),
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).getGame("99999")
+        assertErrorResponse("Game not found")
+    }
+
+    @Test
+    fun `REVEAL_CARD returns GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        val gameState = GameState(phase = GamePhase.PLAYER_TURN)
+        whenever(gameService.revealNextCard("game-1")).thenReturn(gameState)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.REVEAL_CARD,
+                requestId = "req-3",
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).revealNextCard("game-1")
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response.type)
+        assertEquals("req-3", response.requestId)
+
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                GameStatePayload.serializer(),
+                requireNotNull(response.payload),
+            )
+
+        assertEquals(gameState, payload.state)
+    }
+
+    @Test
+    fun `REVEAL_CARD with no bound game returns ERROR`() {
+>>>>>>> b04c6d1 (feat(server): wire up reconnect handler and round-trip face-up card + auction timer)
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
