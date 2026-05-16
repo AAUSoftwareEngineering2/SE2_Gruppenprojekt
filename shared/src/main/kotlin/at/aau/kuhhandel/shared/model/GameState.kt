@@ -10,7 +10,6 @@ data class GameState(
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = 0,
-    val activePlayerId: String? = null,
     val players: List<PlayerState> = emptyList(),
     val hostPlayerId: String? = null,
     // Active auction state, null if no auction is running

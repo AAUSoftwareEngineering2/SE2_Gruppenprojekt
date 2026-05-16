@@ -14,7 +14,6 @@ class GameStateTest {
         assertEquals(GamePhase.NOT_STARTED, state.phase)
         assertEquals(0, state.roundNumber)
         assertEquals(0, state.currentPlayerIndex)
-        assertNull(state.activePlayerId)
         assertNull(state.currentFaceUpCard)
         assertTrue(state.players.isEmpty())
         assertTrue(state.deck.isEmpty())
@@ -40,7 +39,6 @@ class GameStateTest {
                 deck = AnimalDeck(listOf(card)),
                 currentFaceUpCard = card,
                 currentPlayerIndex = 1,
-                activePlayerId = "p2",
                 players = emptyList(),
                 auctionState = auctionState,
                 tradeState = tradeState,
@@ -50,7 +48,6 @@ class GameStateTest {
         assertEquals(2, state.roundNumber)
         assertEquals(card, state.currentFaceUpCard)
         assertEquals(1, state.currentPlayerIndex)
-        assertEquals("p2", state.activePlayerId)
         assertEquals(auctionState, state.auctionState)
         assertEquals(tradeState, state.tradeState)
         assertEquals(1, state.deck.size())
