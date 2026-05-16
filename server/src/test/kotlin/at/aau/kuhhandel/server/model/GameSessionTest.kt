@@ -18,6 +18,11 @@ import kotlin.test.assertTrue
 import org.mockito.Mockito.`when` as whenever
 
 class GameSessionTest {
+    private companion object {
+        const val CARDS_PER_ANIMAL_TYPE = 4
+        val FULL_DECK_SIZE = AnimalType.entries.size * CARDS_PER_ANIMAL_TYPE
+    }
+
     @Test
     fun test_newSession_isNotStarted() {
         val session = GameSession("12345", "player-1", "Player 1")
@@ -46,7 +51,7 @@ class GameSessionTest {
         val state = session.startGame()
 
         assertEquals(GamePhase.PLAYER_TURN, state.phase)
-        assertEquals(3, state.deck.size())
+        assertEquals(FULL_DECK_SIZE, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(0, state.currentPlayerIndex)
         assertEquals(3, session.gameState.players.size)
@@ -68,7 +73,7 @@ class GameSessionTest {
         session.startGame()
 
         assertEquals(GamePhase.PLAYER_TURN, session.gameState.phase)
-        assertEquals(3, session.gameState.deck.size())
+        assertEquals(FULL_DECK_SIZE, session.gameState.deck.size())
         assertNull(session.gameState.currentFaceUpCard)
     }
 
@@ -154,7 +159,7 @@ class GameSessionTest {
         val state = session.revealNextCard()
 
         assertNotNull(state.currentFaceUpCard)
-        assertEquals(2, state.deck.size())
+        assertEquals(FULL_DECK_SIZE - 1, state.deck.size())
         assertEquals(GamePhase.PLAYER_TURN, state.phase)
         assertNull(state.auctionState)
         assertNull(state.tradeState)
@@ -170,7 +175,7 @@ class GameSessionTest {
         session.revealNextCard()
 
         assertNotNull(session.gameState.currentFaceUpCard)
-        assertEquals(2, session.gameState.deck.size())
+        assertEquals(FULL_DECK_SIZE - 1, session.gameState.deck.size())
         assertEquals(GamePhase.PLAYER_TURN, session.gameState.phase)
     }
 
@@ -181,8 +186,9 @@ class GameSessionTest {
         session.addPlayer("player-3", "Player 3")
         session.startGame()
 
-        session.revealNextCard()
-        session.revealNextCard()
+        repeat(FULL_DECK_SIZE - 1) {
+            session.revealNextCard()
+        }
         val stateAfterLastCard = session.revealNextCard()
 
         assertNotNull(stateAfterLastCard.currentFaceUpCard)
@@ -197,9 +203,9 @@ class GameSessionTest {
         session.addPlayer("player-3", "Player 3")
         session.startGame()
 
-        session.revealNextCard()
-        session.revealNextCard()
-        session.revealNextCard()
+        repeat(FULL_DECK_SIZE) {
+            session.revealNextCard()
+        }
         val finalState = session.revealNextCard()
 
         assertEquals(GamePhase.FINISHED, finalState.phase)
@@ -219,7 +225,7 @@ class GameSessionTest {
 
         assertEquals(GamePhase.AUCTION, state.phase)
         assertNotNull(state.auctionState)
-        assertEquals(2, state.deck.size())
+        assertEquals(FULL_DECK_SIZE - 1, state.deck.size())
         assertNull(state.currentFaceUpCard)
         assertEquals(GamePhase.AUCTION, session.gameState.phase)
     }
@@ -343,6 +349,8 @@ class GameSessionTest {
         session.addPlayer("player-3", "Player 3")
         session.startGame()
         session.chooseAuction()
+        session.closeAuction()
+        session.resolveAuction(auctioneerBuysCard = false)
 
         val state = session.finishRound()
 
