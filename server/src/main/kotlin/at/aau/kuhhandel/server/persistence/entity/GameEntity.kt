@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.persistence.entity
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -25,6 +26,9 @@ class GameEntity(
     var activePlayer: UserEntity? = null,
     @Column(name = "round_number", nullable = false)
     var roundNumber: Int = 0,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "face_up_animal_type", length = 16)
+    var faceUpAnimalType: AnimalType? = null,
     @Version
     @Column(name = "version", nullable = false)
     var version: Int = 0,

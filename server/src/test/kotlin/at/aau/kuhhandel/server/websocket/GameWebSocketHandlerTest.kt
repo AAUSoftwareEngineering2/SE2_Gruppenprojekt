@@ -13,6 +13,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -235,6 +236,82 @@ class GameWebSocketHandlerTest {
             )
 
         assertEquals("Game not found", payload.message)
+    }
+
+    @Test
+    fun `RECONNECT binds session and returns SNAPSHOT with persisted state`() {
+        val restoredState = GameState(phase = GamePhase.AUCTION)
+        val restoredSession =
+            GameSession(
+                gameId = "game-1",
+                playerId = "player-1",
+                initialState = restoredState,
+            )
+        whenever(gameService.getGame("game-1")).thenReturn(restoredSession)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.RECONNECT,
+                requestId = "req-rc",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload(gameId = "game-1"),
+                    ),
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).getGame("game-1")
+        verify(connectionRegistry).bind(session, "game-1")
+
+        val response = captureResponse(session)
+        assertEquals(WebSocketType.SNAPSHOT, response.type)
+        assertEquals("req-rc", response.requestId)
+
+        val payload =
+            WebSocketJson.json.decodeFromJsonElement(
+                GameStatePayload.serializer(),
+                requireNotNull(response.payload),
+            )
+        assertEquals(restoredState, payload.state)
+    }
+
+    @Test
+    fun `RECONNECT with unknown game id returns ERROR`() {
+        whenever(gameService.getGame("99999")).thenReturn(null)
+
+        val envelope =
+            WebSocketEnvelope(
+                type = WebSocketType.RECONNECT,
+                requestId = "req-rc",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload(gameId = "99999"),
+                    ),
+            )
+
+        handler.handleMessage(
+            session,
+            TextMessage(
+                WebSocketJson.json.encodeToString(
+                    WebSocketEnvelope.serializer(),
+                    envelope,
+                ),
+            ),
+        )
+
+        verify(gameService).getGame("99999")
+        assertErrorResponse("Game not found")
     }
 
     @Test

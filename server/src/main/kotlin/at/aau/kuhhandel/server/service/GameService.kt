@@ -52,6 +52,11 @@ class GameService(
                 initialState = loadedState,
             )
         sessions[gameId] = session
+        // Restart the auction watcher when reviving an in-flight auction from disk — the
+        // in-memory coroutine that originally guarded it is gone with the previous server life.
+        if (loadedState.auctionState != null && loadedState.auctionState?.isClosed == false) {
+            scheduleAutoClose(gameId)
+        }
         return session
     }
 

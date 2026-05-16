@@ -149,6 +149,7 @@ class GamePersistenceServiceTest
 
         @Test
         fun `loaded auction state mirrors the persisted snapshot`() {
+            val timerDeadline = 1_700_000_000_000L
             val state =
                 initialLobbyState().copy(
                     phase = GamePhase.AUCTION,
@@ -164,6 +165,8 @@ class GamePersistenceServiceTest
                             auctioneerId = "player-1",
                             highestBid = 200,
                             highestBidderId = "player-2",
+                            isClosed = true,
+                            timerEndTime = timerDeadline,
                         ),
                 )
             service.saveGameState("12345", state)
@@ -174,6 +177,40 @@ class GamePersistenceServiceTest
             assertEquals(200, loaded.auctionState?.highestBid)
             assertEquals("player-2", loaded.auctionState?.highestBidderId)
             assertEquals("player-1", loaded.auctionState?.auctioneerId)
+            assertEquals(true, loaded.auctionState?.isClosed)
+            assertEquals(timerDeadline, loaded.auctionState?.timerEndTime)
+        }
+
+        @Test
+        fun `face up card is persisted and restored on reload`() {
+            val state =
+                initialLobbyState().copy(
+                    phase = GamePhase.PLAYER_TURN,
+                    currentFaceUpCard = AnimalCard(id = "face-1", type = AnimalType.PIG),
+                )
+            service.saveGameState("12345", state)
+
+            val game = gameRepository.findById(12345L).orElseThrow()
+            assertEquals(AnimalType.PIG, game.faceUpAnimalType)
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            assertEquals(AnimalType.PIG, loaded.currentFaceUpCard?.type)
+        }
+
+        @Test
+        fun `face up card is cleared when the next state has none`() {
+            val withCard =
+                initialLobbyState().copy(
+                    currentFaceUpCard = AnimalCard(id = "face-1", type = AnimalType.DOG),
+                )
+            service.saveGameState("12345", withCard)
+            assertEquals(
+                AnimalType.DOG,
+                gameRepository.findById(12345L).orElseThrow().faceUpAnimalType,
+            )
+
+            service.saveGameState("12345", initialLobbyState())
+            assertNull(gameRepository.findById(12345L).orElseThrow().faceUpAnimalType)
         }
 
         @Test

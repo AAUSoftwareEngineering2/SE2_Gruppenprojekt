@@ -59,6 +59,7 @@ class GamePersistenceService(
             state.players.getOrNull(state.currentPlayerIndex)?.let { active ->
                 playerEntities[active.id]?.user
             }
+        game.faceUpAnimalType = state.currentFaceUpCard?.type
         gameRepository.save(game)
     }
 
@@ -118,11 +119,13 @@ class GamePersistenceService(
                     id = gameKey,
                     status = GameStateMapper.toGameStatus(state.phase),
                     roundNumber = state.roundNumber,
+                    faceUpAnimalType = state.currentFaceUpCard?.type,
                 ),
             )
         } else {
             existing.status = GameStateMapper.toGameStatus(state.phase)
             existing.roundNumber = state.roundNumber
+            existing.faceUpAnimalType = state.currentFaceUpCard?.type
             existing
         }
     }
@@ -244,6 +247,8 @@ class GamePersistenceService(
                     highestBid = auction.highestBid,
                     highestBidder = highestBidder,
                     passedPlayersJson = passedJson,
+                    timerEndTime = auction.timerEndTime,
+                    isClosed = auction.isClosed,
                 ),
             )
         } else {
@@ -251,6 +256,8 @@ class GamePersistenceService(
             existing.highestBid = auction.highestBid
             existing.highestBidder = highestBidder
             existing.passedPlayersJson = passedJson
+            existing.timerEndTime = auction.timerEndTime
+            existing.isClosed = auction.isClosed
             auctionStateRepository.save(existing)
         }
     }

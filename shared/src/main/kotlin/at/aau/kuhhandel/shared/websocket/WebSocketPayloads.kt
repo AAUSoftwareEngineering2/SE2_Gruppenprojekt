@@ -80,3 +80,13 @@ data class PlaceBidPayload(
 data class AuctionBuyBackPayload(
     val buyBack: Boolean,
 )
+
+/**
+ * Payload used by RECONNECT commands.
+ * The client provides the game id it previously held; the server responds with a SNAPSHOT
+ * envelope carrying the persisted game state for that id (or ERROR if the id is unknown).
+ */
+@Serializable
+data class ReconnectPayload(
+    val gameId: String,
+)

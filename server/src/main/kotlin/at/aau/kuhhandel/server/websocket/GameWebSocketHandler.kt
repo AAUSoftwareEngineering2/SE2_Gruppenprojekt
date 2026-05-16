@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.OfferTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -70,6 +71,7 @@ class GameWebSocketHandler(
 
         when (envelope.type) {
             WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
+            WebSocketType.RECONNECT -> handleReconnect(session, envelope)
             WebSocketType.START_GAME -> handleStartGame(session, envelope)
             WebSocketType.REVEAL_CARD -> handleRevealCard(session, envelope)
             WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
@@ -109,6 +111,41 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         GameCreatedPayload.serializer(),
                         GameCreatedPayload(gameId = game.gameId, state = game.gameState),
+                    ),
+            ),
+        )
+    }
+
+    /**
+     * Restores a previously persisted game for the connecting client. The client must already
+     * know the 5-digit game id (it received one from an earlier GAME_CREATED). We load the
+     * persisted snapshot via [GameService.getGame] — which transparently rehydrates from the
+     * database if there is no live in-memory session — bind the WebSocket to that game, and
+     * send back a SNAPSHOT envelope with the current state.
+     */
+    private fun handleReconnect(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val payload =
+            decodePayload(session, envelope, ReconnectPayload.serializer())
+                ?: return
+
+        val gameSession =
+            gameService.getGame(payload.gameId)
+                ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+
+        connectionRegistry.bind(session, gameSession.gameId)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.SNAPSHOT,
+                requestId = envelope.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(gameSession.gameState),
                     ),
             ),
         )
