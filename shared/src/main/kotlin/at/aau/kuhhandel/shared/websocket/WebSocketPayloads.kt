@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.serialization.Serializable
 
@@ -17,11 +18,12 @@ data class CreateGamePayload(
 @Serializable
 data class GameCreatedPayload(
     val gameId: String,
+    val playerId: String,
     val state: GameState,
 )
 
 /**
- * Payload used by GAME_STARTED, GAME_JOINED, and GAME_STATE_UPDATED events
+ * Payload used by GAME_STARTED and GAME_STATE_UPDATED events
  */
 @Serializable
 data class GameStatePayload(
@@ -35,6 +37,15 @@ data class GameStatePayload(
 data class JoinGamePayload(
     val gameId: String,
     val playerName: String? = null,
+)
+
+/**
+ * Payload used by GAME_JOINED events
+ */
+@Serializable
+data class GameJoinedPayload(
+    val playerId: String,
+    val state: GameState,
 )
 
 /**
@@ -52,6 +63,8 @@ data class ErrorPayload(
 @Serializable
 data class InitiateTradePayload(
     val challengedPlayerId: String,
+    val animalType: AnimalType,
+    val moneyCardIds: List<String> = emptyList(),
 )
 
 /**
@@ -72,6 +85,7 @@ data class OfferTradePayload(
 data class RespondToTradePayload(
     val respondingPlayerId: String,
     val accepted: Boolean,
+    val counterOfferedMoneyCardIds: List<String> = emptyList(), // re-check this!
 )
 
 /**

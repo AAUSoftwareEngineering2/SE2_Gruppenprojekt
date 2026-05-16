@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.app.network.game
 
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -174,7 +175,35 @@ class GameWebSocketClientTest {
     @Test
     fun `initiateTrade without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.initiateTrade("p2") }
+            assertFailsWith<IllegalStateException> { client.initiateTrade("p2", AnimalType.COW) }
+        }
+    }
+
+    @Test
+    fun `joinGame without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.joinGame("g1") }
+        }
+    }
+
+    @Test
+    fun `leaveGame without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.leaveGame() }
+        }
+    }
+
+    @Test
+    fun `offerTrade without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.offerTrade(listOf("m1")) }
+        }
+    }
+
+    @Test
+    fun `respondToTrade without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.respondToTrade("p1", true) }
         }
     }
 
@@ -278,13 +307,53 @@ class GameWebSocketClientTest {
         runBlocking {
             val connection = connectClient()
 
-            val requestId = client.initiateTrade("player-456")
+            val requestId = client.initiateTrade("player-456", AnimalType.COW)
             val sent = connection.session.onlySentEnvelope()
 
             assertEquals(WebSocketType.INITIATE_TRADE, sent.type)
             assertEquals(requestId, sent.requestId)
             assertNotNull(sent.payload)
 
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `joinGame sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.joinGame("g1", "p1")
+            assertEquals(WebSocketType.JOIN_GAME, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `leaveGame sends envelope`() {
+        runBlocking {
+            val connection = connectClient()
+            client.leaveGame()
+            assertEquals(WebSocketType.LEAVE_GAME, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `offerTrade sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.offerTrade(listOf("m1"))
+            assertEquals(WebSocketType.OFFER_TRADE, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `respondToTrade sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.respondToTrade("p1", true, listOf("m2"))
+            assertEquals(WebSocketType.RESPOND_TO_TRADE, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }
     }
@@ -408,7 +477,7 @@ class GameWebSocketClientTest {
                     assertFailsWith<IllegalStateException> {
                         events.await()
                     }
-                assertTrue(e.message?.contains("Kein Grund angegeben") == true)
+                assertTrue(e.message?.contains("No reason given") == true)
             }
         }
     }

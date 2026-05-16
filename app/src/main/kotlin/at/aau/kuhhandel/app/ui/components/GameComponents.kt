@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -34,7 +37,9 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.TradeState
 
 @Composable
 fun OtherFarm(
@@ -59,7 +64,7 @@ fun OtherFarm(
                 contentDescription = "OtherFarm",
                 modifier = Modifier.size(135.dp),
             )
-            // Money card count bubble - matching mockup look
+            // Money card count bubble - STRICTLY COUNT ONLY for others
             Surface(
                 color = PureWhite,
                 shape = MaterialTheme.shapes.medium,
@@ -96,6 +101,7 @@ fun OtherFarm(
 fun OpponentList(
     players: List<PlayerState>,
     myId: String?,
+    onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val opponents = players.filter { it.id != myId }
@@ -111,7 +117,11 @@ fun OpponentList(
                 rowPlayers.forEachIndexed { colIndex, player ->
                     val index = (rowIndex * 2) + colIndex
                     val color = FarmColor.entries[index % FarmColor.entries.size]
-                    OtherFarm(player = player, farmColor = color, onClick = {})
+                    OtherFarm(
+                        player = player,
+                        farmColor = color,
+                        onClick = { onOpponentClick(player.id) },
+                    )
                 }
             }
         }
@@ -161,7 +171,10 @@ fun DeckView(
 }
 
 @Composable
-fun AuctionView(auction: AuctionState?) {
+fun AuctionView(
+    auction: AuctionState?,
+    timerSeconds: Int? = null,
+) {
     if (auction == null) return
 
     Card(
@@ -177,6 +190,16 @@ fun AuctionView(auction: AuctionState?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("LIVE AUCTION", style = MaterialTheme.typography.labelLarge)
+
+            timerSeconds?.let {
+                Text(
+                    "Time left: ${it}s",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Image(
@@ -201,68 +224,209 @@ fun AuctionView(auction: AuctionState?) {
 }
 
 @Composable
+fun AuctionControls(
+    onBid: (Int) -> Unit,
+    currentBid: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = { onBid(currentBid + 10) }) { Text("+10") }
+        Button(onClick = { onBid(currentBid + 50) }) { Text("+50") }
+        Button(onClick = { onBid(currentBid + 100) }) { Text("+100") }
+    }
+}
+
+@Composable
+fun TradeView(
+    trade: TradeState?,
+    onAccept: () -> Unit,
+    onCounter: () -> Unit,
+    modifier: Modifier = Modifier,
+    myId: String? = null,
+) {
+    if (trade == null) return
+
+    val isInitiator = trade.initiatingPlayerId == myId
+    val isChallenged = trade.challengedPlayerId == myId
+
+    Card(
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
+        modifier = modifier.padding(16.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("TRADE CHALLENGE", style = MaterialTheme.typography.titleMedium)
+            Text("For: ${trade.requestedAnimalType.name}")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (isInitiator) {
+                if (trade.offeredMoneyCardCount == 0) {
+                    Text("Select cards and send your offer")
+                } else {
+                    Text("Waiting for response...")
+                }
+            } else if (isChallenged) {
+                Text("Offer received: ${trade.offeredMoneyCardCount} cards")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isChallenged) {
+                    Button(onClick = onAccept) { Text("Accept") }
+                    Button(onClick = onCounter) { Text("Counter") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun PlayerFarm(
     player: PlayerState?,
     isMyTurn: Boolean,
+    selectedMoneyCardIds: Set<String> = emptySet(),
+    onCardClick: (MoneyCard) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier =
             modifier
-                .fillMaxWidth()
-                .height(240.dp),
+                .fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        // The asset ig_farm_self contains both the fence (top) and roof (bottom)
-        Image(
-            painter = painterResource(id = R.drawable.ig_farm_self),
-            contentDescription = "My Farm Area",
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            contentScale = ContentScale.FillWidth,
-            alignment = Alignment.Center,
-        )
-
-        // Player Stats Overlay
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.SpaceBetween,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column {
-                Text(
-                    text = player?.name ?: "YOU",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = WhitePurple,
-                    fontWeight = FontWeight.Black,
+            // Money Hand (Your own cards)
+            if (player != null) {
+                MoneyHand(
+                    cards = player.moneyCards,
+                    selectedCardIds = selectedMoneyCardIds,
+                    onCardClick = onCardClick,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-                if (isMyTurn) {
-                    Text(
-                        "YOUR TURN",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFFFFEB3B), // Keep a bright yellow for attention
-                        fontWeight = FontWeight.ExtraBold,
-                    )
+            }
+
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                // The asset ig_farm_self contains both the fence (top) and roof (bottom)
+                Image(
+                    painter = painterResource(id = R.drawable.ig_farm_self),
+                    contentDescription = "My Farm Area",
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                    contentScale = ContentScale.FillWidth,
+                    alignment = Alignment.Center,
+                )
+
+                // Player Stats Overlay
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text(
+                            text = player?.name ?: "YOU",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = WhitePurple,
+                            fontWeight = FontWeight.Black,
+                        )
+                        if (isMyTurn) {
+                            Text(
+                                "YOUR TURN",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFFFFEB3B),
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = DarkPurple.copy(alpha = 0.7f),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Text(
+                            "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = WhitePurple,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
+        }
+    }
+}
 
-            Surface(
-                color = DarkPurple.copy(alpha = 0.7f),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Text(
-                    "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = WhitePurple,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+@Composable
+fun MoneyHand(
+    cards: List<MoneyCard>,
+    selectedCardIds: Set<String> = emptySet(),
+    onCardClick: (MoneyCard) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        items(cards) { card ->
+            MoneyCardView(
+                card = card,
+                isSelected = selectedCardIds.contains(card.id),
+                onClick = { onCardClick(card) },
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+fun MoneyCardView(
+    card: MoneyCard,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else WhitePurple,
+        shape = MaterialTheme.shapes.small,
+        shadowElevation = if (isSelected) 8.dp else 4.dp,
+        modifier =
+            modifier
+                .size(width = 60.dp, height = 90.dp)
+                .offset(y = if (isSelected) (-10).dp else 0.dp)
+                .clickable { onClick() },
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = card.value.toString(),
+                style = MaterialTheme.typography.titleLarge,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

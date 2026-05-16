@@ -11,6 +11,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://kuhhandel-postgres:5432/kuhhandel_prod
       SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:?APP_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      # Cap the JVM heap and use a low-footprint GC so the container fits the 1 GB VM.
+      JAVA_TOOL_OPTIONS: "-Xmx256m -XX:+UseSerialGC"
+    mem_limit: 384m
+    mem_reservation: 256m
     ports:
       - "127.0.0.1:18080:8080"
     networks:
