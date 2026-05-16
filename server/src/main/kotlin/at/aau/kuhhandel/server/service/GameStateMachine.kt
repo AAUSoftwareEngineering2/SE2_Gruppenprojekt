@@ -12,6 +12,13 @@ import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
 class GameStateMachine {
+    private companion object {
+        const val CARDS_PER_ANIMAL_TYPE = 4
+        const val INITIAL_ZERO_MONEY_CARDS = 2
+        const val INITIAL_TEN_MONEY_CARDS = 4
+        const val INITIAL_FIFTY_MONEY_CARDS = 1
+    }
+
     fun apply(
         state: GameState,
         command: GameCommand,
@@ -95,8 +102,16 @@ class GameStateMachine {
             phase = GamePhase.PLAYER_TURN,
             roundNumber = 1,
             deck = createInitialDeck(),
+            players =
+                state.players.map { player ->
+                    player.copy(
+                        animals = emptyList(),
+                        moneyCards = createInitialMoney(player.id),
+                    )
+                },
             currentFaceUpCard = null,
             currentPlayerIndex = 0,
+            activePlayerId = state.players.firstOrNull()?.id,
             auctionState = null,
             tradeState = null,
         )
@@ -175,6 +190,9 @@ class GameStateMachine {
         require(state.players.any { it.id == command.bidderId }) {
             "Unknown bidder ${command.bidderId}"
         }
+        require(requirePlayer(state.players, command.bidderId).totalMoney() >= command.amount) {
+            "Bidder ${command.bidderId} cannot cover bid ${command.amount}"
+        }
         require(command.amount > auctionState.highestBid) {
             "Bid must be higher than current highest bid"
         }
@@ -226,10 +244,16 @@ class GameStateMachine {
             } else {
                 auctionState.auctioneerId
             }
+        val playersAfterPayment =
+            applyAuctionPayment(
+                players = state.players,
+                auctionState = auctionState,
+                auctioneerBuysCard = command.auctioneerBuysCard,
+            )
 
         return state.copy(
             phase = GamePhase.ROUND_END,
-            players = addAnimalToPlayer(state.players, winnerId, auctionState.auctionCard),
+            players = addAnimalToPlayer(playersAfterPayment, winnerId, auctionState.auctionCard),
             currentFaceUpCard = null,
             auctionState = null,
             tradeState = null,
@@ -400,9 +424,7 @@ class GameStateMachine {
 
     private fun finishRound(state: GameState): GameState {
         check(
-            state.phase == GamePhase.AUCTION ||
-                state.phase == GamePhase.TRADE ||
-                state.phase == GamePhase.ROUND_END,
+            state.phase == GamePhase.ROUND_END,
         ) {
             "Cannot finish a round during phase ${state.phase}"
         }
@@ -410,6 +432,7 @@ class GameStateMachine {
         if (state.players.isEmpty()) {
             return state.copy(
                 phase = GamePhase.FINISHED,
+                activePlayerId = null,
                 currentFaceUpCard = null,
                 auctionState = null,
                 tradeState = null,
@@ -423,6 +446,7 @@ class GameStateMachine {
             phase = nextPhase,
             roundNumber = state.roundNumber + 1,
             currentPlayerIndex = nextPlayerIndex,
+            activePlayerId = state.players[nextPlayerIndex].id,
             currentFaceUpCard = null,
             auctionState = null,
             tradeState = null,
@@ -431,12 +455,30 @@ class GameStateMachine {
 
     private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
-            listOf(
-                AnimalCard(id = "1", type = AnimalType.COW),
-                AnimalCard(id = "2", type = AnimalType.DOG),
-                AnimalCard(id = "3", type = AnimalType.CAT),
-            ),
+            AnimalType.entries
+                .flatMap { type ->
+                    (1..CARDS_PER_ANIMAL_TYPE).map { copyNumber ->
+                        AnimalCard(
+                            id = "${type.name.lowercase()}-$copyNumber",
+                            type = type,
+                        )
+                    }
+                }.shuffled(),
         )
+
+    private fun createInitialMoney(playerId: String): List<MoneyCard> =
+        buildList {
+            // IDs include the player so money cards remain unique after transfers.
+            repeat(INITIAL_ZERO_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-0-${index + 1}", value = 0))
+            }
+            repeat(INITIAL_TEN_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-10-${index + 1}", value = 10))
+            }
+            repeat(INITIAL_FIFTY_MONEY_CARDS) { index ->
+                add(MoneyCard(id = "$playerId-money-50-${index + 1}", value = 50))
+            }
+        }
 
     private fun requireActivePlayer(state: GameState): PlayerState =
         state.players.getOrNull(state.currentPlayerIndex)
@@ -498,6 +540,83 @@ class GameStateMachine {
                 player
             }
         }
+    }
+
+    private fun applyAuctionPayment(
+        players: List<PlayerState>,
+        auctionState: AuctionState,
+        auctioneerBuysCard: Boolean,
+    ): List<PlayerState> {
+        val highestBidderId = auctionState.highestBidderId ?: return players
+        if (auctionState.highestBid <= 0) {
+            return players
+        }
+
+        val payerId =
+            if (auctioneerBuysCard) {
+                auctionState.auctioneerId
+            } else {
+                highestBidderId
+            }
+        val receiverId =
+            if (auctioneerBuysCard) {
+                highestBidderId
+            } else {
+                auctionState.auctioneerId
+            }
+        val payer = requirePlayer(players, payerId)
+        val paymentCardIds = selectMoneyCardsForPayment(payer, auctionState.highestBid)
+
+        return transferMoneyCards(
+            players = players,
+            fromPlayerId = payerId,
+            toPlayerId = receiverId,
+            moneyCardIds = paymentCardIds,
+        )
+    }
+
+    private fun selectMoneyCardsForPayment(
+        player: PlayerState,
+        amount: Int,
+    ): List<String> {
+        require(player.totalMoney() >= amount) {
+            "Player ${player.id} cannot cover payment $amount"
+        }
+
+        val bestBySum = mutableMapOf(0 to emptyList<MoneyCard>())
+        val sortedMoneyCards =
+            player.moneyCards
+                .filter { moneyCard -> moneyCard.value > 0 }
+                .sortedWith(
+                    compareBy<MoneyCard> { moneyCard ->
+                        moneyCard.value
+                    }.thenBy { moneyCard ->
+                        moneyCard.id
+                    },
+                )
+
+        sortedMoneyCards.forEach { moneyCard ->
+            val newOptions =
+                bestBySum.mapNotNull { (sum, cards) ->
+                    val newSum = sum + moneyCard.value
+                    if (bestBySum.containsKey(newSum)) {
+                        null
+                    } else {
+                        newSum to cards + moneyCard
+                    }
+                }
+            bestBySum.putAll(newOptions)
+        }
+
+        // Kuhhandel gives no change, so choose the smallest overpayment deterministically.
+        return requireNotNull(
+            bestBySum
+                .filterKeys { sum -> sum >= amount }
+                .minWithOrNull(
+                    compareBy<Map.Entry<Int, List<MoneyCard>>> { (sum, _) -> sum }
+                        .thenBy { (_, cards) -> cards.size },
+                ),
+        ).value.map { moneyCard -> moneyCard.id }
     }
 
     private fun moveAnimalTypeBetweenPlayers(
