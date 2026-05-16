@@ -298,7 +298,7 @@ class GameSession(
 
         require(
             activePlayer.animals.any { it.type == animalType } &&
-                    challengedPlayer.animals.any { it.type == animalType },
+                challengedPlayer.animals.any { it.type == animalType },
         ) {
             "Both players must share animal type $animalType"
         }
@@ -367,7 +367,7 @@ class GameSession(
         // Acceptance skips the counter-offer comparison; otherwise higher money wins the animal type.
         val initiatingPlayerWins =
             acceptsOffer ||
-                    offeredMoneyCards.sumOf { it.value } >= counterOfferCards.sumOf { it.value }
+                offeredMoneyCards.sumOf { it.value } >= counterOfferCards.sumOf { it.value }
         val winnerId =
             if (initiatingPlayerWins) {
                 tradeState.initiatingPlayerId
