@@ -12,8 +12,6 @@ data class AuctionState(
     val highestBid: Int = 0,
     // ID of the player with the highest bid
     val highestBidderId: String? = null,
-    // Can later be used for countdown / closing logic
-    val isClosed: Boolean = false,
     // Epoch milliseconds when the auction timer expires
     val timerEndTime: Long? = null,
 )

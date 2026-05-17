@@ -47,7 +47,7 @@ fun GameScreen(
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
-    onRespondToTrade: (Boolean) -> Unit,
+    onRespondToTrade: () -> Unit,
     onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
@@ -128,7 +128,10 @@ fun GameScreen(
         // --- TOP RIGHT: EXIT ---
         IconButton(
             onClick = onLeaveGame,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ExitToApp,
@@ -139,7 +142,10 @@ fun GameScreen(
 
         // --- CENTER: THE BOARD ---
         Box(
-            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Center),
             contentAlignment = Alignment.Center,
         ) {
             when (uiState.currentPhase) {
@@ -163,7 +169,7 @@ fun GameScreen(
                     }
                 }
 
-                GamePhase.PLAYER_TURN -> {
+                GamePhase.PLAYER_CHOICE -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         uiState.gameState?.currentFaceUpCard?.let { card ->
                             Image(
@@ -196,7 +202,9 @@ fun GameScreen(
                     }
                 }
 
-                GamePhase.AUCTION -> {
+                GamePhase.AUCTION_BIDDING,
+                GamePhase.AUCTION_RESOLUTION,
+                -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         AuctionView(
                             auction = uiState.gameState?.auctionState,
@@ -204,14 +212,14 @@ fun GameScreen(
                         )
                         if (uiState.isConnected &&
                             !uiState.isAuctioneer &&
-                            (uiState.gameState?.auctionState?.isClosed != true)
+                            (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
                         ) {
                             AuctionControls(
                                 onBid = onPlaceBid,
                                 currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
                             )
                         } else if (uiState.isAuctioneer &&
-                            (uiState.gameState?.auctionState?.isClosed == true)
+                            (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
@@ -230,22 +238,25 @@ fun GameScreen(
                     }
                 }
 
-                GamePhase.TRADE -> {
+                GamePhase.TRADE_OFFER,
+                GamePhase.TRADE_RESPONSE,
+                GamePhase.TRADE_REVEAL,
+                -> {
                     val trade = uiState.gameState?.tradeState
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         TradeView(
                             trade = trade,
-                            onAccept = { onRespondToTrade(true) },
-                            onCounter = { onRespondToTrade(false) },
+                            onAccept = { onRespondToTrade() },
+                            onCounter = { onRespondToTrade() },
                             modifier = Modifier,
                             myId = uiState.myPlayerId,
                         )
                         // If I am the initiator, I might need to send my first offer
-                        if (trade?.initiatingPlayerId == uiState.myPlayerId &&
-                            (trade?.offeredMoneyCardCount ?: 0) == 0
+                        if (trade?.initiatorId == uiState.myPlayerId &&
+                            (trade?.offeredMoneyCardIds?.size ?: 0) == 0
                         ) {
                             Button(
-                                onClick = { onRespondToTrade(true) },
+                                onClick = { onRespondToTrade() },
                                 modifier = Modifier.padding(top = 8.dp),
                                 enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
                             ) {
@@ -293,7 +304,7 @@ fun GameScreenPreview() {
         )
     val gameState =
         GameState(
-            phase = GamePhase.PLAYER_TURN,
+            phase = GamePhase.PLAYER_CHOICE,
             players = players,
             currentPlayerIndex = 4,
         )
@@ -301,7 +312,7 @@ fun GameScreenPreview() {
         GameUiState(
             gameState = gameState,
             myPlayerId = "5",
-            currentPhase = GamePhase.PLAYER_TURN,
+            currentPhase = GamePhase.PLAYER_CHOICE,
             deckCountText = "5",
             canRevealCard = true,
             myMoneyCards = players[4].moneyCards,

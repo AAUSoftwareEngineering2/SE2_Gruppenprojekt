@@ -16,7 +16,6 @@ import at.aau.kuhhandel.shared.websocket.GameJoinedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
-import at.aau.kuhhandel.shared.websocket.OfferTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -61,7 +60,7 @@ class GameWebSocketHandlerTest {
 
     @Test
     fun `handleGameStateChanged sends GAME_STATE_UPDATED to all sessions`() {
-        val gameState = GameState(phase = GamePhase.AUCTION)
+        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
         val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
 
         whenever(
@@ -79,7 +78,7 @@ class GameWebSocketHandlerTest {
 
     @Test
     fun `handleGameStateChanged skips closed sessions`() {
-        val gameState = GameState(phase = GamePhase.AUCTION)
+        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
         val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
 
         whenever(session1.isOpen).thenReturn(false)
@@ -103,7 +102,7 @@ class GameWebSocketHandlerTest {
             RoomActionResult(
                 "game-1",
                 "player-1",
-                createdSession.gameState,
+                createdSession.state,
             )
 
         whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
@@ -134,7 +133,7 @@ class GameWebSocketHandlerTest {
             )
 
         assertEquals("game-1", payload.gameId)
-        assertEquals(createdSession.gameState, payload.state)
+        assertEquals(createdSession.state, payload.state)
     }
 
     @Test
@@ -182,7 +181,7 @@ class GameWebSocketHandlerTest {
             RoomActionResult(
                 "game-1",
                 "player-1",
-                createdSession.gameState,
+                createdSession.state,
             )
 
         whenever(session1.isOpen).thenReturn(false)
@@ -205,10 +204,11 @@ class GameWebSocketHandlerTest {
     @Test
     fun `START_GAME broadcasts GAME_STATE_UPDATED`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.PLAYER_TURN)
-        whenever(gameService.startGame("game-1")).thenReturn(gameState)
+        val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+        whenever(gameService.startGame("game-1", "player-1")).thenReturn(gameState)
 
         sendEnvelope(
             session = session1,
@@ -216,7 +216,7 @@ class GameWebSocketHandlerTest {
             requestId = "req-2",
         )
 
-        verify(gameService).startGame("game-1")
+        verify(gameService).startGame("game-1", "player-1")
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -271,7 +271,8 @@ class GameWebSocketHandlerTest {
     @Test
     fun `START_GAME with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.startGame("game-1")).thenReturn(null)
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(gameService.startGame("game-1", "player-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
@@ -279,7 +280,7 @@ class GameWebSocketHandlerTest {
             requestId = "req-2",
         )
 
-        verify(gameService).startGame("game-1")
+        verify(gameService).startGame("game-1", "player-1")
 
         val response = captureResponse(session1)
         assertEquals(WebSocketType.ERROR, response.type)
@@ -473,16 +474,17 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `REVEAL_CARD returns GAME_STATE_UPDATED and broadcasts to others`() {
+    fun `CHOOSE_AUCTION returns GAME_STATE_UPDATED and broadcasts to others`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.AUCTION)
-        whenever(gameService.chooseAuction("game-1")).thenReturn(gameState)
+        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+        whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
 
         val envelope =
             WebSocketEnvelope(
-                type = WebSocketType.REVEAL_CARD,
+                type = WebSocketType.CHOOSE_AUCTION,
                 requestId = "req-3",
             )
 
@@ -496,7 +498,7 @@ class GameWebSocketHandlerTest {
             ),
         )
 
-        verify(gameService).chooseAuction("game-1")
+        verify(gameService).chooseAuction("game-1", "player-1")
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -524,12 +526,12 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `REVEAL_CARD with no bound game returns ERROR`() {
+    fun `CHOOSE_AUCTION with no bound game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         val envelope =
             WebSocketEnvelope(
-                type = WebSocketType.REVEAL_CARD,
+                type = WebSocketType.CHOOSE_AUCTION,
                 requestId = "req-3",
             )
 
@@ -559,13 +561,14 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `REVEAL_CARD with missing game returns ERROR`() {
+    fun `CHOOSE_AUCTION with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseAuction("game-1")).thenReturn(null)
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(null)
 
         val envelope =
             WebSocketEnvelope(
-                type = WebSocketType.REVEAL_CARD,
+                type = WebSocketType.CHOOSE_AUCTION,
                 requestId = "req-4",
             )
 
@@ -579,7 +582,7 @@ class GameWebSocketHandlerTest {
             ),
         )
 
-        verify(gameService).chooseAuction("game-1")
+        verify(gameService).chooseAuction("game-1", "player-1")
 
         val response = captureResponse(session1)
         assertEquals(WebSocketType.ERROR, response.type)
@@ -662,11 +665,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE happy path broadcasts GAME_STATE_UPDATED`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.TRADE)
+        val gameState = GameState(phase = GamePhase.TRADE_OFFER)
         whenever(
-            gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()),
+            gameService.chooseTrade("game-1", "player-1", "player-2", AnimalType.COW, emptySet()),
         ).thenReturn(gameState)
 
         sendEnvelope(
@@ -679,12 +683,18 @@ class GameWebSocketHandlerTest {
                     InitiateTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptyList(),
+                        moneyCardIds = emptySet(),
                     ),
                 ),
         )
 
-        verify(gameService).chooseTrade("game-1", "player-2", AnimalType.COW, emptyList())
+        verify(gameService).chooseTrade(
+            "game-1",
+            "player-1",
+            "player-2",
+            AnimalType.COW,
+            emptySet(),
+        )
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -725,7 +735,7 @@ class GameWebSocketHandlerTest {
                     InitiateTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptyList(),
+                        moneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -737,6 +747,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE with missing payload returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
 
         sendEnvelope(
             session = session1,
@@ -750,6 +761,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE with invalid payload returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
 
         sendEnvelope(
             session = session1,
@@ -757,8 +769,8 @@ class GameWebSocketHandlerTest {
             requestId = "req-trade-4",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-1")),
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
                 ),
         )
 
@@ -768,8 +780,16 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE when service rejects with IllegalArgument returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()))
-            .thenThrow(IllegalArgumentException("Unknown challenged player player-2"))
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(
+            gameService.chooseTrade(
+                "game-1",
+                "player-1",
+                "player-2",
+                AnimalType.COW,
+                emptySet(),
+            ),
+        ).thenThrow(IllegalArgumentException("Unknown challenged player player-2"))
 
         sendEnvelope(
             session = session1,
@@ -781,7 +801,7 @@ class GameWebSocketHandlerTest {
                     InitiateTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptyList(),
+                        moneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -792,8 +812,16 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE when service rejects with IllegalState returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()))
-            .thenThrow(IllegalStateException("Cannot start a trade during phase NOT_STARTED"))
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(
+            gameService.chooseTrade(
+                "game-1",
+                "player-1",
+                "player-2",
+                AnimalType.COW,
+                emptySet(),
+            ),
+        ).thenThrow(IllegalStateException("Cannot start a trade during phase NOT_STARTED"))
 
         sendEnvelope(
             session = session1,
@@ -805,7 +833,7 @@ class GameWebSocketHandlerTest {
                     InitiateTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptyList(),
+                        moneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -816,8 +844,9 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(
-            gameService.chooseTrade("game-1", "player-2", AnimalType.COW, emptyList()),
+            gameService.chooseTrade("game-1", "player-1", "player-2", AnimalType.COW, emptySet()),
         ).thenReturn(null)
 
         sendEnvelope(
@@ -830,132 +859,8 @@ class GameWebSocketHandlerTest {
                     InitiateTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptyList(),
+                        moneyCardIds = emptySet(),
                     ),
-                ),
-        )
-
-        assertErrorResponse("Game not found")
-    }
-
-    @Test
-    fun `OFFER_TRADE happy path broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
-
-        val gameState = GameState(phase = GamePhase.TRADE)
-        whenever(gameService.offerTrade("game-1", listOf("m-10"))).thenReturn(gameState)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.OFFER_TRADE,
-            requestId = "req-offer-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-10")),
-                ),
-        )
-
-        verify(gameService).offerTrade("game-1", listOf("m-10"))
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-offer-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
-            )
-
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(gameState, payload2.state)
-    }
-
-    @Test
-    fun `OFFER_TRADE without bound game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.OFFER_TRADE,
-            requestId = "req-offer-2",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-10")),
-                ),
-        )
-
-        verifyNoInteractions(gameService)
-        assertErrorResponse("No game bound to this connection")
-    }
-
-    @Test
-    fun `OFFER_TRADE when service rejects with IllegalArgument returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.offerTrade("game-1", listOf("m-10")))
-            .thenThrow(IllegalArgumentException("Player player-1 does not own money card m-10"))
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.OFFER_TRADE,
-            requestId = "req-offer-3",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-10")),
-                ),
-        )
-
-        assertErrorResponse("Player player-1 does not own money card m-10")
-    }
-
-    @Test
-    fun `OFFER_TRADE when service rejects with IllegalState returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.offerTrade("game-1", listOf("m-10")))
-            .thenThrow(IllegalStateException("Cannot offer money for a trade during phase AUCTION"))
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.OFFER_TRADE,
-            requestId = "req-offer-4",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-10")),
-                ),
-        )
-
-        assertErrorResponse("Cannot offer money for a trade during phase AUCTION")
-    }
-
-    @Test
-    fun `OFFER_TRADE with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.offerTrade("game-1", listOf("m-10"))).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.OFFER_TRADE,
-            requestId = "req-offer-5",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    OfferTradePayload.serializer(),
-                    OfferTradePayload(moneyCardIds = listOf("m-10")),
                 ),
         )
 
@@ -965,10 +870,11 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RESPOND_TO_TRADE happy path broadcasts GAME_STATE_UPDATED`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.ROUND_END)
-        whenever(gameService.respondToTrade("game-1", "player-2", true)).thenReturn(gameState)
+        val gameState = GameState(phase = GamePhase.TRADE_REVEAL)
+        whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(gameState)
 
         sendEnvelope(
             session = session1,
@@ -979,13 +885,12 @@ class GameWebSocketHandlerTest {
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
                         respondingPlayerId = "player-2",
-                        accepted = true,
-                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                        counterOfferedMoneyCardIds = emptySet(),
                     ),
                 ),
         )
 
-        verify(gameService).respondToTrade("game-1", "player-2", true)
+        verify(gameService).respondToTrade("game-1", "player-2", emptySet())
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -1025,8 +930,7 @@ class GameWebSocketHandlerTest {
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
                         respondingPlayerId = "player-2",
-                        accepted = false,
-                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                        counterOfferedMoneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -1038,8 +942,9 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RESPOND_TO_TRADE when service rejects with IllegalArgument returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         val errorMessage = "Only the challenged player can respond to the trade"
-        whenever(gameService.respondToTrade("game-1", "player-1", true))
+        whenever(gameService.respondToTrade("game-1", "player-1", emptySet()))
             .thenThrow(IllegalArgumentException(errorMessage))
 
         sendEnvelope(
@@ -1051,8 +956,7 @@ class GameWebSocketHandlerTest {
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
                         respondingPlayerId = "player-1",
-                        accepted = true,
-                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                        counterOfferedMoneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -1063,7 +967,8 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RESPOND_TO_TRADE when service rejects with IllegalState returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.respondToTrade("game-1", "player-2", true))
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
+        whenever(gameService.respondToTrade("game-1", "player-2", emptySet()))
             .thenThrow(IllegalStateException("Cannot respond to a trade during phase AUCTION"))
 
         sendEnvelope(
@@ -1075,8 +980,7 @@ class GameWebSocketHandlerTest {
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
                         respondingPlayerId = "player-2",
-                        accepted = true,
-                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                        counterOfferedMoneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -1087,7 +991,8 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RESPOND_TO_TRADE with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.respondToTrade("game-1", "player-2", false)).thenReturn(null)
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(null)
 
         sendEnvelope(
             session = session1,
@@ -1098,8 +1003,7 @@ class GameWebSocketHandlerTest {
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
                         respondingPlayerId = "player-2",
-                        accepted = false,
-                        counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                        counterOfferedMoneyCardIds = emptySet(),
                     ),
                 ),
         )
@@ -1113,7 +1017,7 @@ class GameWebSocketHandlerTest {
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.AUCTION)
+        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
         whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
 
         sendEnvelope(
@@ -1218,10 +1122,11 @@ class GameWebSocketHandlerTest {
     @Test
     fun `AUCTION_BUY_BACK happy path broadcasts GAME_STATE_UPDATED`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
         whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.ROUND_END)
-        whenever(gameService.resolveAuction("game-1", true)).thenReturn(gameState)
+        val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
 
         sendEnvelope(
             session = session1,
@@ -1234,7 +1139,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).resolveAuction("game-1", true)
+        verify(gameService).resolveAuction("game-1", "player-1", true)
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -1264,7 +1169,8 @@ class GameWebSocketHandlerTest {
     @Test
     fun `AUCTION_BUY_BACK with missing game returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.resolveAuction("game-1", true)).thenReturn(null)
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(null)
 
         sendEnvelope(
             session = session1,
@@ -1283,7 +1189,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `AUCTION_BUY_BACK when service throws returns ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(gameService.resolveAuction("game-1", true)).thenThrow(RuntimeException("Error"))
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenThrow(
+            RuntimeException(
+                "Error",
+            ),
+        )
 
         sendEnvelope(
             session = session1,

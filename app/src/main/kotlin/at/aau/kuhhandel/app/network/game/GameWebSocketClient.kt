@@ -6,7 +6,6 @@ import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
-import at.aau.kuhhandel.shared.websocket.OfferTradePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -201,7 +200,7 @@ class GameWebSocketClient(
 
     suspend fun revealCard(): String {
         val requestId = UUID.randomUUID().toString()
-        send(WebSocketEnvelope(WebSocketType.REVEAL_CARD, requestId))
+        send(WebSocketEnvelope(WebSocketType.CHOOSE_AUCTION, requestId))
         return requestId
     }
 
@@ -230,7 +229,7 @@ class GameWebSocketClient(
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        moneyCardIds: List<String> = emptyList(),
+        moneyCardIds: Set<String>,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -246,21 +245,9 @@ class GameWebSocketClient(
         return requestId
     }
 
-    suspend fun offerTrade(moneyCardIds: List<String>): String {
-        val requestId = UUID.randomUUID().toString()
-        val payload =
-            WebSocketJson.json.encodeToJsonElement(
-                OfferTradePayload.serializer(),
-                OfferTradePayload(moneyCardIds = moneyCardIds),
-            )
-        send(WebSocketEnvelope(WebSocketType.OFFER_TRADE, requestId, payload))
-        return requestId
-    }
-
     suspend fun respondToTrade(
         respondingPlayerId: String,
-        accepted: Boolean,
-        counterOfferedMoneyCardIds: List<String> = emptyList(),
+        counterOfferedMoneyCardIds: Set<String> = emptySet(),
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -268,7 +255,6 @@ class GameWebSocketClient(
                 RespondToTradePayload.serializer(),
                 RespondToTradePayload(
                     respondingPlayerId = respondingPlayerId,
-                    accepted = accepted,
                     counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
                 ),
             )
