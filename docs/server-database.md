@@ -4,8 +4,8 @@ This document defines the planned server-side persistence model for the
 Kuhhandel prototype: which game state is persisted, the relational schema, and
 the lifetime of each table.
 
-The mirror document for the Android client lives in
-[`client-database.md`](./client-database.md) (planned).
+The mirror document for the Android client is planned as
+`client-database.md`, but it does not exist yet.
 
 ## Scope: transient vs. persisted
 
