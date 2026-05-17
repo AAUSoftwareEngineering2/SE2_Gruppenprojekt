@@ -124,7 +124,8 @@ erDiagram
   faster schema evolution.
 - **`games.version`** maps to JPA's `@Version` annotation for optimistic
   locking. Multiple WebSocket handlers can update the same match concurrently
-  (a bid coming in while another player accepts a trade), so optimistic locking
+  (for example, two bids arriving at nearly the same time during an auction,
+  or competing trade responses during a trade), so optimistic locking
   prevents lost-update conflicts.
 - **`game_players.seat_order`** is the persistent counterpart of
   `currentPlayerIndex` in the in-memory `GameState`. Storing it explicitly
