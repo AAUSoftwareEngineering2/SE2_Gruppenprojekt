@@ -15,7 +15,7 @@ memory because losing it on a restart is acceptable for the prototype.
 **Transient (in-memory only, lost on server restart):**
 
 - the live `GameState` while a match is running, including the shuffled
-  `AnimalDeck` and `MoneyDeck`
+  `AnimalDeck` and each player's in-memory money cards
 - the WebSocket session ↔ player mapping in `ConnectionRegistry`
 
 **Persisted (writes go to PostgreSQL):**
