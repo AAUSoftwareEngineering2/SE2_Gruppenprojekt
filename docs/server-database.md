@@ -30,9 +30,10 @@ memory because losing it on a restart is acceptable for the prototype.
 
 ```mermaid
 erDiagram
-    USERS ||--o{ GAMES : "active_player"
     USERS ||--o{ GAME_PLAYERS : "joins as"
     GAMES ||--o{ GAME_PLAYERS : "contains"
+    GAME_PLAYERS ||--o{ GAMES : "host_player"
+    GAME_PLAYERS ||--o{ GAMES : "active_player"
     GAMES ||--o{ DECK_CARDS : "has deck"
     GAMES ||--o| AUCTION_STATE : "when AUCTION"
     GAMES ||--o| TRADE_STATE : "when TRADE"
@@ -49,7 +50,8 @@ erDiagram
     GAMES {
         BIGINT id PK
         ENUM status "LOBBY, AUCTION, TRADE, FINISHED"
-        BIGINT active_player_id FK
+        BIGINT host_player_id FK "references game_players"
+        BIGINT active_player_id FK "references game_players"
         INT version "optimistic lock"
     }
     GAME_PLAYERS {
@@ -108,7 +110,7 @@ erDiagram
 | Table | Purpose | Lifetime |
 |---|---|---|
 | `users` | Player accounts (username + password hash) | long-lived |
-| `games` | One row per match. `status` drives which transient state table is populated. | per match |
+| `games` | One row per match. `host_player_id` (FK → `game_players`) identifies who may perform host-only actions (e.g. start game). `status` drives which transient state table is populated. | per match |
 | `game_players` | Join row between a user and a game, with the user's seat order | per match |
 | `deck_cards` | Persisted draw pile per game so the match can be rebuilt after a crash | per match |
 | `player_money` | Aggregated by `card_value` per player (e.g. 3× 10-bills → one row with `amount = 3`) | per match |
@@ -127,6 +129,11 @@ erDiagram
   (for example, two bids arriving at nearly the same time during an auction,
   or competing trade responses during a trade), so optimistic locking
   prevents lost-update conflicts.
+- **`games.host_player_id` and `games.active_player_id` reference `game_players`**,
+  not `users`. Because the server currently issues anonymous UUID player IDs
+  (see Known Limitations), there is no `users` row to reference. Pointing these
+  FKs at `game_players` also implicitly enforces that the host and the active
+  player are seated in the same match.
 - **`game_players.seat_order`** is the persistent counterpart of
   `currentPlayerIndex` in the in-memory `GameState`. Storing it explicitly
   lets the round flow be reconstructed without depending on insertion order.
