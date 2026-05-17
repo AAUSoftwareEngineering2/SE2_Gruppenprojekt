@@ -69,8 +69,8 @@ erDiagram
     PLAYER_MONEY {
         BIGINT id PK
         BIGINT player_id FK
+        VARCHAR card_id "MoneyCard.id, UK with player_id"
         INT card_value
-        INT amount
     }
     PLAYER_ANIMALS {
         BIGINT id PK
@@ -113,8 +113,8 @@ erDiagram
 | `games` | One row per match. `host_player_id` (FK → `game_players`) identifies who may perform host-only actions (e.g. start game). `status` drives which transient state table is populated. | per match |
 | `game_players` | Join row between a user and a game, with the user's seat order | per match |
 | `deck_cards` | Persisted draw pile per game so the match can be rebuilt after a crash | per match |
-| `player_money` | Aggregated by `card_value` per player (e.g. 3× 10-bills → one row with `amount = 3`) | per match |
-| `player_animals` | Same aggregation, one row per animal type a player owns | per match |
+| `player_money` | One row per money card owned by a player. `card_id` stores the stable `MoneyCard.id` string so trade offers can reference specific cards after a restart. | per match |
+| `player_animals` | Aggregated by animal type — one row per type a player owns (e.g. 2× cows → one row with `amount = 2`) | per match |
 | `auction_state` | One row per game while the match is in `AUCTION` | transient sub-state |
 | `trade_state` | One row per game while the match is in `TRADE` | transient sub-state |
 
@@ -134,6 +134,11 @@ erDiagram
   (see Known Limitations), there is no `users` row to reference. Pointing these
   FKs at `game_players` also implicitly enforces that the host and the active
   player are seated in the same match.
+- **`player_money` stores one row per card** with its stable `card_id` (the
+  `MoneyCard.id` string). Trade offers reference specific card IDs, so
+  aggregating by value would make it impossible to reconstruct an active trade
+  after a restart. In contrast, `player_animals` aggregates by type because
+  animals have no individual identity in the game logic.
 - **`game_players.seat_order`** is the persistent counterpart of
   `currentPlayerIndex` in the in-memory `GameState`. Storing it explicitly
   lets the round flow be reconstructed without depending on insertion order.
