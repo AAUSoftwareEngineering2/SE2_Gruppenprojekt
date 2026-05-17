@@ -7,6 +7,6 @@ sealed class GameEvent {
     @Serializable
     data class MoneyBonus(
         val amount: Int,
-        val message: String
+        val message: String,
     ) : GameEvent()
 }

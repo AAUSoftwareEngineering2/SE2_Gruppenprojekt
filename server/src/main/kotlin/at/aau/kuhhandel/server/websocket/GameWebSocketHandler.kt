@@ -62,6 +62,7 @@ class GameWebSocketHandler(
             WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
             WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
             WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
+            WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
             else -> sendError(session, envelope.requestId, "Unsupported message type")
         }
     }
@@ -403,6 +404,36 @@ class GameWebSocketHandler(
                 gameService.resolveAuction(gameId, actorId, payload.buyBack)
             } catch (e: Exception) {
                 return sendError(session, envelope.requestId, e.message ?: "Invalid buy back")
+            }
+
+        if (state == null) {
+            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        }
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private fun handleFinishTradeReveal(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId =
+            connectionRegistry.gameIdFor(session.id)
+                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+
+        val actorId =
+            connectionRegistry.playerIdFor(session.id) ?: return sendError(
+                session,
+                envelope.requestId,
+                ERROR_NO_PLAYER_BOUND,
+            )
+
+        val state =
+            try {
+                gameService.finishTradeReveal(gameId, actorId)
+            } catch (e: Exception) {
+                return sendError(session, envelope.requestId, e.message ?: "Invalid finish trade reveal")
             }
 
         if (state == null) {

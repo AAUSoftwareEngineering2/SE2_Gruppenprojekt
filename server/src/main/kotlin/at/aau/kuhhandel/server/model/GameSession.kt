@@ -272,7 +272,7 @@ class GameSession(
 
         state =
             state.copy(
-                phase = GamePhase.TRADE_OFFER,
+                phase = GamePhase.TRADE_RESPONSE,
                 tradeState =
                     TradeState(
                         initiatorId = initiator.id,

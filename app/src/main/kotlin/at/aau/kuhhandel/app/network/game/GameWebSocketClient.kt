@@ -262,6 +262,12 @@ class GameWebSocketClient(
         return requestId
     }
 
+    suspend fun finishTradeReveal(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
+        return requestId
+    }
+
     suspend fun disconnect() {
         pendingConnection = null
         connectionFailure = null

@@ -53,6 +53,7 @@ fun GameScreen(
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
     onRespondToTrade: () -> Unit,
+    onFinishTradeReveal: () -> Unit,
     onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
@@ -93,6 +94,15 @@ fun GameScreen(
                                 },
                             ) {
                                 Text(animal.name)
+                            }
+                        }
+
+                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                            Button(
+                                onClick = onFinishTradeReveal,
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text("CONTINUE")
                             }
                         }
                     }
@@ -216,6 +226,15 @@ fun GameScreen(
                                 )
                             }
                         }
+
+                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                            Button(
+                                onClick = onFinishTradeReveal,
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text("CONTINUE")
+                            }
+                        }
                     }
                 }
 
@@ -252,6 +271,15 @@ fun GameScreen(
                                 }
                             }
                         }
+
+                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                            Button(
+                                onClick = onFinishTradeReveal,
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text("CONTINUE")
+                            }
+                        }
                     }
                 }
 
@@ -278,6 +306,15 @@ fun GameScreen(
                                 enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
                             ) {
                                 Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
+                            }
+                        }
+
+                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                            Button(
+                                onClick = onFinishTradeReveal,
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text("CONTINUE")
                             }
                         }
                     }
@@ -346,6 +383,7 @@ fun GameScreenPreview() {
         onPlaceBid = {},
         onBuyBack = {},
         onRespondToTrade = {},
+        onFinishTradeReveal = {},
         onInitiateTrade = { _, _ -> },
         onSelectTargetPlayer = {},
         onToggleMoneyCard = {},

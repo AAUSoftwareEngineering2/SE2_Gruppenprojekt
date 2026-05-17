@@ -171,6 +171,14 @@ class GameService(
         )
     }
 
+    fun finishTradeReveal(
+        gameId: String,
+        actorId: String,
+    ): GameState? {
+        val session = sessions[gameId] ?: return null
+        return session.endTradeReveal()
+    }
+
     /**
      * Generates a unique 5-digit game code.
      */

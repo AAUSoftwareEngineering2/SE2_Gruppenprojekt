@@ -108,6 +108,12 @@ class GameRepository(
         client.respondToTrade(myId, counterOfferedMoneyCardIds)
     }
 
+    suspend fun finishTradeReveal() {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.finishTradeReveal()
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }
