@@ -16,9 +16,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +40,7 @@ import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -54,6 +59,18 @@ fun GameScreen(
     onLeaveGame: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.gameState?.lastEvent) {
+        val event = uiState.gameState?.lastEvent
+        if (event is GameEvent.MoneyBonus) {
+            snackbarHostState.showSnackbar(
+                message = event.message,
+                withDismissAction = true,
+            )
+        }
+    }
+
     MainBackground(modifier = modifier)
 
     // --- ANIMAL SELECTION DIALOG ---
@@ -287,6 +304,11 @@ fun GameScreen(
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
             onCardClick = { onToggleMoneyCard(it.id) },
             modifier = Modifier.align(Alignment.BottomCenter),
+        )
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp),
         )
     }
 }
