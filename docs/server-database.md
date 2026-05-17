@@ -79,10 +79,13 @@ erDiagram
     AUCTION_STATE {
         BIGINT game_id PK
         BIGINT game_id_fk FK
+        BIGINT auctioneer_id FK
         ENUM current_animal
         INT highest_bid
         BIGINT highest_bidder_id FK
         JSON passed_players
+        BOOLEAN is_closed
+        TIMESTAMP timer_end_time
     }
     TRADE_STATE {
         BIGINT game_id PK
