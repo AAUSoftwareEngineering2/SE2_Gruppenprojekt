@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -102,15 +103,52 @@ class GameSession(
         ensureDeckNotEmpty()
 
         val (auctionCard, updatedDeck) = state.deck.drawTopCard()
+        val card = auctionCard!!
+
+        var updatedPlayers = state.players
+        var event: GameEvent? = null
+
+        if (card.type == AnimalType.DONKEY) {
+            val donkeysInDeckAfterDraw = updatedDeck.cards.count { it.type == AnimalType.DONKEY }
+            val donkeyNumber = CARDS_PER_ANIMAL_TYPE - donkeysInDeckAfterDraw
+
+            val bonusValue =
+                when (donkeyNumber) {
+                    1 -> 50
+                    2 -> 100
+                    3 -> 200
+                    4 -> 500
+                    else -> 0
+                }
+
+            if (bonusValue > 0) {
+                updatedPlayers =
+                    state.players.map { player ->
+                        val newMoneyCard =
+                            MoneyCard(
+                                id = "${player.id}-donkey-$donkeyNumber",
+                                value = bonusValue,
+                            )
+                        player.copy(moneyCards = player.moneyCards + newMoneyCard)
+                    }
+                event =
+                    GameEvent.MoneyBonus(
+                        amount = bonusValue,
+                        message = "Goldesel! Jeder erhält $bonusValue€.",
+                    )
+            }
+        }
 
         state =
             state.copy(
                 phase = GamePhase.AUCTION_BIDDING,
                 deck = updatedDeck,
-                currentFaceUpCard = auctionCard,
+                currentFaceUpCard = card,
+                players = updatedPlayers,
+                lastEvent = event,
                 auctionState =
                     AuctionState(
-                        auctionCard = auctionCard!!,
+                        auctionCard = card,
                         auctioneerId = actorId,
                         highestBid = 0,
                         highestBidderId = null,
@@ -133,6 +171,7 @@ class GameSession(
 
         state =
             state.copy(
+                lastEvent = null,
                 auctionState =
                     state.auctionState!!.copy(
                         highestBid = amount,
@@ -346,7 +385,7 @@ class GameSession(
             }
 
         if (totalQuartetsFormed == AnimalType.entries.size) {
-            state = state.copy(phase = GamePhase.FINISHED)
+            state = state.copy(phase = GamePhase.FINISHED, lastEvent = null)
 
             // Add score calculation and storing
         } else {
@@ -355,6 +394,7 @@ class GameSession(
                     phase = GamePhase.PLAYER_CHOICE,
                     roundNumber = state.roundNumber + 1,
                     currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.size,
+                    lastEvent = null,
                 )
         }
 
