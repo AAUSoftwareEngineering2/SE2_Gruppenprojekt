@@ -18,11 +18,11 @@ class AnimalDeckTest {
             )
 
         val (card1, deck1) = deck.drawTopCard()
-        assertEquals("2", card1?.id) // AnimalDeck.drawTopCard uses last()
+        assertEquals("1", card1?.id) // AnimalDeck.drawTopCard uses first()
         assertEquals(1, deck1.size())
 
         val (card2, deck2) = deck1.drawTopCard()
-        assertEquals("1", card2?.id)
+        assertEquals("2", card2?.id)
         assertEquals(0, deck2.size())
     }
 

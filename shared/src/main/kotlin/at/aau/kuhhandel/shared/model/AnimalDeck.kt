@@ -11,7 +11,7 @@ data class AnimalDeck(
             return null to this
         }
 
-        return cards.last() to copy(cards = cards.dropLast(1))
+        return cards.first() to copy(cards = cards.drop(1))
     }
 
     fun isEmpty(): Boolean = cards.isEmpty()

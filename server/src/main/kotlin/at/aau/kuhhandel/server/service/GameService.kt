@@ -3,7 +3,7 @@ package at.aau.kuhhandel.server.service
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.RoomActionResult
-import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +18,7 @@ import kotlin.random.Random
 @Service
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
+    private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
 ) {
     private val serviceScope = CoroutineScope(Dispatchers.Default)
 
@@ -30,7 +31,7 @@ class GameService(
     fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId = generateGameCode()
         val playerId = UUID.randomUUID().toString()
-        val session = GameSession(gameId, playerId, hostPlayerName)
+        val session = gameSessionFactory(gameId, playerId, hostPlayerName)
 
         sessions[gameId] = session
         return RoomActionResult(gameId, playerId, session.state)
@@ -51,9 +52,12 @@ class GameService(
     /**
      * Starts an existing game.
      */
-    fun startGame(gameId: String): GameState? {
+    fun startGame(
+        gameId: String,
+        actorId: String,
+    ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.startGame()
+        return session.startGame(actorId)
     }
 
     /**
@@ -87,35 +91,23 @@ class GameService(
         return updatedState
     }
 
-    /**
-     * Reveals the next card for an existing game.
-     */
-    fun revealNextCard(gameId: String): GameState? {
+    fun chooseAuction(
+        gameId: String,
+        actorId: String,
+    ): GameState? {
         val session = sessions[gameId] ?: return null
-        val updatedState = session.revealNextCard()
-
-        if (updatedState.phase == GamePhase.FINISHED) {
-            // Optional cleanup later:
-            // sessions.remove(gameId)
-        }
-
-        return updatedState
-    }
-
-    fun chooseAuction(gameId: String): GameState? {
-        val session = sessions[gameId] ?: return null
-        val state = session.chooseAuction()
+        val state = session.chooseAuction(actorId)
         scheduleAutoClose(gameId)
         return state
     }
 
     fun placeBid(
         gameId: String,
-        bidderId: String,
+        actorId: String,
         amount: Int,
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        val state = session.placeBid(bidderId, amount)
+        val state = session.placeBid(actorId, amount)
         scheduleAutoClose(gameId)
         return state
     }
@@ -128,10 +120,8 @@ class GameService(
             delay(5100) // Wait slightly longer than the timer to be safe
             val currentSession = sessions[gameId] ?: return@launch
             // If the timerEndTime is still the same, it means no new bid happened
-            if (currentSession.state.auctionState?.timerEndTime == endTime &&
-                currentSession.state.auctionState?.isClosed == false
-            ) {
-                val updatedState = closeAuction(gameId)
+            if (currentSession.state.auctionState?.timerEndTime == endTime) {
+                val updatedState = closeAuctionAfterTimeout(gameId)
                 if (updatedState != null) {
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
                 }
@@ -139,54 +129,46 @@ class GameService(
         }
     }
 
-    fun closeAuction(gameId: String): GameState? {
+    fun closeAuctionAfterTimeout(gameId: String): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.closeAuction()
+        return session.closeAuctionAfterTimeout()
     }
 
     fun resolveAuction(
         gameId: String,
+        actorId: String,
         auctioneerBuysCard: Boolean,
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.resolveAuction(auctioneerBuysCard)
+        return session.resolveAuction(actorId, auctioneerBuysCard)
     }
 
     fun chooseTrade(
         gameId: String,
-        challengedPlayerId: String,
-        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        offeredMoneyCardIds: List<String> = emptyList(),
+        actorId: String,
+        targetId: String,
+        animalType: AnimalType,
+        offeredMoneyCardIds: Set<String>,
     ): GameState? {
         val session = sessions[gameId] ?: return null
-        return session.chooseTrade(challengedPlayerId, animalType, offeredMoneyCardIds)
+        return session.chooseTrade(
+            actorId = actorId,
+            targetId = targetId,
+            animalType = animalType,
+            offeredMoneyCardIds = offeredMoneyCardIds,
+        )
     }
 
     fun respondToTrade(
         gameId: String,
-        respondingPlayerId: String,
-        acceptsOffer: Boolean,
-        counterOfferedMoneyCardIds: List<String> = emptyList(),
+        actorId: String,
+        counterOfferedMoneyCardIds: Set<String>,
     ): GameState? {
         val session = sessions[gameId] ?: return null
         return session.respondToTrade(
-            respondingPlayerId = respondingPlayerId,
-            acceptsOffer = acceptsOffer,
+            actorId = actorId,
             counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
         )
-    }
-
-    fun offerTrade(
-        gameId: String,
-        offeredMoneyCardIds: List<String>,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
-        return session.offerTrade(offeredMoneyCardIds)
-    }
-
-    fun finishRound(gameId: String): GameState? {
-        val session = sessions[gameId] ?: return null
-        return session.finishRound()
     }
 
     /**
