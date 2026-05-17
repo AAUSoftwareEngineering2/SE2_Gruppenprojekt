@@ -85,7 +85,6 @@ erDiagram
         ENUM current_animal
         INT highest_bid
         BIGINT highest_bidder_id FK
-        JSON passed_players
         BOOLEAN is_closed
         TIMESTAMP timer_end_time
     }
@@ -95,8 +94,12 @@ erDiagram
         BIGINT challenger_id FK
         BIGINT defender_id FK
         ENUM animal_type
-        JSON challenger_offer_json
-        JSON defender_offer_json
+        ENUM step "WAITING_FOR_RESPONSE, RESOLVED"
+        INT offered_money
+        INT counter_offered_money "nullable"
+        JSON offered_money_card_ids_json
+        JSON counter_offered_money_card_ids_json
+        BOOLEAN is_resolved
     }
 ```
 
@@ -120,10 +123,16 @@ erDiagram
 
 ## Design notes
 
-- **JSON columns** (`passed_players`, `challenger_offer_json`,
-  `defender_offer_json`) are chosen over fully normalised sub-tables because the
-  prototype neither queries across them nor aggregates them — fewer joins,
-  faster schema evolution.
+- **JSON columns** (`offered_money_card_ids_json`,
+  `counter_offered_money_card_ids_json`) store the lists of `MoneyCard.id`
+  strings attached to a trade offer. A normalised sub-table is avoided because
+  the prototype neither queries across these lists nor aggregates them — fewer
+  joins, faster schema evolution.
+- **`trade_state.step` and `trade_state.is_resolved` are both persisted**
+  because the server-side state machine checks them independently when
+  validating trade transitions (see `GameStateMachine.kt`). `step` tracks where
+  in the trade flow the players are; `is_resolved` is the explicit terminal
+  flag once the trade has been settled.
 - **`games.version`** maps to JPA's `@Version` annotation for optimistic
   locking. Multiple WebSocket handlers can update the same match concurrently
   (for example, two bids arriving at nearly the same time during an auction,
