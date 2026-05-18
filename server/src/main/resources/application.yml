@@ -4,3 +4,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    # Keep TCP connections alive longer than the Cloudflare edge idle window, so the heartbeat
+    # frames have something to flow through.
+    connection-timeout: 60s
+    keep-alive-timeout: 60s
+    # WebSocket sessions are long-lived; we do not want Tomcat to drop them after the default
+    # 100 HTTP keep-alive requests (the limit is meant for plain HTTP, not upgraded connections).
+    max-keep-alive-requests: -1
