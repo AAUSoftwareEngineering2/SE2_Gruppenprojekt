@@ -112,6 +112,35 @@ class ConnectionRegistryTest {
     }
 
     @Test
+    fun `allSessions returns snapshot of all bound sessions`() {
+        val session1 = mock(WebSocketSession::class.java)
+        whenever(session1.id).thenReturn("session-1")
+        val session2 = mock(WebSocketSession::class.java)
+        whenever(session2.id).thenReturn("session-2")
+
+        registry.bindSession(session1)
+        registry.bindSession(session2)
+
+        assertEquals(setOf(session1, session2), registry.allSessions().toSet())
+    }
+
+    @Test
+    fun `allSessions returns empty when no sessions are bound`() {
+        assertEquals(emptyList<WebSocketSession>(), registry.allSessions().toList())
+    }
+
+    @Test
+    fun `allSessions reflects unbinds`() {
+        val session = mock(WebSocketSession::class.java)
+        whenever(session.id).thenReturn("session-1")
+        registry.bindSession(session)
+
+        registry.unbind(session.id)
+
+        assertEquals(emptyList<WebSocketSession>(), registry.allSessions().toList())
+    }
+
+    @Test
     fun `unbind removes the mapping`() {
         val session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
