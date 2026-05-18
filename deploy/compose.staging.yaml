@@ -2,7 +2,7 @@ name: kuhhandel-staging
 
 services:
   server:
-    image: ${SERVER_IMAGE:?SERVER_IMAGE is required}
+    image: ghcr.io/aausoftwareengineering2/kuhhandel-server:${SERVER_IMAGE_TAG:-staging}
     container_name: kuhhandel-server-staging
     restart: unless-stopped
     environment:
