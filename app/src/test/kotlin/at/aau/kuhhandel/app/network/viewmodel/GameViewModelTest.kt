@@ -146,45 +146,247 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `isMyTurn logic works correctly`() {
+    fun `isAuctioneer logic works correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            val players =
-                listOf(
-                    PlayerState(id = "player-1", name = "Me"),
-                    PlayerState(id = "player-2", name = "Opponent"),
-                )
+            // Case 1: GameState null
+            repoStateFlow.value = GameRepositoryState(gameState = null, myPlayerId = "me")
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isAuctioneer)
 
-            // Case 1: My turn
+            // Case 2: AuctionState null
             repoStateFlow.value =
                 GameRepositoryState(
-                    myPlayerId = "player-1",
-                    gameState = GameState(players = players, currentPlayerIndex = 0),
+                    myPlayerId = "me",
+                    gameState = GameState(auctionState = null),
                 )
             advanceUntilIdle()
-            assertTrue(viewModel.uiState.value.isMyTurn)
+            assertFalse(viewModel.uiState.value.isAuctioneer)
 
-            // Case 2: Not my turn
+            // Case 3: I am the auctioneer
             repoStateFlow.value =
                 GameRepositoryState(
-                    myPlayerId = "player-1",
-                    gameState = GameState(players = players, currentPlayerIndex = 1),
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            auctionState =
+                                AuctionState(
+                                    auctioneerId = "me",
+                                    auctionCard = AnimalCard("1", AnimalType.COW),
+                                    timerEndTime = 0,
+                                ),
+                        ),
                 )
             advanceUntilIdle()
-            assertFalse(viewModel.uiState.value.isMyTurn)
-            assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
+            assertTrue(viewModel.uiState.value.isAuctioneer)
 
-            // Case 2: Opponent turn
+            // Case 4: Someone else is the auctioneer
             repoStateFlow.value =
                 GameRepositoryState(
-                    gameState = GameState(players = players, currentPlayerIndex = 1),
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            auctionState =
+                                AuctionState(
+                                    auctioneerId = "other",
+                                    auctionCard = AnimalCard("1", AnimalType.COW),
+                                    timerEndTime = 0,
+                                ),
+                        ),
                 )
             advanceUntilIdle()
-            assertFalse(viewModel.uiState.value.isMyTurn)
-            assertEquals("Opponent", viewModel.uiState.value.activePlayerName)
+            assertFalse(viewModel.uiState.value.isAuctioneer)
+        }
+    }
+
+    @Test
+    fun `canRevealCard edge cases`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // gameState is null
+            repoStateFlow.value = GameRepositoryState(isConnected = true, gameState = null)
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+
+            // currentPlayerIndex is out of bounds
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(PlayerState("me", "Me")),
+                            currentPlayerIndex = 5,
+                        ),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+
+            // myPlayerId is null
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    myPlayerId = null,
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(PlayerState("me", "Me")),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+        }
+    }
+
+    @Test
+    fun `myMoneyCards edge cases`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // gameState is null
+            repoStateFlow.value = GameRepositoryState(gameState = null)
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.myMoneyCards
+                    .isEmpty(),
+            )
+
+            // players is empty
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = GameState(players = emptyList()),
+                )
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.myMoneyCards
+                    .isEmpty(),
+            )
+
+            // player not found
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = GameState(players = listOf(PlayerState("other", "Other"))),
+                )
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.myMoneyCards
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `auction timer handles expired endTime immediately`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Set endTime to be in the past
+            val endTime = testScheduler.currentTime - 1000
+            val gameState =
+                GameState(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    auctionState =
+                        AuctionState(
+                            auctioneerId = "p1",
+                            auctionCard = AnimalCard("1", AnimalType.COW),
+                            timerEndTime = endTime,
+                        ),
+                )
+
+            repoStateFlow.value = GameRepositoryState(isConnected = true, gameState = gameState)
+            advanceTimeBy(1)
+            assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
+        }
+    }
+
+    @Test
+    fun `sharedAnimals calculation edge cases`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Target ID is null
+            viewModel.selectTargetPlayer(null)
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.sharedAnimalsWithSelectedPlayer
+                    .isEmpty(),
+            )
+
+            // GameState is null
+            repoStateFlow.value = GameRepositoryState(gameState = null, myPlayerId = "me")
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.sharedAnimalsWithSelectedPlayer
+                    .isEmpty(),
+            )
+
+            // My Player ID is null
+            repoStateFlow.value = GameRepositoryState(gameState = GameState(), myPlayerId = null)
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.sharedAnimalsWithSelectedPlayer
+                    .isEmpty(),
+            )
+
+            // Target player not found
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = GameState(players = listOf(PlayerState("me", "Me"))),
+                )
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.sharedAnimalsWithSelectedPlayer
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `respondToTrade initiator branch handles nulls`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Both initiatorId and myPlayerId are the same string
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "same",
+                    gameState =
+                        GameState(
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "same",
+                                    targetId = "target",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+            viewModel.respondToTrade()
+            advanceUntilIdle()
+            // Should go to initiator branch (commented out)
+            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
         }
     }
 
@@ -290,6 +492,220 @@ class GameViewModelTest {
             viewModel.placeBid(50)
             advanceUntilIdle()
             coVerify { mockRepository.placeBid(50) }
+        }
+    }
+
+    @Test
+    fun `respondToTrade calls repository with selected money and clears selection`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Setup: We are NOT the initiator, so we are responding
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "other",
+                                    targetId = "me",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m1")
+            viewModel.toggleMoneyCardSelection("m2")
+            advanceUntilIdle()
+
+            viewModel.respondToTrade()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.respondToTrade(setOf("m1", "m2")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `respondToTrade does not call repository when I am the initiator`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Setup: We ARE the initiator
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "me",
+                                    targetId = "other",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m1")
+            viewModel.respondToTrade()
+            advanceUntilIdle()
+
+            // Should not call respondToTrade (since we're the initiator and the offerTrade call is currently commented out in ViewModel)
+            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `respondToTrade handles null gameState or tradeState gracefully`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Case 1: GameState is null
+            repoStateFlow.value = GameRepositoryState(gameState = null)
+            advanceUntilIdle()
+            viewModel.respondToTrade()
+            advanceUntilIdle()
+            // In ViewModel: if (uiState.value.gameState?.tradeState?.initiatorId == uiState.value.myPlayerId)
+            // if gameState is null, the condition is null == myPlayerId (false if myPlayerId is set, true if both are null)
+            // Wait, uiState.value.myPlayerId is also null initially. So null == null is TRUE.
+            // If it's TRUE, it currently does nothing (initiator branch is commented out).
+
+            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
+
+            // Case 2: TradeState is null
+            repoStateFlow.value =
+                GameRepositoryState(myPlayerId = "me", gameState = GameState(tradeState = null))
+            advanceUntilIdle()
+            viewModel.respondToTrade()
+            advanceUntilIdle()
+            // uiState.value.gameState?.tradeState?.initiatorId is null.
+            // myPlayerId is "me".
+            // null == "me" is FALSE.
+            // So it calls repository.respondToTrade
+            coVerify(exactly = 1) { mockRepository.respondToTrade(any()) }
+        }
+    }
+
+    @Test
+    fun `initiateTrade calls repository with target and selected money`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.toggleMoneyCardSelection("m1")
+            viewModel.selectTargetPlayer("p2")
+            advanceUntilIdle()
+
+            viewModel.initiateTrade("p2", AnimalType.COW)
+            advanceUntilIdle()
+
+            coVerify { mockRepository.initiateTrade("p2", AnimalType.COW, setOf("m1")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+            assertNull(viewModel.uiState.value.selectedTargetPlayerId)
+        }
+    }
+
+    @Test
+    fun `finishTradeReveal calls repository`() {
+        runTest {
+            viewModel.finishTradeReveal()
+            advanceUntilIdle()
+            coVerify { mockRepository.finishTradeReveal() }
+        }
+    }
+
+    @Test
+    fun `money card selection logic works correctly`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.toggleMoneyCardSelection("m1")
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .contains("m1"),
+            )
+
+            viewModel.toggleMoneyCardSelection("m1")
+            advanceUntilIdle()
+            assertFalse(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .contains("m1"),
+            )
+
+            viewModel.toggleMoneyCardSelection("m2")
+            advanceUntilIdle()
+            viewModel.clearSelection()
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `sharedAnimals calculation in uiState works correctly`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me =
+                PlayerState(
+                    id = "me",
+                    name = "Me",
+                    animals =
+                        listOf(
+                            AnimalCard("1", AnimalType.COW),
+                            AnimalCard("2", AnimalType.PIG),
+                        ),
+                )
+            val other =
+                PlayerState(
+                    id = "other",
+                    name = "Other",
+                    animals =
+                        listOf(
+                            AnimalCard("3", AnimalType.COW),
+                            AnimalCard("4", AnimalType.HORSE),
+                        ),
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = GameState(players = listOf(me, other)),
+                )
+
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+
+            val shared = viewModel.uiState.value.sharedAnimalsWithSelectedPlayer
+            assertEquals(1, shared.size)
+            assertEquals(AnimalType.COW, shared[0])
         }
     }
 

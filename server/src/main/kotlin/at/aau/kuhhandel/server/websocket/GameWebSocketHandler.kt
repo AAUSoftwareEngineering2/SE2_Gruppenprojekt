@@ -433,7 +433,11 @@ class GameWebSocketHandler(
             try {
                 gameService.finishTradeReveal(gameId, actorId)
             } catch (e: Exception) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid finish trade reveal")
+                return sendError(
+                    session,
+                    envelope.requestId,
+                    e.message ?: "Invalid finish trade reveal",
+                )
             }
 
         if (state == null) {
