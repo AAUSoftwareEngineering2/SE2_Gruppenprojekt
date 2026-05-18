@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.kotlin.after
@@ -112,10 +113,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_startGame_returnsNull_forInvalidGameId() {
-        val state = service.startGame("fake code", "player-1")
-
-        assertNull(state)
+    fun test_startGame_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.startGame("fake code", "player-1")
+        }
         verify(gameSession, never()).startGame(any())
     }
 
@@ -144,10 +145,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_joinGame_returnsNull_forInvalidGameId() {
-        val result = service.joinGame("fake code", "Player 1")
-
-        assertNull(result)
+    fun test_joinGame_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.joinGame("fake code", "Player 1")
+        }
         verify(gameSession, never()).addPlayer(any(), any())
     }
 
@@ -176,10 +177,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_leaveGame_returnsNull_forInvalidGameId() {
-        val state = service.leaveGame("fake code", "player-1")
-
-        assertNull(state)
+    fun test_leaveGame_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.leaveGame("fake code", "player-1")
+        }
         verify(gameSession, never()).removePlayer(any())
     }
 
@@ -195,10 +196,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_chooseAuction_returnsNull_forInvalidGameId() {
-        val state = service.chooseAuction("fake code", "player-1")
-
-        assertNull(state)
+    fun test_chooseAuction_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.chooseAuction("fake code", "player-1")
+        }
         verify(gameSession, never()).chooseAuction(any())
     }
 
@@ -214,10 +215,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_placeBid_returnsNull_forInvalidGameId() {
-        val result = service.placeBid("fake code", "player-1", 10)
-
-        assertNull(result)
+    fun test_placeBid_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.placeBid("fake code", "player-1", 10)
+        }
         verify(gameSession, never()).placeBid(any(), any())
     }
 
@@ -258,10 +259,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_resolveAuction_returnsNull_forInvalidGameId() {
-        val result = service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
-
-        assertNull(result)
+    fun test_resolveAuction_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
+        }
         verify(gameSession, never()).resolveAuction(any(), any())
     }
 
@@ -285,11 +286,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_chooseTrade_returnsNull_forInvalidGameId() {
-        val result =
+    fun test_chooseTrade_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
             service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW, setOf())
-
-        assertNull(result)
+        }
         verify(gameSession, never()).chooseTrade(any(), any(), any(), any())
     }
 
@@ -308,10 +308,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_respondToTrade_returnsNull_forInvalidGameId() {
-        val result = service.respondToTrade("fake code", "player-1", setOf())
-
-        assertNull(result)
+    fun test_respondToTrade_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.respondToTrade("fake code", "player-1", setOf())
+        }
         verify(gameSession, never()).respondToTrade(any(), any())
     }
 

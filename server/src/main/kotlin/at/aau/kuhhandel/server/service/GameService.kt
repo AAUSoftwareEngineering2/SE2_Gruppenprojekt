@@ -55,8 +55,8 @@ class GameService(
     fun startGame(
         gameId: String,
         actorId: String,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         return session.startGame(actorId)
     }
 
@@ -66,8 +66,8 @@ class GameService(
     fun joinGame(
         gameId: String,
         playerName: String,
-    ): RoomActionResult? {
-        val session = sessions[gameId] ?: return null
+    ): RoomActionResult {
+        val session = fetchGameSession(gameId)
         val playerId = UUID.randomUUID().toString()
 
         val updatedState = session.addPlayer(playerId, playerName)
@@ -81,8 +81,8 @@ class GameService(
     fun leaveGame(
         gameId: String,
         playerId: String,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
 
         val updatedState = session.removePlayer(playerId)
 
@@ -94,8 +94,8 @@ class GameService(
     fun chooseAuction(
         gameId: String,
         actorId: String,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         val state = session.chooseAuction(actorId)
         scheduleAutoClose(gameId)
         return state
@@ -105,8 +105,8 @@ class GameService(
         gameId: String,
         actorId: String,
         amount: Int,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         val state = session.placeBid(actorId, amount)
         scheduleAutoClose(gameId)
         return state
@@ -138,8 +138,8 @@ class GameService(
         gameId: String,
         actorId: String,
         auctioneerBuysCard: Boolean,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         return session.resolveAuction(actorId, auctioneerBuysCard)
     }
 
@@ -149,8 +149,8 @@ class GameService(
         targetId: String,
         animalType: AnimalType,
         offeredMoneyCardIds: Set<String>,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         return session.chooseTrade(
             actorId = actorId,
             targetId = targetId,
@@ -163,8 +163,8 @@ class GameService(
         gameId: String,
         actorId: String,
         counterOfferedMoneyCardIds: Set<String>,
-    ): GameState? {
-        val session = sessions[gameId] ?: return null
+    ): GameState {
+        val session = fetchGameSession(gameId)
         return session.respondToTrade(
             actorId = actorId,
             counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
@@ -183,4 +183,9 @@ class GameService(
 
         return code
     }
+
+    private fun fetchGameSession(gameId: String): GameSession =
+        checkNotNull(sessions[gameId]) {
+            "Game registry does not contain game session $gameId"
+        }
 }
