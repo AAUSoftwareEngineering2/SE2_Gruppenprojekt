@@ -307,7 +307,8 @@ class GameRepository(
                 val joined =
                     runCatching {
                         WebSocketJson.json.decodeFromJsonElement(
-                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload.serializer(),
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload
+                                .serializer(),
                             payloadJson,
                         )
                     }.getOrNull()
@@ -344,7 +345,8 @@ class GameRepository(
                         it.copy(
                             errorMessage =
                                 "Invalid GAME_CREATED/JOINED message " +
-                                    "(Could not decode as GameCreated, GameJoined, or GameState). " +
+                                    "(Could not decode as " +
+                                    "GameCreated, GameJoined, or GameState). " +
                                     "Payload: $payloadJson",
                         )
                     }

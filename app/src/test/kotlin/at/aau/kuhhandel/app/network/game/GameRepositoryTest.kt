@@ -387,8 +387,12 @@ class GameRepositoryTest {
                     type = WebSocketType.GAME_JOINED,
                     payload =
                         WebSocketJson.json.encodeToJsonElement(
-                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload.serializer(),
-                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload(playerId = "player-7da6", state = state),
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload
+                                .serializer(),
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
+                                playerId = "player-7da6",
+                                state = state,
+                            ),
                         ),
                 )
 

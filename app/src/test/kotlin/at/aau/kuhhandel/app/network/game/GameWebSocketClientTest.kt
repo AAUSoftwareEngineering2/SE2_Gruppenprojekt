@@ -32,7 +32,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import java.io.IOException
 
 class GameWebSocketClientTest {
     private data class ConnectedClient(
@@ -203,7 +202,12 @@ class GameWebSocketClientTest {
     @Test
     fun `respondToTrade without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.respondToTrade(respondingPlayerId = "p1", counterOfferedMoneyCardIds = setOf()) }
+            assertFailsWith<IllegalStateException> {
+                client.respondToTrade(
+                    respondingPlayerId = "p1",
+                    counterOfferedMoneyCardIds = setOf(),
+                )
+            }
         }
     }
 
@@ -342,7 +346,10 @@ class GameWebSocketClientTest {
     fun `respondToTrade sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
-            client.respondToTrade(respondingPlayerId = "p1", counterOfferedMoneyCardIds = setOf("m2"))
+            client.respondToTrade(
+                respondingPlayerId = "p1",
+                counterOfferedMoneyCardIds = setOf("m2"),
+            )
             assertEquals(WebSocketType.RESPOND_TO_TRADE, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }
