@@ -50,7 +50,10 @@ fun OtherFarm(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(4.dp).clickable { onClick() },
+        modifier =
+            modifier
+                .padding(4.dp)
+                .clickable { onClick() },
     ) {
         Text(
             text = player.name,
@@ -249,8 +252,8 @@ fun TradeView(
 ) {
     if (trade == null) return
 
-    val isInitiator = trade.initiatingPlayerId == myId
-    val isChallenged = trade.challengedPlayerId == myId
+    val isInitiator = trade.initiatorId == myId
+    val isChallenged = trade.targetId == myId
 
     Card(
         colors =
@@ -269,13 +272,13 @@ fun TradeView(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (isInitiator) {
-                if (trade.offeredMoneyCardCount == 0) {
+                if (trade.offeredMoneyCardIds.isEmpty()) {
                     Text("Select cards and send your offer")
                 } else {
                     Text("Waiting for response...")
                 }
             } else if (isChallenged) {
-                Text("Offer received: ${trade.offeredMoneyCardCount} cards")
+                Text("Offer received: ${trade.offeredMoneyCardIds.size} cards")
             }
 
             Spacer(modifier = Modifier.height(16.dp))

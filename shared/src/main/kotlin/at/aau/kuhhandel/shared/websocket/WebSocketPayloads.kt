@@ -64,17 +64,7 @@ data class ErrorPayload(
 data class InitiateTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
-    val moneyCardIds: List<String> = emptyList(),
-)
-
-/**
- * Payload used by OFFER_TRADE commands.
- * Sent by the initiating player to attach an offer of one or more of their money cards to the
- * pending trade. Cards are referenced by id and must exist in the initiator's hand.
- */
-@Serializable
-data class OfferTradePayload(
-    val moneyCardIds: List<String>,
+    val moneyCardIds: Set<String>,
 )
 
 /**
@@ -84,8 +74,7 @@ data class OfferTradePayload(
 @Serializable
 data class RespondToTradePayload(
     val respondingPlayerId: String,
-    val accepted: Boolean,
-    val counterOfferedMoneyCardIds: List<String> = emptyList(), // re-check this!
+    val counterOfferedMoneyCardIds: Set<String> = emptySet(),
 )
 
 /**

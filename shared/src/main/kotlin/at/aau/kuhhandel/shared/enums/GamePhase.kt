@@ -6,12 +6,14 @@ import kotlinx.serialization.Serializable
 enum class GamePhase {
     NOT_STARTED,
 
-    PLAYER_TURN,
+    PLAYER_CHOICE,
 
-    AUCTION,
-    TRADE,
+    AUCTION_BIDDING,
+    AUCTION_RESOLUTION,
 
-    ROUND_END,
+    TRADE_OFFER,
+    TRADE_RESPONSE,
+    TRADE_REVEAL,
 
     FINISHED,
 }

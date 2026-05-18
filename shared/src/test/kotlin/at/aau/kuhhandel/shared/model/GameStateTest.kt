@@ -13,7 +13,7 @@ class GameStateTest {
 
         assertEquals(GamePhase.NOT_STARTED, state.phase)
         assertEquals(0, state.roundNumber)
-        assertEquals(0, state.currentPlayerIndex)
+        assertEquals(-1, state.currentPlayerIndex)
         assertNull(state.currentFaceUpCard)
         assertTrue(state.players.isEmpty())
         assertTrue(state.deck.isEmpty())
@@ -27,14 +27,14 @@ class GameStateTest {
         val auctionState = AuctionState(auctionCard = card, auctioneerId = "p1")
         val tradeState =
             TradeState(
-                initiatingPlayerId = "p1",
-                challengedPlayerId = "p2",
+                initiatorId = "p1",
+                targetId = "p2",
                 requestedAnimalType = at.aau.kuhhandel.shared.enums.AnimalType.DOG,
             )
 
         val state =
             GameState(
-                phase = GamePhase.AUCTION,
+                phase = GamePhase.AUCTION_BIDDING,
                 roundNumber = 2,
                 deck = AnimalDeck(listOf(card)),
                 currentFaceUpCard = card,
@@ -44,7 +44,7 @@ class GameStateTest {
                 tradeState = tradeState,
             )
 
-        assertEquals(GamePhase.AUCTION, state.phase)
+        assertEquals(GamePhase.AUCTION_BIDDING, state.phase)
         assertEquals(2, state.roundNumber)
         assertEquals(card, state.currentFaceUpCard)
         assertEquals(1, state.currentPlayerIndex)

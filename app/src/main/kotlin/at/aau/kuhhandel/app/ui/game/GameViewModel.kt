@@ -40,18 +40,21 @@ data class GameUiState(
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
 ) {
-    val isMyTurn: Boolean get() =
-        gameState?.currentPlayerIndex?.let {
-            gameState.players.getOrNull(it)?.id == myPlayerId
-        } ?: false
+    val isMyTurn: Boolean
+        get() =
+            gameState?.currentPlayerIndex?.let {
+                gameState.players.getOrNull(it)?.id == myPlayerId
+            } ?: false
 
-    val isAuctioneer: Boolean get() =
-        gameState?.auctionState?.auctioneerId == myPlayerId
+    val isAuctioneer: Boolean
+        get() =
+            gameState?.auctionState?.auctioneerId == myPlayerId
 
-    val activePlayerName: String get() =
-        gameState?.let {
-            it.players.getOrNull(it.currentPlayerIndex)?.name
-        } ?: "Unknown"
+    val activePlayerName: String
+        get() =
+            gameState?.let {
+                it.players.getOrNull(it.currentPlayerIndex)?.name
+            } ?: "Unknown"
 }
 
 /**
@@ -142,9 +145,13 @@ class GameViewModel(
                 canRevealCard =
                     (
                         repoState.isConnected &&
-                            currentPhase == GamePhase.PLAYER_TURN &&
+                            currentPhase == GamePhase.PLAYER_CHOICE &&
                             (
-                                gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id ==
+                                gameState
+                                    ?.players
+                                    ?.getOrNull(
+                                        gameState.currentPlayerIndex,
+                                    )?.id ==
                                     repoState.myPlayerId
                             )
                     ),
@@ -213,28 +220,18 @@ class GameViewModel(
         }
     }
 
-    private fun offerTrade() {
-        scope.launch {
-            try {
-                repository.offerTrade(selectedMoneyCardIds.value.toList())
-                clearSelection()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    fun respondToTrade(accepted: Boolean) {
+    fun respondToTrade() {
         scope.launch {
             try {
                 if (uiState.value.gameState
                         ?.tradeState
-                        ?.initiatingPlayerId ==
+                        ?.initiatorId ==
                     uiState.value.myPlayerId
                 ) {
                     // If I'm the initiator, use offerTrade logic
-                    repository.offerTrade(selectedMoneyCardIds.value.toList())
+//                    repository.offerTrade(selectedMoneyCardIds.value.toList())
                 } else {
-                    repository.respondToTrade(accepted, selectedMoneyCardIds.value.toList())
+                    repository.respondToTrade(selectedMoneyCardIds.value.toSet())
                 }
                 clearSelection()
             } catch (_: Exception) {
@@ -251,7 +248,7 @@ class GameViewModel(
                 repository.initiateTrade(
                     targetPlayerId,
                     animalType,
-                    selectedMoneyCardIds.value.toList(),
+                    selectedMoneyCardIds.value.toSet(),
                 )
                 clearSelection()
                 selectedTargetPlayerId.value = null

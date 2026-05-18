@@ -9,17 +9,15 @@ enum class WebSocketType {
     START_GAME,
     JOIN_GAME,
     LEAVE_GAME,
-    REVEAL_CARD,
+    CHOOSE_AUCTION,
     RECONNECT,
     INITIATE_TRADE,
-    OFFER_TRADE,
     RESPOND_TO_TRADE,
     PLACE_BID,
     AUCTION_BUY_BACK,
 
     // Server events
     GAME_CREATED,
-    GAME_STARTED,
     GAME_STATE_UPDATED,
     GAME_JOINED,
     GAME_LEFT,

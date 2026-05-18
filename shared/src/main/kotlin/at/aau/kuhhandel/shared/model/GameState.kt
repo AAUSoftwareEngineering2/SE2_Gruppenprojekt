@@ -9,11 +9,35 @@ data class GameState(
     val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
-    val currentPlayerIndex: Int = 0,
+    val currentPlayerIndex: Int = -1,
     val players: List<PlayerState> = emptyList(),
     val hostPlayerId: String? = null,
     // Active auction state, null if no auction is running
     val auctionState: AuctionState? = null,
     // Active trade state, null if no trade is running
     val tradeState: TradeState? = null,
-)
+) {
+    companion object {
+        fun fromCreatingPlayer(
+            id: String,
+            name: String,
+        ): GameState =
+            GameState(
+                phase = GamePhase.NOT_STARTED,
+                roundNumber = 0,
+                deck = AnimalDeck(),
+                currentFaceUpCard = null,
+                currentPlayerIndex = -1,
+                players =
+                    listOf(
+                        PlayerState(
+                            id = id,
+                            name = name,
+                        ),
+                    ),
+                hostPlayerId = id,
+                auctionState = null,
+                tradeState = null,
+            )
+    }
+}
