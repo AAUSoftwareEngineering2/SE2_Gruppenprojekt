@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
+import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -283,7 +284,7 @@ class GameRepositoryTest {
             harness.receiveGameCreated("g1", sampleState())
 
             harness.repository.respondToTrade(setOf("m2"))
-            assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentTypes().last())
         }
     }
 
@@ -583,9 +584,20 @@ class GameRepositoryTest {
             // Initialize state to have myPlayerId
             harness.receiveGameCreated("g1", sampleState())
 
-            harness.repository.respondToTrade(setOf("m1", "m2"))
-            val envelope = harness.sentEnvelope()
-            assertEquals(WebSocketType.RESPOND_TO_TRADE, envelope.type)
+            val cardIds = setOf("m1", "m2")
+            harness.repository.respondToTrade(cardIds)
+
+            val envelope =
+                harness.session.sentEnvelopes().last {
+                    it.type ==
+                        WebSocketType.RESPOND_TO_TRADE
+                }
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    RespondToTradePayload.serializer(),
+                    requireNotNull(envelope.payload),
+                )
+            assertEquals(cardIds, payload.counterOfferedMoneyCardIds)
         }
     }
 
