@@ -327,8 +327,8 @@ class GameWebSocketHandlerTest {
     fun `LEAVE_GAME unbinds session, sends GAME_LEFT, and broadcasts GAME_STATE_UPDATED`() {
         val returnedState =
             GameState(
-                players = listOf(PlayerState("player-1", "Player 1")),
-                hostPlayerId = "player-1",
+                players = listOf(PlayerState("player-2", "Player 2")),
+                hostPlayerId = "player-2",
             )
 
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
@@ -386,6 +386,54 @@ class GameWebSocketHandlerTest {
 
         verifyNoInteractions(gameService)
         assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER.name)
+    }
+
+    @Test
+    fun `send does not send message to closed session`() {
+        val returnedState =
+            GameState(
+                players = listOf(),
+                hostPlayerId = null,
+            )
+
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf())
+
+        whenever(session1.isOpen).thenReturn(false)
+        whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.LEAVE_GAME,
+            requestId = "req-1",
+        )
+
+        verify(session1, never()).sendMessage(any())
+    }
+
+    @Test
+    fun `broadcastStateUpdate ignores closed sessions`() {
+        val returnedState =
+            GameState(
+                players = listOf(PlayerState("player-2", "Player 2")),
+                hostPlayerId = "player-2",
+            )
+
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+
+        whenever(session2.isOpen).thenReturn(false)
+        whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.LEAVE_GAME,
+            requestId = "req-1",
+        )
+
+        verify(session2, never()).sendMessage(any())
     }
 
     @Test
