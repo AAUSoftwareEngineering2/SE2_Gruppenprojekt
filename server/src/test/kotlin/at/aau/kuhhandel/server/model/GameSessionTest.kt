@@ -836,7 +836,7 @@ class GameSessionTest {
             )
 
         // Assert: Phase transition
-        assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
+        assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
 
         // Assert: Trade details are initialized accurately
         val trade = updatedState.tradeState
