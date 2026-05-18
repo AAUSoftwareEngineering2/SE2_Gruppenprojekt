@@ -279,7 +279,7 @@ class GameRepositoryTest {
     fun `respondToTrade sends request`() {
         runBlocking {
             val harness = createHarness()
-            // Need myPlayerId to respond
+            // Initialize state to have myPlayerId
             harness.receiveGameCreated("g1", sampleState())
 
             harness.repository.respondToTrade(setOf("m2"))
@@ -375,6 +375,33 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `REPRODUCE USER ISSUE GAME_JOINED with GameJoinedPayload`() {
+        runBlocking {
+            val harness = createHarness()
+            val state = sampleState()
+
+            harness.repository.joinGame("g1", "me")
+
+            val envelope =
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_JOINED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload.serializer(),
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload(playerId = "player-7da6", state = state),
+                        ),
+                )
+
+            harness.session.deliverEnvelope(envelope)
+            flushRepository()
+
+            assertEquals("g1", harness.state.gameId)
+            assertEquals("player-7da6", harness.state.myPlayerId)
+            assertEquals(state, harness.state.gameState)
+        }
+    }
+
+    @Test
     fun `invalid payloads surface a readable error`() {
         runBlocking {
             val harness = createHarness()
@@ -400,22 +427,6 @@ class GameRepositoryTest {
                 "Invalid GameState message (Field 'state' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
                 harness.state.errorMessage,
             )
-
-            // REPRODUCE USER ISSUE: GAME_JOINED with GameStatePayload (missing gameId)
-            // The repository should now handle this gracefully via fallback
-            harness.session.deliverEnvelope(
-                WebSocketEnvelope(
-                    type = WebSocketType.GAME_JOINED,
-                    payload =
-                        WebSocketJson.json.encodeToJsonElement(
-                            GameStatePayload.serializer(),
-                            GameStatePayload(state = sampleState()),
-                        ),
-                ),
-            )
-            flushRepository()
-            assertNull(harness.state.errorMessage)
-            assertEquals("unknown", harness.state.gameId)
 
             // Invalid payload for ERROR
             harness.session.deliverEnvelope(
@@ -565,7 +576,9 @@ class GameRepositoryTest {
     fun `respondToTrade uses provided IDs`() {
         runBlocking {
             val harness = createHarness()
+            // Initialize state to have myPlayerId
             harness.receiveGameCreated("g1", sampleState())
+
             harness.repository.respondToTrade(setOf("m1", "m2"))
             val envelope = harness.sentEnvelope()
             assertEquals(WebSocketType.RESPOND_TO_TRADE, envelope.type)

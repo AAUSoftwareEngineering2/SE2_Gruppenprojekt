@@ -137,6 +137,21 @@ class GameRepository(
         val events = connectEvents()
         val collectorJob = launchCollector(events)
         awaitInitialConnection(collectorJob)
+
+        // NEW: If we were already in a game, we MUST re-join to restore state and tell the server we're back
+        val currentState = _state.value
+        val gameId = currentState.gameId
+        if (gameId != null) {
+            scope.launch {
+                try {
+                    // We join again with the same gameId. The server should recognize us
+                    // if we use the same connection or if we provide identification.
+                    client.joinGame(gameId)
+                } catch (e: Exception) {
+                    // Silently fail re-join, the user might see a connection error anyway
+                }
+            }
+        }
     }
 
     private suspend fun awaitExistingConnection(): Boolean {
@@ -177,6 +192,15 @@ class GameRepository(
             throw e
         } catch (e: Exception) {
             reportCollectorFailure(e, collectorJob)
+            // Try to auto-reconnect if it was a real connection error and we have a gameId
+            if (eventsJob === collectorJob && _state.value.gameId != null) {
+                scope.launch {
+                    kotlinx.coroutines.delay(2000)
+                    if (eventsJob == null) {
+                        runCatching { ensureConnected() }
+                    }
+                }
+            }
         } finally {
             finishCollector(collectorJob)
         }
@@ -258,52 +282,77 @@ class GameRepository(
                     return
                 }
 
-                // If the payload is actually a GameStatePayload, try to recover
-                val payload =
+                // 1. Try GameCreatedPayload (includes gameId)
+                val created =
                     runCatching {
                         WebSocketJson.json.decodeFromJsonElement(
                             GameCreatedPayload.serializer(),
                             payloadJson,
                         )
-                    }.getOrElse { throwable ->
-                        // Fallback: try to decode as GameStatePayload if gameId is missing
-                        val gameStatePayload =
-                            runCatching {
-                                WebSocketJson.json.decodeFromJsonElement(
-                                    GameStatePayload.serializer(),
-                                    payloadJson,
-                                )
-                            }.getOrNull()
+                    }.getOrNull()
 
-                        if (gameStatePayload != null) {
-                            GameCreatedPayload(
-                                gameId = _state.value.gameId ?: "unknown",
-                                playerId = _state.value.myPlayerId ?: "unknown",
-                                state = gameStatePayload.state,
-                            )
-                        } else {
-                            _state.update {
-                                it.copy(
-                                    errorMessage =
-                                        "Invalid GAME_CREATED/JOINED message " +
-                                            "(${throwable.message}). Payload: $payloadJson",
-                                )
-                            }
-                            return
-                        }
+                if (created != null) {
+                    _state.update {
+                        it.copy(
+                            gameId = created.gameId,
+                            myPlayerId = created.playerId,
+                            gameState = created.state,
+                            errorMessage = null,
+                        )
                     }
+                    return
+                }
 
-                _state.update {
-                    it.copy(
-                        gameId = payload.gameId,
-                        myPlayerId = payload.playerId,
-                        gameState = payload.state,
-                        errorMessage = null,
-                    )
+                // 2. Try GameJoinedPayload (includes playerId but NOT gameId)
+                val joined =
+                    runCatching {
+                        WebSocketJson.json.decodeFromJsonElement(
+                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload.serializer(),
+                            payloadJson,
+                        )
+                    }.getOrNull()
+
+                if (joined != null) {
+                    _state.update {
+                        it.copy(
+                            myPlayerId = it.myPlayerId ?: joined.playerId,
+                            gameState = joined.state,
+                            errorMessage = null,
+                        )
+                    }
+                    return
+                }
+
+                // 3. Fallback to GameStatePayload if the above fail (try to get at least the state)
+                val gameStatePayload =
+                    runCatching {
+                        WebSocketJson.json.decodeFromJsonElement(
+                            GameStatePayload.serializer(),
+                            payloadJson,
+                        )
+                    }.getOrNull()
+
+                if (gameStatePayload != null) {
+                    _state.update {
+                        it.copy(
+                            gameState = gameStatePayload.state,
+                            errorMessage = null,
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            errorMessage =
+                                "Invalid GAME_CREATED/JOINED message " +
+                                    "(Could not decode as GameCreated, GameJoined, or GameState). " +
+                                    "Payload: $payloadJson",
+                        )
+                    }
                 }
             }
 
             WebSocketType.GAME_STATE_UPDATED,
+            WebSocketType.SNAPSHOT,
             -> {
                 val payload =
                     decodePayload(
@@ -318,6 +367,11 @@ class GameRepository(
                         errorMessage = null,
                     )
                 }
+            }
+
+            WebSocketType.GAME_LEFT -> {
+                // If we receive a GAME_LEFT and it's our own ID, we should disconnect
+                // If it's someone else, the GAME_STATE_UPDATED (snapshot) usually follows
             }
 
             WebSocketType.ERROR -> {

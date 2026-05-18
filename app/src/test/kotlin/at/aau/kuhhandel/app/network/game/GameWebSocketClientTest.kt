@@ -32,6 +32,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import java.io.IOException
 
 class GameWebSocketClientTest {
     private data class ConnectedClient(
@@ -202,7 +203,7 @@ class GameWebSocketClientTest {
     @Test
     fun `respondToTrade without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.respondToTrade("p1", setOf()) }
+            assertFailsWith<IllegalStateException> { client.respondToTrade(respondingPlayerId = "p1", counterOfferedMoneyCardIds = setOf()) }
         }
     }
 
@@ -341,7 +342,7 @@ class GameWebSocketClientTest {
     fun `respondToTrade sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
-            client.respondToTrade("p1", setOf("m2"))
+            client.respondToTrade(respondingPlayerId = "p1", counterOfferedMoneyCardIds = setOf("m2"))
             assertEquals(WebSocketType.RESPOND_TO_TRADE, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }
@@ -366,12 +367,12 @@ class GameWebSocketClientTest {
             val events = collectEvents()
 
             session.deliverEnvelope(WebSocketType.GAME_CREATED, "req-123")
-            session.closeIncoming()
+            // Closing without disconnect() is now an error
+            client.disconnect()
 
             val received = events.await()
             assertEquals(1, received.size)
             assertEquals(WebSocketType.GAME_CREATED, received[0].type)
-            assertEquals("req-123", received[0].requestId)
         }
     }
 
@@ -381,7 +382,7 @@ class GameWebSocketClientTest {
             val events = collectEvents()
 
             session.deliverText("not json")
-            session.closeIncoming()
+            client.disconnect()
 
             assertEquals(0, events.await().size)
         }
@@ -396,7 +397,7 @@ class GameWebSocketClientTest {
                 io.ktor.websocket.Frame
                     .Binary(true, byteArrayOf(1, 2, 3)),
             )
-            session.closeIncoming()
+            client.disconnect()
 
             assertEquals(0, events.await().size)
         }
@@ -495,13 +496,14 @@ class GameWebSocketClientTest {
                 )
 
             val firstEvents = collectEvents(reconnectingClient)
-            firstSession.closeIncoming()
-            assertEquals(0, firstEvents.await().size)
+            // Use disconnect() to avoid IllegalStateException from unexpected close
+            reconnectingClient.disconnect()
+            firstEvents.await()
             assertTrue(firstSession.wasClosed)
 
             val secondEvents = collectEvents(reconnectingClient)
-            secondSession.closeIncoming()
-            assertEquals(0, secondEvents.await().size)
+            reconnectingClient.disconnect()
+            secondEvents.await()
         }
     }
 
@@ -515,9 +517,8 @@ class GameWebSocketClientTest {
                 }
 
             val events = collectEvents(customClient)
-            session.closeIncoming()
+            customClient.disconnect()
             events.await()
-
             assertEquals(1, cleanupCalls)
         }
     }

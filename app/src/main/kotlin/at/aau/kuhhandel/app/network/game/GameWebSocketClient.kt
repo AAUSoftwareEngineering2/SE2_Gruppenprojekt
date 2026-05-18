@@ -46,6 +46,7 @@ class GameWebSocketClient(
     private var current: OpenedSession? = null
     private var pendingConnection: CompletableDeferred<Unit>? = null
     private var connectionFailure: Throwable? = null
+    private var isIntentionalDisconnect = false
     private val openSession: suspend () -> OpenedSession = openSession ?: ::defaultOpenSession
 
     /** Returns the connection Flow. The WebSocket opens when collection starts. */
@@ -73,6 +74,7 @@ class GameWebSocketClient(
         CompletableDeferred<Unit>().also { ready ->
             connectionFailure = null
             pendingConnection = ready
+            isIntentionalDisconnect = false
         }
 
     private suspend fun openSessionOrThrow(ready: CompletableDeferred<Unit>): OpenedSession =
@@ -98,8 +100,8 @@ class GameWebSocketClient(
         opened: OpenedSession,
     ) {
         val closeDetails = consumeIncomingFrames(opened)
-        if (closeDetails != null && current === opened) {
-            error(closeDetails)
+        if (current === opened && !isIntentionalDisconnect) {
+            error(closeDetails ?: "WebSocket connection lost unexpectedly")
         }
     }
 
@@ -186,6 +188,22 @@ class GameWebSocketClient(
         return requestId
     }
 
+    suspend fun reconnect(
+        gameId: String,
+        playerId: String,
+    ): String {
+        val requestId = UUID.randomUUID().toString()
+        // We might want a specific ReconnectPayload if the server expects it,
+        // but for now we reuse JoinGamePayload concept if applicable.
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                JoinGamePayload.serializer(),
+                JoinGamePayload(gameId = gameId, playerName = playerId),
+            )
+        send(WebSocketEnvelope(WebSocketType.RECONNECT, requestId, payload))
+        return requestId
+    }
+
     suspend fun leaveGame(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.LEAVE_GAME, requestId))
@@ -269,6 +287,7 @@ class GameWebSocketClient(
     }
 
     suspend fun disconnect() {
+        isIntentionalDisconnect = true
         pendingConnection = null
         connectionFailure = null
         val active = current ?: return
