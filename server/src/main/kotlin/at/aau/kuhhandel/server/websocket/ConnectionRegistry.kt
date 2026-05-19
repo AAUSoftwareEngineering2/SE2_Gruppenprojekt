@@ -43,6 +43,12 @@ class ConnectionRegistry {
     fun sessionsFor(gameId: String): Set<WebSocketSession> =
         sessionIdsFor(gameId).mapNotNull { sessionBySessionId[it] }.toSet()
 
+    /**
+     * Snapshot of every currently bound session. Used by WebSocketHeartbeat to ping every live
+     * connection without iterating per-game.
+     */
+    fun allSessions(): Collection<WebSocketSession> = sessionBySessionId.values.toList()
+
     fun unbind(sessionId: String) {
         val gameId = gameBySessionId.remove(sessionId)
         playerBySessionId.remove(sessionId)
