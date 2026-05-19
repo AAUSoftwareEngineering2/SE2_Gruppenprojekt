@@ -32,6 +32,18 @@ class ConnectionRegistry {
         playerBySessionId.putIfAbsent(sessionId, playerId)
     }
 
+    fun rebind(
+        newSessionId: String,
+        gameId: String,
+        playerId: String,
+    ) {
+        val existing = gameBySessionId.putIfAbsent(newSessionId, gameId)
+        if (existing != null) return
+        playerBySessionId.putIfAbsent(newSessionId, playerId)
+
+        sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(newSessionId)
+    }
+
     fun sessionFor(sessionId: String): WebSocketSession? = sessionBySessionId[sessionId]
 
     fun gameIdFor(sessionId: String): String? = gameBySessionId[sessionId]

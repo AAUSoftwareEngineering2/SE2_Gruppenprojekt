@@ -1,9 +1,11 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +91,21 @@ class GameService(
         if (updatedState.players.isEmpty()) sessions.remove(gameId)
 
         return updatedState
+    }
+
+    fun getStateForReconnection(
+        gameId: String,
+        playerId: String,
+    ): GameState {
+        val session =
+            sessions[gameId]
+                ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
+        if (!session.hasPlayer(playerId)) {
+            throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
+        }
+
+        return session.state
     }
 
     fun chooseAuction(

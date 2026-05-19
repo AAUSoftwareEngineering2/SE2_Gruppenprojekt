@@ -15,6 +15,7 @@ import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -1499,6 +1500,20 @@ class GameSessionTest {
         // fromCount = target's cows = 2. toCount = initiator's cows = 3. Both >= 2, so move 2.
         assertEquals(5, initiator.animals.size)
         assertEquals(0, target.animals.size)
+    }
+
+    @Test
+    fun `hasPlayer returns true when player is in the session`() {
+        val gameSession = GameSession.fromState("game-1", baselineState)
+
+        assertTrue(gameSession.hasPlayer("player-1"))
+    }
+
+    @Test
+    fun `hasPlayer returns false when player is not in the session`() {
+        val gameSession = GameSession.fromState("game-1", baselineState)
+
+        assertFalse(gameSession.hasPlayer("player-4"))
     }
 
     // Helper to generate a dummy money card list easily

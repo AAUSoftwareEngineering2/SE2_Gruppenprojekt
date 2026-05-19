@@ -1,8 +1,10 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
@@ -47,7 +49,7 @@ class GameServiceTest {
 
         service = GameService(eventPublisher, { _, _, _ -> gameSession })
 
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(hostPlayerId = "player-1"))
+        whenever(gameSession.state).thenReturn(gameStateToReturn)
     }
 
     @Test
@@ -182,6 +184,38 @@ class GameServiceTest {
             service.leaveGame("fake code", "player-1")
         }
         verify(gameSession, never()).removePlayer(any())
+    }
+
+    @Test
+    fun test_getStateForReconnection_returnsState() {
+        val result = service.createGame("Player 1")
+        whenever(gameSession.hasPlayer(result.playerId)).thenReturn(true)
+
+        val state = service.getStateForReconnection(result.gameId, result.playerId)
+
+        verify(gameSession).hasPlayer(result.playerId)
+        assertEquals(gameStateToReturn, state)
+    }
+
+    @Test
+    fun test_getStateForReconnection_throws_forInvalidGameId() {
+        val exception =
+            assertThrows<GameException> {
+                service.getStateForReconnection("fake code", "player-1")
+            }
+        assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
+    }
+
+    @Test
+    fun test_getStateForReconnection_throws_forInvalidPlayerId() {
+        val result = service.createGame("Player 1")
+        whenever(gameSession.hasPlayer("player-2")).thenReturn(false)
+
+        val exception =
+            assertThrows<GameException> {
+                service.getStateForReconnection(result.gameId, "player-2")
+            }
+        assertEquals(GameErrorReason.PLAYER_NOT_IN_GAME, exception.reason)
     }
 
     @Test

@@ -378,6 +378,8 @@ class GameSession(
         return state
     }
 
+    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
+
     private fun advanceTurnAndCheckGameEnd(): GameState {
         val totalQuartetsFormed =
             state.players.sumOf { player ->

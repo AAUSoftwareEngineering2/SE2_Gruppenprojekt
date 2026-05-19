@@ -14,6 +14,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -60,6 +61,7 @@ class GameWebSocketHandler(
                 WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
                 WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
                 WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
+                WebSocketType.RECONNECT -> handleReconnect(session, envelope)
                 else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
             }
         } catch (e: GameException) {
@@ -187,6 +189,33 @@ class GameWebSocketHandler(
         )
 
         broadcastStateUpdate(gameId, state)
+    }
+
+    private fun handleReconnect(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        ensureNoBoundGame(session.id)
+        val payload = decodePayload(envelope, ReconnectPayload.serializer())
+
+        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
+
+        connectionRegistry.rebind(session.id, payload.gameId, payload.playerId)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.SNAPSHOT,
+                requestId = envelope.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(
+                            state = state,
+                        ),
+                    ),
+            ),
+        )
     }
 
     private fun handleChooseAuction(

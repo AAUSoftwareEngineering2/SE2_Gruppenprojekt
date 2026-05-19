@@ -18,6 +18,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -434,6 +435,88 @@ class GameWebSocketHandlerTest {
         )
 
         verify(session2, never()).sendMessage(any())
+    }
+
+    @Test
+    fun `RECONNECT reconnects session and sends SNAPSHOT`() {
+        val returnedState =
+            GameState(
+                players = listOf(PlayerState("player-1", "Player 1")),
+                hostPlayerId = "player-1",
+            )
+
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+        whenever(
+            gameService.getStateForReconnection("game-1", "player-1"),
+        ).thenReturn(returnedState)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.RECONNECT,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    ReconnectPayload.serializer(),
+                    ReconnectPayload("game-1", "player-1"),
+                ),
+        )
+
+        verify(connectionRegistry).rebind("session-1", "game-1", "player-1")
+
+        val response = captureResponse(session1)
+        assertEquals(WebSocketType.SNAPSHOT, response.type)
+        assertEquals("req-1", response.requestId)
+
+        val payload = decodePayload(response, GameStatePayload.serializer())
+
+        assertEquals(returnedState, payload.state)
+    }
+
+    @Test
+    fun `RECONNECT with bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.JOIN_GAME,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
+    }
+
+    @Test
+    fun `RECONNECT with missing payload sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(session = session1, type = WebSocketType.RECONNECT, requestId = "req-1")
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `RECONNECT with invalid payload sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.RECONNECT,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    CreateGamePayload.serializer(),
+                    CreateGamePayload("Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
     @Test
