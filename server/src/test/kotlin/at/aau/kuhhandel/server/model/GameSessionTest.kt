@@ -1459,7 +1459,7 @@ class GameSessionTest {
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
-                offeredMoneyCardIds = setOf("p1-10-1"),
+                offeredMoneyCardIds = setOf("player-1-10-1"),
             )
 
         val customPlayers =
