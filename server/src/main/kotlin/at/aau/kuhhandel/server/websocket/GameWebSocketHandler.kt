@@ -200,7 +200,8 @@ class GameWebSocketHandler(
 
         val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
 
-        connectionRegistry.rebind(session.id, payload.gameId, payload.playerId)
+        connectionRegistry.bindGame(session.id, payload.gameId)
+        connectionRegistry.bindPlayer(session.id, payload.playerId)
 
         send(
             session,

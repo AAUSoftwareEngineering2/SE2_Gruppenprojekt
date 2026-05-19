@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.springframework.web.socket.WebSocketSession
-import kotlin.test.assertTrue
 import org.mockito.Mockito.`when` as whenever
 
 class ConnectionRegistryTest {
@@ -75,42 +74,6 @@ class ConnectionRegistryTest {
         registry.bindPlayer(sessionId, playerId2)
 
         assertEquals(playerId1, registry.playerIdFor(sessionId))
-    }
-
-    @Test
-    fun `rebind with unbound session stores new mapping`() {
-        val sessionId = "session-1"
-        val newSessionId = "session-2"
-        val gameId = "game-1"
-        val playerId = "player-1"
-        registry.bindGame(sessionId, gameId)
-        registry.bindPlayer(sessionId, playerId)
-
-        registry.rebind(newSessionId, gameId, playerId)
-
-        assertEquals(gameId, registry.gameIdFor(newSessionId))
-        assertEquals(gameId, registry.gameIdFor(newSessionId))
-        assertTrue(registry.sessionIdsFor(gameId).contains(newSessionId))
-    }
-
-    @Test
-    fun `rebind with bound session does not store new mapping`() {
-        val sessionId = "session-1"
-        val gameId1 = "game-1"
-        val playerId1 = "player-1"
-        val newSessionId = "session-2"
-        val gameId2 = "game-2"
-        val playerId2 = "player-2"
-        registry.bindGame(sessionId, gameId1)
-        registry.bindPlayer(sessionId, playerId1)
-        registry.bindGame(newSessionId, gameId2)
-        registry.bindPlayer(newSessionId, playerId2)
-
-        registry.rebind(newSessionId, gameId1, playerId1)
-
-        assertEquals(gameId2, registry.gameIdFor(newSessionId))
-        assertEquals(gameId2, registry.gameIdFor(newSessionId))
-        assertEquals(setOf(sessionId), registry.sessionIdsFor(gameId1))
     }
 
     @Test
