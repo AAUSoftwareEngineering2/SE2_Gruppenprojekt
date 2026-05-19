@@ -88,7 +88,7 @@ class GameRepository(
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        moneyCardIds: List<String> = emptyList(),
+        moneyCardIds: Set<String>,
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
@@ -101,20 +101,11 @@ class GameRepository(
         disconnect()
     }
 
-    suspend fun offerTrade(moneyCardIds: List<String>) {
-        ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
-        client.offerTrade(moneyCardIds)
-    }
-
-    suspend fun respondToTrade(
-        accepted: Boolean,
-        counterOfferedMoneyCardIds: List<String> = emptyList(),
-    ) {
+    suspend fun respondToTrade(counterOfferedMoneyCardIds: Set<String> = emptySet()) {
         ensureConnected()
         val myId = _state.value.myPlayerId ?: return
         _state.update { it.copy(errorMessage = null) }
-        client.respondToTrade(myId, accepted, counterOfferedMoneyCardIds)
+        client.respondToTrade(myId, counterOfferedMoneyCardIds)
     }
 
     fun clearError() {

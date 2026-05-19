@@ -3,9 +3,7 @@ package at.aau.kuhhandel.shared.model
 import at.aau.kuhhandel.shared.enums.AnimalType
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class AuctionStateTest {
     @Test
@@ -17,7 +15,6 @@ class AuctionStateTest {
         assertEquals("p1", state.auctioneerId)
         assertEquals(0, state.highestBid)
         assertNull(state.highestBidderId)
-        assertFalse(state.isClosed)
     }
 
     @Test
@@ -30,7 +27,6 @@ class AuctionStateTest {
                 auctioneerId = "p3",
                 highestBid = 10,
                 highestBidderId = "p1",
-                isClosed = true,
                 timerEndTime = endTime,
             )
 
@@ -38,7 +34,6 @@ class AuctionStateTest {
         assertEquals("p3", state.auctioneerId)
         assertEquals(10, state.highestBid)
         assertEquals("p1", state.highestBidderId)
-        assertTrue(state.isClosed)
         assertEquals(endTime, state.timerEndTime)
     }
 }

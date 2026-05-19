@@ -152,7 +152,7 @@ class LobbyViewModelTest {
             val startedGameState =
                 GameState(
                     players = listOf(PlayerState("p1", "Alice"), PlayerState("p2", "Bob")),
-                    phase = GamePhase.AUCTION,
+                    phase = GamePhase.AUCTION_BIDDING,
                 )
             repoStateFlow.value =
                 GameRepositoryState(

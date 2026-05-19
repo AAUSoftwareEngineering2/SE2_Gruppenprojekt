@@ -70,7 +70,6 @@ class WebSocketProtocolTest {
 
     @Test
     fun `GameCreatedPayload round-trips`() {
-        // re-check this!
         val payload = GameCreatedPayload(gameId = "Id", playerId = "P1", state = GameState())
 
         val encoded = json.encodeToString(GameCreatedPayload.serializer(), payload)
@@ -137,7 +136,7 @@ class WebSocketProtocolTest {
             InitiateTradePayload(
                 challengedPlayerId = "player-2",
                 animalType = AnimalType.COW,
-                moneyCardIds = emptyList(),
+                moneyCardIds = emptySet(),
             )
 
         assertEquals("player-2", payload.challengedPlayerId)
@@ -153,31 +152,14 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `OfferTradePayload round-trips and exposes its fields`() {
-        val payload = OfferTradePayload(moneyCardIds = listOf("m-10", "m-50"))
-
-        assertEquals(listOf("m-10", "m-50"), payload.moneyCardIds)
-
-        val encoded = json.encodeToString(OfferTradePayload.serializer(), payload)
-        val decoded = json.decodeFromString(OfferTradePayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
-    }
-
-    @Test
     fun `RespondToTradePayload round-trips and exposes its fields`() {
         val payload =
             RespondToTradePayload(
                 respondingPlayerId = "player-2",
-                accepted = true,
-                counterOfferedMoneyCardIds = emptyList(), // re-check this!
+                counterOfferedMoneyCardIds = emptySet(),
             )
 
         assertEquals("player-2", payload.respondingPlayerId)
-        assertEquals(true, payload.accepted)
 
         val encoded = json.encodeToString(RespondToTradePayload.serializer(), payload)
         val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)

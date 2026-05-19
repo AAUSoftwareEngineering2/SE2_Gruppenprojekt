@@ -59,7 +59,7 @@ class GameRepositoryTest {
             targetPlayerId: String,
             animalType: AnimalType = AnimalType.COW,
         ) {
-            repository.initiateTrade(targetPlayerId, animalType)
+            repository.initiateTrade(targetPlayerId, animalType, setOf())
         }
 
         fun clearError() {
@@ -217,7 +217,7 @@ class GameRepositoryTest {
                         OpenedSession(session)
                     },
                 )
-            val startedState = sampleState(phase = GamePhase.PLAYER_TURN, deckSize = 3)
+            val startedState = sampleState(phase = GamePhase.PLAYER_CHOICE, deckSize = 3)
 
             harness.createGame("Fabio")
             harness.startGame()
@@ -242,13 +242,13 @@ class GameRepositoryTest {
             val revealedCard = AnimalCard(id = "face-up", type = AnimalType.COW)
             val updatedState =
                 sampleState(
-                    phase = GamePhase.PLAYER_TURN,
+                    phase = GamePhase.PLAYER_CHOICE,
                     currentCard = revealedCard,
                     deckSize = 1,
                 )
 
             harness.revealCard()
-            assertEquals(WebSocketType.REVEAL_CARD, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.CHOOSE_AUCTION, harness.sentEnvelope().type)
 
             harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, updatedState)
 
@@ -276,22 +276,13 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `offerTrade sends request`() {
-        runBlocking {
-            val harness = createHarness()
-            harness.repository.offerTrade(listOf("m1"))
-            assertEquals(WebSocketType.OFFER_TRADE, harness.sentEnvelope().type)
-        }
-    }
-
-    @Test
     fun `respondToTrade sends request`() {
         runBlocking {
             val harness = createHarness()
             // Need myPlayerId to respond
             harness.receiveGameCreated("g1", sampleState())
 
-            harness.repository.respondToTrade(true, listOf("m2"))
+            harness.repository.respondToTrade(setOf("m2"))
             assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentEnvelope().type)
         }
     }

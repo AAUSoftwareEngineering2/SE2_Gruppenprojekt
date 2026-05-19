@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.AnimalType
-import at.aau.kuhhandel.shared.enums.TradeStep
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,21 +12,20 @@ class TradeStateTest {
     fun test_defaultTradeState() {
         val state =
             TradeState(
-                initiatingPlayerId = "p1",
-                challengedPlayerId = "p2",
+                initiatorId = "p1",
+                targetId = "p2",
                 requestedAnimalType = AnimalType.COW,
             )
 
-        assertEquals("p1", state.initiatingPlayerId)
-        assertEquals("p2", state.challengedPlayerId)
+        assertEquals("p1", state.initiatorId)
+        assertEquals("p2", state.targetId)
         assertEquals(AnimalType.COW, state.requestedAnimalType)
-        assertEquals(TradeStep.WAITING_FOR_RESPONSE, state.step)
         assertEquals(0, state.offeredMoney)
-        assertEquals(emptyList(), state.offeredMoneyCardIds)
-        assertEquals(0, state.offeredMoneyCardCount)
+        assertEquals(emptySet(), state.offeredMoneyCardIds)
+        assertEquals(0, state.offeredMoneyCardIds.size)
         assertNull(state.counterOfferedMoney)
-        assertEquals(emptyList(), state.counterOfferedMoneyCardIds)
-        assertEquals(0, state.counterOfferedMoneyCardCount)
+        assertEquals(emptySet(), state.counterOfferedMoneyCardIds)
+        assertEquals(0, state.counterOfferedMoneyCardIds.size)
         assertFalse(state.isResolved)
     }
 
@@ -35,29 +33,25 @@ class TradeStateTest {
     fun test_customTradeState() {
         val state =
             TradeState(
-                initiatingPlayerId = "p3",
-                challengedPlayerId = "p4",
+                initiatorId = "p3",
+                targetId = "p4",
                 requestedAnimalType = AnimalType.DOG,
-                step = TradeStep.RESOLVED,
                 offeredMoney = 20,
-                offeredMoneyCardIds = listOf("money-1"),
-                offeredMoneyCardCount = 1,
+                offeredMoneyCardIds = setOf("money-1"),
                 counterOfferedMoney = 30,
-                counterOfferedMoneyCardIds = listOf("money-2"),
-                counterOfferedMoneyCardCount = 1,
+                counterOfferedMoneyCardIds = setOf("money-2"),
                 isResolved = true,
             )
 
-        assertEquals("p3", state.initiatingPlayerId)
-        assertEquals("p4", state.challengedPlayerId)
+        assertEquals("p3", state.initiatorId)
+        assertEquals("p4", state.targetId)
         assertEquals(AnimalType.DOG, state.requestedAnimalType)
-        assertEquals(TradeStep.RESOLVED, state.step)
         assertEquals(20, state.offeredMoney)
-        assertEquals(listOf("money-1"), state.offeredMoneyCardIds)
-        assertEquals(1, state.offeredMoneyCardCount)
+        assertEquals(setOf("money-1"), state.offeredMoneyCardIds)
+        assertEquals(1, state.offeredMoneyCardIds.size)
         assertEquals(30, state.counterOfferedMoney)
-        assertEquals(listOf("money-2"), state.counterOfferedMoneyCardIds)
-        assertEquals(1, state.counterOfferedMoneyCardCount)
+        assertEquals(setOf("money-2"), state.counterOfferedMoneyCardIds)
+        assertEquals(1, state.counterOfferedMoneyCardIds.size)
         assertTrue(state.isResolved)
     }
 }

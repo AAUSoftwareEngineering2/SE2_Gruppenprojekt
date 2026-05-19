@@ -80,7 +80,7 @@ class GameViewModelTest {
             val deck = AnimalDeck(listOf(AnimalCard("1", AnimalType.COW)))
             val gameState =
                 GameState(
-                    phase = GamePhase.PLAYER_TURN,
+                    phase = GamePhase.PLAYER_CHOICE,
                     deck = deck,
                     currentFaceUpCard = AnimalCard("2", AnimalType.PIG),
                 )
@@ -94,7 +94,7 @@ class GameViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(GamePhase.PLAYER_TURN, uiState.currentPhase)
+            assertEquals(GamePhase.PLAYER_CHOICE, uiState.currentPhase)
             assertEquals("1 cards left", uiState.deckCountText)
             assertEquals("PIG (#2)", uiState.activeCardLabel)
             assertTrue(uiState.isConnected)
@@ -117,7 +117,7 @@ class GameViewModelTest {
                     myPlayerId = "me",
                     gameState =
                         GameState(
-                            phase = GamePhase.PLAYER_TURN,
+                            phase = GamePhase.PLAYER_CHOICE,
                             players = listOf(PlayerState(id = "me", name = "Me")),
                             currentPlayerIndex = 0,
                         ),
@@ -129,7 +129,7 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
-                    gameState = GameState(phase = GamePhase.AUCTION),
+                    gameState = GameState(phase = GamePhase.AUCTION_BIDDING),
                 )
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canRevealCard)
@@ -138,7 +138,7 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = false,
-                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
                 )
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canRevealCard)
@@ -258,7 +258,7 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = true,
-                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
                 )
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canStartGame)
@@ -325,7 +325,7 @@ class GameViewModelTest {
             val endTime = testScheduler.currentTime + 5000
             val gameState =
                 GameState(
-                    phase = GamePhase.AUCTION,
+                    phase = GamePhase.AUCTION_BIDDING,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
@@ -366,7 +366,7 @@ class GameViewModelTest {
 
             repoStateFlow.value =
                 GameRepositoryState(
-                    gameState = GameState(phase = GamePhase.PLAYER_TURN),
+                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
                 )
             advanceUntilIdle()
             assertNull(viewModel.uiState.value.auctionTimerSeconds)
