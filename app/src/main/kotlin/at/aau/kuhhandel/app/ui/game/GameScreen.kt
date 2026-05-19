@@ -245,6 +245,7 @@ fun GameScreen(
                         AuctionView(
                             auction = uiState.gameState?.auctionState,
                             timerSeconds = uiState.auctionTimerSeconds,
+                            players = uiState.gameState?.players ?: emptyList(),
                         )
                         if (uiState.isConnected &&
                             !uiState.isAuctioneer &&
