@@ -952,6 +952,53 @@ class GameWebSocketHandlerTest {
         assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
+    @Test
+    fun `FINISH_TRADE_REVEAL sends and broadcasts GAME_STATE_UPDATED`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+        val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+        whenever(gameService.finishTradeReveal("game-1", "player-1")).thenReturn(gameState)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.FINISH_TRADE_REVEAL,
+            requestId = "req-1",
+        )
+
+        verify(gameService).finishTradeReveal("game-1", "player-1")
+
+        val response1 = captureResponse(session1)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+        assertEquals("req-1", response1.requestId)
+
+        val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+        assertEquals(gameState, payload1.state)
+
+        val response2 = captureResponse(session2)
+        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+        assertNull(response2.requestId)
+
+        val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+        assertEquals(gameState, payload2.state)
+    }
+
+    @Test
+    fun `FINISH_TRADE_REVEAL with no bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-1",
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+    }
+
     private fun sendEnvelope(
         session: WebSocketSession,
         type: WebSocketType,

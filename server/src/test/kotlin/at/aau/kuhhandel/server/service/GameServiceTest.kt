@@ -316,6 +316,28 @@ class GameServiceTest {
     }
 
     @Test
+    fun test_finishTradeReveal_delegatesWork() {
+        val result = service.createGame("Player 1")
+        whenever(
+            gameSession.endTradeReveal(),
+        ).thenReturn(gameStateToReturn)
+
+        val state =
+            service.finishTradeReveal(result.gameId, result.playerId)
+
+        verify(gameSession).endTradeReveal()
+        assertEquals(gameStateToReturn, state)
+    }
+
+    @Test
+    fun test_finishTradeReveal_throws_forInvalidGameId() {
+        assertThrows<IllegalStateException> {
+            service.finishTradeReveal("fake code", "player-1")
+        }
+        verify(gameSession, never()).endTradeReveal()
+    }
+
+    @Test
     fun test_scheduleAutoClose_executesAndPublishesEvent() {
         val result = service.createGame("Player 1")
         val auctionState =
