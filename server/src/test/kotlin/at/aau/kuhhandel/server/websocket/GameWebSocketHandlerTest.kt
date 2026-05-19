@@ -445,20 +445,10 @@ class GameWebSocketHandlerTest {
         val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
         whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
 
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.CHOOSE_AUCTION,
-                requestId = "req-1",
-            )
-
-        handler.handleMessage(
+        sendEnvelope(
             session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
+            type = WebSocketType.CHOOSE_AUCTION,
+            requestId = "req-1",
         )
 
         verify(gameService).chooseAuction("game-1", "player-1")
@@ -484,20 +474,10 @@ class GameWebSocketHandlerTest {
     fun `CHOOSE_AUCTION with no bound game sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.CHOOSE_AUCTION,
-                requestId = "req-1",
-            )
-
-        handler.handleMessage(
+        sendEnvelope(
             session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
+            type = WebSocketType.CHOOSE_AUCTION,
+            requestId = "req-1",
         )
 
         verifyNoInteractions(gameService)
@@ -515,20 +495,10 @@ class GameWebSocketHandlerTest {
 
     @Test
     fun `unsupported message type sends ERROR`() {
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.GAME_CREATED,
-                requestId = "req-1",
-            )
-
-        handler.handleMessage(
+        sendEnvelope(
             session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
+            type = WebSocketType.GAME_CREATED,
+            requestId = "req-1",
         )
 
         verifyNoInteractions(gameService, connectionRegistry)
