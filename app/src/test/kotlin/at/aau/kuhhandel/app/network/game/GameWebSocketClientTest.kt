@@ -356,6 +356,29 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    fun `reconnect sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            client.reconnect("g1", "p1")
+            assertEquals(WebSocketType.RECONNECT, connection.session.onlySentEnvelope().type)
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `finishTradeReveal sends envelope`() {
+        runBlocking {
+            val connection = connectClient()
+            client.finishTradeReveal()
+            assertEquals(
+                WebSocketType.FINISH_TRADE_REVEAL,
+                connection.session.onlySentEnvelope().type,
+            )
+            connection.disconnect()
+        }
+    }
+
+    @Test
     fun `disconnect closes session`() {
         runBlocking {
             val connection = connectClient()

@@ -477,6 +477,60 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `auto-reconnect is triggered on collector failure if gameId exists`() {
+        runBlocking {
+            val session = FakeWebSocketSession()
+            var openCount = 0
+            val harness =
+                createHarness(
+                    session = session,
+                    openSession = {
+                        openCount++
+                        OpenedSession(session)
+                    },
+                )
+
+            harness.createGame("Fabio")
+            harness.receiveGameCreated("g1", sampleState())
+
+            assertEquals(1, openCount)
+
+            // Simulate failure
+            session.deliverError(RuntimeException("crash"))
+            flushRepository()
+
+            // Wait for reconnect delay (2000ms in code, but we use Unconfined)
+            // Actually, with Unconfined and delay, it might still need some real time or yield
+            kotlinx.coroutines.delay(2500)
+            yield()
+
+            // Should have tried to reconnect
+            assertTrue(openCount > 1)
+        }
+    }
+
+    @Test
+    fun `ensureConnected triggers re-join if gameId is present`() {
+        runBlocking {
+            val session = FakeWebSocketSession()
+            val harness = createHarness(session = session)
+
+            // Manually set gameId to simulate previous state
+            harness.receiveGameCreated("g1", sampleState())
+
+            // Disconnect
+            harness.disconnect()
+            flushRepository()
+
+            // Now trigger ensureConnected again (via createGame for example, or any action)
+            harness.createGame("Fabio")
+
+            // Should have sent JOIN_GAME for g1 after connection
+            assertTrue(harness.sentTypes().contains(WebSocketType.JOIN_GAME))
+        }
+    }
+
+    @Test
     fun `formatThrowable handles exception without message`() {
         runBlocking {
             val harness =
