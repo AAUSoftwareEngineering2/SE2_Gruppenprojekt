@@ -11,6 +11,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import java.util.UUID
@@ -25,175 +27,207 @@ class GameService(
     private val serviceScope = CoroutineScope(Dispatchers.Default)
 
     // Stores all active game sessions by their 5-digit game id
-    private val sessions: ConcurrentHashMap<String, GameSession> = ConcurrentHashMap()
+    private val rooms: ConcurrentHashMap<String, SyncGameRoom> = ConcurrentHashMap()
 
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(hostPlayerName: String): RoomActionResult {
-        val gameId = generateGameCode()
+    suspend fun createGame(hostPlayerName: String): RoomActionResult {
+        val gameId: String
         val playerId = UUID.randomUUID().toString()
-        val session = gameSessionFactory(gameId, playerId, hostPlayerName)
+        val session: GameSession
 
-        sessions[gameId] = session
+        synchronized(rooms) {
+            gameId = generateGameCode()
+            session = gameSessionFactory(gameId, playerId, hostPlayerName)
+
+            rooms[gameId] = SyncGameRoom(session)
+        }
+
         return RoomActionResult(gameId, playerId, session.state)
     }
 
     /**
      * Returns a game session by its game id.
      */
-    fun getGame(gameId: String): GameSession? = sessions[gameId]
+    fun getGame(gameId: String): GameSession? = rooms[gameId]?.session
 
     /**
      * Removes the game session with the given game id.
      */
     fun removeGame(gameId: String) {
-        sessions.remove(gameId)
+        rooms.remove(gameId)
     }
 
     /**
      * Starts an existing game.
      */
-    fun startGame(
+    suspend fun startGame(
         gameId: String,
         actorId: String,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        return session.startGame(actorId)
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            return room.session.startGame(actorId)
+        }
     }
 
     /**
      * Adds a player to a game
      */
-    fun joinGame(
+    suspend fun joinGame(
         gameId: String,
         playerName: String,
     ): RoomActionResult {
-        val session = fetchGameSession(gameId)
+        val room = fetchGameRoom(gameId)
         val playerId = UUID.randomUUID().toString()
 
-        val updatedState = session.addPlayer(playerId, playerName)
-
-        return RoomActionResult(gameId, playerId, updatedState)
+        room.mutex.withLock {
+            val updatedState = room.session.addPlayer(playerId, playerName)
+            return RoomActionResult(gameId, playerId, updatedState)
+        }
     }
 
     /**
      * Removes a player from a game
      */
-    fun leaveGame(
+    suspend fun leaveGame(
         gameId: String,
         playerId: String,
     ): GameState {
-        val session = fetchGameSession(gameId)
+        val room = fetchGameRoom(gameId)
 
-        val updatedState = session.removePlayer(playerId)
+        room.mutex.withLock {
+            val updatedState = room.session.removePlayer(playerId)
 
-        if (updatedState.players.isEmpty()) sessions.remove(gameId)
+            if (updatedState.players.isEmpty()) rooms.remove(gameId)
 
-        return updatedState
+            return updatedState
+        }
     }
 
-    fun getStateForReconnection(
+    suspend fun getStateForReconnection(
         gameId: String,
         playerId: String,
     ): GameState {
-        val session =
-            sessions[gameId]
+        val room =
+            rooms[gameId]
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
-        if (!session.hasPlayer(playerId)) {
-            throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
-        }
+        room.mutex.withLock {
+            if (!room.session.hasPlayer(playerId)) {
+                throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
+            }
 
-        return session.state
+            return room.session.state
+        }
     }
 
-    fun chooseAuction(
+    suspend fun chooseAuction(
         gameId: String,
         actorId: String,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        val state = session.chooseAuction(actorId)
-        scheduleAutoClose(gameId)
-        return state
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            val state = room.session.chooseAuction(actorId)
+            scheduleAuctionAutoClose(gameId)
+            return state
+        }
     }
 
-    fun placeBid(
+    suspend fun placeBid(
         gameId: String,
         actorId: String,
         amount: Int,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        val state = session.placeBid(actorId, amount)
-        scheduleAutoClose(gameId)
-        return state
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            val state = room.session.placeBid(actorId, amount)
+            scheduleAuctionAutoClose(gameId)
+            return state
+        }
     }
 
-    private fun scheduleAutoClose(gameId: String) {
-        val session = sessions[gameId] ?: return
-        val endTime = session.state.auctionState?.timerEndTime ?: return
+    private fun scheduleAuctionAutoClose(gameId: String) {
+        val room = rooms[gameId] ?: return
+        val endTime =
+            room.session.state.auctionState
+                ?.timerEndTime ?: return
 
         serviceScope.launch {
             delay(5100) // Wait slightly longer than the timer to be safe
-            val currentSession = sessions[gameId] ?: return@launch
-            // If the timerEndTime is still the same, it means no new bid happened
-            if (currentSession.state.auctionState?.timerEndTime == endTime) {
-                val updatedState = closeAuctionAfterTimeout(gameId)
-                if (updatedState != null) {
+            val currentRoom = rooms[gameId] ?: return@launch
+
+            currentRoom.mutex.withLock {
+                // If the timerEndTime is still the same, it means no new bid happened
+                if (currentRoom.session.state.auctionState
+                        ?.timerEndTime == endTime
+                ) {
+                    val updatedState = currentRoom.session.closeAuctionAfterTimeout()
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
                 }
             }
         }
     }
 
-    fun closeAuctionAfterTimeout(gameId: String): GameState? {
-        val session = sessions[gameId] ?: return null
-        return session.closeAuctionAfterTimeout()
-    }
-
-    fun resolveAuction(
+    suspend fun resolveAuction(
         gameId: String,
         actorId: String,
         auctioneerBuysCard: Boolean,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        return session.resolveAuction(actorId, auctioneerBuysCard)
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            return room.session.resolveAuction(actorId, auctioneerBuysCard)
+        }
     }
 
-    fun chooseTrade(
+    suspend fun chooseTrade(
         gameId: String,
         actorId: String,
         targetId: String,
         animalType: AnimalType,
         offeredMoneyCardIds: Set<String>,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        return session.chooseTrade(
-            actorId = actorId,
-            targetId = targetId,
-            animalType = animalType,
-            offeredMoneyCardIds = offeredMoneyCardIds,
-        )
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            return room.session.chooseTrade(
+                actorId = actorId,
+                targetId = targetId,
+                animalType = animalType,
+                offeredMoneyCardIds = offeredMoneyCardIds,
+            )
+        }
     }
 
-    fun respondToTrade(
+    suspend fun respondToTrade(
         gameId: String,
         actorId: String,
         counterOfferedMoneyCardIds: Set<String>,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        return session.respondToTrade(
-            actorId = actorId,
-            counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-        )
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            return room.session.respondToTrade(
+                actorId = actorId,
+                counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+            )
+        }
     }
 
-    fun finishTradeReveal(
+    suspend fun finishTradeReveal(
         gameId: String,
         actorId: String,
     ): GameState {
-        val session = fetchGameSession(gameId)
-        return session.endTradeReveal()
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            return room.session.endTradeReveal()
+        }
     }
 
     /**
@@ -204,13 +238,18 @@ class GameService(
 
         do {
             code = Random.nextInt(10000, 100000).toString()
-        } while (sessions.containsKey(code))
+        } while (rooms.containsKey(code))
 
         return code
     }
 
-    private fun fetchGameSession(gameId: String): GameSession =
-        checkNotNull(sessions[gameId]) {
+    private fun fetchGameRoom(gameId: String): SyncGameRoom =
+        checkNotNull(rooms[gameId]) {
             "Game registry does not contain game session $gameId"
         }
 }
+
+private class SyncGameRoom(
+    val session: GameSession,
+    val mutex: Mutex = Mutex(),
+)
