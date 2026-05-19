@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -193,12 +194,10 @@ class GameWebSocketClient(
         playerId: String,
     ): String {
         val requestId = UUID.randomUUID().toString()
-        // We might want a specific ReconnectPayload if the server expects it,
-        // but for now we reuse JoinGamePayload concept if applicable.
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                JoinGamePayload.serializer(),
-                JoinGamePayload(gameId = gameId, playerName = playerId),
+                ReconnectPayload.serializer(),
+                ReconnectPayload(gameId = gameId, playerId = playerId),
             )
         send(WebSocketEnvelope(WebSocketType.RECONNECT, requestId, payload))
         return requestId
