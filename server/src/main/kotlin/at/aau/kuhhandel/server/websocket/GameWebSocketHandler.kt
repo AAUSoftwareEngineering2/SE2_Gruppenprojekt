@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
+import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -42,6 +43,7 @@ class GameWebSocketHandler(
     // Used in tests
     handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
 ) : TextWebSocketHandler() {
+    private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
     private val handlerScope = CoroutineScope(handlerContext)
 
     @EventListener
@@ -76,7 +78,8 @@ class GameWebSocketHandler(
                 }
             } catch (e: GameException) {
                 sendError(session, requestId, e.reason)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.error("Unexpected error message on session ${session.id}", e)
                 sendError(session, requestId, GameErrorReason.INTERNAL_SERVER_ERROR)
             }
         }
