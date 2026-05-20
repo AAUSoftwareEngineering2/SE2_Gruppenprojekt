@@ -118,7 +118,7 @@ class GamePersistenceServiceTest
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
             assertEquals(1, loaded.players.size)
             assertEquals("player-1", loaded.players.single().id)
-            assertEquals(0, loaded.currentPlayerIndex)
+            assertEquals(-1, loaded.currentPlayerIndex)
         }
 
         @Test

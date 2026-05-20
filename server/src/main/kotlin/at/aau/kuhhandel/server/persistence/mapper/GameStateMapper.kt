@@ -103,7 +103,11 @@ object GameStateMapper {
 
         val activeUsername = game.activePlayer?.username
         val currentPlayerIndex =
-            playerStates.indexOfFirst { it.id == activeUsername }.coerceAtLeast(0)
+            if (activeUsername == null) {
+                -1
+            } else {
+                playerStates.indexOfFirst { it.name == activeUsername }.let { if (it == -1) 0 else it }
+            }
 
         val animalDeck =
             AnimalDeck(
@@ -127,7 +131,7 @@ object GameStateMapper {
                     playerStates,
                 )
             }
-        val tradeDto = trade?.let { entity -> toTradeState(entity, sortedPlayers, playerStates) }
+        val tradeDto = trade?.let { entity -> toTradeState(gameIdString, entity, sortedPlayers, playerStates) }
 
         val phase = toGamePhase(game.status, animalDeck, playerStates)
 
@@ -201,40 +205,45 @@ object GameStateMapper {
         players: List<GamePlayerEntity>,
         playerStates: List<PlayerState>,
     ): AuctionState {
-        val auctioneerUsername =
-            entity.game.activePlayer?.username
-                ?: playerStates.firstOrNull()?.id
-                ?: ""
-        val highestBidderUsername =
-            entity.highestBidder?.let { bidder -> findUsernameForPlayer(bidder, players) }
+        val auctioneerId =
+            entity.game.activePlayer?.let { active ->
+                players.firstOrNull { it.user.username == active.username }?.user?.passwordHash
+            } ?: playerStates.firstOrNull()?.id ?: ""
+        val highestBidderId =
+            entity.highestBidder?.let { bidder -> findPlayerIdForPlayer(bidder, players) }
 
         return AuctionState(
             auctionCard = AnimalCard(id = "auction-$gameId", type = entity.currentAnimal),
-            auctioneerId = auctioneerUsername,
+            auctioneerId = auctioneerId,
             highestBid = entity.highestBid,
-            highestBidderId = highestBidderUsername,
+            highestBidderId = highestBidderId,
             timerEndTime = entity.timerEndTime,
         )
     }
 
     private fun toTradeState(
+        gameId: String,
         entity: TradeStateEntity,
         players: List<GamePlayerEntity>,
         playerStates: List<PlayerState>,
     ): TradeState {
-        val challengerUsername = findUsernameForPlayer(entity.challenger, players) ?: ""
-        val defenderUsername = findUsernameForPlayer(entity.defender, players) ?: ""
+        val challengerId = findPlayerIdForPlayer(entity.challenger, players) ?: ""
+        val defenderId = findPlayerIdForPlayer(entity.defender, players) ?: ""
+        val challengerEntityId = requireNotNull(entity.challenger.id)
+        val defenderEntityId = requireNotNull(entity.defender.id)
         val challengerOfferValues = decodeIntList(entity.challengerOfferJson)
         val defenderOfferValues = decodeIntList(entity.defenderOfferJson)
 
+        // Reconstruct card IDs using the same formula as expandMoney so they match the
+        // player's restored inventory.
         val challengerMoneyIds =
-            synthesizeMoneyIds(challengerUsername, challengerOfferValues, prefix = "ch")
+            expandMoneyIds(gameId, challengerEntityId, challengerOfferValues)
         val defenderMoneyIds =
-            synthesizeMoneyIds(defenderUsername, defenderOfferValues, prefix = "de")
+            expandMoneyIds(gameId, defenderEntityId, defenderOfferValues)
 
         return TradeState(
-            initiatorId = challengerUsername,
-            targetId = defenderUsername,
+            initiatorId = challengerId,
+            targetId = defenderId,
             requestedAnimalType = entity.animalType,
             offeredMoney = challengerOfferValues.sum(),
             offeredMoneyCardIds = challengerMoneyIds.toSet(),
@@ -249,11 +258,30 @@ object GameStateMapper {
         )
     }
 
-    private fun synthesizeMoneyIds(
-        username: String,
+    /**
+     * Generates card IDs that match the formula used in [expandMoney], so that
+     * `offeredMoneyCardIds` in a restored [TradeState] point to real cards in the player's hand.
+     *
+     * The DB stores only aggregate value counts (e.g. "two 10-chips"), so we reproduce the same
+     * deterministic ID for index 0, 1, … within each denomination bucket.
+     */
+    private fun expandMoneyIds(
+        gameId: String,
+        playerId: Long,
         values: List<Int>,
-        prefix: String,
-    ): List<String> = values.mapIndexed { i, value -> "$prefix-$username-$value-$i" }
+    ): List<String> {
+        val counterByValue = mutableMapOf<Int, Int>()
+        return values.map { value ->
+            val i = counterByValue.getOrDefault(value, 0)
+            counterByValue[value] = i + 1
+            "p$playerId-m-$value-$i-$gameId"
+        }
+    }
+
+    private fun findPlayerIdForPlayer(
+        player: GamePlayerEntity,
+        all: List<GamePlayerEntity>,
+    ): String? = all.firstOrNull { it.id == player.id }?.user?.passwordHash
 
     private fun findUsernameForPlayer(
         player: GamePlayerEntity,

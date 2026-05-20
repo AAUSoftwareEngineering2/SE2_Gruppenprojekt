@@ -19,6 +19,7 @@ import at.aau.kuhhandel.server.persistence.repository.TradeStateRepository
 import at.aau.kuhhandel.server.persistence.repository.UserRepository
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -43,11 +44,13 @@ class GamePersistenceService(
     private val auctionStateRepository: AuctionStateRepository,
     private val tradeStateRepository: TradeStateRepository,
 ) {
+    private val logger = LoggerFactory.getLogger(GamePersistenceService::class.java)
     @Transactional
     fun saveGameState(
         gameId: String,
         state: GameState,
     ) {
+        logger.info("[DB WRITE] Saving game $gameId | phase=${state.phase}")
         val gameKey = gameId.toLongOrNull() ?: error("Game id must be numeric, was '$gameId'")
         val game = upsertGame(gameKey, state)
         val playerEntities = syncPlayers(game, state.players)
@@ -61,10 +64,12 @@ class GamePersistenceService(
             }
         game.faceUpAnimalType = state.currentFaceUpCard?.type
         gameRepository.save(game)
+        logger.info("[DB WRITE] Saved game $gameId successfully")
     }
 
     @Transactional(readOnly = true)
     fun loadGameState(gameId: String): GameState? {
+        logger.info("[DB READ] Loading game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return null
         val game = gameRepository.findById(gameKey).orElse(null) ?: return null
         val players = gamePlayerRepository.findByGameOrderBySeatOrderAsc(game)
@@ -80,7 +85,7 @@ class GamePersistenceService(
         val auction = auctionStateRepository.findById(gameKey).orElse(null)
         val trade = tradeStateRepository.findById(gameKey).orElse(null)
 
-        return GameStateMapper.toGameState(
+        val result = GameStateMapper.toGameState(
             game = game,
             players = players,
             animalsByPlayer = animalsByPlayer,
@@ -89,10 +94,13 @@ class GamePersistenceService(
             auction = auction,
             trade = trade,
         )
+        logger.info("[DB READ] Loaded game $gameId | phase=${result.phase}")
+        return result
     }
 
     @Transactional
     fun deleteGame(gameId: String) {
+        logger.info("[DB DELETE] Deleting game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return
         val game = gameRepository.findById(gameKey).orElse(null) ?: return
         auctionStateRepository.deleteById(gameKey)
