@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
@@ -10,6 +12,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -389,6 +392,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_executesAndPublishesEvent() =
         runTest {
+            service = GameService(
+                eventPublisher = eventPublisher,
+                gameSessionFactory = { _, _, _ -> gameSession },
+                serviceScope = backgroundScope,
+            )
+
             val result = service.createGame("Player 1")
             val auctionState =
                 AuctionState(
@@ -405,10 +414,7 @@ class GameServiceTest {
             service.chooseAuction(result.gameId, result.playerId)
 
             // The timer is set to 5 seconds. We need to wait for the coroutine.
-            // In a real unit test we might want to mock the dispatcher or use runTest,
-            // but since it's using CoroutineScope(Dispatchers.Default), it's harder to control.
-            // For now, let's just wait a bit longer than 5.1s.
-            Thread.sleep(6000)
+            advanceTimeBy(6000)
 
             // We verify that an event is published, and specifically one for the auto-close.
             verify(gameSession).closeAuctionAfterTimeout()
@@ -418,6 +424,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_abortsIfTimerChanged() =
         runTest {
+            service = GameService(
+                eventPublisher = eventPublisher,
+                gameSessionFactory = { _, _, _ -> gameSession },
+                serviceScope = backgroundScope,
+            )
+
             val auctionState1 =
                 AuctionState(
                     auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
@@ -434,24 +446,30 @@ class GameServiceTest {
             service.chooseAuction(result.gameId, result.playerId)
 
             // Simulate a bid halfway through
-            Thread.sleep(3000)
+            advanceTimeBy(3000)
             whenever(
                 gameSession.state,
             ).thenReturn(gameStateToReturn.copy(auctionState = auctionState2))
 
             // Wait for the first scheduleAutoClose to finish
-            Thread.sleep(3000)
+            advanceTimeBy(3000)
 
             // The auction should NOT be closed by the FIRST scheduleAutoClose
             // because the timerEndTime changed.
             // Note: the SECOND scheduleAutoClose (from placeBid) might still be running.
             verify(gameSession, never()).closeAuctionAfterTimeout()
-            verify(eventPublisher, after(1000).never()).publishEvent(any<GameStateChangedEvent>())
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 
     @Test
     fun test_scheduleAuctionAutoClose_abortsIfAuctionAlreadyClosed() =
         runTest {
+            service = GameService(
+                eventPublisher = eventPublisher,
+                gameSessionFactory = { _, _, _ -> gameSession },
+                serviceScope = backgroundScope,
+            )
+
             val result = service.createGame("Player 1")
             val auctionState =
                 AuctionState(
@@ -469,7 +487,7 @@ class GameServiceTest {
             // Simulate auction closing
             whenever(gameSession.state).thenReturn(gameStateToReturn)
 
-            Thread.sleep(6000)
+            advanceTimeBy(6000)
             // Should not have published more events from scheduleAutoClose if it checks isClosed
             // No NEW events after the auction is closed
             verify(gameSession, never()).closeAuctionAfterTimeout()
@@ -479,13 +497,19 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_returnsEarlyIfSessionRemoved() =
         runTest {
+            service = GameService(
+                eventPublisher = eventPublisher,
+                gameSessionFactory = { _, _, _ -> gameSession },
+                serviceScope = backgroundScope,
+            )
+
             val result = service.createGame("Player 1")
 
             service.chooseAuction(result.gameId, result.playerId)
 
             service.removeGame(result.gameId)
 
-            Thread.sleep(6000)
+            advanceTimeBy(6000)
             verify(gameSession, never()).closeAuctionAfterTimeout()
 
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())

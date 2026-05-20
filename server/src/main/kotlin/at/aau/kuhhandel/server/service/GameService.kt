@@ -23,8 +23,9 @@ import kotlin.random.Random
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
+    // Used in tests
+    private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) {
-    private val serviceScope = CoroutineScope(Dispatchers.Default)
 
     // Stores all active game sessions by their 5-digit game id
     private val rooms: ConcurrentHashMap<String, SyncGameRoom> = ConcurrentHashMap()
