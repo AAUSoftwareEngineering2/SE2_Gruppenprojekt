@@ -177,6 +177,7 @@ fun DeckView(
 fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    players: List<PlayerState> = emptyList(),
 ) {
     if (auction == null) return
 
@@ -214,12 +215,13 @@ fun AuctionView(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+            val bidderName =
+                auction.highestBidderId?.let { id ->
+                    players.find { it.id == id }?.name ?: id
+                } ?: "No bids yet"
+
             Text(
-                "Highest Bid: ${auction.highestBid}",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                "By: ${auction.highestBidderId ?: "No bids yet"}",
+                "By: $bidderName",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

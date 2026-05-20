@@ -15,6 +15,7 @@ enum class WebSocketType {
     RESPOND_TO_TRADE,
     PLACE_BID,
     AUCTION_BUY_BACK,
+    FINISH_TRADE_REVEAL,
 
     // Server events
     GAME_CREATED,

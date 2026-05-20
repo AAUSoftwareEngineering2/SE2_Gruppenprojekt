@@ -4,11 +4,21 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class GameErrorReason {
-    // Connection infrastructure
+    // Internal (only used in an ErrorPayload and never in a thrown GameException)
+    INTERNAL_SERVER_ERROR,
+
+    // Communication
+    INVALID_MESSAGE_FORMAT,
+    UNSUPPORTED_MESSAGE_TYPE,
+    MISSING_PAYLOAD,
+    INVALID_PAYLOAD,
+
+    // Session connection
     SESSION_ALREADY_BOUND_TO_GAME,
     SESSION_NOT_BOUND_TO_GAME,
     SESSION_NOT_BOUND_TO_PLAYER,
     GAME_NOT_FOUND,
+    PLAYER_NOT_IN_GAME,
 
     // Game flow
     INVALID_PHASE,

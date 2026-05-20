@@ -260,4 +260,13 @@ class GameViewModel(
     fun selectTargetPlayer(playerId: String?) {
         selectedTargetPlayerId.value = playerId
     }
+
+    fun finishTradeReveal() {
+        scope.launch {
+            try {
+                repository.finishTradeReveal()
+            } catch (_: Exception) {
+            }
+        }
+    }
 }

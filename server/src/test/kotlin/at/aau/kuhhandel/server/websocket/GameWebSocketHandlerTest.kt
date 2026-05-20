@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
@@ -5,6 +7,7 @@ import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -17,14 +20,20 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.JsonElement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNotNull
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
@@ -43,11 +52,13 @@ class GameWebSocketHandlerTest {
     private lateinit var session1: WebSocketSession
     private lateinit var session2: WebSocketSession
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
     @BeforeEach
     fun setUp() {
         gameService = mock(GameService::class.java)
         connectionRegistry = mock(ConnectionRegistry::class.java)
-        handler = GameWebSocketHandler(gameService, connectionRegistry)
+        handler = GameWebSocketHandler(gameService, connectionRegistry, testDispatcher)
 
         session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
@@ -90,54 +101,68 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `CREATE_GAME binds session and returns GAME_CREATED`() {
-        val createdSession =
-            GameSession(
-                gameId = "game-1",
-                hostPlayerId = "player-1",
-                hostPlayerName = "Player 1",
+    fun `handleTextMessage sends ERROR when GameService throws`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(gameService.startGame("game-1", "player-1")).thenThrow(IllegalStateException())
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.START_GAME,
+                requestId = "req-1",
             )
 
-        val returnedResult =
-            RoomActionResult(
-                "game-1",
-                "player-1",
-                createdSession.state,
-            )
-
-        whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.CREATE_GAME,
-            requestId = "req-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    CreateGamePayload.serializer(),
-                    CreateGamePayload("Player 1"),
-                ),
-        )
-
-        verify(gameService).createGame("Player 1")
-        verify(connectionRegistry).bindGame("session-1", "game-1")
-        verify(connectionRegistry).bindPlayer("session-1", "player-1")
-
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_CREATED, response.type)
-        assertEquals("req-1", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameCreatedPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("game-1", payload.gameId)
-        assertEquals(createdSession.state, payload.state)
-    }
+            verify(gameService).startGame("game-1", "player-1")
+            assertErrorResponse(session1, "req-1", GameErrorReason.INTERNAL_SERVER_ERROR.name)
+        }
 
     @Test
-    fun `CREATE_GAME with bound session returns ERROR`() {
+    fun `CREATE_GAME binds session and sends GAME_CREATED`() =
+        runTest(testDispatcher.scheduler) {
+            val createdSession =
+                GameSession(
+                    gameId = "game-1",
+                    hostPlayerId = "player-1",
+                    hostPlayerName = "Player 1",
+                )
+
+            val returnedResult =
+                RoomActionResult(
+                    "game-1",
+                    "player-1",
+                    createdSession.state,
+                )
+
+            whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.CREATE_GAME,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        CreateGamePayload.serializer(),
+                        CreateGamePayload("Player 1"),
+                    ),
+            )
+
+            verify(gameService).createGame("Player 1")
+            verify(connectionRegistry).bindGame("session-1", "game-1")
+            verify(connectionRegistry).bindPlayer("session-1", "player-1")
+
+            val response = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_CREATED, response.type)
+            assertEquals("req-1", response.requestId)
+
+            val payload = decodePayload(response, GameCreatedPayload.serializer())
+
+            assertEquals("game-1", payload.gameId)
+            assertEquals(createdSession.state, payload.state)
+        }
+
+    @Test
+    fun `CREATE_GAME with bound session sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
 
         sendEnvelope(
@@ -155,93 +180,43 @@ class GameWebSocketHandlerTest {
         verify(connectionRegistry).gameIdFor("session-1")
         verify(connectionRegistry, never()).bindGame(any(), any())
 
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-1", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("This connection is already bound to a game", payload.message)
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `CREATE_GAME does not respond to closed session`() {
-        val createdSession =
-            GameSession(
-                gameId = "game-1",
-                hostPlayerId = "player-1",
-                hostPlayerName = "Player 1",
+    fun `START_GAME sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            whenever(gameService.startGame("game-1", "player-1")).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.START_GAME,
+                requestId = "req-1",
             )
 
-        val returnedResult =
-            RoomActionResult(
-                "game-1",
-                "player-1",
-                createdSession.state,
-            )
+            verify(gameService).startGame("game-1", "player-1")
 
-        whenever(session1.isOpen).thenReturn(false)
-        whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.CREATE_GAME,
-            requestId = "req-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    CreateGamePayload.serializer(),
-                    CreateGamePayload("Player 1"),
-                ),
-        )
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
-        verify(session1, never()).sendMessage(any())
-    }
+            assertEquals(gameState, payload1.state)
 
-    @Test
-    fun `START_GAME broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
 
-        val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
-        whenever(gameService.startGame("game-1", "player-1")).thenReturn(gameState)
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.START_GAME,
-            requestId = "req-2",
-        )
-
-        verify(gameService).startGame("game-1", "player-1")
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-2", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
-            )
-
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(gameState, payload2.state)
-    }
+            assertEquals(gameState, payload2.state)
+        }
 
     @Test
     fun `START_GAME with no bound game sends ERROR`() {
@@ -254,112 +229,67 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-1", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("No game bound to this connection", payload.message)
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `START_GAME with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.startGame("game-1", "player-1")).thenReturn(null)
+    fun `JOIN_GAME binds game and player, sends GAME_JOINED, and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            val state =
+                GameState(
+                    players = listOf(PlayerState("player-1", "Player 1")),
+                    hostPlayerId = "player-1",
+                )
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.START_GAME,
-            requestId = "req-2",
-        )
+            val returnedResult =
+                RoomActionResult(
+                    "game-1",
+                    "player-1",
+                    state,
+                )
 
-        verify(gameService).startGame("game-1", "player-1")
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-2", response.requestId)
+            whenever(
+                gameService.joinGame("game-1", "Player 1"),
+            ).thenReturn(returnedResult)
 
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.JOIN_GAME,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        JoinGamePayload.serializer(),
+                        JoinGamePayload("game-1", "Player 1"),
+                    ),
             )
 
-        assertEquals("Game not found", payload.message)
-    }
+            verify(gameService).joinGame("game-1", "Player 1")
+            verify(connectionRegistry).bindGame("session-1", "game-1")
+            verify(connectionRegistry).bindPlayer("session-1", "player-1")
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_JOINED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameJoinedPayload.serializer())
+
+            assertEquals("player-1", payload1.playerId)
+            assertEquals(state, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(state, payload2.state)
+        }
 
     @Test
-    fun `JOIN_GAME binds game and player, sends GAME_JOINED, and broadcasts GAME_STATE_UPDATED`() {
-        val state =
-            GameState(
-                players = listOf(PlayerState("player-1", "Player 1")),
-                hostPlayerId = "player-1",
-            )
-
-        val returnedResult =
-            RoomActionResult(
-                "game-1",
-                "player-1",
-                state,
-            )
-
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
-
-        whenever(
-            gameService.joinGame("game-1", "Player 1"),
-        ).thenReturn(returnedResult)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.JOIN_GAME,
-            requestId = "req-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
-                ),
-        )
-
-        verify(gameService).joinGame("game-1", "Player 1")
-        verify(connectionRegistry).bindGame("session-1", "game-1")
-        verify(connectionRegistry).bindPlayer("session-1", "player-1")
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_JOINED, response1.type)
-        assertEquals("req-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameJoinedPayload.serializer(),
-                requireNotNull(response1.payload),
-            )
-
-        assertEquals("player-1", payload1.playerId)
-        assertEquals(state, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(state, payload2.state)
-    }
-
-    @Test
-    fun `JOIN_GAME with bound game returns ERROR`() {
+    fun `JOIN_GAME with bound game sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
 
         sendEnvelope(
@@ -374,20 +304,20 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse("This connection is already bound to a game")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `JOIN_GAME with missing payload returns ERROR`() {
+    fun `JOIN_GAME with missing payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(session = session1, type = WebSocketType.JOIN_GAME, requestId = "req-1")
 
-        assertErrorResponse("Missing payload for JOIN_GAME")
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
     }
 
     @Test
-    fun `JOIN_GAME with invalid payload returns ERROR`() {
+    fun `JOIN_GAME with invalid payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
@@ -401,51 +331,48 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse("Invalid payload for JOIN_GAME")
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
     @Test
-    fun `LEAVE_GAME unbinds session, sends GAME_LEFT, and broadcasts GAME_STATE_UPDATED`() {
-        val returnedState =
-            GameState(
-                players = listOf(PlayerState("player-1", "Player 1")),
-                hostPlayerId = "player-1",
+    fun `LEAVE_GAME unbinds session, sends GAME_LEFT, and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(PlayerState("player-2", "Player 2")),
+                    hostPlayerId = "player-2",
+                )
+
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+
+            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.LEAVE_GAME,
+                requestId = "req-1",
             )
 
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+            verify(gameService).leaveGame("game-1", "player-1")
+            verify(connectionRegistry).unbind("session-1")
 
-        whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_LEFT, response1.type)
+            assertEquals("req-1", response1.requestId)
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.LEAVE_GAME,
-            requestId = "req-1",
-        )
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
 
-        verify(gameService).leaveGame("game-1", "player-1")
-        verify(connectionRegistry).unbind("session-1")
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_LEFT, response1.type)
-        assertEquals("req-1", response1.requestId)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(returnedState, payload2.state)
-    }
+            assertEquals(returnedState, payload2.state)
+        }
 
     @Test
-    fun `LEAVE_GAME with no bound game returns ERROR`() {
+    fun `LEAVE_GAME with no bound game sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
@@ -455,11 +382,11 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse("No game bound to this connection")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `LEAVE_GAME with no bound player returns ERROR`() {
+    fun `LEAVE_GAME with no bound player sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn(null)
 
@@ -470,182 +397,211 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse("No player bound to this connection")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER.name)
     }
 
     @Test
-    fun `CHOOSE_AUCTION returns GAME_STATE_UPDATED and broadcasts to others`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+    fun `send does not send message to closed session`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(),
+                    hostPlayerId = null,
+                )
 
-        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
-        whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf())
 
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.CHOOSE_AUCTION,
-                requestId = "req-3",
+            whenever(session1.isOpen).thenReturn(false)
+            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.LEAVE_GAME,
+                requestId = "req-1",
             )
 
-        handler.handleMessage(
-            session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
+            verify(session1, never()).sendMessage(any())
+        }
+
+    @Test
+    fun `broadcastStateUpdate ignores closed sessions`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(PlayerState("player-2", "Player 2")),
+                    hostPlayerId = "player-2",
+                )
+
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+
+            whenever(session2.isOpen).thenReturn(false)
+            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.LEAVE_GAME,
+                requestId = "req-1",
+            )
+
+            verify(session2, never()).sendMessage(any())
+        }
+
+    @Test
+    fun `RECONNECT reconnects session and sends SNAPSHOT`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(PlayerState("player-1", "Player 1")),
+                    hostPlayerId = "player-1",
+                )
+
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+            whenever(
+                gameService.getStateForReconnection("game-1", "player-1"),
+            ).thenReturn(returnedState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.RECONNECT,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload("game-1", "player-1"),
+                    ),
+            )
+
+            verify(connectionRegistry).bindGame("session-1", "game-1")
+            verify(connectionRegistry).bindPlayer("session-1", "player-1")
+
+            val response = captureResponse(session1)
+            assertEquals(WebSocketType.SNAPSHOT, response.type)
+            assertEquals("req-1", response.requestId)
+
+            val payload = decodePayload(response, GameStatePayload.serializer())
+
+            assertEquals(returnedState, payload.state)
+        }
+
+    @Test
+    fun `RECONNECT with bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.JOIN_GAME,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
                 ),
-            ),
         )
 
-        verify(gameService).chooseAuction("game-1", "player-1")
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-3", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
-            )
-
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(gameState, payload2.state)
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `CHOOSE_AUCTION with no bound game returns ERROR`() {
+    fun `RECONNECT with missing payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
-        val envelope =
-            WebSocketEnvelope(
+        sendEnvelope(session = session1, type = WebSocketType.RECONNECT, requestId = "req-1")
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `RECONNECT with invalid payload sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.RECONNECT,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    CreateGamePayload.serializer(),
+                    CreateGamePayload("Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
+
+    @Test
+    fun `CHOOSE_AUCTION sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+            val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+            whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
+
+            sendEnvelope(
+                session1,
                 type = WebSocketType.CHOOSE_AUCTION,
-                requestId = "req-3",
+                requestId = "req-1",
             )
 
-        handler.handleMessage(
+            verify(gameService).chooseAuction("game-1", "player-1")
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
+
+    @Test
+    fun `CHOOSE_AUCTION with no bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
             session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
+            type = WebSocketType.CHOOSE_AUCTION,
+            requestId = "req-1",
         )
 
         verifyNoInteractions(gameService)
-
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-3", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("No game bound to this connection", payload.message)
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `CHOOSE_AUCTION with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(null)
-
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.CHOOSE_AUCTION,
-                requestId = "req-4",
-            )
-
-        handler.handleMessage(
-            session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
-        )
-
-        verify(gameService).chooseAuction("game-1", "player-1")
-
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-4", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("Game not found", payload.message)
-    }
-
-    @Test
-    fun `invalid message format returns ERROR`() {
+    fun `invalid message format sends ERROR`() {
         handler.handleMessage(session1, TextMessage("HELLO"))
 
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("Invalid message format", payload.message)
-
         verifyNoInteractions(gameService, connectionRegistry)
+        verifyNoInteractions(gameService, gameService)
+        assertErrorResponse(session1, null, GameErrorReason.INVALID_MESSAGE_FORMAT.name)
     }
 
     @Test
-    fun `unsupported server event type returns ERROR`() {
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.GAME_CREATED,
-                requestId = "req-unsupported",
-            )
-
-        handler.handleMessage(
+    fun `unsupported message type sends ERROR`() {
+        sendEnvelope(
             session1,
-            TextMessage(
-                WebSocketJson.json.encodeToString(
-                    WebSocketEnvelope.serializer(),
-                    envelope,
-                ),
-            ),
+            type = WebSocketType.GAME_CREATED,
+            requestId = "req-1",
         )
 
-        val response = captureResponse(session1)
-        assertEquals(WebSocketType.ERROR, response.type)
-        assertEquals("req-unsupported", response.requestId)
-
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
-
-        assertEquals("Unsupported message type", payload.message)
-
         verifyNoInteractions(gameService, connectionRegistry)
+        assertErrorResponse(session1, "req-1", GameErrorReason.UNSUPPORTED_MESSAGE_TYPE.name)
     }
 
     @Test
@@ -663,72 +619,71 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `INITIATE_TRADE happy path broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+    fun `INITIATE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.TRADE_OFFER)
-        whenever(
-            gameService.chooseTrade("game-1", "player-1", "player-2", AnimalType.COW, emptySet()),
-        ).thenReturn(gameState)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
-                        challengedPlayerId = "player-2",
-                        animalType = AnimalType.COW,
-                        moneyCardIds = emptySet(),
-                    ),
+            val gameState = GameState(phase = GamePhase.TRADE_OFFER)
+            whenever(
+                gameService.chooseTrade(
+                    "game-1",
+                    "player-1",
+                    "player-2",
+                    AnimalType.COW,
+                    emptySet(),
                 ),
-        )
+            ).thenReturn(gameState)
 
-        verify(gameService).chooseTrade(
-            "game-1",
-            "player-1",
-            "player-2",
-            AnimalType.COW,
-            emptySet(),
-        )
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-trade-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.INITIATE_TRADE,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        InitiateTradePayload.serializer(),
+                        InitiateTradePayload(
+                            challengedPlayerId = "player-2",
+                            animalType = AnimalType.COW,
+                            moneyCardIds = emptySet(),
+                        ),
+                    ),
             )
 
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
+            verify(gameService).chooseTrade(
+                "game-1",
+                "player-1",
+                "player-2",
+                AnimalType.COW,
+                emptySet(),
             )
 
-        assertEquals(gameState, payload2.state)
-    }
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
 
     @Test
-    fun `INITIATE_TRADE without bound game returns ERROR`() {
+    fun `INITIATE_TRADE with no bound game sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-2",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     InitiateTradePayload.serializer(),
@@ -741,32 +696,32 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse("No game bound to this connection")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `INITIATE_TRADE with missing payload returns ERROR`() {
+    fun `INITIATE_TRADE with missing payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-3",
+            requestId = "req-1",
         )
 
-        assertErrorResponse("Missing payload for INITIATE_TRADE")
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
     }
 
     @Test
-    fun `INITIATE_TRADE with invalid payload returns ERROR`() {
+    fun `INITIATE_TRADE with invalid payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-4",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
@@ -774,157 +729,62 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse("Invalid payload for INITIATE_TRADE")
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
     @Test
-    fun `INITIATE_TRADE when service rejects with IllegalArgument returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(
-            gameService.chooseTrade(
-                "game-1",
-                "player-1",
-                "player-2",
-                AnimalType.COW,
-                emptySet(),
-            ),
-        ).thenThrow(IllegalArgumentException("Unknown challenged player player-2"))
+    fun `RESPOND_TO_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-5",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
-                        challengedPlayerId = "player-2",
-                        animalType = AnimalType.COW,
-                        moneyCardIds = emptySet(),
-                    ),
-                ),
-        )
-
-        assertErrorResponse("Unknown challenged player player-2")
-    }
-
-    @Test
-    fun `INITIATE_TRADE when service rejects with IllegalState returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(
-            gameService.chooseTrade(
-                "game-1",
-                "player-1",
-                "player-2",
-                AnimalType.COW,
-                emptySet(),
-            ),
-        ).thenThrow(IllegalStateException("Cannot start a trade during phase NOT_STARTED"))
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-6",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
-                        challengedPlayerId = "player-2",
-                        animalType = AnimalType.COW,
-                        moneyCardIds = emptySet(),
-                    ),
-                ),
-        )
-
-        assertErrorResponse("Cannot start a trade during phase NOT_STARTED")
-    }
-
-    @Test
-    fun `INITIATE_TRADE with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(
-            gameService.chooseTrade("game-1", "player-1", "player-2", AnimalType.COW, emptySet()),
-        ).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.INITIATE_TRADE,
-            requestId = "req-trade-7",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
-                        challengedPlayerId = "player-2",
-                        animalType = AnimalType.COW,
-                        moneyCardIds = emptySet(),
-                    ),
-                ),
-        )
-
-        assertErrorResponse("Game not found")
-    }
-
-    @Test
-    fun `RESPOND_TO_TRADE happy path broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
-
-        val gameState = GameState(phase = GamePhase.TRADE_REVEAL)
-        whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(gameState)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.RESPOND_TO_TRADE,
-            requestId = "req-resp-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    RespondToTradePayload.serializer(),
-                    RespondToTradePayload(
-                        respondingPlayerId = "player-2",
-                        counterOfferedMoneyCardIds = emptySet(),
-                    ),
-                ),
-        )
-
-        verify(gameService).respondToTrade("game-1", "player-2", emptySet())
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-resp-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
+            val gameState = GameState(phase = GamePhase.TRADE_REVEAL)
+            whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(
+                gameState,
             )
 
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.RESPOND_TO_TRADE,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        RespondToTradePayload.serializer(),
+                        RespondToTradePayload(
+                            respondingPlayerId = "player-2",
+                            counterOfferedMoneyCardIds = emptySet(),
+                        ),
+                    ),
             )
 
-        assertEquals(gameState, payload2.state)
-    }
+            verify(gameService).respondToTrade("game-1", "player-2", emptySet())
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
 
     @Test
-    fun `RESPOND_TO_TRADE without bound game returns ERROR`() {
+    fun `RESPOND_TO_TRADE with no bound game sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.RESPOND_TO_TRADE,
-            requestId = "req-resp-2",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
@@ -936,94 +796,90 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse("No game bound to this connection")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `RESPOND_TO_TRADE when service rejects with IllegalArgument returns ERROR`() {
+    fun `RESPOND_TO_TRADE with missing payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        val errorMessage = "Only the challenged player can respond to the trade"
-        whenever(gameService.respondToTrade("game-1", "player-1", emptySet()))
-            .thenThrow(IllegalArgumentException(errorMessage))
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.RESPOND_TO_TRADE,
-            requestId = "req-resp-3",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    RespondToTradePayload.serializer(),
-                    RespondToTradePayload(
-                        respondingPlayerId = "player-1",
-                        counterOfferedMoneyCardIds = emptySet(),
-                    ),
-                ),
+            requestId = "req-1",
         )
 
-        assertErrorResponse("Only the challenged player can respond to the trade")
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
     }
 
     @Test
-    fun `RESPOND_TO_TRADE when service rejects with IllegalState returns ERROR`() {
+    fun `RESPOND_TO_TRADE with invalid payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
-        whenever(gameService.respondToTrade("game-1", "player-2", emptySet()))
-            .thenThrow(IllegalStateException("Cannot respond to a trade during phase AUCTION"))
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.RESPOND_TO_TRADE,
-            requestId = "req-resp-4",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    RespondToTradePayload.serializer(),
-                    RespondToTradePayload(
-                        respondingPlayerId = "player-2",
-                        counterOfferedMoneyCardIds = emptySet(),
-                    ),
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
                 ),
         )
 
-        assertErrorResponse("Cannot respond to a trade during phase AUCTION")
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
     @Test
-    fun `RESPOND_TO_TRADE with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(null)
+    fun `PLACE_BID sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.RESPOND_TO_TRADE,
-            requestId = "req-resp-5",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    RespondToTradePayload.serializer(),
-                    RespondToTradePayload(
-                        respondingPlayerId = "player-2",
-                        counterOfferedMoneyCardIds = emptySet(),
+            val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+            whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.PLACE_BID,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        PlaceBidPayload.serializer(),
+                        PlaceBidPayload(amount = 100),
                     ),
-                ),
-        )
+            )
 
-        assertErrorResponse("Game not found")
-    }
+            verify(gameService).placeBid("game-1", "player-1", 100)
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
 
     @Test
-    fun `PLACE_BID happy path broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
-
-        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
-        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
+    fun `PLACE_BID with no bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.PLACE_BID,
-            requestId = "req-bid-1",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     PlaceBidPayload.serializer(),
@@ -1031,42 +887,18 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        verify(gameService).placeBid("game-1", "player-1", 100)
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-bid-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
-            )
-
-        assertEquals(gameState, payload1.state)
-
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
-
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
-            )
-
-        assertEquals(gameState, payload2.state)
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     @Test
-    fun `PLACE_BID with missing player bound returns ERROR`() {
+    fun `PLACE_BID with no bound player sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.PLACE_BID,
-            requestId = "req-bid-1",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     PlaceBidPayload.serializer(),
@@ -1074,147 +906,186 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse("No player bound to this connection")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER.name)
     }
 
     @Test
-    fun `PLACE_BID when service throws exception returns ERROR`() {
+    fun `PLACE_BID with missing payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(
-            gameService.placeBid("game-1", "player-1", 100),
-        ).thenThrow(RuntimeException("Too low"))
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.PLACE_BID,
-            requestId = "req-bid-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    PlaceBidPayload.serializer(),
-                    PlaceBidPayload(amount = 100),
-                ),
+            requestId = "req-1",
         )
 
-        assertErrorResponse("Too low")
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
     }
 
     @Test
-    fun `PLACE_BID with missing game returns ERROR`() {
+    fun `PLACE_BID with invalid payload sends ERROR`() {
         whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
         whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.PLACE_BID,
-            requestId = "req-bid-2",
+            requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    PlaceBidPayload.serializer(),
-                    PlaceBidPayload(amount = 100),
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
                 ),
         )
 
-        assertErrorResponse("Game not found")
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
     @Test
-    fun `AUCTION_BUY_BACK happy path broadcasts GAME_STATE_UPDATED`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+    fun `AUCTION_BUY_BACK sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-        val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
-        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
+            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
 
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
-            requestId = "req-buyback-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    AuctionBuyBackPayload.serializer(),
-                    AuctionBuyBackPayload(buyBack = true),
-                ),
-        )
-
-        verify(gameService).resolveAuction("game-1", "player-1", true)
-
-        val response1 = captureResponse(session1)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-        assertEquals("req-buyback-1", response1.requestId)
-
-        val payload1 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response1.payload),
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.AUCTION_BUY_BACK,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        AuctionBuyBackPayload.serializer(),
+                        AuctionBuyBackPayload(buyBack = true),
+                    ),
             )
 
-        assertEquals(gameState, payload1.state)
+            verify(gameService).resolveAuction("game-1", "player-1", true)
 
-        val response2 = captureResponse(session2)
-        assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-        assertNull(response2.requestId)
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
 
-        val payload2 =
-            WebSocketJson.json.decodeFromJsonElement(
-                GameStatePayload.serializer(),
-                requireNotNull(response2.payload),
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
+
+    @Test
+    fun `AUCTION_BUY_BACK with no bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    AuctionBuyBackPayload.serializer(),
+                    AuctionBuyBackPayload(buyBack = true),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK with missing payload sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-1",
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `AUCTION_BUY_BACK with invalid payload sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.AUCTION_BUY_BACK,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
+
+    @Test
+    fun `FINISH_TRADE_REVEAL sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+
+            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            whenever(gameService.finishTradeReveal("game-1", "player-1")).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.FINISH_TRADE_REVEAL,
+                requestId = "req-1",
             )
 
-        assertEquals(gameState, payload2.state)
-    }
+            verify(gameService).finishTradeReveal("game-1", "player-1")
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+        }
 
     @Test
-    fun `AUCTION_BUY_BACK with missing game returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(null)
+    fun `FINISH_TRADE_REVEAL with no bound game sends ERROR`() {
+        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
             type = WebSocketType.AUCTION_BUY_BACK,
-            requestId = "req-buyback-2",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    AuctionBuyBackPayload.serializer(),
-                    AuctionBuyBackPayload(buyBack = true),
-                ),
+            requestId = "req-1",
         )
 
-        assertErrorResponse("Game not found")
-    }
-
-    @Test
-    fun `AUCTION_BUY_BACK when service throws returns ERROR`() {
-        whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
-        whenever(gameService.resolveAuction("game-1", "player-1", true)).thenThrow(
-            RuntimeException(
-                "Error",
-            ),
-        )
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
-            requestId = "req-buyback-3",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    AuctionBuyBackPayload.serializer(),
-                    AuctionBuyBackPayload(buyBack = true),
-                ),
-        )
-
-        assertErrorResponse("Error")
+        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
     }
 
     private fun sendEnvelope(
         session: WebSocketSession,
         type: WebSocketType,
         requestId: String,
-        payload: kotlinx.serialization.json.JsonElement? = null,
+        payload: JsonElement? = null,
     ) {
         val envelope = WebSocketEnvelope(type = type, requestId = requestId, payload = payload)
         handler.handleMessage(
@@ -1225,14 +1096,16 @@ class GameWebSocketHandlerTest {
         )
     }
 
-    private fun assertErrorResponse(expectedMessage: String) {
-        val response = captureResponse(session1)
+    private fun assertErrorResponse(
+        session: WebSocketSession,
+        expectedRequestId: String?,
+        expectedMessage: String,
+    ) {
+        val response = captureResponse(session)
         assertEquals(WebSocketType.ERROR, response.type)
-        val payload =
-            WebSocketJson.json.decodeFromJsonElement(
-                ErrorPayload.serializer(),
-                requireNotNull(response.payload),
-            )
+        assertEquals(expectedRequestId, response.requestId)
+
+        val payload = decodePayload(response, ErrorPayload.serializer())
         assertEquals(expectedMessage, payload.message)
     }
 
@@ -1244,5 +1117,14 @@ class GameWebSocketHandlerTest {
             WebSocketEnvelope.serializer(),
             captor.value.payload,
         )
+    }
+
+    private fun <T> decodePayload(
+        envelope: WebSocketEnvelope,
+        deserializer: KSerializer<T>,
+    ): T {
+        val payloadJson = envelope.payload
+        assertNotNull(payloadJson)
+        return WebSocketJson.json.decodeFromJsonElement(deserializer, payloadJson)
     }
 }

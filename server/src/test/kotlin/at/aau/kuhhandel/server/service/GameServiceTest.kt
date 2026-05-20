@@ -1,15 +1,22 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerState
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.kotlin.after
@@ -46,52 +53,56 @@ class GameServiceTest {
 
         service = GameService(eventPublisher, { _, _, _ -> gameSession })
 
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(hostPlayerId = "player-1"))
+        whenever(gameSession.state).thenReturn(gameStateToReturn)
     }
 
     @Test
-    fun test_createGame_generatesFiveDigitCode() {
-        // Use the default constructor which runs a real GameSession
-        val service = GameService(eventPublisher)
+    fun test_createGame_generatesFiveDigitCode() =
+        runTest {
+            // Use the default constructor which runs a real GameSession
+            val service = GameService(eventPublisher)
 
-        val result = service.createGame("Player 1")
+            val result = service.createGame("Player 1")
 
-        assertEquals(5, result.gameId.length)
-        assertEquals(GamePhase.NOT_STARTED, result.gameState.phase)
-    }
-
-    @Test
-    fun test_createGame_generatesDifferentCodes() {
-        val firstResult = service.createGame("Player 1")
-        val secondResult = service.createGame("Player 1")
-
-        assertNotEquals(firstResult.gameId, secondResult.gameId)
-    }
+            assertEquals(5, result.gameId.length)
+            assertEquals(GamePhase.NOT_STARTED, result.gameState.phase)
+        }
 
     @Test
-    fun test_createGame_returnsCorrectResult() {
-        // Use the default constructor which runs a real GameSession
-        val service = GameService(eventPublisher)
+    fun test_createGame_generatesDifferentCodes() =
+        runTest {
+            val firstResult = service.createGame("Player 1")
+            val secondResult = service.createGame("Player 1")
 
-        val result = service.createGame("Player 1")
-
-        assertEquals(1, result.gameState.players.size)
-        assertEquals(result.playerId, result.gameState.players[0].id)
-        assertEquals("Player 1", result.gameState.players[0].name)
-    }
+            assertNotEquals(firstResult.gameId, secondResult.gameId)
+        }
 
     @Test
-    fun test_getGame_returnsCorrectSession() {
-        // Use the default constructor which runs a real GameSession
-        val service = GameService(eventPublisher)
+    fun test_createGame_returnsCorrectResult() =
+        runTest {
+            // Use the default constructor which runs a real GameSession
+            val service = GameService(eventPublisher)
 
-        val result = service.createGame("Player 1")
+            val result = service.createGame("Player 1")
 
-        val loadedSession = service.getGame(result.gameId)
+            assertEquals(1, result.gameState.players.size)
+            assertEquals(result.playerId, result.gameState.players[0].id)
+            assertEquals("Player 1", result.gameState.players[0].name)
+        }
 
-        assertNotNull(loadedSession)
-        assertEquals(result.gameId, loadedSession.gameId)
-    }
+    @Test
+    fun test_getGame_returnsCorrectSession() =
+        runTest {
+            // Use the default constructor which runs a real GameSession
+            val service = GameService(eventPublisher)
+
+            val result = service.createGame("Player 1")
+
+            val loadedSession = service.getGame(result.gameId)
+
+            assertNotNull(loadedSession)
+            assertEquals(result.gameId, loadedSession.gameId)
+        }
 
     @Test
     fun test_getGame_returnsNull_forInvalidGameId() {
@@ -101,310 +112,410 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_startGame_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(gameSession.startGame(result.playerId)).thenReturn(gameStateToReturn)
+    fun test_startGame_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.startGame(result.playerId)).thenReturn(gameStateToReturn)
 
-        val state = service.startGame(result.gameId, result.playerId)
+            val state = service.startGame(result.gameId, result.playerId)
 
-        verify(gameSession).startGame(result.playerId)
-        assertEquals(gameStateToReturn, state)
-    }
-
-    @Test
-    fun test_startGame_returnsNull_forInvalidGameId() {
-        val state = service.startGame("fake code", "player-1")
-
-        assertNull(state)
-        verify(gameSession, never()).startGame(any())
-    }
+            verify(gameSession).startGame(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
 
     @Test
-    fun test_removeGame_removesGameSession() {
-        val result = service.createGame("Player 1")
-        val gameId = result.gameId
-
-        assertNotNull(service.getGame(gameId))
-
-        service.removeGame(gameId)
-
-        assertNull(service.getGame(gameId))
-    }
+    fun test_startGame_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.startGame("fake code", "player-1")
+            }
+            verify(gameSession, never()).startGame(any())
+        }
 
     @Test
-    fun test_joinGame_delegatesWork() {
-        val createResult = service.createGame("Player 1")
-        whenever(gameSession.addPlayer(any(), eq("Player 2"))).thenReturn(gameStateToReturn)
+    fun test_removeGame_removesGameSession() =
+        runTest {
+            val result = service.createGame("Player 1")
+            val gameId = result.gameId
 
-        val joinResult = service.joinGame(createResult.gameId, "Player 2")
+            assertNotNull(service.getGame(gameId))
 
-        verify(gameSession).addPlayer(any(), eq("Player 2"))
-        assertNotNull(joinResult)
-        assertEquals(gameStateToReturn, joinResult.gameState)
-    }
+            service.removeGame(gameId)
 
-    @Test
-    fun test_joinGame_returnsNull_forInvalidGameId() {
-        val result = service.joinGame("fake code", "Player 1")
-
-        assertNull(result)
-        verify(gameSession, never()).addPlayer(any(), any())
-    }
+            assertNull(service.getGame(gameId))
+        }
 
     @Test
-    fun test_leaveGame_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(gameSession.removePlayer(result.playerId)).thenReturn(gameStateToReturn)
+    fun test_joinGame_delegatesWork() =
+        runTest {
+            val createResult = service.createGame("Player 1")
+            whenever(gameSession.addPlayer(any(), eq("Player 2"))).thenReturn(gameStateToReturn)
 
-        val state = service.leaveGame(result.gameId, result.playerId)
+            val joinResult = service.joinGame(createResult.gameId, "Player 2")
 
-        verify(gameSession).removePlayer(result.playerId)
-        assertEquals(gameStateToReturn, state)
-    }
-
-    @Test
-    fun test_leaveGame_removesGameWhenEmpty() {
-        val result = service.createGame("Player 1")
-        val returnedState = gameStateToReturn.copy(players = emptyList())
-        whenever(gameSession.removePlayer(result.playerId)).thenReturn(returnedState)
-
-        val state = service.leaveGame(result.gameId, result.playerId)
-
-        verify(gameSession).removePlayer(result.playerId)
-        assertEquals(returnedState, state)
-        assertNull(service.getGame(result.gameId))
-    }
+            verify(gameSession).addPlayer(any(), eq("Player 2"))
+            assertNotNull(joinResult)
+            assertEquals(gameStateToReturn, joinResult.gameState)
+        }
 
     @Test
-    fun test_leaveGame_returnsNull_forInvalidGameId() {
-        val state = service.leaveGame("fake code", "player-1")
-
-        assertNull(state)
-        verify(gameSession, never()).removePlayer(any())
-    }
-
-    @Test
-    fun test_chooseAuction_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(gameSession.chooseAuction(result.playerId)).thenReturn(gameStateToReturn)
-
-        val state = service.chooseAuction(result.gameId, result.playerId)
-
-        verify(gameSession).chooseAuction(result.playerId)
-        assertEquals(gameStateToReturn, state)
-    }
+    fun test_joinGame_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.joinGame("fake code", "Player 1")
+            }
+            verify(gameSession, never()).addPlayer(any(), any())
+        }
 
     @Test
-    fun test_chooseAuction_returnsNull_forInvalidGameId() {
-        val state = service.chooseAuction("fake code", "player-1")
+    fun test_leaveGame_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.removePlayer(result.playerId)).thenReturn(gameStateToReturn)
 
-        assertNull(state)
-        verify(gameSession, never()).chooseAuction(any())
-    }
+            val state = service.leaveGame(result.gameId, result.playerId)
 
-    @Test
-    fun test_placeBid_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(gameSession.placeBid(result.playerId, 10)).thenReturn(gameStateToReturn)
-
-        val state = service.placeBid(result.gameId, result.playerId, 10)
-
-        verify(gameSession).placeBid(result.playerId, 10)
-        assertEquals(gameStateToReturn, state)
-    }
+            verify(gameSession).removePlayer(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
 
     @Test
-    fun test_placeBid_returnsNull_forInvalidGameId() {
-        val result = service.placeBid("fake code", "player-1", 10)
+    fun test_leaveGame_removesGameWhenEmpty() =
+        runTest {
+            val result = service.createGame("Player 1")
+            val returnedState = gameStateToReturn.copy(players = emptyList())
+            whenever(gameSession.removePlayer(result.playerId)).thenReturn(returnedState)
 
-        assertNull(result)
-        verify(gameSession, never()).placeBid(any(), any())
-    }
+            val state = service.leaveGame(result.gameId, result.playerId)
 
-    @Test
-    fun test_closeAuctionAfterTimeout_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(gameStateToReturn)
-
-        val state = service.closeAuctionAfterTimeout(result.gameId)
-
-        verify(gameSession).closeAuctionAfterTimeout()
-        assertEquals(gameStateToReturn, state)
-    }
+            verify(gameSession).removePlayer(result.playerId)
+            assertEquals(returnedState, state)
+            assertNull(service.getGame(result.gameId))
+        }
 
     @Test
-    fun test_closeAuctionAfterTimeout_returnsNull_forInvalidGameId() {
-        val state = service.closeAuctionAfterTimeout("fake code")
-
-        assertNull(state)
-        verify(gameSession, never()).closeAuctionAfterTimeout()
-    }
-
-    @Test
-    fun test_resolveAuction_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(
-            gameSession.resolveAuction(
-                result.playerId,
-                auctioneerBuysCard = false,
-            ),
-        ).thenReturn(gameStateToReturn)
-
-        val state =
-            service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
-
-        verify(gameSession).resolveAuction(result.playerId, auctioneerBuysCard = false)
-        assertEquals(gameStateToReturn, state)
-    }
+    fun test_leaveGame_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.leaveGame("fake code", "player-1")
+            }
+            verify(gameSession, never()).removePlayer(any())
+        }
 
     @Test
-    fun test_resolveAuction_returnsNull_forInvalidGameId() {
-        val result = service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
+    fun test_getStateForReconnection_returnsState() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.hasPlayer(result.playerId)).thenReturn(true)
 
-        assertNull(result)
-        verify(gameSession, never()).resolveAuction(any(), any())
-    }
+            val state = service.getStateForReconnection(result.gameId, result.playerId)
 
-    @Test
-    fun test_chooseTrade_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(
-            gameSession.chooseTrade(
-                result.playerId,
-                "player-2",
-                AnimalType.COW,
-                setOf(),
-            ),
-        ).thenReturn(gameStateToReturn)
-
-        val state =
-            service.chooseTrade(result.gameId, result.playerId, "player-2", AnimalType.COW, setOf())
-
-        verify(gameSession).chooseTrade(result.playerId, "player-2", AnimalType.COW, setOf())
-        assertEquals(gameStateToReturn, state)
-    }
+            verify(gameSession).hasPlayer(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
 
     @Test
-    fun test_chooseTrade_returnsNull_forInvalidGameId() {
-        val result =
-            service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW, setOf())
-
-        assertNull(result)
-        verify(gameSession, never()).chooseTrade(any(), any(), any(), any())
-    }
-
-    @Test
-    fun test_respondToTrade_delegatesWork() {
-        val result = service.createGame("Player 1")
-        whenever(
-            gameSession.respondToTrade(result.playerId, setOf()),
-        ).thenReturn(gameStateToReturn)
-
-        val state =
-            service.respondToTrade(result.gameId, result.playerId, setOf())
-
-        verify(gameSession).respondToTrade(result.playerId, setOf())
-        assertEquals(gameStateToReturn, state)
-    }
+    fun test_getStateForReconnection_throws_forInvalidGameId() =
+        runTest {
+            val exception =
+                assertThrows<GameException> {
+                    service.getStateForReconnection("fake code", "player-1")
+                }
+            assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
+        }
 
     @Test
-    fun test_respondToTrade_returnsNull_forInvalidGameId() {
-        val result = service.respondToTrade("fake code", "player-1", setOf())
+    fun test_getStateForReconnection_throws_forInvalidPlayerId() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.hasPlayer("player-2")).thenReturn(false)
 
-        assertNull(result)
-        verify(gameSession, never()).respondToTrade(any(), any())
-    }
-
-    @Test
-    fun test_scheduleAutoClose_executesAndPublishesEvent() {
-        val result = service.createGame("Player 1")
-        val auctionState =
-            AuctionState(
-                auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
-                auctioneerId = "player-1",
-                timerEndTime = 10000L,
-            )
-
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
-        whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(gameStateToReturn)
-
-        service.chooseAuction(result.gameId, result.playerId)
-
-        // The timer is set to 5 seconds. We need to wait for the coroutine.
-        // In a real unit test we might want to mock the dispatcher or use runTest,
-        // but since it's using CoroutineScope(Dispatchers.Default), it's harder to control.
-        // For now, let's just wait a bit longer than 5.1s.
-        Thread.sleep(6000)
-
-        // We verify that an event is published, and specifically one for the auto-close.
-        verify(gameSession).closeAuctionAfterTimeout()
-        verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
-    }
+            val exception =
+                assertThrows<GameException> {
+                    service.getStateForReconnection(result.gameId, "player-2")
+                }
+            assertEquals(GameErrorReason.PLAYER_NOT_IN_GAME, exception.reason)
+        }
 
     @Test
-    fun test_scheduleAutoClose_abortsIfTimerChanged() {
-        val auctionState1 =
-            AuctionState(
-                auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
-                auctioneerId = "player-1",
-                timerEndTime = 10000L,
-            )
-        val auctionState2 = auctionState1.copy(timerEndTime = 28125L)
+    fun test_chooseAuction_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(gameStateToReturn)
 
-        val result = service.createGame("Player 1")
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(auctionState = auctionState1))
+            val state = service.chooseAuction(result.gameId, result.playerId)
 
-        service.chooseAuction(result.gameId, result.playerId)
-
-        // Simulate a bid halfway through
-        Thread.sleep(3000)
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(auctionState = auctionState2))
-
-        // Wait for the first scheduleAutoClose to finish
-        Thread.sleep(3000)
-
-        // The auction should NOT be closed by the FIRST scheduleAutoClose
-        // because the timerEndTime changed.
-        // Note: the SECOND scheduleAutoClose (from placeBid) might still be running.
-        verify(gameSession, never()).closeAuctionAfterTimeout()
-        verify(eventPublisher, after(1000).never()).publishEvent(any<GameStateChangedEvent>())
-    }
+            verify(gameSession).chooseAuction(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
 
     @Test
-    fun test_scheduleAutoClose_abortsIfAuctionAlreadyClosed() {
-        val result = service.createGame("Player 1")
-        val auctionState =
-            AuctionState(
-                auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
-                auctioneerId = "player-1",
-                timerEndTime = 10000L,
-            )
-
-        whenever(gameSession.state).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
-
-        service.chooseAuction(result.gameId, result.playerId)
-
-        // Simulate auction closing
-        whenever(gameSession.state).thenReturn(gameStateToReturn)
-
-        Thread.sleep(6000)
-        // Should not have published more events from scheduleAutoClose if it checks isClosed
-        // No NEW events after the auction is closed
-        verify(gameSession, never()).closeAuctionAfterTimeout()
-        verify(eventPublisher, after(1000).never()).publishEvent(any<GameStateChangedEvent>())
-    }
+    fun test_chooseAuction_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.chooseAuction("fake code", "player-1")
+            }
+            verify(gameSession, never()).chooseAuction(any())
+        }
 
     @Test
-    fun test_scheduleAutoClose_returnsEarlyIfSessionRemoved() {
-        val result = service.createGame("Player 1")
+    fun test_placeBid_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.placeBid(result.playerId, 10)).thenReturn(gameStateToReturn)
 
-        service.chooseAuction(result.gameId, result.playerId)
+            val state = service.placeBid(result.gameId, result.playerId, 10)
 
-        service.removeGame(result.gameId)
+            verify(gameSession).placeBid(result.playerId, 10)
+            assertEquals(gameStateToReturn, state)
+        }
 
-        Thread.sleep(6000)
-        verify(gameSession, never()).closeAuctionAfterTimeout()
+    @Test
+    fun test_placeBid_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.placeBid("fake code", "player-1", 10)
+            }
+            verify(gameSession, never()).placeBid(any(), any())
+        }
 
-        verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
-    }
+    @Test
+    fun test_resolveAuction_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.resolveAuction(
+                    result.playerId,
+                    auctioneerBuysCard = false,
+                ),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
+
+            verify(gameSession).resolveAuction(result.playerId, auctioneerBuysCard = false)
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_resolveAuction_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
+            }
+            verify(gameSession, never()).resolveAuction(any(), any())
+        }
+
+    @Test
+    fun test_chooseTrade_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.chooseTrade(
+                    result.playerId,
+                    "player-2",
+                    AnimalType.COW,
+                    setOf(),
+                ),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.chooseTrade(
+                    result.gameId,
+                    result.playerId,
+                    "player-2",
+                    AnimalType.COW,
+                    setOf(),
+                )
+
+            verify(gameSession).chooseTrade(result.playerId, "player-2", AnimalType.COW, setOf())
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_chooseTrade_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW, setOf())
+            }
+            verify(gameSession, never()).chooseTrade(any(), any(), any(), any())
+        }
+
+    @Test
+    fun test_respondToTrade_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.respondToTrade(result.playerId, setOf()),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.respondToTrade(result.gameId, result.playerId, setOf())
+
+            verify(gameSession).respondToTrade(result.playerId, setOf())
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_respondToTrade_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.respondToTrade("fake code", "player-1", setOf())
+            }
+            verify(gameSession, never()).respondToTrade(any(), any())
+        }
+
+    @Test
+    fun test_finishTradeReveal_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.endTradeReveal(),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.finishTradeReveal(result.gameId, result.playerId)
+
+            verify(gameSession).endTradeReveal()
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_finishTradeReveal_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.finishTradeReveal("fake code", "player-1")
+            }
+            verify(gameSession, never()).endTradeReveal()
+        }
+
+    @Test
+    fun test_scheduleAuctionAutoClose_executesAndPublishesEvent() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+            val auctionState =
+                AuctionState(
+                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
+                    auctioneerId = "player-1",
+                    timerEndTime = 10000L,
+                )
+
+            whenever(
+                gameSession.state,
+            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
+            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(gameStateToReturn)
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            // The timer is set to 5 seconds. We need to wait for the coroutine.
+            advanceTimeBy(6000)
+
+            // We verify that an event is published, and specifically one for the auto-close.
+            verify(gameSession).closeAuctionAfterTimeout()
+            verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_scheduleAuctionAutoClose_abortsIfTimerChanged() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val auctionState1 =
+                AuctionState(
+                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
+                    auctioneerId = "player-1",
+                    timerEndTime = 10000L,
+                )
+            val auctionState2 = auctionState1.copy(timerEndTime = 28125L)
+
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.state,
+            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState1))
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            // Simulate a bid halfway through
+            advanceTimeBy(3000)
+            whenever(
+                gameSession.state,
+            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState2))
+
+            // Wait for the first scheduleAutoClose to finish
+            advanceTimeBy(3000)
+
+            // The auction should NOT be closed by the FIRST scheduleAutoClose
+            // because the timerEndTime changed.
+            // Note: the SECOND scheduleAutoClose (from placeBid) might still be running.
+            verify(gameSession, never()).closeAuctionAfterTimeout()
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_scheduleAuctionAutoClose_abortsIfAuctionAlreadyClosed() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+            val auctionState =
+                AuctionState(
+                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
+                    auctioneerId = "player-1",
+                    timerEndTime = 10000L,
+                )
+
+            whenever(
+                gameSession.state,
+            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            // Simulate auction closing
+            whenever(gameSession.state).thenReturn(gameStateToReturn)
+
+            advanceTimeBy(6000)
+            // Should not have published more events from scheduleAutoClose if it checks isClosed
+            // No NEW events after the auction is closed
+            verify(gameSession, never()).closeAuctionAfterTimeout()
+            verify(eventPublisher, after(1000).never()).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_scheduleAuctionAutoClose_returnsEarlyIfSessionRemoved() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            service.removeGame(result.gameId)
+
+            advanceTimeBy(6000)
+            verify(gameSession, never()).closeAuctionAfterTimeout()
+
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
+        }
 }

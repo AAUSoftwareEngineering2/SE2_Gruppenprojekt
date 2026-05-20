@@ -78,7 +78,11 @@ class LobbyViewModel(
 
     fun startGame() {
         scope.launch {
-            repository.startGame()
+            try {
+                repository.startGame()
+            } catch (e: Exception) {
+                // Fehlerbehandlung erfolgt über repository.state
+            }
         }
     }
 

@@ -1,7 +1,9 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
@@ -12,17 +14,24 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
+import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Handles game WebSocket messages.
@@ -31,7 +40,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler
 class GameWebSocketHandler(
     private val gameService: GameService,
     private val connectionRegistry: ConnectionRegistry,
+    // Used in tests
+    handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
 ) : TextWebSocketHandler() {
+    private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
+    private val handlerScope = CoroutineScope(handlerContext)
+
     @EventListener
     fun handleGameStateChanged(event: GameStateChangedEvent) {
         broadcastStateUpdate(event.gameId, event.newState)
@@ -41,28 +55,33 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         message: TextMessage,
     ) {
-        val envelope =
-            try {
-                WebSocketJson.json.decodeFromString(
-                    WebSocketEnvelope.serializer(),
-                    message.payload,
-                )
-            } catch (_: Exception) {
-                sendError(session, null, "Invalid message format")
-                return
-            }
+        handlerScope.launch {
+            var requestId: String? = null
 
-        when (envelope.type) {
-            WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
-            WebSocketType.START_GAME -> handleStartGame(session, envelope)
-            WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
-            WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
-            WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
-            WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
-            WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
-            WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
-            WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
-            else -> sendError(session, envelope.requestId, "Unsupported message type")
+            try {
+                val envelope = decodeEnvelope(message)
+                requestId = envelope.requestId
+
+                when (envelope.type) {
+                    WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
+                    WebSocketType.START_GAME -> handleStartGame(session, envelope)
+                    WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
+                    WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
+                    WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
+                    WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
+                    WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
+                    WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
+                    WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
+                    WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
+                    WebSocketType.RECONNECT -> handleReconnect(session, envelope)
+                    else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
+                }
+            } catch (e: GameException) {
+                sendError(session, requestId, e.reason)
+            } catch (e: Exception) {
+                logger.error("Unexpected error message on session ${session.id}", e)
+                sendError(session, requestId, GameErrorReason.INTERNAL_SERVER_ERROR)
+            }
         }
     }
 
@@ -77,19 +96,13 @@ class GameWebSocketHandler(
         connectionRegistry.unbind(session.id)
     }
 
-    private fun handleCreateGame(
+    private suspend fun handleCreateGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        if (connectionRegistry.gameIdFor(session.id) != null) {
-            return sendError(
-                session,
-                envelope.requestId,
-                ERROR_GAME_ALREADY_BOUND,
-            )
-        }
+        ensureNoBoundGame(session.id)
 
-        val payload = decodePayload(session, envelope, CreateGamePayload.serializer()) ?: return
+        val payload = decodePayload(envelope, CreateGamePayload.serializer())
         // For now, uses a temporary player name if no name is provided; will be changed in the future
         val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
 
@@ -118,55 +131,31 @@ class GameWebSocketHandler(
         )
     }
 
-    private fun handleStartGame(
+    private suspend fun handleStartGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
 
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
-
-        val state =
-            gameService.startGame(gameId, actorId)
-                ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        val state = gameService.startGame(gameId, actorId)
 
         sendStateUpdate(session, envelope.requestId, state)
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleJoinGame(
+    private suspend fun handleJoinGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        if (connectionRegistry.gameIdFor(session.id) != null) {
-            return sendError(
-                session,
-                envelope.requestId,
-                ERROR_GAME_ALREADY_BOUND,
-            )
-        }
-
-        val payload =
-            decodePayload(session, envelope, JoinGamePayload.serializer())
-                ?: return
+        ensureNoBoundGame(session.id)
+        val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
         // For now, uses a temporary player name if no name is provided; will be changed in the future
         val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
 
-        val result =
-            gameService.joinGame(gameId, playerName) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_GAME_NOT_FOUND,
-            )
+        val result = gameService.joinGame(gameId, playerName)
 
         val joinedGameId = result.gameId
         val playerId = result.playerId
@@ -194,30 +183,14 @@ class GameWebSocketHandler(
         broadcastStateUpdate(joinedGameId, state, session)
     }
 
-    private fun handleLeaveGame(
+    private suspend fun handleLeaveGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_GAME_BOUND,
-            )
+        val gameId = requireBoundGame(session.id)
+        val playerId = requireBoundPlayer(session.id)
 
-        val playerId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
-
-        val state =
-            gameService.leaveGame(gameId, playerId) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_GAME_NOT_FOUND,
-            )
+        val state = gameService.leaveGame(gameId, playerId)
 
         connectionRegistry.unbind(session.id)
 
@@ -232,202 +205,161 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state)
     }
 
-    private fun handleChooseAuction(
+    private suspend fun handleReconnect(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+        ensureNoBoundGame(session.id)
+        val payload = decodePayload(envelope, ReconnectPayload.serializer())
 
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
+        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
 
-        val state =
-            gameService.chooseAuction(gameId, actorId)
-                ?: return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        connectionRegistry.bindGame(session.id, payload.gameId)
+        connectionRegistry.bindPlayer(session.id, payload.playerId)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.SNAPSHOT,
+                requestId = envelope.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(
+                            state = state,
+                        ),
+                    ),
+            ),
+        )
+    }
+
+    private suspend fun handleChooseAuction(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+
+        val state = gameService.chooseAuction(gameId, actorId)
 
         sendStateUpdate(session, envelope.requestId, state)
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleInitiateTrade(
+    private suspend fun handleInitiateTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
-
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
-
-        val payload =
-            decodePayload(session, envelope, InitiateTradePayload.serializer())
-                ?: return
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+        val payload = decodePayload(envelope, InitiateTradePayload.serializer())
 
         val state =
-            try {
-                gameService.chooseTrade(
-                    gameId,
-                    actorId,
-                    payload.challengedPlayerId,
-                    payload.animalType,
-                    payload.moneyCardIds,
-                )
-            } catch (e: IllegalArgumentException) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid trade request")
-            } catch (e: IllegalStateException) {
-                return sendError(
-                    session,
-                    envelope.requestId,
-                    e.message ?: ERROR_INVALID_TRADE_STATE,
-                )
-            }
+            gameService.chooseTrade(
+                gameId,
+                actorId,
+                payload.challengedPlayerId,
+                payload.animalType,
+                payload.moneyCardIds,
+            )
 
-        if (state == null) {
-            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private suspend fun handleRespondToTrade(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+        val payload = decodePayload(envelope, RespondToTradePayload.serializer())
+
+        val state =
+            gameService.respondToTrade(
+                gameId,
+                actorId,
+                payload.counterOfferedMoneyCardIds,
+            )
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private suspend fun handlePlaceBid(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+        val payload = decodePayload(envelope, PlaceBidPayload.serializer())
+
+        val state = gameService.placeBid(gameId, actorId, payload.amount)
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private suspend fun handleAuctionBuyBack(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+        val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
+
+        val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private suspend fun handleFinishTradeReveal(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+
+        val state = gameService.finishTradeReveal(gameId, actorId)
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private fun ensureNoBoundGame(sessionId: String) {
+        if (connectionRegistry.gameIdFor(sessionId) != null) {
+            throw GameException(GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME)
         }
-
-        sendStateUpdate(session, envelope.requestId, state)
-        broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleRespondToTrade(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
+    private fun requireBoundGame(sessionId: String): String =
+        connectionRegistry.gameIdFor(sessionId)
+            ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_GAME)
 
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
+    private fun requireBoundPlayer(sessionId: String): String =
+        connectionRegistry.playerIdFor(sessionId)
+            ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER)
+
+    private fun decodeEnvelope(message: TextMessage): WebSocketEnvelope =
+        try {
+            WebSocketJson.json.decodeFromString(
+                WebSocketEnvelope.serializer(),
+                message.payload,
             )
-
-        val payload =
-            decodePayload(session, envelope, RespondToTradePayload.serializer())
-                ?: return
-
-        val state =
-            try {
-                gameService.respondToTrade(
-                    gameId,
-                    actorId,
-                    payload.counterOfferedMoneyCardIds,
-                )
-            } catch (e: IllegalArgumentException) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid trade response")
-            } catch (e: IllegalStateException) {
-                return sendError(
-                    session,
-                    envelope.requestId,
-                    e.message ?: ERROR_INVALID_TRADE_STATE,
-                )
-            }
-
-        if (state == null) {
-            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
+        } catch (_: Exception) {
+            throw GameException(GameErrorReason.INVALID_MESSAGE_FORMAT)
         }
-
-        sendStateUpdate(session, envelope.requestId, state)
-        broadcastStateUpdate(gameId, state, session)
-    }
-
-    private fun handlePlaceBid(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
-
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
-
-        val payload =
-            decodePayload(session, envelope, PlaceBidPayload.serializer())
-                ?: return
-
-        val state =
-            try {
-                gameService.placeBid(gameId, actorId, payload.amount)
-            } catch (e: Exception) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid bid")
-            }
-
-        if (state == null) {
-            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
-        }
-
-        sendStateUpdate(session, envelope.requestId, state)
-        broadcastStateUpdate(gameId, state, session)
-    }
-
-    private fun handleAuctionBuyBack(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val gameId =
-            connectionRegistry.gameIdFor(session.id)
-                ?: return sendError(session, envelope.requestId, ERROR_NO_GAME_BOUND)
-
-        val actorId =
-            connectionRegistry.playerIdFor(session.id) ?: return sendError(
-                session,
-                envelope.requestId,
-                ERROR_NO_PLAYER_BOUND,
-            )
-
-        val payload =
-            decodePayload(session, envelope, AuctionBuyBackPayload.serializer())
-                ?: return
-
-        val state =
-            try {
-                gameService.resolveAuction(gameId, actorId, payload.buyBack)
-            } catch (e: Exception) {
-                return sendError(session, envelope.requestId, e.message ?: "Invalid buy back")
-            }
-
-        if (state == null) {
-            return sendError(session, envelope.requestId, ERROR_GAME_NOT_FOUND)
-        }
-
-        sendStateUpdate(session, envelope.requestId, state)
-        broadcastStateUpdate(gameId, state, session)
-    }
 
     private fun <T> decodePayload(
-        session: WebSocketSession,
         envelope: WebSocketEnvelope,
         deserializer: KSerializer<T>,
-    ): T? {
-        val payloadJson = envelope.payload
-        if (payloadJson == null) {
-            sendError(session, envelope.requestId, "Missing payload for ${envelope.type}")
-            return null
-        }
+    ): T {
+        val payloadJson = envelope.payload ?: throw GameException(GameErrorReason.MISSING_PAYLOAD)
         return try {
             WebSocketJson.json.decodeFromJsonElement(deserializer, payloadJson)
         } catch (_: Exception) {
-            sendError(session, envelope.requestId, "Invalid payload for ${envelope.type}")
-            null
+            throw GameException(GameErrorReason.INVALID_PAYLOAD)
         }
     }
 
@@ -498,7 +430,7 @@ class GameWebSocketHandler(
     private fun sendError(
         session: WebSocketSession,
         requestId: String?,
-        message: String,
+        reason: GameErrorReason,
     ) {
         val envelope =
             WebSocketEnvelope(
@@ -507,17 +439,9 @@ class GameWebSocketHandler(
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         ErrorPayload.serializer(),
-                        ErrorPayload(message),
+                        ErrorPayload(reason.name),
                     ),
             )
         send(session, envelope)
-    }
-
-    companion object {
-        private const val ERROR_NO_GAME_BOUND = "No game bound to this connection"
-        private const val ERROR_GAME_ALREADY_BOUND = "This connection is already bound to a game"
-        private const val ERROR_NO_PLAYER_BOUND = "No player bound to this connection"
-        private const val ERROR_GAME_NOT_FOUND = "Game not found"
-        private const val ERROR_INVALID_TRADE_STATE = "Invalid trade state"
     }
 }
