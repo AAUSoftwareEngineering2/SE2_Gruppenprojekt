@@ -213,6 +213,64 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        fun `loaded trade state mirrors the persisted snapshot`() {
+            val state =
+                initialLobbyState().copy(
+                    phase = GamePhase.TRADE_OFFER,
+                    players =
+                        listOf(
+                            PlayerState(
+                                id = "player-1",
+                                name = "player-1",
+                                moneyCards =
+                                    listOf(
+                                        MoneyCard("money-1", 0),
+                                        MoneyCard("money-2", 5),
+                                        MoneyCard("money-3", 10),
+                                    ),
+                            ),
+                            PlayerState(
+                                id = "player-2",
+                                name = "player-2",
+                                moneyCards =
+                                    listOf(
+                                        MoneyCard("money-4", 0),
+                                        MoneyCard("money-5", 5),
+                                        MoneyCard("money-6", 5),
+                                    ),
+                            ),
+                        ),
+                    currentPlayerIndex = 0,
+                    tradeState =
+                        TradeState(
+                            initiatorId = "player-1",
+                            targetId = "player-2",
+                            requestedAnimalType = AnimalType.COW,
+                            offeredMoney = 5,
+                            offeredMoneyCardIds = setOf("money-1", "money-2"),
+                            counterOfferedMoney = null,
+                            counterOfferedMoneyCardIds = setOf(),
+                            isResolved = false,
+                        ),
+                )
+            service.saveGameState("12345", state)
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            assertEquals(GamePhase.TRADE_OFFER, loaded.phase)
+            assertEquals("player-1", loaded.tradeState?.initiatorId)
+            assertEquals("player-2", loaded.tradeState?.targetId)
+            assertEquals(AnimalType.COW, loaded.tradeState?.requestedAnimalType)
+            assertEquals(5, loaded.tradeState?.offeredMoney)
+            assertEquals(2, loaded.tradeState?.offeredMoneyCardIds?.size)
+            assertEquals(null, loaded.tradeState?.counterOfferedMoney)
+            assertEquals(
+                setOf(),
+                loaded.tradeState?.counterOfferedMoneyCardIds,
+            )
+            assertEquals(false, loaded.tradeState?.isResolved)
+        }
+
+        @Test
         fun `saveGameState clears persisted auction when game leaves auction phase`() {
             val withAuction =
                 initialLobbyState().copy(
