@@ -45,6 +45,7 @@ class GamePersistenceService(
     private val tradeStateRepository: TradeStateRepository,
 ) {
     private val logger = LoggerFactory.getLogger(GamePersistenceService::class.java)
+
     @Transactional
     fun saveGameState(
         gameId: String,
@@ -85,15 +86,16 @@ class GamePersistenceService(
         val auction = auctionStateRepository.findById(gameKey).orElse(null)
         val trade = tradeStateRepository.findById(gameKey).orElse(null)
 
-        val result = GameStateMapper.toGameState(
-            game = game,
-            players = players,
-            animalsByPlayer = animalsByPlayer,
-            moneyByPlayer = moneyByPlayer,
-            deck = deck,
-            auction = auction,
-            trade = trade,
-        )
+        val result =
+            GameStateMapper.toGameState(
+                game = game,
+                players = players,
+                animalsByPlayer = animalsByPlayer,
+                moneyByPlayer = moneyByPlayer,
+                deck = deck,
+                auction = auction,
+                trade = trade,
+            )
         logger.info("[DB READ] Loaded game $gameId | phase=${result.phase}")
         return result
     }

@@ -17,7 +17,7 @@ class DebugController(
             )
         }
         return try {
-            persistenceService.loadGameState("00000") // harmless probe, returns null for unknown game
+            persistenceService.loadGameState("00000") // harmless probe; returns null if not found
             mapOf("status" to "OK", "message" to "Database connection is working")
         } catch (e: Exception) {
             mapOf("status" to "ERROR", "message" to (e.message ?: e.javaClass.simpleName))

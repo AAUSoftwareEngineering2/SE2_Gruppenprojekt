@@ -101,4 +101,3 @@ data class PlaceBidPayload(
 data class AuctionBuyBackPayload(
     val buyBack: Boolean,
 )
-

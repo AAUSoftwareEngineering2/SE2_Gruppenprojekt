@@ -38,7 +38,10 @@ object GameStateMapper {
     fun toGameStatus(phase: GamePhase): GameStatus =
         when (phase) {
             GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION -> GameStatus.AUCTION
-            GamePhase.TRADE_OFFER, GamePhase.TRADE_RESPONSE, GamePhase.TRADE_REVEAL -> GameStatus.TRADE
+            GamePhase.TRADE_OFFER,
+            GamePhase.TRADE_RESPONSE,
+            GamePhase.TRADE_REVEAL,
+            -> GameStatus.TRADE
             GamePhase.FINISHED -> GameStatus.FINISHED
             GamePhase.NOT_STARTED, GamePhase.PLAYER_CHOICE -> GameStatus.LOBBY
         }
@@ -106,7 +109,15 @@ object GameStateMapper {
             if (activeUsername == null) {
                 -1
             } else {
-                playerStates.indexOfFirst { it.name == activeUsername }.let { if (it == -1) 0 else it }
+                playerStates.indexOfFirst { it.name == activeUsername }.let {
+                    if (it ==
+                        -1
+                    ) {
+                        0
+                    } else {
+                        it
+                    }
+                }
             }
 
         val animalDeck =
@@ -131,7 +142,10 @@ object GameStateMapper {
                     playerStates,
                 )
             }
-        val tradeDto = trade?.let { entity -> toTradeState(gameIdString, entity, sortedPlayers, playerStates) }
+        val tradeDto =
+            trade?.let { entity ->
+                toTradeState(gameIdString, entity, sortedPlayers, playerStates)
+            }
 
         val phase = toGamePhase(game.status, animalDeck, playerStates)
 

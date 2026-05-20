@@ -20,7 +20,8 @@ class GameSession(
     initialState: GameState? = null,
 ) {
     // Each session manages its own current game state
-    var state: GameState = initialState ?: GameState.fromCreatingPlayer(hostPlayerId, hostPlayerName)
+    var state: GameState =
+        initialState ?: GameState.fromCreatingPlayer(hostPlayerId, hostPlayerName)
         private set
 
     /**
