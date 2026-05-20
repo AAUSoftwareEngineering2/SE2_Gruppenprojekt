@@ -43,7 +43,7 @@ erDiagram
     }
     MATCH_RECONNECT {
         INT id PK "fixed at 1, row absent if no active match"
-        BIGINT game_id
+        TEXT game_id "5-digit lobby/game code issued by server"
         TEXT player_id "UUID issued by server"
         TEXT lobby_code "nullable"
         TEXT server_url
