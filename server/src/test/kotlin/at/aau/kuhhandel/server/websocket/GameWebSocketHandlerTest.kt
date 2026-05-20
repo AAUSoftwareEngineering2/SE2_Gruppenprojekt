@@ -676,7 +676,10 @@ class GameWebSocketHandlerTest {
 
             val responseB = captureResponse(sessionB)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, responseB.type)
-            assertEquals(stateAfterALeaves, decodePayload(responseB, GameStatePayload.serializer()).state)
+            assertEquals(
+                stateAfterALeaves,
+                decodePayload(responseB, GameStatePayload.serializer()).state,
+            )
         }
 
     @Test

@@ -219,12 +219,16 @@ class GameWebSocketHandler(
             val state = gameService.leaveGame(gameId, playerId)
             broadcastStateUpdate(gameId, state)
         } catch (e: Exception) {
-            logger.info("Player {} could not leave game {} on disconnect: {}", playerId, gameId, e.message)
+            logger.info(
+                "Player {} could not leave game {} on disconnect: {}",
+                playerId,
+                gameId,
+                e.message,
+            )
         } finally {
             connectionRegistry.unbind(sessionId)
         }
     }
-
 
     private suspend fun handleReconnect(
         session: WebSocketSession,
