@@ -198,7 +198,14 @@ fun GameScreen(
 
                 GamePhase.PLAYER_CHOICE -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        uiState.gameState?.currentFaceUpCard?.let { card ->
+                        val revealedCard =
+                            if (uiState.currentPhase == GamePhase.PLAYER_CHOICE) {
+                                null // Force deck view in CHOICE phase
+                            } else {
+                                uiState.gameState?.currentFaceUpCard
+                            }
+
+                        revealedCard?.let { card ->
                             Image(
                                 painter = painterResource(id = getAnimalDrawable(card.type)),
                                 contentDescription = null,
@@ -254,6 +261,7 @@ fun GameScreen(
                             AuctionControls(
                                 onBid = onPlaceBid,
                                 currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
+                                myTotalMoney = uiState.myTotalMoney,
                             )
                         } else if (uiState.isAuctioneer &&
                             (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)

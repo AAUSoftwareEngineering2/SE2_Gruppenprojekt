@@ -36,6 +36,7 @@ data class GameUiState(
     val auctionTimerSeconds: Int? = null,
     val errorMessage: String? = null,
     val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
+    val myTotalMoney: Int = 0,
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
@@ -138,9 +139,13 @@ class GameViewModel(
                 currentPhase = currentPhase,
                 deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
                 activeCardLabel =
-                    gameState?.currentFaceUpCard?.let { card ->
-                        "${card.type.name} (#${card.id})"
-                    } ?: "No card revealed",
+                    if (currentPhase == GamePhase.PLAYER_CHOICE) {
+                        "No card revealed"
+                    } else {
+                        gameState?.currentFaceUpCard?.let { card ->
+                            "${card.type.name} (#${card.id})"
+                        } ?: "No card revealed"
+                    },
                 isConnected = repoState.isConnected,
                 canRevealCard =
                     (
@@ -165,6 +170,8 @@ class GameViewModel(
                 myMoneyCards =
                     gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
                         ?: emptyList(),
+                myTotalMoney =
+                    gameState?.players?.find { it.id == repoState.myPlayerId }?.totalMoney() ?: 0,
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,

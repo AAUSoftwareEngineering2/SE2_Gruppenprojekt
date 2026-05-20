@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -220,8 +221,15 @@ fun AuctionView(
                     players.find { it.id == id }?.name ?: id
                 } ?: "No bids yet"
 
+            val bidText =
+                if (auction.highestBidderId != null) {
+                    "By: $bidderName (Bid: ${auction.highestBid}€)"
+                } else {
+                    "By: $bidderName"
+                }
+
             Text(
-                "By: $bidderName",
+                bidText,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -232,15 +240,29 @@ fun AuctionView(
 fun AuctionControls(
     onBid: (Int) -> Unit,
     currentBid: Int,
+    myTotalMoney: Int,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier.padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = { onBid(currentBid + 10) }) { Text("+10") }
-        Button(onClick = { onBid(currentBid + 50) }) { Text("+50") }
-        Button(onClick = { onBid(currentBid + 100) }) { Text("+100") }
+        val options = listOf(10, 50, 100)
+        options.forEach { amount ->
+            val nextBid = currentBid + amount
+            val isBluff = nextBid > myTotalMoney
+            Button(
+                onClick = { onBid(nextBid) },
+                colors =
+                    if (isBluff) {
+                        ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+            ) {
+                Text("+$amount")
+            }
+        }
     }
 }
 
