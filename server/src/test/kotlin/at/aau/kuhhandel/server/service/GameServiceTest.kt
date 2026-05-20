@@ -392,11 +392,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_executesAndPublishesEvent() =
         runTest {
-            service = GameService(
-                eventPublisher = eventPublisher,
-                gameSessionFactory = { _, _, _ -> gameSession },
-                serviceScope = backgroundScope,
-            )
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
 
             val result = service.createGame("Player 1")
             val auctionState =
@@ -424,11 +425,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_abortsIfTimerChanged() =
         runTest {
-            service = GameService(
-                eventPublisher = eventPublisher,
-                gameSessionFactory = { _, _, _ -> gameSession },
-                serviceScope = backgroundScope,
-            )
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
 
             val auctionState1 =
                 AuctionState(
@@ -464,11 +466,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_abortsIfAuctionAlreadyClosed() =
         runTest {
-            service = GameService(
-                eventPublisher = eventPublisher,
-                gameSessionFactory = { _, _, _ -> gameSession },
-                serviceScope = backgroundScope,
-            )
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
 
             val result = service.createGame("Player 1")
             val auctionState =
@@ -497,11 +500,12 @@ class GameServiceTest {
     @Test
     fun test_scheduleAuctionAutoClose_returnsEarlyIfSessionRemoved() =
         runTest {
-            service = GameService(
-                eventPublisher = eventPublisher,
-                gameSessionFactory = { _, _, _ -> gameSession },
-                serviceScope = backgroundScope,
-            )
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
 
             val result = service.createGame("Player 1")
 

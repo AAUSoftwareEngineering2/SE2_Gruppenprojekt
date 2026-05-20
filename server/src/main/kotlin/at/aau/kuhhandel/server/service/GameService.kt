@@ -26,7 +26,6 @@ class GameService(
     // Used in tests
     private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) {
-
     // Stores all active game sessions by their 5-digit game id
     private val rooms: ConcurrentHashMap<String, SyncGameRoom> = ConcurrentHashMap()
 
