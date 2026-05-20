@@ -138,17 +138,18 @@ class GameRepository(
         val collectorJob = launchCollector(events)
         awaitInitialConnection(collectorJob)
 
-        // NEW: If we were already in a game, we MUST re-join to restore state and tell the server we're back
+        // NEW: If we were already in a game, we MUST reconnect to restore state and tell the server we're back
         val currentState = _state.value
         val gameId = currentState.gameId
-        if (gameId != null) {
+        val playerId = currentState.myPlayerId
+        if (gameId != null && playerId != null) {
             scope.launch {
                 try {
-                    // We join again with the same gameId. The server should recognize us
-                    // if we use the same connection or if we provide identification.
-                    client.joinGame(gameId)
+                    // We reconnect with the same gameId and playerId.
+                    // The server will recognize us if we provide identification.
+                    client.reconnect(gameId, playerId)
                 } catch (e: Exception) {
-                    // Silently fail re-join, the user might see a connection error anyway
+                    // Silently fail reconnect, the user might see a connection error anyway
                 }
             }
         }

@@ -525,8 +525,8 @@ class GameRepositoryTest {
             // Now trigger ensureConnected again (via createGame for example, or any action)
             harness.createGame("Fabio")
 
-            // Should have sent JOIN_GAME for g1 after connection
-            assertTrue(harness.sentTypes().contains(WebSocketType.JOIN_GAME))
+            // Should have sent RECONNECT for g1 after connection
+            assertTrue(harness.sentTypes().contains(WebSocketType.RECONNECT))
         }
     }
 
@@ -616,9 +616,11 @@ class GameRepositoryTest {
             val session = FakeWebSocketSession()
             val repository =
                 GameRepository(
-                    GameWebSocketClient(openSession = {
-                        OpenedSession(session)
-                    }),
+                    GameWebSocketClient(
+                        openSession = {
+                            OpenedSession(session)
+                        },
+                    ),
                     CoroutineScope(Dispatchers.Unconfined),
                 )
 
