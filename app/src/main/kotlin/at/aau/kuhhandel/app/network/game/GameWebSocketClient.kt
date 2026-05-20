@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -46,6 +47,7 @@ class GameWebSocketClient(
     private var current: OpenedSession? = null
     private var pendingConnection: CompletableDeferred<Unit>? = null
     private var connectionFailure: Throwable? = null
+    private var isIntentionalDisconnect = false
     private val openSession: suspend () -> OpenedSession = openSession ?: ::defaultOpenSession
 
     /** Returns the connection Flow. The WebSocket opens when collection starts. */
@@ -73,6 +75,7 @@ class GameWebSocketClient(
         CompletableDeferred<Unit>().also { ready ->
             connectionFailure = null
             pendingConnection = ready
+            isIntentionalDisconnect = false
         }
 
     private suspend fun openSessionOrThrow(ready: CompletableDeferred<Unit>): OpenedSession =
@@ -98,8 +101,8 @@ class GameWebSocketClient(
         opened: OpenedSession,
     ) {
         val closeDetails = consumeIncomingFrames(opened)
-        if (closeDetails != null && current === opened) {
-            error(closeDetails)
+        if (current === opened && !isIntentionalDisconnect) {
+            error(closeDetails ?: "WebSocket connection lost unexpectedly")
         }
     }
 
@@ -186,6 +189,20 @@ class GameWebSocketClient(
         return requestId
     }
 
+    suspend fun reconnect(
+        gameId: String,
+        playerId: String,
+    ): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                ReconnectPayload.serializer(),
+                ReconnectPayload(gameId = gameId, playerId = playerId),
+            )
+        send(WebSocketEnvelope(WebSocketType.RECONNECT, requestId, payload))
+        return requestId
+    }
+
     suspend fun leaveGame(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.LEAVE_GAME, requestId))
@@ -262,7 +279,14 @@ class GameWebSocketClient(
         return requestId
     }
 
+    suspend fun finishTradeReveal(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
+        return requestId
+    }
+
     suspend fun disconnect() {
+        isIntentionalDisconnect = true
         pendingConnection = null
         connectionFailure = null
         val active = current ?: return

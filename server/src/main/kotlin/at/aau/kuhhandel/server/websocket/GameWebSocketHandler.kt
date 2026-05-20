@@ -14,17 +14,24 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
+import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Handles game WebSocket messages.
@@ -33,7 +40,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler
 class GameWebSocketHandler(
     private val gameService: GameService,
     private val connectionRegistry: ConnectionRegistry,
+    // Used in tests
+    handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
 ) : TextWebSocketHandler() {
+    private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
+    private val handlerScope = CoroutineScope(handlerContext)
+
     @EventListener
     fun handleGameStateChanged(event: GameStateChangedEvent) {
         broadcastStateUpdate(event.gameId, event.newState)
@@ -43,28 +55,33 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         message: TextMessage,
     ) {
-        var requestId: String? = null
+        handlerScope.launch {
+            var requestId: String? = null
 
-        try {
-            val envelope = decodeEnvelope(message)
-            requestId = envelope.requestId
+            try {
+                val envelope = decodeEnvelope(message)
+                requestId = envelope.requestId
 
-            when (envelope.type) {
-                WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
-                WebSocketType.START_GAME -> handleStartGame(session, envelope)
-                WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
-                WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
-                WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
-                WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
-                WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
-                WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
-                WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
-                else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
+                when (envelope.type) {
+                    WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
+                    WebSocketType.START_GAME -> handleStartGame(session, envelope)
+                    WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
+                    WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
+                    WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
+                    WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
+                    WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
+                    WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
+                    WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
+                    WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
+                    WebSocketType.RECONNECT -> handleReconnect(session, envelope)
+                    else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
+                }
+            } catch (e: GameException) {
+                sendError(session, requestId, e.reason)
+            } catch (e: Exception) {
+                logger.error("Unexpected error message on session ${session.id}", e)
+                sendError(session, requestId, GameErrorReason.INTERNAL_SERVER_ERROR)
             }
-        } catch (e: GameException) {
-            sendError(session, requestId, e.reason)
-        } catch (_: Exception) {
-            sendError(session, requestId, GameErrorReason.INTERNAL_SERVER_ERROR)
         }
     }
 
@@ -76,10 +93,19 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
-        connectionRegistry.unbind(session.id)
+        val gameId = connectionRegistry.gameIdFor(session.id)
+        val playerId = connectionRegistry.playerIdFor(session.id)
+
+        if (gameId != null && playerId != null) {
+            handlerScope.launch {
+                performLeave(session.id, gameId, playerId)
+            }
+        } else {
+            connectionRegistry.unbind(session.id)
+        }
     }
 
-    private fun handleCreateGame(
+    private suspend fun handleCreateGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -114,7 +140,7 @@ class GameWebSocketHandler(
         )
     }
 
-    private fun handleStartGame(
+    private suspend fun handleStartGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -127,7 +153,7 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleJoinGame(
+    private suspend fun handleJoinGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -166,16 +192,12 @@ class GameWebSocketHandler(
         broadcastStateUpdate(joinedGameId, state, session)
     }
 
-    private fun handleLeaveGame(
+    private suspend fun handleLeaveGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
         val gameId = requireBoundGame(session.id)
         val playerId = requireBoundPlayer(session.id)
-
-        val state = gameService.leaveGame(gameId, playerId)
-
-        connectionRegistry.unbind(session.id)
 
         send(
             session,
@@ -185,10 +207,58 @@ class GameWebSocketHandler(
             ),
         )
 
-        broadcastStateUpdate(gameId, state)
+        performLeave(session.id, gameId, playerId)
     }
 
-    private fun handleChooseAuction(
+    private suspend fun performLeave(
+        sessionId: String,
+        gameId: String,
+        playerId: String,
+    ) {
+        try {
+            val state = gameService.leaveGame(gameId, playerId)
+            broadcastStateUpdate(gameId, state)
+        } catch (e: Exception) {
+            logger.info(
+                "Player {} could not leave game {} on disconnect: {}",
+                playerId,
+                gameId,
+                e.message,
+            )
+        } finally {
+            connectionRegistry.unbind(sessionId)
+        }
+    }
+
+    private suspend fun handleReconnect(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        ensureNoBoundGame(session.id)
+        val payload = decodePayload(envelope, ReconnectPayload.serializer())
+
+        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
+
+        connectionRegistry.bindGame(session.id, payload.gameId)
+        connectionRegistry.bindPlayer(session.id, payload.playerId)
+
+        send(
+            session,
+            WebSocketEnvelope(
+                type = WebSocketType.SNAPSHOT,
+                requestId = envelope.requestId,
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        GameStatePayload.serializer(),
+                        GameStatePayload(
+                            state = state,
+                        ),
+                    ),
+            ),
+        )
+    }
+
+    private suspend fun handleChooseAuction(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -201,7 +271,7 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleInitiateTrade(
+    private suspend fun handleInitiateTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -222,7 +292,7 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleRespondToTrade(
+    private suspend fun handleRespondToTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -241,7 +311,7 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handlePlaceBid(
+    private suspend fun handlePlaceBid(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -255,7 +325,7 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
-    private fun handleAuctionBuyBack(
+    private suspend fun handleAuctionBuyBack(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -264,6 +334,19 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
+
+        sendStateUpdate(session, envelope.requestId, state)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    private suspend fun handleFinishTradeReveal(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val gameId = requireBoundGame(session.id)
+        val actorId = requireBoundPlayer(session.id)
+
+        val state = gameService.finishTradeReveal(gameId, actorId)
 
         sendStateUpdate(session, envelope.requestId, state)
         broadcastStateUpdate(gameId, state, session)

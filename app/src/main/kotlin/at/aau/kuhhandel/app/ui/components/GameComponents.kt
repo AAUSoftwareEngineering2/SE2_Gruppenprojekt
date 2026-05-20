@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -177,6 +178,7 @@ fun DeckView(
 fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    players: List<PlayerState> = emptyList(),
 ) {
     if (auction == null) return
 
@@ -214,12 +216,20 @@ fun AuctionView(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+            val bidderName =
+                auction.highestBidderId?.let { id ->
+                    players.find { it.id == id }?.name ?: id
+                } ?: "No bids yet"
+
+            val bidText =
+                if (auction.highestBidderId != null) {
+                    "By: $bidderName (Bid: ${auction.highestBid}€)"
+                } else {
+                    "By: $bidderName"
+                }
+
             Text(
-                "Highest Bid: ${auction.highestBid}",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                "By: ${auction.highestBidderId ?: "No bids yet"}",
+                bidText,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -230,15 +240,38 @@ fun AuctionView(
 fun AuctionControls(
     onBid: (Int) -> Unit,
     currentBid: Int,
+    myTotalMoney: Int,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier.padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = { onBid(currentBid + 10) }) { Text("+10") }
-        Button(onClick = { onBid(currentBid + 50) }) { Text("+50") }
-        Button(onClick = { onBid(currentBid + 100) }) { Text("+100") }
+        val options = listOf(10, 50, 100)
+        options.forEach { amount ->
+            val nextBid = currentBid + amount
+            val isBluff = nextBid > myTotalMoney
+            Button(
+                onClick = {
+                    if (!isBluff) {
+                        onBid(nextBid)
+                    }
+                },
+                enabled = !isBluff,
+                colors =
+                    if (isBluff) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            disabledContainerColor = Color.Red,
+                            disabledContentColor = Color.White.copy(alpha = 0.6f),
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+            ) {
+                Text("+$amount")
+            }
+        }
     }
 }
 

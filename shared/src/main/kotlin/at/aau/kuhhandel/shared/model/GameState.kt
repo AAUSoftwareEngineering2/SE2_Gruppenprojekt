@@ -16,6 +16,8 @@ data class GameState(
     val auctionState: AuctionState? = null,
     // Active trade state, null if no trade is running
     val tradeState: TradeState? = null,
+    // The last event that occurred, e.g. a money bonus from a donkey
+    val lastEvent: GameEvent? = null,
 ) {
     companion object {
         fun fromCreatingPlayer(

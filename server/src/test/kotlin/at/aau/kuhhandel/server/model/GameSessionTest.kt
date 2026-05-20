@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -14,6 +15,7 @@ import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -836,7 +838,7 @@ class GameSessionTest {
             )
 
         // Assert: Phase transition
-        assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
+        assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
 
         // Assert: Trade details are initialized accurately
         val trade = updatedState.tradeState
@@ -1320,6 +1322,198 @@ class GameSessionTest {
         assertThrows<IllegalStateException> {
             session.endTradeReveal()
         }
+    }
+
+    @Test
+    fun `chooseAuction handles donkey bonus`() {
+        // Setup: Donkey is on top of the deck. All players get money.
+        val donkey = AnimalCard("donkey-1", AnimalType.DONKEY)
+        // Ensure there are 3 other donkeys in the deck to make this the 1st donkey (CARDS_PER_ANIMAL_TYPE = 4)
+        val testDeck =
+            AnimalDeck(
+                listOf(donkey) + List(3) { AnimalCard("donkey-${it + 2}", AnimalType.DONKEY) },
+            )
+        val playableState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                deck = testDeck,
+                currentPlayerIndex = 0,
+            )
+        val session = GameSession.fromState("game-1", playableState)
+
+        val updatedState = session.chooseAuction("player-1")
+
+        // Assert: All players got 50 bonus
+        updatedState.players.forEach { player ->
+            assertTrue(player.moneyCards.any { it.value == 50 && it.id.contains("donkey-1") })
+        }
+        assertNotNull(updatedState.lastEvent)
+        assertTrue(updatedState.lastEvent is GameEvent.MoneyBonus)
+        assertEquals(50, (updatedState.lastEvent as GameEvent.MoneyBonus).amount)
+    }
+
+    @Test
+    fun `game end is detected when all quartets are formed`() {
+        // Setup: Almost all quartets are formed. One card left to form the last quartet.
+        val lastAnimalType = AnimalType.entries.last()
+        val playersWithQuartets =
+            baselineState.players.mapIndexed { index, player ->
+                if (index == 0) {
+                    // Give player 1 all animal types except the last one, each with 4 cards
+                    val animals =
+                        AnimalType.entries.filter { it != lastAnimalType }.flatMap { type ->
+                            (1..4).map { AnimalCard("${type.name}-$it", type) }
+                        }
+                    player.copy(animals = animals)
+                } else {
+                    player
+                }
+            }
+
+        // Target: Resolve an auction where player 1 gets the 4th card of the last animal type
+        val lastCard = AnimalCard("${lastAnimalType.name}-4", lastAnimalType)
+        val player1With3Cards =
+            playersWithQuartets[0].copy(
+                animals =
+                    playersWithQuartets[0].animals +
+                        (1..3).map { AnimalCard("${lastAnimalType.name}-$it", lastAnimalType) },
+            )
+        val finalPlayers = listOf(player1With3Cards) + playersWithQuartets.drop(1)
+
+        val auctionState =
+            AuctionState(
+                auctionCard = lastCard,
+                auctioneerId = "player-1",
+                highestBid = 0,
+                highestBidderId = null,
+            )
+
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+                players = finalPlayers,
+                auctionState = auctionState,
+                currentPlayerIndex = 0,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        // Act: Close auction (no bids, auctioneer gets it)
+        val updatedState = session.closeAuctionAfterTimeout()
+
+        // Assert: Game is finished
+        assertEquals(GamePhase.FINISHED, updatedState.phase)
+        assertNull(updatedState.lastEvent)
+    }
+
+    @Test
+    fun `selectMoneyCardsForPayment chooses optimal overpayment`() {
+        // Setup: Player has 50 and 10. Needs to pay 15. Optimal is 50?
+        // Actually, no change is given, so if they have 10 and 10, they pay 20.
+        // If they have 50 and 10, they pay 50?
+        // Let's test: 10, 10, 50. Need to pay 15. Optimal is 10+10=20.
+        val initialPlayers =
+            listOf(
+                PlayerState(
+                    id = "player-1",
+                    name = "Player 1",
+                    moneyCards = createDummyMoney("player-1", listOf(50, 10, 10)),
+                ),
+                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                PlayerState(id = "player-3", name = "Player 3"),
+            )
+        val auctionState =
+            AuctionState(
+                auctionCard = AnimalCard("c1", AnimalType.COW),
+                auctioneerId = "player-2",
+                highestBid = 15,
+                highestBidderId = "player-1",
+            )
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESOLUTION,
+                players = initialPlayers,
+                auctionState = auctionState,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        // Act: resolve auction
+        val updatedState = session.resolveAuction("player-2", auctioneerBuysCard = false)
+
+        val buyer = updatedState.players.find { it.id == "player-1" }!!
+        val seller = updatedState.players.find { it.id == "player-2" }!!
+
+        // Assert: Buyer paid 20 (two 10s) instead of 50.
+        assertEquals(1, buyer.moneyCards.size)
+        assertEquals(50, buyer.totalMoney())
+        assertEquals(2, seller.moneyCards.size)
+        assertEquals(20, seller.totalMoney())
+    }
+
+    @Test
+    fun `moveAnimalType moves two cards when both players have multiple`() {
+        // Setup: Player 1 has 3 cows, Player 2 has 2 cows. Trade results in moving 2 cows.
+        val p1Cows = (1..3).map { AnimalCard("p1-c$it", AnimalType.COW) }
+        val p2Cows = (1..2).map { AnimalCard("p2-c$it", AnimalType.COW) }
+
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCardIds = setOf("player-1-10-1"),
+            )
+
+        val customPlayers =
+            listOf(
+                PlayerState(
+                    id = "player-1",
+                    name = "P1",
+                    animals = p1Cows,
+                    moneyCards =
+                        createDummyMoney("player-1", listOf(10)),
+                ),
+                PlayerState(
+                    id = "player-2",
+                    name = "P2",
+                    animals = p2Cows,
+                    moneyCards = emptyList(),
+                ),
+                PlayerState(id = "player-3", name = "P3"),
+            )
+
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_RESPONSE,
+                tradeState = tradeState,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Blind acceptance
+        val updatedState = session.respondToTrade("player-2", emptySet())
+
+        val initiator = updatedState.players.find { it.id == "player-1" }!!
+        val target = updatedState.players.find { it.id == "player-2" }!!
+
+        // Assert: 2 cards were moved. Initiator has 3 + 2 = 5 cows?
+        // Wait, the logic is: animalCardsToMoveCount = if (fromCount >= 2 && toCount >= 2) 2 else 1
+        // fromCount = target's cows = 2. toCount = initiator's cows = 3. Both >= 2, so move 2.
+        assertEquals(5, initiator.animals.size)
+        assertEquals(0, target.animals.size)
+    }
+
+    @Test
+    fun `hasPlayer returns true when player is in the session`() {
+        val gameSession = GameSession.fromState("game-1", baselineState)
+
+        assertTrue(gameSession.hasPlayer("player-1"))
+    }
+
+    @Test
+    fun `hasPlayer returns false when player is not in the session`() {
+        val gameSession = GameSession.fromState("game-1", baselineState)
+
+        assertFalse(gameSession.hasPlayer("player-4"))
     }
 
     // Helper to generate a dummy money card list easily

@@ -131,6 +131,11 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             exclude(fileFilter)
         }
 
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
     sourceDirectories.setFrom(files("$projectDir/src/main/kotlin"))
     classDirectories.setFrom(files(debugTree))
 
