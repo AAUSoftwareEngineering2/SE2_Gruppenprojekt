@@ -141,13 +141,9 @@ class GameViewModel(
                 currentPhase = currentPhase,
                 deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
                 activeCardLabel =
-                    if (currentPhase == GamePhase.PLAYER_CHOICE) {
-                        "No card revealed"
-                    } else {
-                        gameState?.currentFaceUpCard?.let { card ->
-                            "${card.type.name} (#${card.id})"
-                        } ?: "No card revealed"
-                    },
+                    gameState?.currentFaceUpCard?.let { card ->
+                        "${card.type.name} (#${card.id})"
+                    } ?: "No card revealed",
                 isConnected = repoState.isConnected,
                 canRevealCard =
                     (
