@@ -161,9 +161,11 @@ class GameServiceTest {
     @Test
     fun test_joinGame_throws_forInvalidGameId() =
         runTest {
-            assertThrows<IllegalStateException> {
-                service.joinGame("fake code", "Player 1")
-            }
+            val exception =
+                assertThrows<GameException> {
+                    service.getStateForReconnection("fake code", "player-1")
+                }
+            assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
             verify(gameSession, never()).addPlayer(any(), any())
         }
 

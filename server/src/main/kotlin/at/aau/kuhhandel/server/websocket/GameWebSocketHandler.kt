@@ -93,7 +93,16 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
-        connectionRegistry.unbind(session.id)
+        val gameId = connectionRegistry.gameIdFor(session.id)
+        val playerId = connectionRegistry.playerIdFor(session.id)
+
+        if (gameId != null && playerId != null) {
+            handlerScope.launch {
+                performLeave(session.id, gameId, playerId)
+            }
+        } else {
+            connectionRegistry.unbind(session.id)
+        }
     }
 
     private suspend fun handleCreateGame(
@@ -190,10 +199,6 @@ class GameWebSocketHandler(
         val gameId = requireBoundGame(session.id)
         val playerId = requireBoundPlayer(session.id)
 
-        val state = gameService.leaveGame(gameId, playerId)
-
-        connectionRegistry.unbind(session.id)
-
         send(
             session,
             WebSocketEnvelope(
@@ -202,7 +207,27 @@ class GameWebSocketHandler(
             ),
         )
 
-        broadcastStateUpdate(gameId, state)
+        performLeave(session.id, gameId, playerId)
+    }
+
+    private suspend fun performLeave(
+        sessionId: String,
+        gameId: String,
+        playerId: String,
+    ) {
+        try {
+            val state = gameService.leaveGame(gameId, playerId)
+            broadcastStateUpdate(gameId, state)
+        } catch (e: Exception) {
+            logger.info(
+                "Player {} could not leave game {} on disconnect: {}",
+                playerId,
+                gameId,
+                e.message,
+            )
+        } finally {
+            connectionRegistry.unbind(sessionId)
+        }
     }
 
     private suspend fun handleReconnect(

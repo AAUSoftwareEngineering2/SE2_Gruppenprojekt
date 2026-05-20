@@ -619,6 +619,70 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    fun `afterConnectionClosed triggers leave for bound sessions`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(),
+                    hostPlayerId = null,
+                )
+
+            whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+
+            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+
+            handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
+
+            verify(gameService).leaveGame("game-1", "player-1")
+            verify(connectionRegistry).unbind("session-1")
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+            assertEquals(returnedState, payload2.state)
+        }
+
+    @Test
+    fun `afterConnectionClosed with multiple sessions handles them correctly`() =
+        runTest(testDispatcher.scheduler) {
+            val sessionA = mock(WebSocketSession::class.java)
+            whenever(sessionA.id).thenReturn("session-A")
+            whenever(sessionA.isOpen).thenReturn(true)
+
+            val sessionB = mock(WebSocketSession::class.java)
+            whenever(sessionB.id).thenReturn("session-B")
+            whenever(sessionB.isOpen).thenReturn(true)
+
+            whenever(connectionRegistry.gameIdFor("session-A")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-A")).thenReturn("player-A")
+
+            whenever(connectionRegistry.gameIdFor("session-B")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-B")).thenReturn("player-B")
+
+            val stateAfterALeaves = GameState(players = listOf(PlayerState("player-B", "Player B")))
+            whenever(gameService.leaveGame("game-1", "player-A")).thenReturn(stateAfterALeaves)
+
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(sessionB))
+
+            // Act: Session A disconnects
+            handler.afterConnectionClosed(sessionA, CloseStatus.NORMAL)
+
+            // Assert: A is removed, B gets updated state
+            verify(gameService).leaveGame("game-1", "player-A")
+            verify(connectionRegistry).unbind("session-A")
+
+            val responseB = captureResponse(sessionB)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, responseB.type)
+            assertEquals(
+                stateAfterALeaves,
+                decodePayload(responseB, GameStatePayload.serializer()).state,
+            )
+        }
+
+    @Test
     fun `INITIATE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")

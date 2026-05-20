@@ -80,7 +80,10 @@ class GameService(
         gameId: String,
         playerName: String,
     ): RoomActionResult {
-        val room = fetchGameRoom(gameId)
+        val room =
+            rooms[gameId]
+                ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
         val playerId = UUID.randomUUID().toString()
 
         room.mutex.withLock {

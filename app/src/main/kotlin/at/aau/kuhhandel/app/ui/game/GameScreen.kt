@@ -9,12 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -57,7 +53,6 @@ fun GameScreen(
     onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
-    onLeaveGame: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -152,21 +147,6 @@ fun GameScreen(
                     .padding(top = 48.dp),
         )
 
-        // --- TOP RIGHT: EXIT ---
-        IconButton(
-            onClick = onLeaveGame,
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                contentDescription = "Leave Game",
-                tint = Color.White,
-            )
-        }
-
         // --- CENTER: THE BOARD ---
         Box(
             modifier =
@@ -198,7 +178,14 @@ fun GameScreen(
 
                 GamePhase.PLAYER_CHOICE -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        uiState.gameState?.currentFaceUpCard?.let { card ->
+                        val revealedCard =
+                            if (uiState.currentPhase == GamePhase.PLAYER_CHOICE) {
+                                null // Force deck view in CHOICE phase
+                            } else {
+                                uiState.gameState?.currentFaceUpCard
+                            }
+
+                        revealedCard?.let { card ->
                             Image(
                                 painter = painterResource(id = getAnimalDrawable(card.type)),
                                 contentDescription = null,
@@ -254,6 +241,7 @@ fun GameScreen(
                             AuctionControls(
                                 onBid = onPlaceBid,
                                 currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
+                                myTotalMoney = uiState.myTotalMoney,
                             )
                         } else if (uiState.isAuctioneer &&
                             (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
@@ -388,6 +376,5 @@ fun GameScreenPreview() {
         onInitiateTrade = { _, _ -> },
         onSelectTargetPlayer = {},
         onToggleMoneyCard = {},
-        onLeaveGame = {},
     )
 }

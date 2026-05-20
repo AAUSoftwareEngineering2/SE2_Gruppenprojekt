@@ -774,6 +774,47 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `auction timer handles extreme clock desync`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Simulate server clock being 40 seconds ahead (endTime appears to be 45s in future)
+            val endTime = testScheduler.currentTime + 45000
+            val gameState =
+                GameState(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    auctionState =
+                        AuctionState(
+                            auctioneerId = "p1",
+                            auctionCard = AnimalCard("1", AnimalType.COW),
+                            timerEndTime = endTime,
+                        ),
+                    players = listOf(PlayerState(id = "p1", name = "P1")),
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                )
+
+            advanceTimeBy(1)
+
+            // UI should clamp the value to 5 seconds
+            assertEquals(5, viewModel.uiState.value.auctionTimerSeconds)
+
+            // Advance time and check local countdown
+            advanceTimeBy(1000)
+            assertEquals(4, viewModel.uiState.value.auctionTimerSeconds)
+
+            advanceTimeBy(4000)
+            assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
+        }
+    }
+
+    @Test
     fun `auction timer is null when no auction is active`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
