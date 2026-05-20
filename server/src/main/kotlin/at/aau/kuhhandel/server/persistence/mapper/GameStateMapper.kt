@@ -9,7 +9,6 @@ import at.aau.kuhhandel.server.persistence.entity.PlayerAnimalEntity
 import at.aau.kuhhandel.server.persistence.entity.PlayerMoneyEntity
 import at.aau.kuhhandel.server.persistence.entity.TradeStateEntity
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.enums.TradeStep
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
@@ -38,10 +37,10 @@ object GameStateMapper {
 
     fun toGameStatus(phase: GamePhase): GameStatus =
         when (phase) {
-            GamePhase.AUCTION -> GameStatus.AUCTION
-            GamePhase.TRADE -> GameStatus.TRADE
+            GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION -> GameStatus.AUCTION
+            GamePhase.TRADE_OFFER, GamePhase.TRADE_RESPONSE, GamePhase.TRADE_REVEAL -> GameStatus.TRADE
             GamePhase.FINISHED -> GameStatus.FINISHED
-            GamePhase.NOT_STARTED, GamePhase.PLAYER_TURN, GamePhase.ROUND_END -> GameStatus.LOBBY
+            GamePhase.NOT_STARTED, GamePhase.PLAYER_CHOICE -> GameStatus.LOBBY
         }
 
     fun encodeIntList(values: List<Int>): String = json.encodeToString(intListSerializer, values)
@@ -85,7 +84,7 @@ object GameStateMapper {
             sortedPlayers.map { player ->
                 val playerKey = requireNotNull(player.id) { "GamePlayerEntity must be persisted" }
                 PlayerState(
-                    id = player.user.username,
+                    id = player.user.passwordHash.ifBlank { player.user.username },
                     name = player.user.username,
                     animals =
                         expandAnimals(
@@ -146,6 +145,7 @@ object GameStateMapper {
             players = playerStates,
             auctionState = auctionDto,
             tradeState = tradeDto,
+            hostPlayerId = playerStates.firstOrNull()?.id,
         )
     }
 
@@ -155,8 +155,10 @@ object GameStateMapper {
         players: List<PlayerState>,
     ): GamePhase =
         when (status) {
-            GameStatus.AUCTION -> GamePhase.AUCTION
-            GameStatus.TRADE -> GamePhase.TRADE
+            // On restart mid-auction, return to bidding phase; the auction state is still present.
+            GameStatus.AUCTION -> GamePhase.AUCTION_BIDDING
+            // On restart mid-trade, return to offer phase; the trade state is still present.
+            GameStatus.TRADE -> GamePhase.TRADE_OFFER
             GameStatus.FINISHED -> GamePhase.FINISHED
             GameStatus.LOBBY ->
                 if (players.isEmpty() ||
@@ -164,7 +166,7 @@ object GameStateMapper {
                 ) {
                     GamePhase.NOT_STARTED
                 } else {
-                    GamePhase.PLAYER_TURN
+                    GamePhase.PLAYER_CHOICE
                 }
         }
 
@@ -211,7 +213,6 @@ object GameStateMapper {
             auctioneerId = auctioneerUsername,
             highestBid = entity.highestBid,
             highestBidderId = highestBidderUsername,
-            isClosed = entity.isClosed,
             timerEndTime = entity.timerEndTime,
         )
     }
@@ -232,22 +233,18 @@ object GameStateMapper {
             synthesizeMoneyIds(defenderUsername, defenderOfferValues, prefix = "de")
 
         return TradeState(
-            initiatingPlayerId = challengerUsername,
-            challengedPlayerId = defenderUsername,
+            initiatorId = challengerUsername,
+            targetId = defenderUsername,
             requestedAnimalType = entity.animalType,
-            step = TradeStep.WAITING_FOR_RESPONSE,
             offeredMoney = challengerOfferValues.sum(),
-            offeredMoneyCardIds = challengerMoneyIds,
-            offeredMoneyCardCount = challengerOfferValues.size,
+            offeredMoneyCardIds = challengerMoneyIds.toSet(),
             counterOfferedMoney =
                 if (defenderOfferValues.isEmpty()) {
                     null
                 } else {
-                    defenderOfferValues
-                        .sum()
+                    defenderOfferValues.sum()
                 },
-            counterOfferedMoneyCardIds = defenderMoneyIds,
-            counterOfferedMoneyCardCount = defenderOfferValues.size,
+            counterOfferedMoneyCardIds = defenderMoneyIds.toSet(),
             isResolved = false,
         )
     }

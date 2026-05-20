@@ -31,37 +31,35 @@ class GameServicePersistenceTest
         @Test
         fun `getGame reloads a removed session from the persisted snapshot`() {
             val service = GameService(eventPublisher, persistenceService)
-            val session = service.createGame("player-1")
-            service.startGame(session.gameId)
+            val created = service.createGame("player-1")
 
-            service.removeGame(session.gameId)
+            service.removeGame(created.gameId)
 
-            val reloaded = assertNotNull(service.getGame(session.gameId))
-            assertEquals(session.gameId, reloaded.gameId)
-            assertEquals(GamePhase.PLAYER_TURN, reloaded.gameState.phase)
-            assertEquals(1, reloaded.gameState.players.size)
-            assertEquals("player-1", reloaded.gameState.players[0].id)
+            val reloaded = assertNotNull(service.getGame(created.gameId))
+            assertEquals(created.gameId, reloaded.gameId)
+            assertEquals(GamePhase.NOT_STARTED, reloaded.state.phase)
+            assertEquals(1, reloaded.state.players.size)
+            assertEquals("player-1", reloaded.state.players[0].name)
         }
 
         @Test
         fun `purgeGame removes both the in-memory session and the persisted record`() {
             val service = GameService(eventPublisher, persistenceService)
-            val session = service.createGame("player-1")
-            service.startGame(session.gameId)
+            val created = service.createGame("player-1")
 
-            service.purgeGame(session.gameId)
+            service.purgeGame(created.gameId)
 
-            assertNull(service.getGame(session.gameId))
-            assertNull(persistenceService.loadGameState(session.gameId))
+            assertNull(service.getGame(created.gameId))
+            assertNull(persistenceService.loadGameState(created.gameId))
         }
 
         @Test
         fun `createGame writes a LOBBY snapshot the moment the game is created`() {
             val service = GameService(eventPublisher, persistenceService)
-            val session = service.createGame("player-1")
+            val created = service.createGame("player-1")
 
-            val loaded = assertNotNull(persistenceService.loadGameState(session.gameId))
+            val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
-            assertEquals(listOf("player-1"), loaded.players.map { it.id })
+            assertEquals(listOf("player-1"), loaded.players.map { it.name })
         }
     }

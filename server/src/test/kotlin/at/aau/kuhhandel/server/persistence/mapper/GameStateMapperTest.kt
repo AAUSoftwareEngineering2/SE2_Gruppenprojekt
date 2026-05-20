@@ -6,18 +6,30 @@ import at.aau.kuhhandel.server.persistence.entity.GameStatus as PersistedStatus
 
 class GameStateMapperTest {
     @Test
-    fun `auction phase maps to AUCTION status`() {
+    fun `auction bidding and resolution phases both map to AUCTION status`() {
         kotlin.test.assertEquals(
             PersistedStatus.AUCTION,
-            GameStateMapper.toGameStatus(GamePhase.AUCTION),
+            GameStateMapper.toGameStatus(GamePhase.AUCTION_BIDDING),
+        )
+        kotlin.test.assertEquals(
+            PersistedStatus.AUCTION,
+            GameStateMapper.toGameStatus(GamePhase.AUCTION_RESOLUTION),
         )
     }
 
     @Test
-    fun `trade phase maps to TRADE status`() {
+    fun `all trade phases map to TRADE status`() {
         kotlin.test.assertEquals(
             PersistedStatus.TRADE,
-            GameStateMapper.toGameStatus(GamePhase.TRADE),
+            GameStateMapper.toGameStatus(GamePhase.TRADE_OFFER),
+        )
+        kotlin.test.assertEquals(
+            PersistedStatus.TRADE,
+            GameStateMapper.toGameStatus(GamePhase.TRADE_RESPONSE),
+        )
+        kotlin.test.assertEquals(
+            PersistedStatus.TRADE,
+            GameStateMapper.toGameStatus(GamePhase.TRADE_REVEAL),
         )
     }
 
@@ -30,18 +42,14 @@ class GameStateMapperTest {
     }
 
     @Test
-    fun `not started turn and round end all collapse to LOBBY`() {
+    fun `not started and player choice both collapse to LOBBY`() {
         kotlin.test.assertEquals(
             PersistedStatus.LOBBY,
             GameStateMapper.toGameStatus(GamePhase.NOT_STARTED),
         )
         kotlin.test.assertEquals(
             PersistedStatus.LOBBY,
-            GameStateMapper.toGameStatus(GamePhase.PLAYER_TURN),
-        )
-        kotlin.test.assertEquals(
-            PersistedStatus.LOBBY,
-            GameStateMapper.toGameStatus(GamePhase.ROUND_END),
+            GameStateMapper.toGameStatus(GamePhase.PLAYER_CHOICE),
         )
     }
 

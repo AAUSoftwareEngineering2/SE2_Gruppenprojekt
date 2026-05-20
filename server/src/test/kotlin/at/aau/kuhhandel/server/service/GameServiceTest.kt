@@ -51,7 +51,7 @@ class GameServiceTest {
         eventPublisher = mock(ApplicationEventPublisher::class.java)
         gameSession = mock(GameSession::class.java)
 
-        service = GameService(eventPublisher, { _, _, _ -> gameSession })
+        service = GameService(eventPublisher, gameSessionFactory = { _, _, _ -> gameSession })
 
         whenever(gameSession.state).thenReturn(gameStateToReturn)
     }

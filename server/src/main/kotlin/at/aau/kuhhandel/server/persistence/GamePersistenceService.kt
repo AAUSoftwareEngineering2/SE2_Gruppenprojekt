@@ -135,12 +135,13 @@ class GamePersistenceService(
         players: List<PlayerState>,
     ): Map<String, GamePlayerEntity> {
         val existing = gamePlayerRepository.findByGameOrderBySeatOrderAsc(game)
-        val existingByUsername = existing.associateBy { it.user.username }
-        val incomingUsernames = players.map { it.id }.toSet()
+        // username stores the display name; passwordHash stores the UUID player id
+        val existingByName = existing.associateBy { it.user.username }
+        val incomingNames = players.map { it.name }.toSet()
 
         // Drop players no longer in the game, including their inventories.
         existing
-            .filter { it.user.username !in incomingUsernames }
+            .filter { it.user.username !in incomingNames }
             .forEach { stale ->
                 playerMoneyRepository.deleteByPlayer(stale)
                 playerAnimalRepository.deleteByPlayer(stale)
@@ -149,8 +150,8 @@ class GamePersistenceService(
 
         return players
             .mapIndexed { index, player ->
-                val playerEntity = existingByUsername[player.id]
-                val user = upsertUser(player.id, player.name)
+                val playerEntity = existingByName[player.name]
+                val user = upsertUser(player.name, player.id)
                 val saved =
                     if (playerEntity == null) {
                         gamePlayerRepository.save(
@@ -168,12 +169,19 @@ class GamePersistenceService(
             }.toMap()
     }
 
+    // username = player display name; playerId stored in passwordHash for later reconstruction
     private fun upsertUser(
-        username: String,
-        @Suppress("UNUSED_PARAMETER") displayName: String,
-    ): UserEntity =
-        userRepository.findByUsername(username)
-            ?: userRepository.save(UserEntity(username = username, passwordHash = ""))
+        name: String,
+        playerId: String,
+    ): UserEntity {
+        val existing = userRepository.findByUsername(name)
+        return if (existing != null) {
+            existing.passwordHash = playerId
+            userRepository.save(existing)
+        } else {
+            userRepository.save(UserEntity(username = name, passwordHash = playerId))
+        }
+    }
 
     private fun syncDeck(
         game: GameEntity,
@@ -248,7 +256,6 @@ class GamePersistenceService(
                     highestBidder = highestBidder,
                     passedPlayersJson = passedJson,
                     timerEndTime = auction.timerEndTime,
-                    isClosed = auction.isClosed,
                 ),
             )
         } else {
@@ -257,7 +264,6 @@ class GamePersistenceService(
             existing.highestBidder = highestBidder
             existing.passedPlayersJson = passedJson
             existing.timerEndTime = auction.timerEndTime
-            existing.isClosed = auction.isClosed
             auctionStateRepository.save(existing)
         }
     }
@@ -276,22 +282,22 @@ class GamePersistenceService(
         }
 
         val challenger =
-            playerEntities[trade.initiatingPlayerId]
-                ?: error("Trade initiator ${trade.initiatingPlayerId} not persisted")
+            playerEntities[trade.initiatorId]
+                ?: error("Trade initiator ${trade.initiatorId} not persisted")
         val defender =
-            playerEntities[trade.challengedPlayerId]
-                ?: error("Trade defender ${trade.challengedPlayerId} not persisted")
+            playerEntities[trade.targetId]
+                ?: error("Trade defender ${trade.targetId} not persisted")
 
         val challengerValues =
             state.players
-                .firstOrNull { it.id == trade.initiatingPlayerId }
+                .firstOrNull { it.id == trade.initiatorId }
                 ?.moneyCards
                 ?.filter { it.id in trade.offeredMoneyCardIds }
                 ?.map { it.value }
                 ?: emptyList()
         val defenderValues =
             state.players
-                .firstOrNull { it.id == trade.challengedPlayerId }
+                .firstOrNull { it.id == trade.targetId }
                 ?.moneyCards
                 ?.filter { it.id in trade.counterOfferedMoneyCardIds }
                 ?.map { it.value }

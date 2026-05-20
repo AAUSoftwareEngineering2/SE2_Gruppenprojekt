@@ -60,14 +60,15 @@ class GamePersistenceServiceTest
             val game = gameRepository.findById(12345L).orElseThrow()
             assertEquals(GameStatus.LOBBY, game.status)
             assertEquals(1, gamePlayerRepository.findByGameOrderBySeatOrderAsc(game).size)
-            assertEquals("player-1", game.activePlayer?.username)
+            // currentPlayerIndex is -1 in NOT_STARTED state, so no active player is persisted
+            assertNull(game.activePlayer)
         }
 
         @Test
         fun `saveGameState aggregates money and animal cards per player`() {
             val state =
                 initialLobbyState().copy(
-                    phase = GamePhase.PLAYER_TURN,
+                    phase = GamePhase.PLAYER_CHOICE,
                     players =
                         listOf(
                             PlayerState(
@@ -124,7 +125,7 @@ class GamePersistenceServiceTest
         fun `saveGameState persists an active auction snapshot`() {
             val state =
                 initialLobbyState().copy(
-                    phase = GamePhase.AUCTION,
+                    phase = GamePhase.AUCTION_BIDDING,
                     players =
                         listOf(
                             PlayerState(id = "player-1", name = "player-1"),
@@ -152,7 +153,7 @@ class GamePersistenceServiceTest
             val timerDeadline = 1_700_000_000_000L
             val state =
                 initialLobbyState().copy(
-                    phase = GamePhase.AUCTION,
+                    phase = GamePhase.AUCTION_BIDDING,
                     players =
                         listOf(
                             PlayerState(id = "player-1", name = "player-1"),
@@ -165,19 +166,17 @@ class GamePersistenceServiceTest
                             auctioneerId = "player-1",
                             highestBid = 200,
                             highestBidderId = "player-2",
-                            isClosed = true,
                             timerEndTime = timerDeadline,
                         ),
                 )
             service.saveGameState("12345", state)
 
             val loaded = assertNotNull(service.loadGameState("12345"))
-            assertEquals(GamePhase.AUCTION, loaded.phase)
+            assertEquals(GamePhase.AUCTION_BIDDING, loaded.phase)
             assertEquals(AnimalType.HORSE, loaded.auctionState?.auctionCard?.type)
             assertEquals(200, loaded.auctionState?.highestBid)
             assertEquals("player-2", loaded.auctionState?.highestBidderId)
             assertEquals("player-1", loaded.auctionState?.auctioneerId)
-            assertEquals(true, loaded.auctionState?.isClosed)
             assertEquals(timerDeadline, loaded.auctionState?.timerEndTime)
         }
 
@@ -185,7 +184,7 @@ class GamePersistenceServiceTest
         fun `face up card is persisted and restored on reload`() {
             val state =
                 initialLobbyState().copy(
-                    phase = GamePhase.PLAYER_TURN,
+                    phase = GamePhase.PLAYER_CHOICE,
                     currentFaceUpCard = AnimalCard(id = "face-1", type = AnimalType.PIG),
                 )
             service.saveGameState("12345", state)
@@ -217,7 +216,7 @@ class GamePersistenceServiceTest
         fun `saveGameState clears persisted auction when game leaves auction phase`() {
             val withAuction =
                 initialLobbyState().copy(
-                    phase = GamePhase.AUCTION,
+                    phase = GamePhase.AUCTION_BIDDING,
                     players = listOf(PlayerState(id = "player-1", name = "player-1")),
                     auctionState =
                         AuctionState(
@@ -236,7 +235,7 @@ class GamePersistenceServiceTest
         fun `saveGameState persists trade offers as JSON values`() {
             val state =
                 initialLobbyState().copy(
-                    phase = GamePhase.TRADE,
+                    phase = GamePhase.TRADE_OFFER,
                     players =
                         listOf(
                             PlayerState(
@@ -256,13 +255,13 @@ class GamePersistenceServiceTest
                         ),
                     tradeState =
                         TradeState(
-                            initiatingPlayerId = "player-1",
-                            challengedPlayerId = "player-2",
+                            initiatorId = "player-1",
+                            targetId = "player-2",
                             requestedAnimalType = AnimalType.DOG,
                             offeredMoney = 60,
-                            offeredMoneyCardIds = listOf("m1", "m2"),
+                            offeredMoneyCardIds = setOf("m1", "m2"),
                             counterOfferedMoney = 20,
-                            counterOfferedMoneyCardIds = listOf("m3"),
+                            counterOfferedMoneyCardIds = setOf("m3"),
                         ),
                 )
             service.saveGameState("12345", state)

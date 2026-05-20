@@ -14,7 +14,7 @@ import kotlin.test.assertNotNull
  * mistakes that the slice tests (`@DataJpaTest`, plain `mock`-based handler tests) would miss —
  * missing beans, autoconfig conflicts, JPA scan misconfiguration, etc.
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class ServerApplicationContextTest
     @Autowired
