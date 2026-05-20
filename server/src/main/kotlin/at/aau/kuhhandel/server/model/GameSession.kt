@@ -166,7 +166,7 @@ class GameSession(
         val actor = requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
         ensureNotAuctioneer(actorId)
-        // ensureHasEnoughMoney(actor, amount) // Removed to allow "bluffing" as per flowchart rules
+        ensureHasEnoughMoney(actor, amount)
         ensureBidNotTooLow(amount)
 
         state =

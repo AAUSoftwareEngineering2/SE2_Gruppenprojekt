@@ -85,16 +85,18 @@ class GameViewModel(
             .flatMapLatest { endTime ->
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
                 flow<Int?> {
-                    while (true) {
-                        val remaining =
-                            ((endTime - timeProvider.currentTimeMillis()) / 1000)
-                                .toInt()
-                                .coerceAtLeast(
-                                    0,
-                                )
+                    // Calculate initial remaining seconds once, clamped to [0, 5]
+                    // to handle server/client clock desync.
+                    var remaining =
+                        ((endTime - timeProvider.currentTimeMillis()) / 1000)
+                            .toInt()
+                            .coerceIn(0, 5)
+
+                    while (remaining >= 0) {
                         emit(remaining)
-                        if (remaining <= 0) break
-                        delay(250)
+                        if (remaining == 0) break
+                        delay(1000)
+                        remaining--
                     }
                 }
             }
@@ -176,11 +178,12 @@ class GameViewModel(
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
             )
-        }.stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = GameUiState(),
-        )
+        }.distinctUntilChanged()
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = GameUiState(),
+            )
 
     fun toggleMoneyCardSelection(cardId: String) {
         selectedMoneyCardIds.update { current ->

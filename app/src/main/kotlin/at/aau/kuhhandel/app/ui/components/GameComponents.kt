@@ -252,10 +252,19 @@ fun AuctionControls(
             val nextBid = currentBid + amount
             val isBluff = nextBid > myTotalMoney
             Button(
-                onClick = { onBid(nextBid) },
+                onClick = {
+                    if (!isBluff) {
+                        onBid(nextBid)
+                    }
+                },
+                enabled = !isBluff,
                 colors =
                     if (isBluff) {
-                        ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            disabledContainerColor = Color.Red,
+                            disabledContentColor = Color.White.copy(alpha = 0.6f),
+                        )
                     } else {
                         ButtonDefaults.buttonColors()
                     },
