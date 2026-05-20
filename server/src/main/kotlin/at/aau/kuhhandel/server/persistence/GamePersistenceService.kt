@@ -246,10 +246,10 @@ class GamePersistenceService(
         state: GameState,
     ) {
         val auction = state.auctionState
-        val existing = auctionStateRepository.findById(requireNotNull(game.id)).orElse(null)
+        val existing = auctionStateRepository.findById(game.id).orElse(null)
 
         if (auction == null) {
-            if (existing != null) auctionStateRepository.deleteById(requireNotNull(game.id))
+            if (existing != null) auctionStateRepository.deleteById(game.id)
             return
         }
 
@@ -284,10 +284,10 @@ class GamePersistenceService(
         state: GameState,
     ) {
         val trade = state.tradeState
-        val existing = tradeStateRepository.findById(requireNotNull(game.id)).orElse(null)
+        val existing = tradeStateRepository.findById(game.id).orElse(null)
 
         if (trade == null) {
-            if (existing != null) tradeStateRepository.deleteById(requireNotNull(game.id))
+            if (existing != null) tradeStateRepository.deleteById(game.id)
             return
         }
 

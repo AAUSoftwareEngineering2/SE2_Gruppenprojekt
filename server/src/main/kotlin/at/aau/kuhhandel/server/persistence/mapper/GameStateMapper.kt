@@ -144,7 +144,7 @@ object GameStateMapper {
             }
         val tradeDto =
             trade?.let { entity ->
-                toTradeState(gameIdString, entity, sortedPlayers, playerStates)
+                toTradeState(gameIdString, entity, sortedPlayers)
             }
 
         val phase = toGamePhase(game.status, animalDeck, playerStates)
@@ -239,7 +239,6 @@ object GameStateMapper {
         gameId: String,
         entity: TradeStateEntity,
         players: List<GamePlayerEntity>,
-        playerStates: List<PlayerState>,
     ): TradeState {
         val challengerId = findPlayerIdForPlayer(entity.challenger, players) ?: ""
         val defenderId = findPlayerIdForPlayer(entity.defender, players) ?: ""
