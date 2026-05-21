@@ -46,11 +46,17 @@ class GameWebSocketHandler(
     private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
     private val handlerScope = CoroutineScope(handlerContext)
 
+    /**
+     * Listens for backend game updates and broadcasts them.
+     */
     @EventListener
     fun handleGameStateChanged(event: GameStateChangedEvent) {
         broadcastStateUpdate(event.gameId, event.newState)
     }
 
+    /**
+     * Processes incoming network text messages on a background coroutine scope.
+     */
     override fun handleTextMessage(
         session: WebSocketSession,
         message: TextMessage,
@@ -85,10 +91,16 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Registers a new network connection into the registry.
+     */
     override fun afterConnectionEstablished(session: WebSocketSession) {
         connectionRegistry.bindSession(session)
     }
 
+    /**
+     * Cleans up or disconnects an existing active socket connection.
+     */
     override fun afterConnectionClosed(
         session: WebSocketSession,
         status: CloseStatus,
@@ -105,6 +117,9 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Processes [WebSocketType.CREATE_GAME] commands.
+     */
     private suspend fun handleCreateGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -140,6 +155,9 @@ class GameWebSocketHandler(
         )
     }
 
+    /**
+     * Processes [WebSocketType.START_GAME] commands.
+     */
     private suspend fun handleStartGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -153,6 +171,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.JOIN_GAME] commands.
+     */
     private suspend fun handleJoinGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -192,6 +213,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(joinedGameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.LEAVE_GAME] commands.
+     */
     private suspend fun handleLeaveGame(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -210,6 +234,9 @@ class GameWebSocketHandler(
         performLeave(session.id, gameId, playerId)
     }
 
+    /**
+     * Executes the exit logic in the service and cleans up connection bindings.
+     */
     private suspend fun performLeave(
         sessionId: String,
         gameId: String,
@@ -230,6 +257,9 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Processes [WebSocketType.RECONNECT] commands.
+     */
     private suspend fun handleReconnect(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -267,6 +297,9 @@ class GameWebSocketHandler(
         )
     }
 
+    /**
+     * Processes [WebSocketType.CHOOSE_AUCTION] commands.
+     */
     private suspend fun handleChooseAuction(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -280,6 +313,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.INITIATE_TRADE] commands.
+     */
     private suspend fun handleInitiateTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -301,6 +337,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.RESPOND_TO_TRADE] commands.
+     */
     private suspend fun handleRespondToTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -320,6 +359,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.PLACE_BID] commands.
+     */
     private suspend fun handlePlaceBid(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -334,6 +376,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.AUCTION_BUY_BACK] commands.
+     */
     private suspend fun handleAuctionBuyBack(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -348,6 +393,9 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Processes [WebSocketType.FINISH_TRADE_REVEAL] commands.
+     */
     private suspend fun handleFinishTradeReveal(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -361,20 +409,32 @@ class GameWebSocketHandler(
         broadcastStateUpdate(gameId, state, session)
     }
 
+    /**
+     * Asserts that the session is not linked to any game instance.
+     */
     private fun ensureNoBoundGame(sessionId: String) {
         if (connectionRegistry.gameIdFor(sessionId) != null) {
             throw GameException(GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME)
         }
     }
 
+    /**
+     * Resolves the linked game ID for a session, checking that the binding exists.
+     */
     private fun requireBoundGame(sessionId: String): String =
         connectionRegistry.gameIdFor(sessionId)
             ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_GAME)
 
+    /**
+     * Resolves the linked player ID for a session, checking that the binding exists.
+     */
     private fun requireBoundPlayer(sessionId: String): String =
         connectionRegistry.playerIdFor(sessionId)
             ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER)
 
+    /**
+     * Safely unmarshalls a raw network text frame into a structured message envelope.
+     */
     private fun decodeEnvelope(message: TextMessage): WebSocketEnvelope =
         try {
             WebSocketJson.json.decodeFromString(
@@ -385,6 +445,9 @@ class GameWebSocketHandler(
             throw GameException(GameErrorReason.INVALID_MESSAGE_FORMAT)
         }
 
+    /**
+     * Safely extracts payload from an envelope.
+     */
     private fun <T> decodePayload(
         envelope: WebSocketEnvelope,
         deserializer: KSerializer<T>,
@@ -397,6 +460,9 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Sends [WebSocketType.GAME_STATE_UPDATED] to a single session.
+     */
     private fun sendStateUpdate(
         session: WebSocketSession,
         requestId: String?,
@@ -416,6 +482,9 @@ class GameWebSocketHandler(
         )
     }
 
+    /**
+     * Broadcasts [WebSocketType.GAME_STATE_UPDATED] to all sessions in a game.
+     */
     private fun broadcastStateUpdate(
         gameId: String,
         state: GameState,
@@ -448,6 +517,9 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Serializes and sends an outbound envelope.
+     */
     private fun send(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
@@ -461,6 +533,9 @@ class GameWebSocketHandler(
         }
     }
 
+    /**
+     * Sends an explicit structured error envelope back down to a target.
+     */
     private fun sendError(
         session: WebSocketSession,
         requestId: String?,

@@ -21,6 +21,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
+/**
+ * Core domain orchestration layer for the server.
+ */
 @Service
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
@@ -97,6 +100,8 @@ class GameService(
 
     /**
      * Starts an existing game.
+     *
+     * Expects a valid [gameId].
      */
     suspend fun startGame(
         gameId: String,
@@ -112,7 +117,9 @@ class GameService(
     }
 
     /**
-     * Adds a player to a game
+     * Adds a player to a game.
+     *
+     * Fails with a client-facing error if the game does not exist.
      */
     suspend fun joinGame(
         gameId: String,
@@ -132,7 +139,9 @@ class GameService(
     }
 
     /**
-     * Removes a player from a game
+     * Removes a player from a game.
+     *
+     * Expects a valid [gameId].
      */
     suspend fun leaveGame(
         gameId: String,
@@ -148,6 +157,11 @@ class GameService(
         }
     }
 
+    /**
+     * Starts an existing game.
+     *
+     * Fails with a client-facing error if the game does not exist or if the player ID is invalid.
+     */
     suspend fun getStateForReconnection(
         gameId: String,
         playerId: String,
@@ -165,6 +179,11 @@ class GameService(
         }
     }
 
+    /**
+     * Starts an auction.
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun chooseAuction(
         gameId: String,
         actorId: String,
@@ -179,6 +198,11 @@ class GameService(
         }
     }
 
+    /**
+     * Placed a bid on an ongoing auction.
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun placeBid(
         gameId: String,
         actorId: String,
@@ -194,6 +218,9 @@ class GameService(
         }
     }
 
+    /**
+     * Launches a background coroutine that ends the auction if the bid deadline passes.
+     */
     private fun scheduleAuctionAutoClose(gameId: String) {
         val room = rooms[gameId] ?: return
         val endTime =
@@ -217,6 +244,11 @@ class GameService(
         }
     }
 
+    /**
+     * Resolves the current auction phase, allowing the auctioneer to buy back the card or sell to the high bidder.
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun resolveAuction(
         gameId: String,
         actorId: String,
@@ -231,6 +263,11 @@ class GameService(
         }
     }
 
+    /**
+     * Starts a trade against an opponent.
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun chooseTrade(
         gameId: String,
         actorId: String,
@@ -253,6 +290,12 @@ class GameService(
         }
     }
 
+    /**
+     * Submits a response to a trade, with empty [counterOfferedMoneyCardIds]
+     * representing blind trade acceptance.
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun respondToTrade(
         gameId: String,
         actorId: String,
@@ -271,6 +314,11 @@ class GameService(
         }
     }
 
+    /**
+     * Concludes the temporary card visibility sequence, finishing a trade
+     *
+     * Expects a valid [gameId].
+     */
     suspend fun finishTradeReveal(
         gameId: String,
         actorId: String,
@@ -307,12 +355,20 @@ class GameService(
         return code
     }
 
+    /**
+     * Asserts that a game session exists in the active room map.
+     *
+     * @throws IllegalStateException If the game service is out of sync with the caller.
+     */
     private fun fetchGameRoom(gameId: String): SyncGameRoom =
         checkNotNull(rooms[gameId]) {
             "Game registry does not contain game session $gameId"
         }
 }
 
+/**
+ * Wrapper coupling a running [GameSession] with its atomic execution [Mutex].
+ */
 private class SyncGameRoom(
     val session: GameSession,
     val mutex: Mutex = Mutex(),
