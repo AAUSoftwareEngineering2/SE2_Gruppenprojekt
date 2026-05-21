@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 /**
- * A helper component that can be dragged around the screen.
+ * A UI element that can be dragged and positioned on the screen.
  * It prints its final coordinates to Logcat on drag end, which is useful for
  * visual positioning of UI elements.
  */

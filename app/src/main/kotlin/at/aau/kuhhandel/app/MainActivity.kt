@@ -14,6 +14,7 @@ import at.aau.kuhhandel.app.ui.KuhhandelApp
 import at.aau.kuhhandel.app.ui.theme.AndroidAppTheme
 
 class MainActivity : ComponentActivity() {
+    /** Entry point of the activity, sets up the Compose UI and the navigation host. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

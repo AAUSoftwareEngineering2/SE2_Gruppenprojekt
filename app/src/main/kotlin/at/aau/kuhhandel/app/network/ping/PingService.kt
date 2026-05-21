@@ -7,6 +7,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
 
+/** Service used to check the availability of the game server. */
 class PingService(
     private val client: HttpClient = NetworkClientFactory.create(),
 ) {

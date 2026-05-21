@@ -101,6 +101,11 @@ class GameViewModel(
                 }
             }
 
+    /**
+     * The combined UI state for the game screen.
+     * Derives complex properties like 'canRevealCard', 'canStartGame', and shared animals
+     * by combining repository state with local selection state.
+     */
     val uiState: StateFlow<GameUiState> =
         combine(
             repository.state,
@@ -181,22 +186,26 @@ class GameViewModel(
                 initialValue = GameUiState(),
             )
 
+    /** Toggles the selection of a money card for trading or bidding. */
     fun toggleMoneyCardSelection(cardId: String) {
         selectedMoneyCardIds.update { current ->
             if (current.contains(cardId)) current - cardId else current + cardId
         }
     }
 
+    /** Deselects all currently selected money cards. */
     fun clearSelection() {
         selectedMoneyCardIds.value = emptySet()
     }
 
+    /** Requests to start the game session. */
     fun startGame() {
         scope.launch {
             repository.startGame()
         }
     }
 
+    /** Requests to reveal a new card from the deck. */
     fun revealCard() {
         scope.launch {
             repository.revealCard()
@@ -206,6 +215,7 @@ class GameViewModel(
     // --- CONTRACT EXPANSION ---
     // The following actions need to be added to the shared WebSocketType and implemented in GameWebSocketClient/Server
 
+    /** Places a bid during an active auction phase. */
     fun placeBid(amount: Int) {
         scope.launch {
             try {
@@ -216,6 +226,7 @@ class GameViewModel(
         }
     }
 
+    /** Performs the buy-back action for the auctioneer. */
     fun buyBack(buyBack: Boolean) {
         scope.launch {
             try {
@@ -226,6 +237,7 @@ class GameViewModel(
         }
     }
 
+    /** Submits a counter-offer for an ongoing trade challenge. */
     fun respondToTrade() {
         scope.launch {
             try {
@@ -245,6 +257,7 @@ class GameViewModel(
         }
     }
 
+    /** Starts a trade challenge against a selected player for a specific animal. */
     fun initiateTrade(
         targetPlayerId: String,
         animalType: AnimalType,
@@ -263,10 +276,12 @@ class GameViewModel(
         }
     }
 
+    /** Sets the target player for a potential trade. */
     fun selectTargetPlayer(playerId: String?) {
         selectedTargetPlayerId.value = playerId
     }
 
+    /** Signals that the trade reveal animation has finished. */
     fun finishTradeReveal() {
         scope.launch {
             try {

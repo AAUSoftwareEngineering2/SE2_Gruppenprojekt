@@ -46,12 +46,14 @@ class GameRepository(
 
     private var eventsJob: Job? = null
 
+    /** Requests to create a new game room with the given player name. */
     suspend fun createGame(playerName: String? = null) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.createGame(playerName)
     }
 
+    /** Requests to join an existing game room using its ID. */
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -61,30 +63,35 @@ class GameRepository(
         client.joinGame(gameId, playerName)
     }
 
+    /** Signals the server to start the game for all connected players. */
     suspend fun startGame() {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.startGame()
     }
 
+    /** Requests to reveal the next animal card from the deck. */
     suspend fun revealCard() {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.revealCard()
     }
 
+    /** Submits a bid amount for the current auction. */
     suspend fun placeBid(amount: Int) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.placeBid(amount)
     }
 
+    /** Sends the auctioneer's choice to either buy back the animal or sell it. */
     suspend fun buyBack(buyBack: Boolean) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.buyBack(buyBack)
     }
 
+    /** Initiates a trade challenge against another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
@@ -95,12 +102,14 @@ class GameRepository(
         client.initiateTrade(challengedPlayerId, animalType, moneyCardIds)
     }
 
+    /** Disconnects from the current game and resets local state. */
     suspend fun leaveGame() {
         ensureConnected()
         client.leaveGame()
         disconnect()
     }
 
+    /** Sends a counter-offer in response to a trade challenge. */
     suspend fun respondToTrade(counterOfferedMoneyCardIds: Set<String> = emptySet()) {
         ensureConnected()
         val myId = _state.value.myPlayerId ?: return
@@ -108,16 +117,19 @@ class GameRepository(
         client.respondToTrade(myId, counterOfferedMoneyCardIds)
     }
 
+    /** Informs the server that the trade reveal animation is complete. */
     suspend fun finishTradeReveal() {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.finishTradeReveal()
     }
 
+    /** Resets the current error message in the repository state. */
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }
 
+    /** Stops active connection jobs and resets the repository state. */
     fun disconnect() {
         scope.launch {
             val activeJob = eventsJob
@@ -128,6 +140,7 @@ class GameRepository(
         }
     }
 
+    /** Ensures a WebSocket connection is active, initiating it if necessary and handling re-sync. */
     private suspend fun ensureConnected() {
         if (awaitExistingConnection()) {
             return
@@ -176,6 +189,7 @@ class GameRepository(
             throw e
         }
 
+    /** Sets up the coroutine job that collects and processes incoming WebSocket events. */
     private fun launchCollector(events: Flow<WebSocketEnvelope>): Job =
         scope
             .launch(start = CoroutineStart.LAZY) {
@@ -185,6 +199,7 @@ class GameRepository(
                 collectorJob.start()
             }
 
+    /** Core loop that collects envelopes from the stream until the connection is closed or fails. */
     private suspend fun collectEvents(events: Flow<WebSocketEnvelope>) {
         val collectorJob = currentCoroutineContext()[Job]
         try {
@@ -207,6 +222,7 @@ class GameRepository(
         }
     }
 
+    /** Updates the error state when the event collector encounters an exception. */
     private fun reportCollectorFailure(
         throwable: Throwable,
         collectorJob: Job?,
@@ -231,6 +247,7 @@ class GameRepository(
         _state.update { it.copy(isConnecting = false, isConnected = false) }
     }
 
+    /** Waits for the initial WebSocket connection to be established or fail. */
     private suspend fun awaitInitialConnection(collectorJob: Job) {
         try {
             client.awaitConnected()
@@ -249,6 +266,7 @@ class GameRepository(
         collectorJob.cancel()
     }
 
+    /** Updates the state with a formatted error message when a connection attempt fails. */
     private fun reportConnectionFailure(throwable: Throwable) {
         _state.update {
             it.copy(
@@ -266,6 +284,7 @@ class GameRepository(
             CONNECTION_FAILED
         }
 
+    /** Central dispatcher for all incoming WebSocket messages, updating state based on message type. */
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
         when (envelope.type) {
             WebSocketType.GAME_CREATED,
@@ -392,6 +411,7 @@ class GameRepository(
         }
     }
 
+    /** Safely decodes a JSON payload from an envelope into a typed object. */
     private fun <T> decodePayload(
         envelope: WebSocketEnvelope,
         serializer: kotlinx.serialization.KSerializer<T>,

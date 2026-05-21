@@ -78,6 +78,7 @@ class GameWebSocketClient(
             isIntentionalDisconnect = false
         }
 
+    /** Initiates the raw Ktor WebSocket session and handles connection lifecycle errors. */
     private suspend fun openSessionOrThrow(ready: CompletableDeferred<Unit>): OpenedSession =
         try {
             openSession()
@@ -97,6 +98,7 @@ class GameWebSocketClient(
         ready.complete(Unit)
     }
 
+    /** Continuously reads from the session's incoming channel and emits decoded envelopes. */
     private suspend fun FlowCollector<WebSocketEnvelope>.emitIncomingEnvelopes(
         opened: OpenedSession,
     ) {
@@ -106,6 +108,7 @@ class GameWebSocketClient(
         }
     }
 
+    /** Iterates over incoming frames, handling close messages and extracting text data. */
     private suspend fun FlowCollector<WebSocketEnvelope>.consumeIncomingFrames(
         opened: OpenedSession,
     ): String? {
@@ -116,6 +119,7 @@ class GameWebSocketClient(
         return null
     }
 
+    /** Extracts the close reason from a WebSocket close frame. */
     private fun closeDetails(frame: Frame): String? =
         (frame as? Frame.Close)?.let { closeFrame ->
             formatCloseDetails(closeFrame.readReason())
@@ -130,6 +134,7 @@ class GameWebSocketClient(
             "WebSocket closed without a close reason"
         }
 
+    /** Parses a raw text frame into a [WebSocketEnvelope]. */
     private fun decodeEnvelope(frame: Frame): WebSocketEnvelope? {
         val textFrame = frame as? Frame.Text ?: return null
         return runCatching {
@@ -140,6 +145,7 @@ class GameWebSocketClient(
         }.getOrNull()
     }
 
+    /** Closes the session and cleans up resources associated with a specific connection. */
     private suspend fun cleanupConnection(
         opened: OpenedSession,
         ready: CompletableDeferred<Unit>,
@@ -175,6 +181,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Joins an existing game lobby. */
     suspend fun joinGame(
         gameId: String,
         playerName: String? = null,
@@ -189,6 +196,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Re-establishes a connection to a game in progress. */
     suspend fun reconnect(
         gameId: String,
         playerId: String,
@@ -203,24 +211,28 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Leaves the current game or lobby. */
     suspend fun leaveGame(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.LEAVE_GAME, requestId))
         return requestId
     }
 
+    /** Signals to start the game when all players are ready. */
     suspend fun startGame(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.START_GAME, requestId))
         return requestId
     }
 
+    /** Reveals the next animal card for auction. */
     suspend fun revealCard(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.CHOOSE_AUCTION, requestId))
         return requestId
     }
 
+    /** Places a bid on the current auction. */
     suspend fun placeBid(amount: Int): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -232,6 +244,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Decides whether the auctioneer buys back the animal. */
     suspend fun buyBack(buyBack: Boolean): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -243,6 +256,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Starts a "Kuhhandel" trade with another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
@@ -262,6 +276,7 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Counters a trade offer with own money cards. */
     suspend fun respondToTrade(
         respondingPlayerId: String,
         counterOfferedMoneyCardIds: Set<String> = emptySet(),
@@ -279,12 +294,14 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Completes the visual reveal phase of a trade. */
     suspend fun finishTradeReveal(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
         return requestId
     }
 
+    /** Closes the current WebSocket connection and stops any active sessions. */
     suspend fun disconnect() {
         isIntentionalDisconnect = true
         pendingConnection = null
@@ -294,12 +311,14 @@ class GameWebSocketClient(
         active.close()
     }
 
+    /** Serializes and sends an envelope over the active session. */
     private suspend fun send(envelope: WebSocketEnvelope) {
         val active = current?.session ?: error("Not connected. Call connect() first.")
         val text = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
         active.send(Frame.Text(text))
     }
 
+    /** Opens a new WebSocket session using the configured client factory and URL. */
     private suspend fun defaultOpenSession(): OpenedSession {
         val client = clientFactory()
         return try {

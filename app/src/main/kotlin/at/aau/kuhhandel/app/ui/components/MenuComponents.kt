@@ -35,7 +35,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 
-// This file also includes UI Elements which may also be used in the Game Views
+/**
+ * This file also includes UI Elements which may also be used in the Game Views.
+ *
+ * Renders decorative items at specific offsets on the screen.
+ */
 @Composable
 fun MenuDecor(
     drawableId: Int,
@@ -74,6 +78,7 @@ fun MainBackground(modifier: Modifier = Modifier) {
     }
 }
 
+/** A full-screen background with various decorative elements. */
 @Composable
 fun MenuBackground(
     modifier: Modifier = Modifier,
@@ -96,6 +101,7 @@ fun MenuBackground(
     }
 }
 
+/** A styled container card for menu content with an optional back button. */
 @Composable
 fun MenuCard(
     modifier: Modifier = Modifier,
@@ -135,6 +141,7 @@ fun MenuCard(
     }
 }
 
+/** A custom styled button that uses a drawable as its appearance. */
 @Composable
 fun MenuButton(
     drawableId: Int,

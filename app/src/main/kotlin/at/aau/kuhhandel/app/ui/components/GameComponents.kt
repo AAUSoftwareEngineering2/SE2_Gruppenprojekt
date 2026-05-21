@@ -42,6 +42,7 @@ import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
+/** Displays a summary of an opponent's farm, including their name and money card count. */
 @Composable
 fun OtherFarm(
     player: PlayerState,
@@ -101,6 +102,7 @@ fun OtherFarm(
     }
 }
 
+/** Renders a grid of all opponents in the game. */
 @Composable
 fun OpponentList(
     players: List<PlayerState>,
@@ -132,6 +134,7 @@ fun OpponentList(
     }
 }
 
+/** Shows the draw deck and provides an interaction point to reveal the next card. */
 @Composable
 fun DeckView(
     count: String,
@@ -174,6 +177,7 @@ fun DeckView(
     }
 }
 
+/** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
 fun AuctionView(
     auction: AuctionState?,
@@ -236,6 +240,7 @@ fun AuctionView(
     }
 }
 
+/** Provides buttons for placing incremented bids based on the current highest bid. */
 @Composable
 fun AuctionControls(
     onBid: (Int) -> Unit,
@@ -275,6 +280,7 @@ fun AuctionControls(
     }
 }
 
+/** Manages the UI for trade challenges, showing offer details and response actions. */
 @Composable
 fun TradeView(
     trade: TradeState?,
@@ -325,6 +331,7 @@ fun TradeView(
     }
 }
 
+/** Displays the current player's farm area, including their hand of money cards and turn status. */
 @Composable
 fun PlayerFarm(
     player: PlayerState?,
@@ -416,6 +423,7 @@ fun PlayerFarm(
     }
 }
 
+/** A horizontal list of the player's money cards. */
 @Composable
 fun MoneyHand(
     cards: List<MoneyCard>,
@@ -438,6 +446,7 @@ fun MoneyHand(
     }
 }
 
+/** A single money card representation that can be selected. */
 @Composable
 fun MoneyCardView(
     card: MoneyCard,
@@ -467,6 +476,7 @@ fun MoneyCardView(
     }
 }
 
+/** Maps an [AnimalType] to its corresponding drawable resource ID. */
 fun getAnimalDrawable(type: AnimalType): Int =
     when (type) {
         AnimalType.CHICKEN -> R.drawable.hs_chicken
@@ -481,6 +491,7 @@ fun getAnimalDrawable(type: AnimalType): Int =
         AnimalType.HORSE -> R.drawable.hs_horse
     }
 
+/** Maps a [FarmColor] to its corresponding farm drawable resource ID. */
 fun parseFarmColor(color: FarmColor): Int =
     when (color) {
         FarmColor.BLUE -> R.drawable.ig_farm_blue
