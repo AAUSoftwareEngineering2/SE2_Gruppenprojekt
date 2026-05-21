@@ -52,6 +52,7 @@ class LobbyJoiningViewModel(
         }
     }
 
+    /** Validates the current lobby code and requests to join the game via the repository. */
     fun joinLobby() {
         val code = lobbyCode.value
         if (code.length == 5) {

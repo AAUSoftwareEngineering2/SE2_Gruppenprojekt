@@ -13,6 +13,9 @@ import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 import at.aau.kuhhandel.shared.model.TradeState
 
+/**
+ * State machine representing a single game session.
+ */
 class GameSession(
     val gameId: String,
     hostPlayerId: String,
@@ -52,7 +55,7 @@ class GameSession(
     }
 
     /**
-     * Adds a player to the game session
+     * Adds a player to the game session.
      */
     fun addPlayer(
         playerId: String,
@@ -74,7 +77,7 @@ class GameSession(
     }
 
     /**
-     * Removes a player from the game session
+     * Removes a player from the game session.
      */
     fun removePlayer(playerId: String): GameState {
         ensureActorInRoom(playerId)
@@ -98,6 +101,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Initiates an auction by drawing the top card from the animal deck.
+     */
     fun chooseAuction(actorId: String): GameState {
         ensureActorInRoom(actorId)
         ensurePhase(GamePhase.PLAYER_CHOICE)
@@ -161,6 +167,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Places a bid on the active auction.
+     */
     fun placeBid(
         actorId: String,
         amount: Int,
@@ -185,6 +194,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Concludes the auction once the bidding timeout ends.
+     */
     fun closeAuctionAfterTimeout(): GameState {
         val auctionState = state.auctionState!!
 
@@ -215,6 +227,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Resolves the current auction phase based on the auctioneer's buy-back choice.
+     */
     fun resolveAuction(
         actorId: String,
         auctioneerBuysCard: Boolean,
@@ -258,6 +273,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Initiates a trade against an opponent for a specific animal type.
+     */
     fun chooseTrade(
         actorId: String,
         targetId: String,
@@ -290,6 +308,10 @@ class GameSession(
         return state
     }
 
+    /**
+     * Processes the defender's trade reaction, with empty
+     * [counterOfferedMoneyCardIds] representing blind acceptance.
+     */
     fun respondToTrade(
         actorId: String,
         counterOfferedMoneyCardIds: Set<String>,
@@ -371,6 +393,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Clears the trade session information and wraps up the visibility sequence.
+     */
     fun endTradeReveal(): GameState {
         check(
             state.phase == GamePhase.TRADE_REVEAL,
@@ -382,8 +407,15 @@ class GameSession(
         return state
     }
 
+    /**
+     * Checks if a player exists in the current game session.
+     */
     fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
 
+    /**
+     * Shifts the active turn indicator to the next player.
+     * Moves phase to FINISHED if all animal quartets are completed.
+     */
     private fun advanceTurnAndCheckGameEnd(): GameState {
         val totalQuartetsFormed =
             state.players.sumOf { player ->
@@ -407,6 +439,9 @@ class GameSession(
         return state
     }
 
+    /**
+     * Compiles and shuffles a new deck using the structural maximum allocation per animal type.
+     */
     private fun createInitialDeck(): AnimalDeck =
         AnimalDeck(
             AnimalType.entries
@@ -420,6 +455,9 @@ class GameSession(
                 }.shuffled(),
         )
 
+    /**
+     * Instantiates starting money card pools using unique, player-bounded identity tags.
+     */
     private fun createInitialMoney(playerId: String): List<MoneyCard> =
         buildList {
             // IDs include the player so money cards remain unique after transfers.
@@ -590,6 +628,9 @@ class GameSession(
         return moneyCards
     }
 
+    /**
+     * Appends an animal card to the given player's collection.
+     */
     private fun addAnimalToPlayer(
         players: List<PlayerState>,
         receiverId: String,
@@ -605,6 +646,9 @@ class GameSession(
         }
     }
 
+    /**
+     * Calculates the mathematically optimal combination of money cards to satisfy a transaction.
+     */
     private fun selectMoneyCardsForPayment(
         player: PlayerState,
         amount: Int,
@@ -652,6 +696,10 @@ class GameSession(
         return optimalEntry.value.mapTo(mutableSetOf()) { moneyCard -> moneyCard.id }
     }
 
+    /**
+     * Moves matching animal cards between two participants following a trade evaluation.
+     * Determines whether to move one or two cards based on the counts owned by the players.
+     */
     private fun moveAnimalType(
         players: List<PlayerState>,
         from: PlayerState,
@@ -685,6 +733,9 @@ class GameSession(
         }
     }
 
+    /**
+     * Transfers designated money cards between two players.
+     */
     private fun transferMoneyCards(
         players: List<PlayerState>,
         from: PlayerState,
