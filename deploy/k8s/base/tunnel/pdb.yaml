@@ -1,4 +1,4 @@
-# Diese Datei schuetzt die Cloudflare-Tunnel-Pods bei Wartungsaktionen.
+# Diese Datei schützt die Cloudflare-Tunnel-Pods bei Wartungsaktionen.
 #
 # Wenn Kubernetes freiwillig Pods verschiebt, soll mindestens ein Tunnel-Pod
 # übrig bleiben. Sonst wäre die App von außen kurz nicht erreichbar.
@@ -9,8 +9,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: cloudflared
-  #Wie ein Ordner für name
-  namespace: cloudflare
 spec:
   minAvailable: 1
   selector:

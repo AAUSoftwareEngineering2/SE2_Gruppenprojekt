@@ -1,0 +1,23 @@
+# Diese Datei sagt: Die App-Basis wird als Staging-App deployed.
+#
+# Staging verwendet dieselbe App-Basis wie Production, aber einen anderen
+# Namespace, den Image-Tag `staging`, weniger Pods und das Spring-Profil
+# `staging`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kuhhandel-staging
+
+resources:
+  - ../../../base/app
+
+images:
+  - name: ghcr.io/aausoftwareengineering2/kuhhandel-server
+    newTag: staging
+
+replicas:
+  - name: kuhhandel-server
+    count: 1
+
+patches:
+  - path: spring-profile-patch.yaml

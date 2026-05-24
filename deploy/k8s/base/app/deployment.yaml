@@ -3,12 +3,11 @@
 # Ein Deployment sagt Kubernetes: "Halte immer diese Anzahl an Server-Pods am
 # Leben." Wenn ein Pod crasht oder gelöscht wird, startet Kubernetes einen
 # neuen. Die Datenbank-Zugangsdaten stehen nicht hier drin, sondern kommen aus
-# dem Secret `kuhhandel-db`.
+# dem Secret `kuhhandel-db`. Der Namespace kommt aus dem Overlay.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kuhhandel-server
-  namespace: kuhhandel
   labels:
     # Label für Regeln
     app: kuhhandel-server
@@ -53,7 +52,7 @@ spec:
       # Container Definition
       containers:
         - name: kuhhandel-server
-          image: ghcr.io/aausoftwareengineering2/kuhhandel-server:production
+          image: ghcr.io/aausoftwareengineering2/kuhhandel-server:placeholder
           imagePullPolicy: Always
           ports:
             - name: http
@@ -82,7 +81,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               # java begrenzt auf 256mb heap.
               value: "-Xmx256m -XX:+UseSerialGC"
-            # Datemnakverbidnung, max 2 Verbindungen, keine idle connections, timeout 5s
+            # Datenbankverbindung: max. 2 Verbindungen, keine idle connections, timeout 5s
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "2"
             - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE

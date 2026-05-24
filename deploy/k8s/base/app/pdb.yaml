@@ -1,4 +1,4 @@
-# Diese Datei schuetzt die Backend-Pods bei freiwilligen Wartungsaktionen.
+# Diese Datei schützt die Backend-Pods bei freiwilligen Wartungsaktionen.
 #
 # Ein PodDisruptionBudget sagt Kubernetes: "Wenn du Nodes wartest oder Pods
 # freiwillig verschiebst, lass mindestens einen Kuhhandel-Server erreichbar."
@@ -10,7 +10,6 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: kuhhandel-server
-  namespace: kuhhandel
 spec:
   minAvailable: 1
   selector:

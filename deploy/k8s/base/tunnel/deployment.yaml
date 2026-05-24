@@ -2,12 +2,11 @@
 #
 # `cloudflared` baut von innen nach außen eine Verbindung zu Cloudflare auf.
 # Der echte Tunnel-Token steht nicht hier drin, sondern im Secret
-# `cloudflared-token`.
+# `cloudflared-token`. Der Namespace kommt aus dem Overlay.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
-  namespace: cloudflare
   labels:
     # Label für Regeln
     app: cloudflared
