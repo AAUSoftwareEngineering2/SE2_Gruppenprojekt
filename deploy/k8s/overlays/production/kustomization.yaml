@@ -1,0 +1,10 @@
+# Diese Datei ist die Production-Sammelliste für Kubernetes.
+#
+# Sie verwendet aktuell direkt die gemeinsamen Dateien aus `base`.
+# Staging bekommt später ein eigenes Overlay.
+#
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base

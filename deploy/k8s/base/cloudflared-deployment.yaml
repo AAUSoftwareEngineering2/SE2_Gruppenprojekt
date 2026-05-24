@@ -1,0 +1,97 @@
+# Diese Datei startet den Cloudflare-Tunnel im Kubernetes-Cluster.
+#
+# `cloudflared` baut von innen nach außen eine Verbindung zu Cloudflare auf.
+# Der echte Tunnel-Token steht nicht hier drin, sondern im Secret
+# `cloudflared-token`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflare
+  labels:
+    # Label für Regeln
+    app: cloudflared
+spec:
+  replicas: 2
+  # Wie viele alter Versionen behalten
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      # Zuständig für app: cloudflared
+      app: cloudflared
+  strategy:
+    # Wie die Pods aktualisiert werden
+    type: RollingUpdate
+    rollingUpdate:
+      # ein zusätzlicher Pod darf starten 
+      maxSurge: 1
+      maxUnavailable: 0
+
+  # wie die Pods aussehen sollen
+  template:
+    metadata:
+      labels:
+        # Müssen mit selector übereinstimmen
+        app: cloudflared
+
+    spec:
+      # Zeit zum beenden des Pods
+      terminationGracePeriodSeconds: 30
+
+      # Verteilung der Pods auf die Nodes
+      topologySpreadConstraints:
+        # Unterschied zwischen Nodes max 1 Pod
+        - maxSkew: 1
+          # Unterscheide nach Nodes            
+          topologyKey: kubernetes.io/hostname
+          # wenn die Regel nicht erfüllt werden kann, dann nicht planen
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: cloudflared
+
+      # Container Definition
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.5.0
+          imagePullPolicy: IfNotPresent
+          # Wie der Container gestartet wird
+          command:
+            - cloudflared
+            - tunnel
+            - --no-autoupdate
+            - --loglevel
+            - info
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflared-token
+                  key: token
+          ports:   
+            - name: metrics
+              containerPort: 2000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            # 10 sec delay 
+            initialDelaySeconds: 10
+            # wie oft prüfen
+            periodSeconds: 10
+            timeoutSeconds: 2
+            # bei einem Fehler sofort neu starten
+            failureThreshold: 1
+          # Ressourcenanforderungen und -limits
+          resources:
+            requests:
+              # milicores
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
