@@ -34,6 +34,7 @@ class LobbyCreationViewModel(
                 initialValue = LobbyCreationUiState(),
             )
 
+    /** Triggers the creation of a new game room on the server. */
     fun createLobby() {
         scope.launch {
             try {

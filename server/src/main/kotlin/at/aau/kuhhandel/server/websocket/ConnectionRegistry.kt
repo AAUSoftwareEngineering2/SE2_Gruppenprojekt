@@ -4,6 +4,9 @@ import org.springframework.stereotype.Component
 import org.springframework.web.socket.WebSocketSession
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Infrastructure registry managing transient network routing for active connections.
+ */
 @Component
 class ConnectionRegistry {
     private val gameBySessionId = ConcurrentHashMap<String, String>()
@@ -11,10 +14,16 @@ class ConnectionRegistry {
     private val sessionsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
     private val sessionBySessionId = ConcurrentHashMap<String, WebSocketSession>()
 
+    /**
+     * Registers a new raw network socket under its ID.
+     */
     fun bindSession(session: WebSocketSession) {
         sessionBySessionId[session.id] = session
     }
 
+    /**
+     * Binds a registered connection instance to a running game instance.
+     */
     fun bindGame(
         sessionId: String,
         gameId: String,
@@ -25,6 +34,9 @@ class ConnectionRegistry {
         sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(sessionId)
     }
 
+    /**
+     * Binds a registered connection instance to a player identity.
+     */
     fun bindPlayer(
         sessionId: String,
         playerId: String,
@@ -49,6 +61,9 @@ class ConnectionRegistry {
      */
     fun allSessions(): Collection<WebSocketSession> = sessionBySessionId.values.toList()
 
+    /**
+     * Unbinds a connection instance, removing all data associated with it.
+     */
     fun unbind(sessionId: String) {
         val gameId = gameBySessionId.remove(sessionId)
         playerBySessionId.remove(sessionId)

@@ -1,0 +1,11 @@
+# Diese Datei ist der Einstiegspunkt für das Production-Deployment.
+#
+# Sie erstellt zuerst die Production-Namespaces und zieht dann die App- und
+# Tunnel-Teile aus den jeweiligen Production-Overlays dazu.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - app
+  - tunnel

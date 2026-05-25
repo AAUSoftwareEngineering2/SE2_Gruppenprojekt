@@ -1,0 +1,24 @@
+# Diese Datei sagt: Die Tunnel-Basis wird als Staging-Tunnel deployed.
+#
+# Der Staging-Tunnel läuft getrennt im Namespace `cloudflare-staging`.
+# Das echte Tunnel-Secret muss dort separat angelegt werden.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cloudflare-staging
+
+resources:
+  - ../../../base/tunnel
+
+replicas:
+  - name: cloudflared
+    count: 1
+
+patches:
+  - target:
+      kind: PodDisruptionBudget
+      name: cloudflared
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0

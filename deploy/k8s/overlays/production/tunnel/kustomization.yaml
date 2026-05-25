@@ -1,0 +1,15 @@
+# Diese Datei sagt: Die Tunnel-Basis wird als Production-Tunnel deployed.
+#
+# Cloudflare läuft getrennt im Namespace `cloudflare`, damit Tunnel-Pods und
+# App-Pods sauber getrennt bleiben.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cloudflare
+
+resources:
+  - ../../../base/tunnel
+
+replicas:
+  - name: cloudflared
+    count: 2

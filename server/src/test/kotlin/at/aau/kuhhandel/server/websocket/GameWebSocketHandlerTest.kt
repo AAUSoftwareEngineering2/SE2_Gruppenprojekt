@@ -458,13 +458,16 @@ class GameWebSocketHandlerTest {
                     players = listOf(PlayerState("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
+            val gameSession =
+                GameSession(
+                    gameId = "game-1",
+                    hostPlayerId = "player-1",
+                    hostPlayerName = "Player 1",
+                    initialState = returnedState,
+                )
 
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
-
-            whenever(
-                gameService.getStateForReconnection("game-1", "player-1"),
-            ).thenReturn(returnedState)
+            whenever(gameService.getGame("game-1")).thenReturn(gameSession)
 
             sendEnvelope(
                 session = session1,

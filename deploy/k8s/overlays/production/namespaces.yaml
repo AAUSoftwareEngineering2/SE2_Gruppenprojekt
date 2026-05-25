@@ -1,0 +1,14 @@
+# Diese Datei legt die Kubernetes-Bereiche für die Anwendung an.
+#
+# Ein Namespace ist wie ein eigener Ordner im Cluster: Alles, was zur App
+# gehört, liegt in `kuhhandel`. Der Cloudflare-Tunnel liegt getrennt in
+# `cloudflare`, damit App-Pods und Tunnel-Pods nicht durcheinander geraten.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kuhhandel
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare
