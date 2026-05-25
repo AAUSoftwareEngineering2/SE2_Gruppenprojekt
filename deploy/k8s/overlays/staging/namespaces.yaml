@@ -1,0 +1,13 @@
+# Diese Datei legt die Kubernetes-Bereiche für Staging an.
+#
+# Staging bekommt eigene Namespaces, damit Test-App, Test-Tunnel und Secrets
+# nicht mit Production durcheinander geraten.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kuhhandel-staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare-staging

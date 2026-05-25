@@ -1,0 +1,12 @@
+# Diese Datei sammelt nur die gemeinsamen Kubernetes-Dateien für die App.
+#
+# Der Namespace steht absichtlich nicht hier, sondern im jeweiligen Overlay.
+# Dadurch kann später Staging dieselben Dateien wiederverwenden.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - supabase-ca-configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - pdb.yaml

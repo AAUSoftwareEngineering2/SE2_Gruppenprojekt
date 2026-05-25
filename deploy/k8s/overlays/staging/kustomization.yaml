@@ -1,0 +1,11 @@
+# Diese Datei ist der Einstiegspunkt für das Staging-Deployment.
+#
+# Sie erstellt zuerst die Staging-Namespaces und zieht dann App und Tunnel aus
+# den jeweiligen Staging-Overlays dazu.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - app
+  - tunnel

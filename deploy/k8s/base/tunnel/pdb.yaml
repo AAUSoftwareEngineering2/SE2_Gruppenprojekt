@@ -1,0 +1,16 @@
+# Diese Datei schützt die Cloudflare-Tunnel-Pods bei Wartungsaktionen.
+#
+# Wenn Kubernetes freiwillig Pods verschiebt, soll mindestens ein Tunnel-Pod
+# übrig bleiben. Sonst wäre die App von außen kurz nicht erreichbar.
+
+#von core kns Objekte, wie Secret, Service, ConfigMap, Namespace
+apiVersion: policy/v1
+#Regelwerk für die Verfügbarkeit von Pods
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflared
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cloudflared

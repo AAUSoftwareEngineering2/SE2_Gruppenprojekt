@@ -1,0 +1,16 @@
+# Diese Datei überschreibt nur das Spring-Profil für Staging.
+#
+# Die App-Basis bleibt gleich, aber der Container startet mit
+# `SPRING_PROFILES_ACTIVE=staging`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuhhandel-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: kuhhandel-server
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: staging

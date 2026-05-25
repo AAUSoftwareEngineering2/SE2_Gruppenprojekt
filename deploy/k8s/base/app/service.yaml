@@ -1,0 +1,23 @@
+# Diese Datei gibt den Kuhhandel-Server-Pods eine stabile interne Adresse.
+#
+# Pods können jederzeit neu gestartet werden und bekommen dann neue interne
+# IPs. Der Service bleibt gleich und verteilt internen Traffic auf die
+# passenden Pods. Cloudflare Tunnel spricht später diese Adresse an:
+# `kuhhandel-server.kuhhandel.svc.cluster.local:8080`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuhhandel-server
+  labels:
+    app: kuhhandel-server
+spec:
+  # Nur im KN Cluster erreichbar, nicht von außen
+  type: ClusterIP
+  selector:
+    app: kuhhandel-server
+  # Port, den der Service bereitstellt, und Zielport in den Pods  
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http

@@ -1,4 +1,4 @@
-name: Deploy Staging
+name: Build Staging Image
 
 on:
   push:
@@ -14,12 +14,11 @@ on:
       - "gradlew.bat"
       - "shared/**"
       - "server/**"
-      - "deploy/compose.staging.yaml"
       - ".github/workflows/deploy-staging.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-staging
+  group: build-staging
   cancel-in-progress: true
 
 permissions:
@@ -30,14 +29,10 @@ env:
   IMAGE_NAME: ghcr.io/aausoftwareengineering2/kuhhandel-server
 
 jobs:
-  deploy:
-    name: Build and Deploy Staging
+  build:
+    name: Build Staging Image
     runs-on: ubuntu-latest
     environment: staging
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
 
     steps:
       - name: Check out repository
@@ -53,6 +48,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare staging image version
+        id: image-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION="staging-${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -60,57 +66,20 @@ jobs:
           file: server/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:staging
+            ${{ env.IMAGE_NAME }}:${{ steps.image-version.outputs.version }}
             ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:staging
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.image-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Prepare SSH
+      - name: Print image tags
         shell: bash
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          cat <<EOF > ~/.ssh/config
-          Host deploy-target
-            HostName ${DEPLOY_HOST}
-            User ${DEPLOY_USER}
-            Port ${DEPLOY_PORT:-22}
-            IdentityFile ~/.ssh/deploy_key
-            IdentitiesOnly yes
-            BatchMode yes
-            StrictHostKeyChecking yes
-            UserKnownHostsFile ~/.ssh/known_hosts
-          EOF
-          chmod 600 ~/.ssh/config
-
-      - name: Upload compose file
-        shell: bash
-        run: |
-          ssh deploy-target 'mkdir -p "$HOME/kuhhandel"'
-          scp deploy/compose.staging.yaml deploy-target:~/kuhhandel/compose.staging.yaml
-
-      - name: Pull image and restart staging service
-        shell: bash
-        run: |
-          ssh deploy-target '
-            set -e
-            cd "$HOME/kuhhandel"
-            docker compose --env-file .env.infra -f compose.staging.yaml pull
-            docker compose --env-file .env.infra -f compose.staging.yaml up -d --remove-orphans
-
-            for attempt in $(seq 1 20); do
-              if curl -fsS http://127.0.0.1:18081/health >/dev/null; then
-                docker image prune -f
-                exit 0
-              fi
-              sleep 3
-            done
-
-            docker compose --env-file .env.infra -f compose.staging.yaml logs --tail=200
-            exit 1
-          '
+          echo "Pushed staging image:"
+          echo "${IMAGE_NAME}:${{ steps.image-version.outputs.version }}"
+          echo "${IMAGE_NAME}:sha-${GITHUB_SHA}"
+          echo "${IMAGE_NAME}:staging"

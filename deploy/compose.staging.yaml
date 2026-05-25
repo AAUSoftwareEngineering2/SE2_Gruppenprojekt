@@ -1,3 +1,7 @@
+# Legacy Docker Compose deployment.
+#
+# Staging is now deployed through Kubernetes manifests in `deploy/k8s`.
+# Keep this file only as rollback/reference material.
 name: kuhhandel-staging
 
 services:

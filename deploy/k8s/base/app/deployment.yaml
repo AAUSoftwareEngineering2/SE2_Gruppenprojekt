@@ -1,0 +1,135 @@
+# Diese Datei startet den eigentlichen Kuhhandel-Backend-Server.
+#
+# Ein Deployment sagt Kubernetes: "Halte immer diese Anzahl an Server-Pods am
+# Leben." Wenn ein Pod crasht oder gelöscht wird, startet Kubernetes einen
+# neuen. Die Datenbank-Zugangsdaten stehen nicht hier drin, sondern kommen aus
+# dem Secret `kuhhandel-db`. Der Namespace kommt aus dem Overlay.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuhhandel-server
+  labels:
+    # Label für Regeln
+    app: kuhhandel-server
+spec:
+  replicas: 2
+  # Wie viele alter Versionen behalten
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      # Zuständig für app: kuhhandel-server
+      app: kuhhandel-server
+  strategy:
+    # Wie die Pods aktualisiert werden
+    type: RollingUpdate
+    rollingUpdate:
+      # ein zusätzlicher Pod darf starten
+      maxSurge: 1
+      maxUnavailable: 0
+
+  # wie die Pods aussehen sollen
+  template:
+    metadata:
+      labels:
+        # Müssen mit selector übereinstimmen
+        app: kuhhandel-server
+
+    spec:
+      # Zeit zum beenden des Pods -> force close
+      terminationGracePeriodSeconds: 30
+
+      # Verteilung der Pods auf die Nodes
+      topologySpreadConstraints:
+        # Unterschied zwischen Nodes max 1 Pod
+        - maxSkew: 1
+          # Unterscheide nach Nodes
+          topologyKey: kubernetes.io/hostname
+          # wenn die Regel nicht erfüllt werden kann, dann nicht planen
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: kuhhandel-server
+      # Container Definition
+      containers:
+        - name: kuhhandel-server
+          image: ghcr.io/aausoftwareengineering2/kuhhandel-server:placeholder
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kuhhandel-db
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: kuhhandel-db
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kuhhandel-db
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SERVER_PORT
+              value: "8080"
+            - name: SPRING_PROFILES_ACTIVE
+              value: production
+            - name: JAVA_TOOL_OPTIONS
+              # java begrenzt auf 256mb heap.
+              value: "-Xmx256m -XX:+UseSerialGC"
+            # Datenbankverbindung: max. 2 Verbindungen, keine idle connections, timeout 5s
+            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+              value: "2"
+            - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+              value: "0"
+            - name: SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT
+              value: "5000"
+          volumeMounts:
+            - name: supabase-ca
+              mountPath: /etc/ssl/supabase
+              readOnly: true
+          # startup check    
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          # readiness check -> kein traffic wenn nicht ready
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          # liveness check -> neu starten wenn nicht healthy
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            # Ressourcenanforderungen und -limits
+            requests:
+              # milicores
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: supabase-ca
+          configMap:
+            name: supabase-ca
+            items:
+              - key: prod-ca-2021.crt
+                path: prod-ca-2021.crt

@@ -1,0 +1,30 @@
+# Diese Datei sagt: Die App-Basis wird als Production-App deployed.
+#
+# Hier steht alles, was für Production anders sein darf als später für Staging:
+# Namespace, Image-Tag und Anzahl der Pods.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kuhhandel
+
+resources:
+  - ../../../base/app
+
+images:
+  - name: ghcr.io/aausoftwareengineering2/kuhhandel-server
+    newTag: production
+
+# Bis DB-State fertig. -> count: 2
+replicas:
+  - name: kuhhandel-server
+    count: 1
+
+# für DB, wenn richtig eingebuden -> löschen
+patches:
+  - target:
+      kind: PodDisruptionBudget
+      name: kuhhandel-server
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0

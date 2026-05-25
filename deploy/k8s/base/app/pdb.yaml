@@ -1,0 +1,17 @@
+# Diese Datei schützt die Backend-Pods bei freiwilligen Wartungsaktionen.
+#
+# Ein PodDisruptionBudget sagt Kubernetes: "Wenn du Nodes wartest oder Pods
+# freiwillig verschiebst, lass mindestens einen Kuhhandel-Server erreichbar."
+# Das hilft bei Wartung, ersetzt aber keinen echten App-Reconnect.
+
+#von core kns Objekte, wie Secret, Service, ConfigMap, Namespace
+apiVersion: policy/v1
+#Regelwerk für die Verfügbarkeit von Pods
+kind: PodDisruptionBudget
+metadata:
+  name: kuhhandel-server
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kuhhandel-server
