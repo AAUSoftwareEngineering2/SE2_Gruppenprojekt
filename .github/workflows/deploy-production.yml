@@ -84,46 +84,53 @@ jobs:
             echo "No associated PR found for this commit. Defaulting to release bump 'patch'."
           fi
 
-          LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
+          EXISTING_VERSION_FOR_SHA="$(git tag --points-at "${GITHUB_SHA}" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
 
-          if [[ -z "${LATEST_TAG}" ]]; then
-            if [[ "${BUMP}" == "major" ]]; then
-              VERSION="v1.0.0"
-            else
-              VERSION="v0.1.0"
-            fi
+          if [[ -n "${EXISTING_VERSION_FOR_SHA}" ]]; then
+            VERSION="${EXISTING_VERSION_FOR_SHA}"
+            echo "Reusing existing release tag '${VERSION}' for this commit."
           else
-            RAW_VERSION="${LATEST_TAG#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
+            LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
 
-            case "${BUMP}" in
-              patch)
-                PATCH=$((PATCH + 1))
-                ;;
-              minor)
-                MINOR=$((MINOR + 1))
-                PATCH=0
-                ;;
-              major)
-                MAJOR=$((MAJOR + 1))
-                MINOR=0
-                PATCH=0
-                ;;
-              *)
-                echo "Unsupported release bump: ${BUMP}"
-                exit 1
-                ;;
-            esac
+            if [[ -z "${LATEST_TAG}" ]]; then
+              if [[ "${BUMP}" == "major" ]]; then
+                VERSION="v1.0.0"
+              else
+                VERSION="v0.1.0"
+              fi
+            else
+              RAW_VERSION="${LATEST_TAG#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
 
-            VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+              case "${BUMP}" in
+                patch)
+                  PATCH=$((PATCH + 1))
+                  ;;
+                minor)
+                  MINOR=$((MINOR + 1))
+                  PATCH=0
+                  ;;
+                major)
+                  MAJOR=$((MAJOR + 1))
+                  MINOR=0
+                  PATCH=0
+                  ;;
+                *)
+                  echo "Unsupported release bump: ${BUMP}"
+                  exit 1
+                  ;;
+              esac
+
+              VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+
+            while git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; do
+              RAW_VERSION="${VERSION#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
+              PATCH=$((PATCH + 1))
+              VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            done
           fi
-
-          while git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; do
-            RAW_VERSION="${VERSION#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
-            PATCH=$((PATCH + 1))
-            VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-          done
 
           echo "bump=${BUMP}" >> "${GITHUB_OUTPUT}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
@@ -163,8 +170,13 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "${VERSION}" -m "Release ${VERSION}"
-          git push origin "${VERSION}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null; then
+            echo "Tag ${VERSION} already exists on origin."
+          else
+            git tag -a "${VERSION}" -m "Release ${VERSION}"
+            git push origin "${VERSION}"
+          fi
 
       - name: Create GitHub Release
         shell: bash
@@ -175,7 +187,12 @@ jobs:
 
           VERSION="${{ steps.image-version.outputs.version }}"
 
-          gh release create "${VERSION}" \
-            --title "Release ${VERSION}" \
-            --generate-notes \
-            --latest
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists."
+          else
+            gh release create "${VERSION}" \
+              --verify-tag \
+              --title "Release ${VERSION}" \
+              --generate-notes \
+              --latest
+          fi
