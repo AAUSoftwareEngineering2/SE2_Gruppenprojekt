@@ -1,4 +1,4 @@
-name: Deploy Production
+name: Build Production Image
 
 on:
   push:
@@ -14,34 +14,33 @@ on:
       - "gradlew.bat"
       - "shared/**"
       - "server/**"
-      - "deploy/compose.production.yaml"
+      - "deploy/k8s/**"
       - ".github/workflows/deploy-production.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
-  cancel-in-progress: true
+  group: build-production
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+  pull-requests: read
 
 env:
   IMAGE_NAME: ghcr.io/aausoftwareengineering2/kuhhandel-server
 
 jobs:
-  deploy:
-    name: Build and Deploy Production
+  build:
+    name: Build Production Image
     runs-on: ubuntu-latest
     environment: production
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -53,6 +52,83 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare production image version
+        id: image-version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          PRS_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" -H "Accept: application/vnd.github+json")"
+          PR_NUMBER="$(jq -r '.[0].number // empty' <<< "${PRS_JSON}")"
+          BUMP_LABELS="$(jq -r '.[0].labels[]?.name // empty' <<< "${PRS_JSON}" | awk '/^release\/(patch|minor|major)$/ { print }')"
+          BUMP_LABEL_COUNT="$(printf '%s\n' "${BUMP_LABELS}" | awk 'NF { count++ } END { print count + 0 }')"
+
+          if [[ "${BUMP_LABEL_COUNT}" -gt 1 ]]; then
+            echo "Only one release label is allowed per PR."
+            printf 'Found release labels:\n'
+            printf '%s\n' "${BUMP_LABELS}" | awk 'NF { print "- " $0 }'
+            exit 1
+          fi
+
+          BUMP="patch"
+          if [[ "${BUMP_LABEL_COUNT}" -eq 1 ]]; then
+            BUMP="${BUMP_LABELS#release/}"
+          fi
+
+          if [[ -n "${PR_NUMBER}" ]]; then
+            echo "Using release bump '${BUMP}' from PR #${PR_NUMBER}."
+          else
+            echo "No associated PR found for this commit. Defaulting to release bump 'patch'."
+          fi
+
+          LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
+
+          if [[ -z "${LATEST_TAG}" ]]; then
+            if [[ "${BUMP}" == "major" ]]; then
+              VERSION="v1.0.0"
+            else
+              VERSION="v0.1.0"
+            fi
+          else
+            RAW_VERSION="${LATEST_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
+
+            case "${BUMP}" in
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              *)
+                echo "Unsupported release bump: ${BUMP}"
+                exit 1
+                ;;
+            esac
+
+            VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          while git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; do
+            RAW_VERSION="${VERSION#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
+            PATCH=$((PATCH + 1))
+            VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          done
+
+          echo "bump=${BUMP}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -60,57 +136,33 @@ jobs:
           file: server/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:production
+            ${{ env.IMAGE_NAME }}:${{ steps.image-version.outputs.version }}
             ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:production
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.image-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Prepare SSH
+      - name: Print image tags
         shell: bash
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          cat <<EOF > ~/.ssh/config
-          Host deploy-target
-            HostName ${DEPLOY_HOST}
-            User ${DEPLOY_USER}
-            Port ${DEPLOY_PORT:-22}
-            IdentityFile ~/.ssh/deploy_key
-            IdentitiesOnly yes
-            BatchMode yes
-            StrictHostKeyChecking yes
-            UserKnownHostsFile ~/.ssh/known_hosts
-          EOF
-          chmod 600 ~/.ssh/config
+          echo "Pushed production image:"
+          echo "Release bump: ${{ steps.image-version.outputs.bump }}"
+          echo "${IMAGE_NAME}:${{ steps.image-version.outputs.version }}"
+          echo "${IMAGE_NAME}:sha-${GITHUB_SHA}"
+          echo "${IMAGE_NAME}:production"
 
-      - name: Upload compose file
+      - name: Create and push Git tag
         shell: bash
         run: |
-          ssh deploy-target 'mkdir -p "$HOME/kuhhandel"'
-          scp deploy/compose.production.yaml deploy-target:~/kuhhandel/compose.production.yaml
+          set -euo pipefail
 
-      - name: Pull image and restart production service
-        shell: bash
-        run: |
-          ssh deploy-target '
-            set -e
-            cd "$HOME/kuhhandel"
-            docker compose --env-file .env.infra -f compose.production.yaml pull
-            docker compose --env-file .env.infra -f compose.production.yaml up -d --remove-orphans
+          VERSION="${{ steps.image-version.outputs.version }}"
 
-            for attempt in $(seq 1 20); do
-              if curl -fsS http://127.0.0.1:18080/health >/dev/null; then
-                docker image prune -f
-                exit 0
-              fi
-              sleep 3
-            done
-
-            docker compose --env-file .env.infra -f compose.production.yaml logs --tail=200
-            exit 1
-          '
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin "${VERSION}"
