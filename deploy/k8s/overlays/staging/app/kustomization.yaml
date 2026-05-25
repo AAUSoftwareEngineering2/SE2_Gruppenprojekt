@@ -21,3 +21,10 @@ replicas:
 
 patches:
   - path: spring-profile-patch.yaml
+  - target:
+      kind: PodDisruptionBudget
+      name: kuhhandel-server
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0

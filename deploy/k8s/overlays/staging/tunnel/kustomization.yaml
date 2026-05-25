@@ -13,3 +13,12 @@ resources:
 replicas:
   - name: cloudflared
     count: 1
+
+patches:
+  - target:
+      kind: PodDisruptionBudget
+      name: cloudflared
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0
