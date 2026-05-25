@@ -165,3 +165,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${VERSION}" -m "Release ${VERSION}"
           git push origin "${VERSION}"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.image-version.outputs.version }}"
+
+          gh release create "${VERSION}" \
+            --title "Release ${VERSION}" \
+            --generate-notes \
+            --latest
