@@ -14,7 +14,6 @@ on:
       - "gradlew.bat"
       - "shared/**"
       - "server/**"
-      - "deploy/k8s/**"
       - ".github/workflows/deploy-staging.yml"
   workflow_dispatch:
 
