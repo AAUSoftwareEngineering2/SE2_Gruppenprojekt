@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.PlayerState
 
@@ -37,36 +39,55 @@ fun AuctionView(
     Card(
         colors =
             CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                containerColor = LightPurple.copy(alpha = 0.9f),
+                contentColor = DarkPurple,
             ),
-        elevation = CardDefaults.cardElevation(8.dp),
-        modifier = Modifier.padding(horizontal = 32.dp),
+        elevation = CardDefaults.cardElevation(12.dp),
+        modifier = Modifier.padding(horizontal = 16.dp),
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("LIVE AUCTION", style = MaterialTheme.typography.labelLarge)
+            Text(
+                "LIVE AUCTION",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                color = DarkPurple,
+            )
 
             timerSeconds?.let {
                 Text(
                     "Time left: ${it}s",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.error,
+                    color = Color.Red,
                     fontWeight = FontWeight.Bold,
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Image(
-                painter = painterResource(id = getAnimalDrawable(auction.auctionCard.type)),
+                painter =
+                    painterResource(
+                        id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
+                    ),
                 contentDescription = null,
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(width = 140.dp, height = 200.dp),
             )
-            Text(auction.auctionCard.type.name, style = MaterialTheme.typography.headlineMedium)
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                auction.auctionCard.type.name,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = DarkPurple.copy(alpha = 0.2f),
+            )
 
             val bidderName =
                 auction.highestBidderId?.let { id ->

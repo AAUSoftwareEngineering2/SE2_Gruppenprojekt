@@ -129,6 +129,8 @@ fun PlayerFarm(
     modifier: Modifier = Modifier,
     player: PlayerState?,
     isMyTurn: Boolean,
+    isHandFanned: Boolean = false,
+    onToggleHandFanned: () -> Unit = {},
     selectedMoneyCardIds: Set<String> = emptySet(),
     onCardClick: (MoneyCard) -> Unit = {},
 ) {
@@ -136,74 +138,60 @@ fun PlayerFarm(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+            contentAlignment = Alignment.BottomCenter,
         ) {
-            if (player != null) {
-                MoneyHand(
-                    cards = player.moneyCards,
-                    selectedCardIds = selectedMoneyCardIds,
-                    onCardClick = onCardClick,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.ig_farm_self),
+                contentDescription = "My Farm Area",
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .height(180.dp),
-                contentAlignment = Alignment.BottomCenter,
+                contentScale = ContentScale.FillWidth,
+                alignment = Alignment.Center,
+            )
+
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ig_farm_self),
-                    contentDescription = "My Farm Area",
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                    contentScale = ContentScale.FillWidth,
-                    alignment = Alignment.Center,
-                )
+                Column {
+                    Text(
+                        text = player?.name ?: "YOU",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = WhitePurple,
+                        fontWeight = FontWeight.Black,
+                    )
+                    if (isMyTurn) {
+                        Text(
+                            "YOUR TURN",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFFFFEB3B),
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
+                }
 
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                Surface(
+                    color = DarkPurple.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
-                    Column {
-                        Text(
-                            text = player?.name ?: "YOU",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = WhitePurple,
-                            fontWeight = FontWeight.Black,
-                        )
-                        if (isMyTurn) {
-                            Text(
-                                "YOUR TURN",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFFFFEB3B),
-                                fontWeight = FontWeight.ExtraBold,
-                            )
-                        }
-                    }
-
-                    Surface(
-                        color = DarkPurple.copy(alpha = 0.7f),
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Text(
-                            "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = WhitePurple,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                    Text(
+                        "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = WhitePurple,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }

@@ -26,10 +26,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
 import at.aau.kuhhandel.app.ui.components.MainBackground
+import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.TradeView
@@ -53,6 +55,7 @@ fun GameScreen(
     onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
+    onToggleHandFanned: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -187,9 +190,12 @@ fun GameScreen(
 
                         revealedCard?.let { card ->
                             Image(
-                                painter = painterResource(id = getAnimalDrawable(card.type)),
+                                painter =
+                                    painterResource(
+                                        id = getAnimalDrawable(card.type, AnimalStyle.CARD),
+                                    ),
                                 contentDescription = null,
-                                modifier = Modifier.size(150.dp),
+                                modifier = Modifier.size(width = 150.dp, height = 210.dp),
                             )
                             Text(
                                 card.type.name,
@@ -327,6 +333,8 @@ fun GameScreen(
         PlayerFarm(
             player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
             isMyTurn = uiState.isMyTurn,
+            isHandFanned = uiState.isHandFanned,
+            onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
             onCardClick = { onToggleMoneyCard(it.id) },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -336,6 +344,29 @@ fun GameScreen(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp),
         )
+
+        // --- TOP LAYER: PLAYER'S MONEY HAND ---
+        // Placing it last in the Box ensures it's on top of everything else
+        val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
+        if (myPlayer != null) {
+            MoneyHand(
+                cards = myPlayer.moneyCards,
+                selectedCardIds = uiState.selectedMoneyCardIds,
+                onCardClick = { onToggleMoneyCard(it.id) },
+                isFanned = uiState.isHandFanned,
+                onToggleFanned = onToggleHandFanned,
+                isTradePhase =
+                    uiState.currentPhase in
+                        listOf(
+                            GamePhase.TRADE_OFFER,
+                            GamePhase.TRADE_RESPONSE,
+                        ),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp), // Base position adjusted for screen layout
+            )
+        }
     }
 }
 
@@ -364,6 +395,7 @@ fun GameScreenPreview() {
             deckCountText = "5",
             canRevealCard = true,
             myMoneyCards = players[4].moneyCards,
+            isHandFanned = false,
         )
     GameScreen(
         uiState = uiState,
@@ -376,5 +408,6 @@ fun GameScreenPreview() {
         onInitiateTrade = { _, _ -> },
         onSelectTargetPlayer = {},
         onToggleMoneyCard = {},
+        onToggleHandFanned = {},
     )
 }

@@ -40,6 +40,7 @@ data class GameUiState(
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
+    val isHandFanned: Boolean = false,
 ) {
     val isMyTurn: Boolean
         get() =
@@ -77,6 +78,7 @@ class GameViewModel(
 ) {
     private val selectedMoneyCardIds = MutableStateFlow<Set<String>>(emptySet())
     private val selectedTargetPlayerId = MutableStateFlow<String?>(null)
+    private val isHandFanned = MutableStateFlow(false)
 
     private val auctionTimerSeconds =
         repository.state
@@ -112,7 +114,8 @@ class GameViewModel(
             auctionTimerSeconds,
             selectedMoneyCardIds,
             selectedTargetPlayerId,
-        ) { repoState, timer, selectedIds, targetId ->
+            isHandFanned,
+        ) { repoState, timer, selectedIds, targetId, fanned ->
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
 
@@ -178,6 +181,7 @@ class GameViewModel(
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
+                isHandFanned = fanned,
             )
         }.distinctUntilChanged()
             .stateIn(
@@ -191,6 +195,11 @@ class GameViewModel(
         selectedMoneyCardIds.update { current ->
             if (current.contains(cardId)) current - cardId else current + cardId
         }
+    }
+
+    /** Toggles the money hand fanned state. */
+    fun toggleHandFanned() {
+        isHandFanned.update { !it }
     }
 
     /** Deselects all currently selected money cards. */
