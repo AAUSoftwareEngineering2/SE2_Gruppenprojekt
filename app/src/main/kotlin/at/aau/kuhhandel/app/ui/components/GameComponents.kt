@@ -128,6 +128,8 @@ fun MoneyCardView(
 
         // Overlay the value text if it's not clearly visible on the asset
         // (Assuming the assets are high-fidelity, but we might want text for accessibility/clarity)
+
+        /*
         Text(
             text = card.value.toString(),
             style = MaterialTheme.typography.bodySmall,
@@ -135,6 +137,7 @@ fun MoneyCardView(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp),
         )
+         */
     }
 }
 
