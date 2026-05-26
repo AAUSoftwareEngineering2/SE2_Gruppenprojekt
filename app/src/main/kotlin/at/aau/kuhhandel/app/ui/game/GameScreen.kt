@@ -1,5 +1,11 @@
 package at.aau.kuhhandel.app.ui.game
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +24,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +44,8 @@ import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameEvent
@@ -59,6 +69,18 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(800, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "pulseAlpha",
+    )
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -178,7 +200,7 @@ fun GameScreen(
                         Text(
                             text = message,
                             style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
+                            color = PureWhite,
                         )
                     }
                 }
@@ -204,7 +226,7 @@ fun GameScreen(
                             Text(
                                 card.type.name,
                                 style = MaterialTheme.typography.headlineMedium,
-                                color = Color.White,
+                                color = PureWhite,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 8.dp),
                             )
@@ -217,8 +239,16 @@ fun GameScreen(
                             if (!uiState.isMyTurn) {
                                 Text(
                                     "Waiting for ${uiState.activePlayerName}...",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = Color.White.copy(alpha = 0.7f),
+                                    style =
+                                        MaterialTheme.typography.headlineSmall.copy(
+                                            shadow =
+                                                Shadow(
+                                                    color = PureWhite,
+                                                    offset = Offset(4f, 4f),
+                                                    blurRadius = 8f,
+                                                ),
+                                        ),
+                                    color = DarkPurple.copy(alpha = alpha),
                                     modifier = Modifier.padding(top = 16.dp),
                                 )
                             }
@@ -267,7 +297,16 @@ fun GameScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         "Auction Closed. Choose your action:",
-                                        color = Color.White,
+                                        style =
+                                            MaterialTheme.typography.headlineSmall.copy(
+                                                shadow =
+                                                    Shadow(
+                                                        color = PureWhite,
+                                                        offset = Offset(4f, 4f),
+                                                        blurRadius = 8f,
+                                                    ),
+                                            ),
+                                        color = DarkPurple.copy(alpha = alpha),
                                         modifier = Modifier.padding(bottom = 8.dp),
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -332,7 +371,7 @@ fun GameScreen(
                     Text(
                         "GAME OVER",
                         style = MaterialTheme.typography.headlineLarge,
-                        color = Color.White,
+                        color = PureWhite,
                     )
                 }
             }

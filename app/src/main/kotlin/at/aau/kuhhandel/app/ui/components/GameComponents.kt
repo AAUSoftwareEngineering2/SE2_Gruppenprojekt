@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,7 +49,15 @@ fun DeckView(
             )
             Text(
                 text = count,
-                style = MaterialTheme.typography.displaySmall,
+                style =
+                    MaterialTheme.typography.displaySmall.copy(
+                        shadow =
+                            Shadow(
+                                color = DarkPurple.copy(alpha = 0.8f),
+                                offset = Offset(2f, 2f),
+                                blurRadius = 4f,
+                            ),
+                    ),
                 color = PureWhite,
                 fontWeight = FontWeight.Black,
             )
@@ -88,11 +98,9 @@ fun MoneyStackButton(
             style =
                 MaterialTheme.typography.headlineSmall.copy(
                     shadow =
-                        androidx.compose.ui.graphics.Shadow(
+                        Shadow(
                             color = PureWhite,
-                            offset =
-                                androidx.compose.ui.geometry
-                                    .Offset(0f, 0f),
+                            offset = Offset(0f, 0f),
                             blurRadius = 8f,
                         ),
                 ),
