@@ -5,7 +5,7 @@ import at.aau.kuhhandel.app.network.game.GameRepositoryState
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -89,8 +89,8 @@ class LobbyViewModelTest {
 
             val players =
                 listOf(
-                    PlayerState(id = "p1", name = "Alice"),
-                    PlayerState(id = "p2", name = "Bob"),
+                    Player(id = "p1", name = "Alice"),
+                    Player(id = "p2", name = "Bob"),
                 )
             val gameState = GameState(players = players, phase = GamePhase.NOT_STARTED)
 
@@ -121,7 +121,7 @@ class LobbyViewModelTest {
             // case one, connected with 2 players
             val lobbyState =
                 GameState(
-                    players = listOf(PlayerState("p1", "Alice"), PlayerState("p2", "Bob")),
+                    players = listOf(Player("p1", "Alice"), Player("p2", "Bob")),
                     phase = GamePhase.NOT_STARTED,
                 )
             repoStateFlow.value =
@@ -136,7 +136,7 @@ class LobbyViewModelTest {
             // case two, only 1 player
             val singlePlayerState =
                 GameState(
-                    players = listOf(PlayerState("p1", "Alice")),
+                    players = listOf(Player("p1", "Alice")),
                     phase = GamePhase.NOT_STARTED,
                 )
             repoStateFlow.value =
@@ -151,7 +151,7 @@ class LobbyViewModelTest {
             // Case three, Game already started
             val startedGameState =
                 GameState(
-                    players = listOf(PlayerState("p1", "Alice"), PlayerState("p2", "Bob")),
+                    players = listOf(Player("p1", "Alice"), Player("p2", "Bob")),
                     phase = GamePhase.AUCTION_BIDDING,
                 )
             repoStateFlow.value =

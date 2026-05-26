@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -27,9 +27,9 @@ class GameSessionTest {
             phase = GamePhase.NOT_STARTED,
             players =
                 listOf(
-                    PlayerState(id = "player-1", name = "Player 1"),
-                    PlayerState(id = "player-2", name = "Player 2"),
-                    PlayerState(id = "player-3", name = "Player 3"),
+                    Player(id = "player-1", name = "Player 1"),
+                    Player(id = "player-2", name = "Player 2"),
+                    Player(id = "player-3", name = "Player 3"),
                 ),
             hostPlayerId = "player-1",
         )
@@ -124,8 +124,8 @@ class GameSessionTest {
             baselineState.copy(
                 players =
                     baselineState.players +
-                        PlayerState(id = "player-4", "Player-4") +
-                        PlayerState(id = "player-5", "Player 5"),
+                        Player(id = "player-4", "Player-4") +
+                        Player(id = "player-5", "Player 5"),
             )
 
         val session = GameSession.fromState("game-1", brokenState)
@@ -164,7 +164,7 @@ class GameSessionTest {
         val singlePlayerState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
-                players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                players = listOf(Player(id = "player-1", name = "player-1")),
                 hostPlayerId = "player-1",
             )
         val session = GameSession.fromState("game-1", singlePlayerState)
@@ -261,8 +261,8 @@ class GameSessionTest {
             baselineState.copy(
                 players =
                     listOf(
-                        PlayerState(id = "player-1", name = "Player 1"),
-                        PlayerState(id = "player-2", name = "Player 2"),
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2"),
                     ),
             )
         val session = GameSession.fromState("game-1", lowPlayerState)
@@ -631,13 +631,13 @@ class GameSessionTest {
             )
         val initialPlayers =
             listOf(
-                PlayerState(id = "player-1", name = "Player 1", moneyCards = emptyList()),
-                PlayerState(
+                Player(id = "player-1", name = "Player 1", moneyCards = emptyList()),
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     moneyCards = createDummyMoney("player-2", listOf(10, 10)),
                 ),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -679,13 +679,13 @@ class GameSessionTest {
             )
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = createDummyMoney("player-1", listOf(50)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -774,13 +774,13 @@ class GameSessionTest {
         // Auctioneer only has 10 money, but needs 40 to buy
         val poorAuctioneerPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = listOf(MoneyCard("p1-10", 10)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -806,18 +806,18 @@ class GameSessionTest {
 
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = player1Money,
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
                 ),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-3", name = "Player 3"),
             )
         val playableState =
             baselineState.copy(
@@ -926,12 +926,12 @@ class GameSessionTest {
         // Player 1 has a PIG instead of a COW
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("p1", AnimalType.PIG)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
@@ -957,12 +957,12 @@ class GameSessionTest {
         // Player 2 (target) has an empty animal list
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", animals = emptyList()),
+                Player(id = "player-2", name = "Player 2", animals = emptyList()),
             )
         val playableState =
             baselineState.copy(
@@ -983,12 +983,12 @@ class GameSessionTest {
     fun `chooseTrade fails if money offer is empty`() {
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1018,13 +1018,13 @@ class GameSessionTest {
     fun `chooseTrade fails if initiator does not own the offered money cards`() {
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1064,13 +1064,13 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1116,13 +1116,13 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1165,13 +1165,13 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1258,8 +1258,8 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(id = "player-1", name = "Player 1"),
-                PlayerState(
+                Player(id = "player-1", name = "Player 1"),
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     moneyCards = createDummyMoney("player-2", listOf(10)),
@@ -1413,13 +1413,13 @@ class GameSessionTest {
         // Let's test: 10, 10, 50. Need to pay 15. Optimal is 10+10=20.
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = createDummyMoney("player-1", listOf(50, 10, 10)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val auctionState =
             AuctionState(
@@ -1465,20 +1465,20 @@ class GameSessionTest {
 
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "P1",
                     animals = p1Cows,
                     moneyCards =
                         createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "P2",
                     animals = p2Cows,
                     moneyCards = emptyList(),
                 ),
-                PlayerState(id = "player-3", name = "P3"),
+                Player(id = "player-3", name = "P3"),
             )
 
         val activeState =

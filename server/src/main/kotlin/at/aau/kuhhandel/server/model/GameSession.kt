@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 
 /**
@@ -65,7 +65,7 @@ class GameSession(
         ensurePhase(GamePhase.NOT_STARTED)
         ensureRoomNotFull()
 
-        val player = PlayerState(playerId, playerName)
+        val player = Player(playerId, playerName)
 
         state =
             state.copy(
@@ -244,8 +244,8 @@ class GameSession(
         val highestBidder = state.players.find { it.id == highestBidderId }!!
 
         // Determine the card receiver and seller
-        val receiver: PlayerState
-        val seller: PlayerState
+        val receiver: Player
+        val seller: Player
 
         if (auctioneerBuysCard) {
             ensureHasEnoughMoney(actor, auctionState.highestBid)
@@ -328,8 +328,8 @@ class GameSession(
             initiator.moneyCards.filter { it.id in tradeState.offeredMoneyCardIds }
         var counterOfferedMoneyCards = emptyList<MoneyCard>()
 
-        val winner: PlayerState
-        val loser: PlayerState
+        val winner: Player
+        val loser: Player
 
         if (counterOfferedMoneyCardIds.isEmpty()) {
             // The trade target accepts the trade blindly
@@ -480,7 +480,7 @@ class GameSession(
         }
     }
 
-    private fun requireActorInRoom(actorId: String): PlayerState =
+    private fun requireActorInRoom(actorId: String): Player =
         state.players.find { it.id == actorId }
             ?: throw GameException(GameErrorReason.UNKNOWN_ACTOR)
 
@@ -530,7 +530,7 @@ class GameSession(
 
     // Temporary check for Sprint 2; will be replaced with another feature in Sprint 3
     private fun ensureHasEnoughMoney(
-        player: PlayerState,
+        player: Player,
         amount: Int,
     ) {
         if (player.totalMoney() < amount) {
@@ -556,7 +556,7 @@ class GameSession(
         }
     }
 
-    private fun requireValidTradeTarget(playerId: String): PlayerState =
+    private fun requireValidTradeTarget(playerId: String): Player =
         state.players.find { it.id == playerId }
             ?: throw GameException(GameErrorReason.UNKNOWN_TRADE_TARGET)
 
@@ -568,7 +568,7 @@ class GameSession(
     }
 
     private fun ensureTradeInitiatorHasAnimalType(
-        initiator: PlayerState,
+        initiator: Player,
         animalType: AnimalType,
     ) {
         if (initiator.animals.none {
@@ -580,7 +580,7 @@ class GameSession(
     }
 
     private fun ensureTradeTargetHasAnimalType(
-        target: PlayerState,
+        target: Player,
         animalType: AnimalType,
     ) {
         if (target.animals.none {
@@ -604,7 +604,7 @@ class GameSession(
     }
 
     private fun ensureOwnsMoneyCards(
-        player: PlayerState,
+        player: Player,
         moneyCardIds: Set<String>,
     ) {
         val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
@@ -616,7 +616,7 @@ class GameSession(
     }
 
     private fun requireOwnsMoneyCards(
-        player: PlayerState,
+        player: Player,
         moneyCardIds: Set<String>,
     ): List<MoneyCard> {
         val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
@@ -632,10 +632,10 @@ class GameSession(
      * Appends an animal card to the given player's collection.
      */
     private fun addAnimalToPlayer(
-        players: List<PlayerState>,
+        players: List<Player>,
         receiverId: String,
         animalCard: AnimalCard,
-    ): List<PlayerState> {
+    ): List<Player> {
         // GameState is immutable, so create an updated player list with the card added to the winner.
         return players.map { player ->
             if (player.id == receiverId) {
@@ -650,7 +650,7 @@ class GameSession(
      * Calculates the mathematically optimal combination of money cards to satisfy a transaction.
      */
     private fun selectMoneyCardsForPayment(
-        player: PlayerState,
+        player: Player,
         amount: Int,
     ): Set<String> {
         check(player.totalMoney() >= amount) {
@@ -701,11 +701,11 @@ class GameSession(
      * Determines whether to move one or two cards based on the counts owned by the players.
      */
     private fun moveAnimalType(
-        players: List<PlayerState>,
-        from: PlayerState,
-        to: PlayerState,
+        players: List<Player>,
+        from: Player,
+        to: Player,
         animalType: AnimalType,
-    ): List<PlayerState> {
+    ): List<Player> {
         val fromMatchingCards = from.animals.filter { it.type == animalType }
         val fromCount = fromMatchingCards.size
         val toCount = to.animals.count { it.type == animalType }
@@ -737,11 +737,11 @@ class GameSession(
      * Transfers designated money cards between two players.
      */
     private fun transferMoneyCards(
-        players: List<PlayerState>,
-        from: PlayerState,
-        to: PlayerState,
+        players: List<Player>,
+        from: Player,
+        to: Player,
         moneyCardIds: Set<String>,
-    ): List<PlayerState> {
+    ): List<Player> {
         if (moneyCardIds.isEmpty()) {
             return players
         }

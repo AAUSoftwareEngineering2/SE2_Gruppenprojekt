@@ -18,7 +18,7 @@ import at.aau.kuhhandel.server.persistence.repository.PlayerMoneyRepository
 import at.aau.kuhhandel.server.persistence.repository.TradeStateRepository
 import at.aau.kuhhandel.server.persistence.repository.UserRepository
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -142,7 +142,7 @@ class GamePersistenceService(
 
     private fun syncPlayers(
         game: GameEntity,
-        players: List<PlayerState>,
+        players: List<Player>,
     ): Map<String, GamePlayerEntity> {
         val existing = gamePlayerRepository.findByGameOrderBySeatOrderAsc(game)
         // username stores the display name; passwordHash stores the UUID player id
@@ -211,7 +211,7 @@ class GamePersistenceService(
 
     private fun syncPlayerInventories(
         playerEntities: Map<String, GamePlayerEntity>,
-        players: List<PlayerState>,
+        players: List<Player>,
     ) {
         players.forEach { player ->
             val entity =

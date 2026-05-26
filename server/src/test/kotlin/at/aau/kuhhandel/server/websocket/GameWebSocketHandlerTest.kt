@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -237,7 +237,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val state =
                 GameState(
-                    players = listOf(PlayerState("player-1", "Player 1")),
+                    players = listOf(Player("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
 
@@ -339,7 +339,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(PlayerState("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player 2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -430,7 +430,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(PlayerState("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player 2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -455,7 +455,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(PlayerState("player-1", "Player 1")),
+                    players = listOf(Player("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
             val gameSession =
@@ -665,7 +665,7 @@ class GameWebSocketHandlerTest {
             whenever(connectionRegistry.gameIdFor("session-B")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-B")).thenReturn("player-B")
 
-            val stateAfterALeaves = GameState(players = listOf(PlayerState("player-B", "Player B")))
+            val stateAfterALeaves = GameState(players = listOf(Player("player-B", "Player B")))
             whenever(gameService.leaveGame("game-1", "player-A")).thenReturn(stateAfterALeaves)
 
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(sessionB))

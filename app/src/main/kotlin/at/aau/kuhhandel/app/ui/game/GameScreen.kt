@@ -39,7 +39,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 @Composable
 fun GameScreen(
@@ -334,7 +334,10 @@ fun GameScreen(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 140.dp),
         )
     }
 }
@@ -344,11 +347,11 @@ fun GameScreen(
 fun GameScreenPreview() {
     val players =
         listOf(
-            PlayerState("1", "Player 1", moneyCards = List(6) { MoneyCard("a$it", 10) }),
-            PlayerState("2", "Player 2", moneyCards = List(3) { MoneyCard("b$it", 10) }),
-            PlayerState("3", "Player 3", moneyCards = List(5) { MoneyCard("c$it", 10) }),
-            PlayerState("4", "Player 4", moneyCards = List(12) { MoneyCard("d$it", 10) }),
-            PlayerState("5", "Me", moneyCards = List(5) { MoneyCard("m$it", 50) }),
+            Player("1", "Player 1", moneyCards = List(6) { MoneyCard("a$it", 10) }),
+            Player("2", "Player 2", moneyCards = List(3) { MoneyCard("b$it", 10) }),
+            Player("3", "Player 3", moneyCards = List(5) { MoneyCard("c$it", 10) }),
+            Player("4", "Player 4", moneyCards = List(12) { MoneyCard("d$it", 10) }),
+            Player("5", "Me", moneyCards = List(5) { MoneyCard("m$it", 50) }),
         )
     val gameState =
         GameState(

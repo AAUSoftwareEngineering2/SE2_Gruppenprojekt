@@ -5,7 +5,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -126,7 +126,7 @@ class GameRepositoryTest {
 
     private fun sampleState(
         phase: GamePhase = GamePhase.NOT_STARTED,
-        players: List<PlayerState> = listOf(PlayerState(id = "player-1", name = "Fabio")),
+        players: List<Player> = listOf(Player(id = "player-1", name = "Fabio")),
         currentCard: AnimalCard? = null,
         deckSize: Int = 0,
     ): GameState =
