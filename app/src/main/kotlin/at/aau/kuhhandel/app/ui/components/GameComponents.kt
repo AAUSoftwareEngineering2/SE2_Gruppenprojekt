@@ -1,5 +1,14 @@
 package at.aau.kuhhandel.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,15 +20,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
@@ -120,32 +136,30 @@ fun MoneyCardView(
     modifier: Modifier = Modifier,
     isClickable: Boolean = true,
 ) {
-    Box(
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
+        label = "cardScale",
+    )
+
+    Card(
         modifier =
             modifier
                 .size(width = 70.dp, height = 100.dp)
+                .scale(scale)
                 .offset(y = if (isSelected) (-20).dp else 0.dp)
                 .then(if (isClickable) Modifier.clickable { onClick() } else Modifier),
-        contentAlignment = Alignment.Center,
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
-        Image(
-            painter = painterResource(id = getMoneyDrawable(card.value)),
-            contentDescription = "Money Card ${card.value}",
-            modifier = Modifier.size(width = 70.dp, height = 100.dp),
-        )
-
-        // Overlay the value text if it's not clearly visible on the asset
-        // (Assuming the assets are high-fidelity, but we might want text for accessibility/clarity)
-
-        /*
-        Text(
-            text = card.value.toString(),
-            style = MaterialTheme.typography.bodySmall,
-            color = DarkPurple,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp),
-        )
-         */
+        Box(contentAlignment = Alignment.Center) {
+            Image(
+                painter = painterResource(id = getMoneyDrawable(card.value)),
+                contentDescription = "Money Card ${card.value}",
+                modifier = Modifier.size(width = 70.dp, height = 100.dp),
+            )
+        }
     }
 }
 
@@ -165,51 +179,83 @@ fun MoneyHand(
         contentAlignment = Alignment.BottomCenter,
     ) {
         if (cards.isNotEmpty()) {
-            if (!isFanned) {
-                // Stack Button (Collapsed State)
-                MoneyStackButton(
-                    count = cards.size,
-                    onClick = onToggleFanned,
-                    modifier = Modifier.padding(bottom = 20.dp),
-                )
-            } else {
-                // Grid Layout (Expanded State)
-                // We use a Column of Rows to create a readable grid
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
-                            .clickable { onToggleFanned() },
-                    // Clicking background or cards (if not trade) collapses
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val cardsPerRow = 4
-                    cards.chunked(cardsPerRow).forEach { rowCards ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            rowCards.forEach { card ->
-                                MoneyCardView(
-                                    card = card,
-                                    isSelected = selectedCardIds.contains(card.id),
-                                    onClick = { onCardClick(card) },
-                                    isClickable = isTradePhase,
-                                )
+            AnimatedContent(
+                targetState = isFanned,
+                transitionSpec = {
+                    (
+                        scaleIn(
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
+                            initialScale = 0.8f,
+                        ) + fadeIn()
+                    ).togetherWith(scaleOut() + fadeOut())
+                },
+                label = "moneyHandFanning",
+            ) { targetIsFanned ->
+                if (!targetIsFanned) {
+                    // Stack Button (Collapsed State)
+                    MoneyStackButton(
+                        count = cards.size,
+                        onClick = onToggleFanned,
+                        modifier = Modifier.padding(bottom = 20.dp),
+                    )
+                } else {
+                    // Grid Layout (Expanded State)
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
+                                .clickable { onToggleFanned() },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        val cardsPerRow = 4
+                        cards.chunked(cardsPerRow).forEach { rowCards ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                rowCards.forEach { card ->
+                                    MoneyCardView(
+                                        card = card,
+                                        isSelected = selectedCardIds.contains(card.id),
+                                        onClick = { onCardClick(card) },
+                                        isClickable = isTradePhase,
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    // Simple "Close" hint
-                    Text(
-                        if (isTradePhase) "Select cards to trade" else "Tap anywhere to close",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = DarkPurple.copy(alpha = 0.6f),
-                    )
+                        // Simple "Close" hint
+                        Text(
+                            if (isTradePhase) "Select cards to trade" else "Tap anywhere to close",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = DarkPurple.copy(alpha = 0.6f),
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MoneyHandPreview() {
+    val sampleCards =
+        listOf(
+            MoneyCard("1", 0),
+            MoneyCard("2", 10),
+            MoneyCard("3", 50),
+            MoneyCard("4", 100),
+            MoneyCard("5", 0),
+        )
+    Box(modifier = Modifier.height(300.dp)) {
+        MoneyHand(
+            cards = sampleCards,
+            isFanned = true,
+            onToggleFanned = {},
+            selectedCardIds = setOf("3"),
+        )
     }
 }
