@@ -140,15 +140,17 @@ fun GameScreen(
         )
 
         // --- TOP: OPPONENTS ---
-        OpponentList(
-            players = uiState.gameState?.players ?: emptyList(),
-            myId = uiState.myPlayerId,
-            onOpponentClick = onSelectTargetPlayer,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 48.dp),
-        )
+        if (uiState.currentPhase !in listOf(GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION)) {
+            OpponentList(
+                players = uiState.gameState?.players ?: emptyList(),
+                myId = uiState.myPlayerId,
+                onOpponentClick = onSelectTargetPlayer,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 48.dp),
+            )
+        }
 
         // --- CENTER: THE BOARD ---
         Box(
@@ -234,45 +236,53 @@ fun GameScreen(
                 GamePhase.AUCTION_BIDDING,
                 GamePhase.AUCTION_RESOLUTION,
                 -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AuctionView(
-                            auction = uiState.gameState?.auctionState,
-                            timerSeconds = uiState.auctionTimerSeconds,
-                            players = uiState.gameState?.players ?: emptyList(),
-                        )
-                        if (uiState.isConnected &&
-                            !uiState.isAuctioneer &&
-                            (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(top = 24.dp) // High up, replacing opponent list space
                         ) {
-                            AuctionControls(
-                                onBid = onPlaceBid,
-                                currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
-                                myTotalMoney = uiState.myTotalMoney,
+                            AuctionView(
+                                auction = uiState.gameState?.auctionState,
+                                timerSeconds = uiState.auctionTimerSeconds,
+                                players = uiState.gameState?.players ?: emptyList(),
                             )
-                        } else if (uiState.isAuctioneer &&
-                            (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "Auction Closed. Choose your action:",
-                                    color = Color.White,
-                                    modifier = Modifier.padding(bottom = 8.dp),
+                            if (uiState.isConnected &&
+                                !uiState.isAuctioneer &&
+                                (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
+                            ) {
+                                AuctionControls(
+                                    onBid = onPlaceBid,
+                                    currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
+                                    myTotalMoney = uiState.myTotalMoney,
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                                    Button(
-                                        onClick = { onBuyBack(false) },
-                                    ) { Text("Let Winner Buy") }
+                            } else if (uiState.isAuctioneer &&
+                                (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Auction Closed. Choose your action:",
+                                        color = Color.White,
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
+                                        Button(
+                                            onClick = { onBuyBack(false) },
+                                        ) { Text("Let Winner Buy") }
+                                    }
                                 }
                             }
-                        }
 
-                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                            Button(
-                                onClick = onFinishTradeReveal,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                Text("CONTINUE")
+                            if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                                Button(
+                                    onClick = onFinishTradeReveal,
+                                    modifier = Modifier.padding(top = 16.dp),
+                                ) {
+                                    Text("CONTINUE")
+                                }
                             }
                         }
                     }
@@ -321,10 +331,6 @@ fun GameScreen(
                         style = MaterialTheme.typography.headlineLarge,
                         color = Color.White,
                     )
-                }
-
-                else -> {
-                    Text("Current Phase: ${uiState.currentPhase}", color = Color.White)
                 }
             }
         }
