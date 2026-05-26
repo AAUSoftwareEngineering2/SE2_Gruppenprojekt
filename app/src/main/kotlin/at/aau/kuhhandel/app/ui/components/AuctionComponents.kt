@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,32 +59,43 @@ fun AuctionView(
 ) {
     if (auction == null) return
 
+    // Timer animation logic: Faster and brighter pulse when time is running out (< 3s)
+    val isTimeLow = (timerSeconds != null && timerSeconds <= 3)
+    val pulseDuration = if (isTimeLow) 400 else 1000
+
     val infiniteTransition = rememberInfiniteTransition(label = "auctionTimer")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (timerSeconds != null && timerSeconds <= 3) 1.2f else 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (timerSeconds != null && timerSeconds <= 3) 400 else 1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "timerPulse"
+        targetValue = if (isTimeLow) 1.2f else 1.05f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = pulseDuration, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "timerPulse",
     )
     val pulseColor by infiniteTransition.animateColor(
         initialValue = AlertRed,
-        targetValue = if (timerSeconds != null && timerSeconds <= 3) AlertRedHighlight else AlertRed.copy(alpha = 0.8f),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (timerSeconds != null && timerSeconds <= 3) 400 else 1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "timerColor"
+        targetValue = if (isTimeLow) AlertRedHighlight else AlertRed.copy(alpha = 0.8f),
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = pulseDuration),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "timerColor",
     )
 
+    // "Pop" animation whenever a new bid is placed
     val bidScale = remember { Animatable(1f) }
     LaunchedEffect(auction.highestBid) {
         if (auction.highestBid > 0) {
             bidScale.animateTo(
                 targetValue = 1.15f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                animationSpec =
+                    spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow,
+                    ),
             )
             bidScale.animateTo(1f)
         }
@@ -99,10 +109,11 @@ fun AuctionView(
             ),
         elevation = CardDefaults.cardElevation(16.dp),
         shape = RoundedCornerShape(24.dp),
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .height(480.dp) // Fixed height to prevent layout shifts and overlap
-            .border(2.dp, DarkPurple.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+        modifier =
+            Modifier
+                .padding(horizontal = 16.dp)
+                .height(480.dp) // Fixed height to prevent layout shifts and overlap
+                .border(2.dp, DarkPurple.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -123,27 +134,28 @@ fun AuctionView(
                     style = MaterialTheme.typography.titleLarge,
                     color = pulseColor,
                     fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.scale(pulseScale)
+                    modifier = Modifier.scale(pulseScale),
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             Box(
-                modifier = Modifier
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(WhitePurple, Color.Transparent),
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(8.dp)
+                modifier =
+                    Modifier
+                        .background(
+                            brush =
+                                Brush.radialGradient(
+                                    colors = listOf(WhitePurple, Color.Transparent),
+                                ),
+                            shape = RoundedCornerShape(12.dp),
+                        ).padding(8.dp),
             ) {
                 Image(
                     painter =
-                    painterResource(
-                        id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
-                    ),
+                        painterResource(
+                            id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
+                        ),
                     contentDescription = null,
                     modifier = Modifier.size(width = 160.dp, height = 220.dp),
                 )
@@ -155,7 +167,7 @@ fun AuctionView(
                 auction.auctionCard.type.name,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
-                color = DarkPurple
+                color = DarkPurple,
             )
 
             HorizontalDivider(
@@ -170,7 +182,7 @@ fun AuctionView(
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.scale(bidScale.value)
+                modifier = Modifier.scale(bidScale.value),
             ) {
                 Text(
                     if (auction.highestBidderId != null) "Current Bid" else "Starting...",
@@ -179,7 +191,13 @@ fun AuctionView(
                 )
 
                 Text(
-                    if (auction.highestBidderId != null) "${auction.highestBid}€" else "Waiting for bids",
+                    if (auction.highestBidderId !=
+                        null
+                    ) {
+                        "${auction.highestBid}€"
+                    } else {
+                        "Waiting for bids"
+                    },
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
@@ -191,7 +209,7 @@ fun AuctionView(
                     "By: $bidderName",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = DarkPurple.copy(alpha = 0.8f)
+                    color = DarkPurple.copy(alpha = 0.8f),
                 )
             }
         }
@@ -233,14 +251,14 @@ fun AuctionControls(
                     } else {
                         ButtonDefaults.buttonColors(
                             containerColor = DefaultPurple,
-                            contentColor = Color.White
+                            contentColor = Color.White,
                         )
                     },
             ) {
                 Text(
                     "+$amount",
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
         }

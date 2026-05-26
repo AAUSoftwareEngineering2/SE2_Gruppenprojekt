@@ -140,7 +140,9 @@ fun GameScreen(
         )
 
         // --- TOP: OPPONENTS ---
-        if (uiState.currentPhase !in listOf(GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION)) {
+        if (uiState.currentPhase !in
+            listOf(GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION)
+        ) {
             OpponentList(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
@@ -236,13 +238,14 @@ fun GameScreen(
                 GamePhase.AUCTION_BIDDING,
                 GamePhase.AUCTION_RESOLUTION,
                 -> {
+                    // During auctions, we move the UI to the top and hide opponents to avoid overlap with money cards
                     Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.TopCenter
+                        contentAlignment = Alignment.TopCenter,
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(top = 24.dp) // High up, replacing opponent list space
+                            modifier = Modifier.padding(top = 24.dp),
                         ) {
                             AuctionView(
                                 auction = uiState.gameState?.auctionState,
