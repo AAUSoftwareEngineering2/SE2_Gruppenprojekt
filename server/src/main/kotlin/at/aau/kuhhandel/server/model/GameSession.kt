@@ -315,8 +315,8 @@ class GameSession(
                         requestedAnimalType = animalType,
                         offeredMoneyCardIds = offeredMoneyCardIds,
                         counterOfferedMoneyCardIds = emptySet(),
-                        initiatorMoneyCards = offeredMoneyCards,
-                        targetMoneyCards = null,
+                        offeredMoneyCards = offeredMoneyCards,
+                        counterOfferedMoneyCards = null,
                     ),
             )
 
@@ -367,7 +367,7 @@ class GameSession(
                     tradeState.copy(
                         counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
                         counterOfferedMoney = counterOfferedMoneyCards.sumOf { it.value },
-                        targetMoneyCards = counterOfferedMoneyCards,
+                        counterOfferedMoneyCards = counterOfferedMoneyCards,
                     ),
             )
 
@@ -388,9 +388,9 @@ class GameSession(
             }
 
         // Exchange the money cards
-        val initiatorMoneyCards = tradeState.initiatorMoneyCards
+        val initiatorMoneyCards = tradeState.offeredMoneyCards
         val targetMoneyCards =
-            checkNotNull(tradeState.targetMoneyCards) {
+            checkNotNull(tradeState.counterOfferedMoneyCards) {
                 "Missing trade counteroffer in reveal phase"
             }
 

@@ -849,9 +849,9 @@ class GameSessionTest {
         assertEquals("player-1", trade.initiatorId)
         assertEquals("player-2", trade.targetId)
         assertEquals(AnimalType.COW, trade.requestedAnimalType)
-        assertEquals(1, trade.initiatorMoneyCards.size)
-        assertTrue(trade.initiatorMoneyCards.any { it.id == targetCardId })
-        assertNull(trade.targetMoneyCards)
+        assertEquals(1, trade.offeredMoneyCards.size)
+        assertTrue(trade.offeredMoneyCards.any { it.id == targetCardId })
+        assertNull(trade.counterOfferedMoneyCards)
     }
 
     @Test
@@ -1100,10 +1100,10 @@ class GameSessionTest {
         assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
         assertEquals(tradeState.targetId, updatedTrade.targetId)
         assertEquals(tradeState.requestedAnimalType, updatedTrade.requestedAnimalType)
-        assertEquals(tradeState.initiatorMoneyCards, updatedTrade.initiatorMoneyCards)
+        assertEquals(tradeState.offeredMoneyCards, updatedTrade.offeredMoneyCards)
 
         // Assert: New trade information is added correctly
-        assertEquals(emptySet(), updatedTrade.targetMoneyCards)
+        assertEquals(emptySet(), updatedTrade.counterOfferedMoneyCards)
     }
 
     @Test
@@ -1153,10 +1153,10 @@ class GameSessionTest {
         assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
         assertEquals(tradeState.targetId, updatedTrade.targetId)
         assertEquals(tradeState.requestedAnimalType, updatedTrade.requestedAnimalType)
-        assertEquals(tradeState.initiatorMoneyCards, updatedTrade.initiatorMoneyCards)
+        assertEquals(tradeState.offeredMoneyCards, updatedTrade.offeredMoneyCards)
 
         // Assert: New trade information is added correctly
-        val targetMoneyCards = updatedTrade.targetMoneyCards
+        val targetMoneyCards = updatedTrade.counterOfferedMoneyCards
         assertNotNull(targetMoneyCards)
         assertEquals(1, targetMoneyCards.size)
         assertTrue(targetMoneyCards.any { it.id == targetCardId })
@@ -1257,8 +1257,8 @@ class GameSessionTest {
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
-                initiatorMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
-                targetMoneyCards = createDummyMoney("player-2", listOf(10)).toSet(),
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(10)).toSet(),
             )
         val customPlayers =
             listOf(
@@ -1316,8 +1316,8 @@ class GameSessionTest {
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
-                initiatorMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
-                targetMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
             )
         val customPlayers =
             listOf(
@@ -1513,8 +1513,8 @@ class GameSessionTest {
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
-                initiatorMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
-                targetMoneyCards = emptySet(),
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = emptySet(),
             )
 
         val customPlayers =

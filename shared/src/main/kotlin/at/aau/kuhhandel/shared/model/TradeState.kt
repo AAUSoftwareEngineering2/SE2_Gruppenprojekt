@@ -23,6 +23,6 @@ data class TradeState(
     val isResolved: Boolean = false,
     // New fields to replace offeredMoney, offeredMoneyCardIds,
     // counterOfferedMoney, and counterOfferedMoneyCardIds
-    val initiatorMoneyCards: Set<MoneyCard> = emptySet(),
-    val targetMoneyCards: Set<MoneyCard>? = null,
+    val offeredMoneyCards: Set<MoneyCard> = emptySet(),
+    val counterOfferedMoneyCards: Set<MoneyCard>? = null,
 )

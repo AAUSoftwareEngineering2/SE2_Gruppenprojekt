@@ -43,14 +43,14 @@ data class GameState(
 
                 val initiatorCards =
                     if (isRevealPhase || playerId == tradeState.initiatorId) {
-                        tradeState.initiatorMoneyCards
+                        tradeState.offeredMoneyCards
                     } else {
                         null
                     }
 
                 val targetCards =
                     if (isRevealPhase) {
-                        tradeState.targetMoneyCards
+                        tradeState.counterOfferedMoneyCards
                     } else {
                         null
                     }
@@ -59,7 +59,7 @@ data class GameState(
                     initiatorId = tradeState.initiatorId,
                     targetId = tradeState.targetId,
                     requestedAnimalType = tradeState.requestedAnimalType,
-                    initiatorCardCount = tradeState.initiatorMoneyCards.size,
+                    initiatorCardCount = tradeState.offeredMoneyCards.size,
                     targetCardCount = targetCards?.size,
                     visibleInitiatorCards = initiatorCards?.toList(),
                     visibleTargetCards = targetCards?.toList(),

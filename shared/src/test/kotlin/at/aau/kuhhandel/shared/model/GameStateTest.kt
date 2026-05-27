@@ -41,8 +41,8 @@ class GameStateTest {
                     initiatorId = "player-1",
                     targetId = "player-2",
                     requestedAnimalType = AnimalType.COW,
-                    initiatorMoneyCards = setOf(MoneyCard("money-50-1", 50)),
-                    targetMoneyCards = null,
+                    offeredMoneyCards = setOf(MoneyCard("money-50-1", 50)),
+                    counterOfferedMoneyCards = null,
                 ),
             lastEvent = null,
         )
@@ -114,10 +114,10 @@ class GameStateTest {
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
         assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
-        assertEquals(tradeState?.initiatorMoneyCards?.size, tradeView.initiatorCardCount)
-        assertEquals(tradeState?.targetMoneyCards?.size, tradeView.targetCardCount)
-        assertEquals(tradeState?.initiatorMoneyCards, tradeView.visibleInitiatorCards?.toSet())
-        assertEquals(tradeState?.targetMoneyCards, tradeView.visibleTargetCards?.toSet())
+        assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
+        assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
+        assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
+        assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
     }
 
     @Test
@@ -141,8 +141,8 @@ class GameStateTest {
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
         assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
-        assertEquals(tradeState?.initiatorMoneyCards?.size, tradeView.initiatorCardCount)
-        assertEquals(tradeState?.targetMoneyCards?.size, tradeView.targetCardCount)
+        assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
+        assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
         assertNull(tradeView.visibleInitiatorCards)
         assertNull(tradeView.visibleTargetCards)
     }
@@ -154,7 +154,7 @@ class GameStateTest {
                 phase = GamePhase.TRADE_REVEAL,
                 tradeState =
                     baseState.tradeState?.copy(
-                        targetMoneyCards = setOf(MoneyCard("money-0-2", 0)),
+                        counterOfferedMoneyCards = setOf(MoneyCard("money-0-2", 0)),
                     ),
             )
 
@@ -166,9 +166,9 @@ class GameStateTest {
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
         assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
-        assertEquals(tradeState?.initiatorMoneyCards?.size, tradeView.initiatorCardCount)
-        assertEquals(tradeState?.targetMoneyCards?.size, tradeView.targetCardCount)
-        assertEquals(tradeState?.initiatorMoneyCards, tradeView.visibleInitiatorCards?.toSet())
-        assertEquals(tradeState?.targetMoneyCards, tradeView.visibleTargetCards?.toSet())
+        assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
+        assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
+        assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
+        assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
     }
 }
