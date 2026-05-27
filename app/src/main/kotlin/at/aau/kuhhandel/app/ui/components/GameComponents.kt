@@ -101,6 +101,24 @@ fun DeckView(
                 color = PureWhite,
                 fontWeight = FontWeight.Black,
             )
+
+            if (canClick) {
+                Text(
+                    text = "tap to start an auction!",
+                    modifier = Modifier.offset(y = 40.dp),
+                    style =
+                        MaterialTheme.typography.labelLarge.copy(
+                            shadow =
+                                Shadow(
+                                    color = DarkPurple.copy(alpha = 0.8f),
+                                    offset = Offset(2f, 2f),
+                                    blurRadius = 4f,
+                                ),
+                        ),
+                    color = PureWhite,
+                    fontWeight = FontWeight.Black,
+                )
+            }
         }
 
         Image(
