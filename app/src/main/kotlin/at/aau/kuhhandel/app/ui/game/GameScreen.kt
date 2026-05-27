@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
@@ -411,10 +412,10 @@ fun GameScreen(
         // Placing it last in the Box ensures it's on top of everything else
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
         if (myPlayer != null) {
-            val handPadding by animateDpAsState(
-                targetValue = if (isAuctionActive) (-15).dp else 80.dp,
+            val handTranslationY by animateDpAsState(
+                targetValue = if (isAuctionActive) 115.dp else 0.dp,
                 animationSpec = spring(stiffness = 200f),
-                label = "handPaddingAnimation",
+                label = "handTranslationYAnimation",
             )
             val handScale by animateFloatAsState(
                 targetValue = if (isAuctionActive) 1.3f else 1.0f,
@@ -437,7 +438,8 @@ fun GameScreen(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = handPadding)
+                        .padding(bottom = 80.dp)
+                        .offset(y = handTranslationY)
                         .scale(handScale),
             )
         }
