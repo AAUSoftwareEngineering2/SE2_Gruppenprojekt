@@ -291,47 +291,66 @@ fun GameScreen(
                                     currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
                                     myTotalMoney = uiState.myTotalMoney,
                                 )
-                            } else if (uiState.isAuctioneer &&
-                                (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION)
-                            ) {
+                            } else if (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
                                 val highestBidderId =
                                     uiState.gameState
                                         ?.auctionState
                                         ?.highestBidderId
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        if (highestBidderId ==
-                                            null
-                                        ) {
-                                            "Auction Closed. No one bid!"
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(top = 24.dp),
+                                ) {
+                                    if (uiState.isAuctioneer) {
+                                        Text(
+                                            if (highestBidderId ==
+                                                null
+                                            ) {
+                                                "Auction Closed. No one bid!"
+                                            } else {
+                                                "Auction Closed. Choose your action:"
+                                            },
+                                            style =
+                                                MaterialTheme.typography.headlineSmall.copy(
+                                                    shadow =
+                                                        Shadow(
+                                                            color = PureWhite,
+                                                            offset = Offset(4f, 4f),
+                                                            blurRadius = 8f,
+                                                        ),
+                                                ),
+                                            color = DarkPurple.copy(alpha = alpha),
+                                            modifier = Modifier.padding(bottom = 8.dp),
+                                        )
+                                        if (highestBidderId == null) {
+                                            Button(onClick = { onBuyBack(true) }) {
+                                                Text("CONTINUE")
+                                            }
                                         } else {
-                                            "Auction Closed. Choose your action:"
-                                        },
-                                        style =
-                                            MaterialTheme.typography.headlineSmall.copy(
-                                                shadow =
-                                                    Shadow(
-                                                        color = PureWhite,
-                                                        offset = Offset(4f, 4f),
-                                                        blurRadius = 8f,
-                                                    ),
-                                            ),
-                                        color = DarkPurple.copy(alpha = alpha),
-                                        modifier = Modifier.padding(bottom = 8.dp),
-                                    )
-                                    if (highestBidderId == null) {
-                                        Button(onClick = { onBuyBack(true) }) {
-                                            Text("CONTINUE")
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                Button(
+                                                    onClick = { onBuyBack(true) },
+                                                ) { Text("Buy Back") }
+                                                Button(
+                                                    onClick = { onBuyBack(false) },
+                                                ) { Text("Let Winner Buy") }
+                                            }
                                         }
                                     } else {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Button(
-                                                onClick = { onBuyBack(true) },
-                                            ) { Text("Buy Back") }
-                                            Button(
-                                                onClick = { onBuyBack(false) },
-                                            ) { Text("Let Winner Buy") }
-                                        }
+                                        Text(
+                                            "Waiting for player ${uiState.activePlayerName} !",
+                                            style =
+                                                MaterialTheme.typography.headlineSmall.copy(
+                                                    shadow =
+                                                        Shadow(
+                                                            color = PureWhite,
+                                                            offset = Offset(4f, 4f),
+                                                            blurRadius = 8f,
+                                                        ),
+                                                ),
+                                            color = DarkPurple.copy(alpha = alpha),
+                                        )
                                     }
                                 }
                             }
