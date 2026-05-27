@@ -292,11 +292,21 @@ fun GameScreen(
                                     myTotalMoney = uiState.myTotalMoney,
                                 )
                             } else if (uiState.isAuctioneer &&
-                                (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
+                                (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION)
                             ) {
+                                val highestBidderId =
+                                    uiState.gameState
+                                        ?.auctionState
+                                        ?.highestBidderId
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        "Auction Closed. Choose your action:",
+                                        if (highestBidderId ==
+                                            null
+                                        ) {
+                                            "Auction Closed. No one bid!"
+                                        } else {
+                                            "Auction Closed. Choose your action:"
+                                        },
                                         style =
                                             MaterialTheme.typography.headlineSmall.copy(
                                                 shadow =
@@ -309,11 +319,19 @@ fun GameScreen(
                                         color = DarkPurple.copy(alpha = alpha),
                                         modifier = Modifier.padding(bottom = 8.dp),
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                                        Button(
-                                            onClick = { onBuyBack(false) },
-                                        ) { Text("Let Winner Buy") }
+                                    if (highestBidderId == null) {
+                                        Button(onClick = { onBuyBack(true) }) {
+                                            Text("CONTINUE")
+                                        }
+                                    } else {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = { onBuyBack(true) },
+                                            ) { Text("Buy Back") }
+                                            Button(
+                                                onClick = { onBuyBack(false) },
+                                            ) { Text("Let Winner Buy") }
+                                        }
                                     }
                                 }
                             }

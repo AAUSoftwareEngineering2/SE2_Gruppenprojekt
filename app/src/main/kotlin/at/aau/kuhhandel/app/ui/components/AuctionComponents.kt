@@ -180,37 +180,56 @@ fun AuctionView(
                     players.find { it.id == id }?.name ?: id
                 } ?: "No bids yet"
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.scale(bidScale.value),
-            ) {
-                Text(
-                    if (auction.highestBidderId != null) "Current Bid" else "Starting...",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DarkPurple.copy(alpha = 0.6f),
-                )
+            if (auction.highestBidderId == null && timerSeconds == null) {
+                val auctioneerName =
+                    players.find { it.id == auction.auctioneerId }?.name ?: "The auctioneer"
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Auction Closed",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = DarkPurple.copy(alpha = 0.6f),
+                    )
+                    Text(
+                        "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = DefaultPurple,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.scale(bidScale.value),
+                ) {
+                    Text(
+                        if (auction.highestBidderId != null) "Current Bid" else "Starting...",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = DarkPurple.copy(alpha = 0.6f),
+                    )
 
-                Text(
-                    if (auction.highestBidderId !=
-                        null
-                    ) {
-                        "${auction.highestBid}€"
-                    } else {
-                        "Waiting for bids"
-                    },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
-                )
+                    Text(
+                        if (auction.highestBidderId !=
+                            null
+                        ) {
+                            "${auction.highestBid}€"
+                        } else {
+                            "Waiting for bids"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
+                    )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    "By: $bidderName",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = DarkPurple.copy(alpha = 0.8f),
-                )
+                    Text(
+                        "By: $bidderName",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkPurple.copy(alpha = 0.8f),
+                    )
+                }
             }
         }
     }

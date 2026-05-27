@@ -572,12 +572,88 @@ class GameSessionTest {
         val auctioneer = updatedState.players.find { it.id == "player-1" }!!
         assertTrue(auctioneer.animals.any { it.id == "cow-1" && it.type == AnimalType.COW })
 
-        // Assert: Auction state is cleared out completely
-        assertNull(updatedState.auctionState)
+        // Assert: Transitions to AUCTION_RESOLUTION phase
+        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
 
-        // Assert: Phase goes back to choice and turn advances to the next player
+        // Assert: The auction details remain, but the expiration timer is null
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertNull(auction.highestBidderId)
+        assertNull(auction.timerEndTime)
+    }
+
+    @Test
+    fun `closeAuctionAfterTimeout moves to resolution and awards card when no one bid`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val biddingState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+                auctionState =
+                    AuctionState(
+                        auctionCard = targetCard,
+                        auctioneerId = "player-1",
+                        highestBid = 0,
+                        highestBidderId = null,
+                    ),
+                players =
+                    listOf(
+                        PlayerState(id = "player-1", name = "Player 1"),
+                        PlayerState(id = "player-2", name = "Player 2"),
+                        PlayerState(id = "player-3", name = "Player 3"),
+                    ),
+            )
+        val session = GameSession.fromState("game-1", biddingState)
+
+        val updatedState = session.closeAuctionAfterTimeout()
+
+        // Assert: Transitions to AUCTION_RESOLUTION phase
+        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
+
+        // Assert: The auction details remain, but the expiration timer is null
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertNull(auction.highestBidderId)
+        assertNull(auction.timerEndTime)
+
+        // Assert: The card HAS been given to the auctioneer (player-1)
+        val auctioneer = updatedState.players.find { it.id == "player-1" }!!
+        assertEquals(1, auctioneer.animals.size)
+        assertEquals(targetCard, auctioneer.animals.first())
+    }
+
+    @Test
+    fun `resolveAuction advances turn in zero-bid case`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESOLUTION,
+                auctionState =
+                    AuctionState(
+                        auctionCard = targetCard,
+                        auctioneerId = "player-1",
+                        highestBid = 0,
+                        highestBidderId = null,
+                    ),
+                players =
+                    listOf(
+                        PlayerState(
+                            id = "player-1",
+                            name = "Player 1",
+                            animals = listOf(targetCard),
+                        ),
+                        PlayerState(id = "player-2", name = "Player 2"),
+                        PlayerState(id = "player-3", name = "Player 3"),
+                    ),
+                currentPlayerIndex = 0,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        val updatedState = session.resolveAuction("player-1", true)
+
+        // Assert: Advances to next turn (PLAYER_CHOICE)
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
-        assertEquals(1, updatedState.currentPlayerIndex) // Shifted to Player 2
+        assertEquals(1, updatedState.currentPlayerIndex) // Next player's turn
+        assertNull(updatedState.auctionState)
         assertEquals(baselineState.roundNumber + 1, updatedState.roundNumber)
     }
 
@@ -1398,7 +1474,13 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", resolutionState)
 
         // Act: Close auction (no bids, auctioneer gets it)
-        val updatedState = session.closeAuctionAfterTimeout()
+        val intermediateState = session.closeAuctionAfterTimeout()
+
+        // Assert: Transitions to resolution first
+        assertEquals(GamePhase.AUCTION_RESOLUTION, intermediateState.phase)
+
+        // Act: Resolve auction
+        val updatedState = session.resolveAuction("player-1", true)
 
         // Assert: Game is finished
         assertEquals(GamePhase.FINISHED, updatedState.phase)
