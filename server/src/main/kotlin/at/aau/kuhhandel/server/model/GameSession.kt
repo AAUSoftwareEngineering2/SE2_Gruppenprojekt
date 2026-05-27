@@ -111,7 +111,10 @@ class GameSession(
         ensureDeckNotEmpty()
 
         val (auctionCard, updatedDeck) = state.deck.drawTopCard()
-        val card = auctionCard!!
+        val card =
+            checkNotNull(auctionCard) {
+                "Drawn card is null even though deck was not empty"
+            }
 
         var updatedPlayers = state.players
         var event: GameEvent? = null
@@ -176,15 +179,19 @@ class GameSession(
     ): GameState {
         val actor = requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
-        ensureNotAuctioneer(actorId)
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in bidding phase"
+            }
+        ensureNotAuctioneer(auctionState, actorId)
         ensureHasEnoughMoney(actor, amount)
-        ensureBidNotTooLow(amount)
+        ensureBidNotTooLow(auctionState, amount)
 
         state =
             state.copy(
                 lastEvent = null,
                 auctionState =
-                    state.auctionState!!.copy(
+                    auctionState.copy(
                         highestBid = amount,
                         highestBidderId = actorId,
                         timerEndTime = System.currentTimeMillis() + 5000,
@@ -198,7 +205,10 @@ class GameSession(
      * Concludes the auction once the bidding timeout ends.
      */
     fun closeAuctionAfterTimeout(): GameState {
-        val auctionState = state.auctionState!!
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "No auction state to close"
+            }
 
         // Edge case: no one placed a bid
         if (auctionState.highestBidderId == null) {
@@ -236,12 +246,21 @@ class GameSession(
     ): GameState {
         val actor = requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_RESOLUTION)
-        ensureAuctioneer(actorId)
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in resolution phase"
+            }
+        ensureAuctioneer(auctionState, actorId)
 
         // The zero-bid case was handled by closeAuctionAfterTimeout()
-        val auctionState = state.auctionState!!
-        val highestBidderId = auctionState.highestBidderId!!
-        val highestBidder = state.players.find { it.id == highestBidderId }!!
+        val highestBidderId =
+            checkNotNull(auctionState.highestBidderId) {
+                "Missing highest bidder in bidding resolution"
+            }
+        val highestBidder =
+            checkNotNull(state.players.find { it.id == highestBidderId }) {
+                "Highest bidder $highestBidderId not found among players"
+            }
 
         // Determine the card receiver and seller
         val receiver: Player
@@ -325,12 +344,12 @@ class GameSession(
     ): GameState {
         val target = requireActorInRoom(actorId)
         ensurePhase(GamePhase.TRADE_RESPONSE)
-        ensureTradeTarget(actorId)
-
         val tradeState =
             checkNotNull(state.tradeState) {
                 "Missing trade state in response phase"
             }
+        ensureTradeTarget(tradeState, actorId)
+
         var counterOfferedMoneyCards = emptySet<MoneyCard>()
 
         // If the trade target does not accept the trade blindly
@@ -409,11 +428,11 @@ class GameSession(
 
         val winner =
             checkNotNull(updatedPlayers.find { it.id == winnerId }) {
-                "Trade winner missing from game state"
+                "Trade winner $winnerId missing from game state"
             }
         val loser =
             checkNotNull(updatedPlayers.find { it.id == loserId }) {
-                "Trade loser missing from game state"
+                "Trade loser $loserId missing from game state"
             }
 
         val finalPlayers =
@@ -547,10 +566,11 @@ class GameSession(
         if (state.deck.isEmpty()) throw GameException(GameErrorReason.DECK_EMPTY)
     }
 
-    private fun ensureNotAuctioneer(playerId: String) {
-        if (state.auctionState!!.auctioneerId ==
-            playerId
-        ) {
+    private fun ensureNotAuctioneer(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.auctioneerId == playerId) {
             throw GameException(GameErrorReason.OWN_AUCTION)
         }
     }
@@ -567,16 +587,22 @@ class GameSession(
         }
     }
 
-    private fun ensureBidNotTooLow(amount: Int) {
-        if (state.auctionState!!.highestBid >=
+    private fun ensureBidNotTooLow(
+        auctionState: AuctionState,
+        amount: Int,
+    ) {
+        if (auctionState.highestBid >=
             amount
         ) {
             throw GameException(GameErrorReason.BID_TOO_LOW)
         }
     }
 
-    private fun ensureAuctioneer(playerId: String) {
-        if (state.auctionState!!.auctioneerId !=
+    private fun ensureAuctioneer(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.auctioneerId !=
             playerId
         ) {
             throw GameException(GameErrorReason.NOT_AUCTIONEER)
@@ -618,10 +644,11 @@ class GameSession(
         }
     }
 
-    private fun ensureTradeTarget(playerId: String) {
-        if (state.tradeState!!.targetId !=
-            playerId
-        ) {
+    private fun ensureTradeTarget(
+        tradeState: TradeState,
+        playerId: String,
+    ) {
+        if (tradeState.targetId != playerId) {
             throw GameException(GameErrorReason.NOT_TRADE_TARGET)
         }
     }

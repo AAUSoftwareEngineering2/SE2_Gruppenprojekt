@@ -445,6 +445,14 @@ class GameSessionTest {
     }
 
     @Test
+    fun `placeBid throws IllegalStateException if auction state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.AUCTION_BIDDING)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.placeBid("player-2", amount = 10) }
+    }
+
+    @Test
     fun `placeBid fails if actor is the auctioneer`() {
         val initialAuction =
             AuctionState(
@@ -619,6 +627,17 @@ class GameSessionTest {
     }
 
     @Test
+    fun `closeAuctionAfterTimeout throws IllegalStateException if auction state is missing`() {
+        val biddingState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+            )
+        val session = GameSession.fromState("game-1", biddingState)
+
+        assertThrows<IllegalStateException> { session.closeAuctionAfterTimeout() }
+    }
+
+    @Test
     fun `resolveAuction functions correctly when auctioneer sells`() {
         // Setup: Player 1 is auctioneer. Player 2 wins with a bid of 20 and has two 10 money cards.
         val targetCard = AnimalCard("cow-1", AnimalType.COW)
@@ -734,6 +753,19 @@ class GameSessionTest {
                 session.resolveAuction("player-1", auctioneerBuysCard = false)
             }
         assertEquals(GameErrorReason.INVALID_PHASE, exception.reason)
+    }
+
+    @Test
+    fun `resolveAuction throws IllegalStateException if auction state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.AUCTION_RESOLUTION)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> {
+            session.resolveAuction(
+                "player-1",
+                auctioneerBuysCard = false,
+            )
+        }
     }
 
     @Test
@@ -1190,6 +1222,35 @@ class GameSessionTest {
     }
 
     @Test
+    fun `respondToTrade throws IllegalStateException if trade state is missing`() {
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = createDummyMoney("player-1", listOf(10)),
+                ),
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_RESPONSE,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        assertThrows<IllegalStateException> {
+            session.respondToTrade("player-2", counterOfferedMoneyCardIds = emptySet())
+        }
+    }
+
+    @Test
     fun `respondToTrade fails if actor is not the designated trade target`() {
         val tradeState =
             TradeState(
@@ -1375,6 +1436,93 @@ class GameSessionTest {
         assertThrows<IllegalStateException> {
             session.endTradeReveal()
         }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.TRADE_REVEAL)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade counteroffer is missing`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade winner is not in player list`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+            )
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade loser is not in player list`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+            )
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
     }
 
     @Test
