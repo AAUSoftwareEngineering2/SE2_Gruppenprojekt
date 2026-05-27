@@ -42,6 +42,30 @@ import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.model.MoneyCard
 
+/** A unified text component for game status messages. */
+@Composable
+fun GameStatusText(
+    text: String,
+    alpha: Float = 1f,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style =
+            MaterialTheme.typography.headlineSmall.copy(
+                shadow =
+                    Shadow(
+                        color = PureWhite,
+                        offset = Offset(4f, 4f),
+                        blurRadius = 8f,
+                    ),
+            ),
+        color = DarkPurple.copy(alpha = alpha),
+        fontWeight = FontWeight.Bold,
+        modifier = modifier,
+    )
+}
+
 /** Shows the draw deck and provides an interaction point to reveal the next card. */
 @Composable
 fun DeckView(

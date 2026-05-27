@@ -1,11 +1,5 @@
 package at.aau.kuhhandel.app.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -36,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
-import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.MoneyCard
@@ -146,7 +139,6 @@ fun OpponentList(
 fun PlayerFarm(
     modifier: Modifier = Modifier,
     player: PlayerState?,
-    isMyTurn: Boolean,
     isHandFanned: Boolean = false,
     onToggleHandFanned: () -> Unit = {},
     selectedMoneyCardIds: Set<String> = emptySet(),
@@ -197,34 +189,6 @@ fun PlayerFarm(
                         color = DefaultPurple,
                         fontWeight = FontWeight.Black,
                     )
-                    if (isMyTurn) {
-                        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                        val alpha by infiniteTransition.animateFloat(
-                            initialValue = 0.6f,
-                            targetValue = 1f,
-                            animationSpec =
-                                infiniteRepeatable(
-                                    animation = tween(800, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Reverse,
-                                ),
-                            label = "pulseAlpha",
-                        )
-
-                        Text(
-                            "YOUR TURN",
-                            style =
-                                MaterialTheme.typography.titleMedium.copy(
-                                    shadow =
-                                        Shadow(
-                                            color = DarkPurple.copy(alpha = 0.8f),
-                                            offset = Offset(2f, 2f),
-                                            blurRadius = 4f,
-                                        ),
-                                ),
-                            color = LightPurple.copy(alpha = alpha),
-                            fontWeight = FontWeight.ExtraBold,
-                        )
-                    }
                 }
 
                 Surface(

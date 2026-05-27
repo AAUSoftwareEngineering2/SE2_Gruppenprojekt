@@ -28,8 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,13 +36,13 @@ import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
+import at.aau.kuhhandel.app.ui.components.GameStatusText
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
-import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -197,11 +195,7 @@ fun GameScreen(
                             } else {
                                 "Waiting for host to start..."
                             }
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = PureWhite,
-                        )
+                        GameStatusText(text = message)
                     }
                 }
 
@@ -236,22 +230,17 @@ fun GameScreen(
                                 onClick = onRevealCard,
                                 canClick = uiState.isMyTurn,
                             )
-                            if (!uiState.isMyTurn) {
-                                Text(
-                                    "Waiting for ${uiState.activePlayerName}...",
-                                    style =
-                                        MaterialTheme.typography.headlineSmall.copy(
-                                            shadow =
-                                                Shadow(
-                                                    color = PureWhite,
-                                                    offset = Offset(4f, 4f),
-                                                    blurRadius = 8f,
-                                                ),
-                                        ),
-                                    color = DarkPurple.copy(alpha = alpha),
-                                    modifier = Modifier.padding(top = 16.dp),
-                                )
-                            }
+                            val statusMessage =
+                                if (uiState.isMyTurn) {
+                                    "YOUR TURN !"
+                                } else {
+                                    "Waiting for ${uiState.activePlayerName}..."
+                                }
+                            GameStatusText(
+                                text = statusMessage,
+                                alpha = alpha,
+                                modifier = Modifier.padding(top = 16.dp),
+                            )
                         }
 
                         if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
@@ -301,24 +290,15 @@ fun GameScreen(
                                     modifier = Modifier.padding(top = 24.dp),
                                 ) {
                                     if (uiState.isAuctioneer) {
-                                        Text(
-                                            if (highestBidderId ==
-                                                null
-                                            ) {
+                                        val statusText =
+                                            if (highestBidderId == null) {
                                                 "Auction Closed. No one bid!"
                                             } else {
                                                 "Auction Closed. Choose your action:"
-                                            },
-                                            style =
-                                                MaterialTheme.typography.headlineSmall.copy(
-                                                    shadow =
-                                                        Shadow(
-                                                            color = PureWhite,
-                                                            offset = Offset(4f, 4f),
-                                                            blurRadius = 8f,
-                                                        ),
-                                                ),
-                                            color = DarkPurple.copy(alpha = alpha),
+                                            }
+                                        GameStatusText(
+                                            text = statusText,
+                                            alpha = alpha,
                                             modifier = Modifier.padding(bottom = 8.dp),
                                         )
                                         if (highestBidderId == null) {
@@ -338,18 +318,11 @@ fun GameScreen(
                                             }
                                         }
                                     } else {
-                                        Text(
-                                            "Waiting for player ${uiState.activePlayerName} !",
-                                            style =
-                                                MaterialTheme.typography.headlineSmall.copy(
-                                                    shadow =
-                                                        Shadow(
-                                                            color = PureWhite,
-                                                            offset = Offset(4f, 4f),
-                                                            blurRadius = 8f,
-                                                        ),
-                                                ),
-                                            color = DarkPurple.copy(alpha = alpha),
+                                        GameStatusText(
+                                            text =
+                                                "Waiting for player " +
+                                                    "${uiState.activePlayerName}...",
+                                            alpha = alpha,
                                         )
                                     }
                                 }
@@ -417,7 +390,6 @@ fun GameScreen(
         // --- BOTTOM: PLAYER'S OWN AREA ---
         PlayerFarm(
             player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
-            isMyTurn = uiState.isMyTurn,
             isHandFanned = uiState.isHandFanned,
             onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
