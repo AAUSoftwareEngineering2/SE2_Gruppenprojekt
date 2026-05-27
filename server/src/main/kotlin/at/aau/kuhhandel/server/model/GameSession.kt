@@ -292,33 +292,25 @@ class GameSession(
         ensureOfferNotEmpty(offeredMoneyCardIds)
         val offeredMoneyCards = requireOwnsMoneyCards(initiator, offeredMoneyCardIds)
 
-        // Remove money cards from the player and update all players
-        val updatedInitiator =
-            initiator.copy(moneyCards = initiator.moneyCards - offeredMoneyCards.toSet())
-        val updatedPlayers =
-            state.players.map { player ->
-                if (player.id == initiator.id) {
-                    updatedInitiator
-                } else {
-                    player
-                }
-            }
-
+        // Remove the money cards from the player, transition
+        // the phase, and store the trade information
         state =
-            state.copy(
-                phase = GamePhase.TRADE_RESPONSE,
-                players = updatedPlayers,
-                tradeState =
-                    TradeState(
-                        initiatorId = initiator.id,
-                        targetId = target.id,
-                        requestedAnimalType = animalType,
-                        offeredMoneyCardIds = offeredMoneyCardIds,
-                        counterOfferedMoneyCardIds = emptySet(),
-                        offeredMoneyCards = offeredMoneyCards,
-                        counterOfferedMoneyCards = null,
-                    ),
-            )
+            state
+                .updatePlayer(initiator.id) { player ->
+                    player.copy(moneyCards = initiator.moneyCards - offeredMoneyCards.toSet())
+                }.copy(
+                    phase = GamePhase.TRADE_RESPONSE,
+                    tradeState =
+                        TradeState(
+                            initiatorId = initiator.id,
+                            targetId = target.id,
+                            requestedAnimalType = animalType,
+                            offeredMoneyCardIds = offeredMoneyCardIds,
+                            counterOfferedMoneyCardIds = emptySet(),
+                            offeredMoneyCards = offeredMoneyCards,
+                            counterOfferedMoneyCards = null,
+                        ),
+                )
 
         return state
     }
@@ -339,30 +331,23 @@ class GameSession(
             checkNotNull(state.tradeState) {
                 "Missing trade state in response phase"
             }
-        var updatedPlayers = state.players
         var counterOfferedMoneyCards = emptySet<MoneyCard>()
 
         // If the trade target does not accept the trade blindly
         if (counterOfferedMoneyCardIds.isNotEmpty()) {
             counterOfferedMoneyCards = requireOwnsMoneyCards(target, counterOfferedMoneyCardIds)
 
-            // Remove money cards from the player and update all players
-            val updatedTarget =
-                target.copy(moneyCards = target.moneyCards - counterOfferedMoneyCards)
-            updatedPlayers =
-                state.players.map { player ->
-                    if (player.id == target.id) {
-                        updatedTarget
-                    } else {
-                        player
-                    }
+            // Remove the money cards from the player
+            state =
+                state.updatePlayer(target.id) { player ->
+                    player.copy(moneyCards = target.moneyCards - counterOfferedMoneyCards)
                 }
         }
 
+        // Transition the phase and update the trade information
         state =
             state.copy(
                 phase = GamePhase.TRADE_REVEAL,
-                players = updatedPlayers,
                 tradeState =
                     tradeState.copy(
                         counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,

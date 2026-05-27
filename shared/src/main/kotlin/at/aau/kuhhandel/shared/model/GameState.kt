@@ -80,6 +80,24 @@ data class GameState(
         )
     }
 
+    fun updatePlayer(
+        playerId: String,
+        transform: (Player) -> Player,
+    ): GameState {
+        var playerFound = false
+        val updatedPlayers =
+            this.players.map { player ->
+                if (player.id == playerId) {
+                    playerFound = true
+                    transform(player)
+                } else {
+                    player
+                }
+            }
+        check(playerFound) { "Player $playerId not found to update" }
+        return this.copy(players = updatedPlayers)
+    }
+
     companion object {
         fun fromCreatingPlayer(
             id: String,

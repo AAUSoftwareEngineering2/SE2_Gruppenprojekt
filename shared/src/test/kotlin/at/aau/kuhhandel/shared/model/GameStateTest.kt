@@ -3,6 +3,7 @@ package at.aau.kuhhandel.shared.model
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -170,5 +171,27 @@ class GameStateTest {
         assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
         assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
         assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
+    }
+
+    @Test
+    fun test_updatePlayer_updatesPlayer_ifPlayerExists() {
+        val updatedState =
+            baseState.updatePlayer("player-2") { player ->
+                player.copy(moneyCards = player.moneyCards - MoneyCard("money-20-1", 20))
+            }
+
+        val updatedPlayer = updatedState.players.first { it.id == "player-2" }
+        assertEquals(1, updatedPlayer.moneyCards.size)
+        assertTrue(updatedPlayer.moneyCards.none { it.id == "money-20-1" })
+
+        assertEquals(
+            baseState.players.filter { it.id != "player-2" },
+            updatedState.players.filter { it.id != "player-2" },
+        )
+    }
+
+    @Test
+    fun test_updatePlayer_throws_ifPlayerDoesNotExist() {
+        assertThrows<IllegalStateException> { baseState.updatePlayer("player-4") { it } }
     }
 }
