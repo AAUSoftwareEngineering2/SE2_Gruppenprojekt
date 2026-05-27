@@ -78,6 +78,19 @@ fun OtherFarm(
                 contentDescription = "OtherFarm",
                 modifier = Modifier.size(135.dp),
             )
+            // Display animal chips in the middle of the farm
+            Box(
+                modifier =
+                    Modifier
+                        .size(width = 110.dp, height = 80.dp)
+                        .align(Alignment.Center),
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimalFarmChipsView(
+                    animals = player.animals,
+                    chipSize = 28.dp,
+                )
+            }
             Surface(
                 color = PureWhite,
                 shape = MaterialTheme.shapes.medium,
@@ -175,6 +188,18 @@ fun PlayerFarm(
                 contentScale = ContentScale.FillWidth,
                 alignment = Alignment.Center,
             )
+
+            // Display my own animal chips - centered and bigger
+            if (player != null) {
+                AnimalFarmChipsView(
+                    animals = player.animals,
+                    chipSize = 48.dp,
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 64.dp, bottom = 48.dp),
+                )
+            }
 
             Row(
                 modifier =

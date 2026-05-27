@@ -50,6 +50,7 @@ import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
@@ -411,7 +412,7 @@ fun GameScreen(
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
         if (myPlayer != null) {
             val handPadding by animateDpAsState(
-                targetValue = if (isAuctionActive) 10.dp else 80.dp,
+                targetValue = if (isAuctionActive) (-15).dp else 80.dp,
                 animationSpec = spring(stiffness = 200f),
                 label = "handPaddingAnimation",
             )
@@ -448,11 +449,62 @@ fun GameScreen(
 fun GameScreenPreview() {
     val players =
         listOf(
-            PlayerState("1", "Player 1", moneyCards = List(6) { MoneyCard("a$it", 10) }),
-            PlayerState("2", "Player 2", moneyCards = List(3) { MoneyCard("b$it", 10) }),
-            PlayerState("3", "Player 3", moneyCards = List(5) { MoneyCard("c$it", 10) }),
-            PlayerState("4", "Player 4", moneyCards = List(12) { MoneyCard("d$it", 10) }),
-            PlayerState("5", "Me", moneyCards = List(5) { MoneyCard("m$it", 50) }),
+            PlayerState(
+                "1",
+                "Player 1",
+                moneyCards = List(6) { MoneyCard("a$it", 10) },
+                animals =
+                    listOf(
+                        AnimalCard(
+                            "a1",
+                            AnimalType.COW,
+                        ),
+                        AnimalCard(
+                            "a2",
+                            AnimalType.COW,
+                        ),
+                    ),
+            ),
+            PlayerState(
+                "2",
+                "Player 2",
+                moneyCards = List(3) { MoneyCard("b$it", 10) },
+                animals =
+                    listOf(
+                        AnimalCard("b1", AnimalType.PIG),
+                        AnimalCard("b2", AnimalType.PIG),
+                        AnimalCard("b3", AnimalType.PIG),
+                    ),
+            ),
+            PlayerState(
+                "3",
+                "Player 3",
+                moneyCards = List(5) { MoneyCard("c$it", 10) },
+                animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
+            ),
+            PlayerState(
+                "4",
+                "Player 4",
+                moneyCards = List(12) { MoneyCard("d$it", 10) },
+                animals =
+                    listOf(
+                        AnimalCard("d1", AnimalType.HORSE),
+                        AnimalCard("d2", AnimalType.HORSE),
+                        AnimalCard("d3", AnimalType.HORSE),
+                        AnimalCard("d4", AnimalType.HORSE),
+                    ),
+            ),
+            PlayerState(
+                "5",
+                "Me",
+                moneyCards = List(5) { MoneyCard("m$it", 50) },
+                animals =
+                    listOf(
+                        AnimalCard("m1", AnimalType.DONKEY),
+                        AnimalCard("m2", AnimalType.DONKEY),
+                        AnimalCard("m3", AnimalType.GOAT),
+                    ),
+            ),
         )
     val gameState =
         GameState(
