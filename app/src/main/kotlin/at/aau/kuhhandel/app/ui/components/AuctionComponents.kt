@@ -11,7 +11,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +44,6 @@ import at.aau.kuhhandel.app.ui.theme.AlertRed
 import at.aau.kuhhandel.app.ui.theme.AlertRedHighlight
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
-import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -104,7 +102,7 @@ fun AuctionView(
     Card(
         colors =
             CardDefaults.cardColors(
-                containerColor = LightPurple.copy(alpha = 0.95f),
+                containerColor = WhitePurple.copy(alpha = 0.7f),
                 contentColor = DarkPurple,
             ),
         elevation = CardDefaults.cardElevation(16.dp),
@@ -112,8 +110,9 @@ fun AuctionView(
         modifier =
             Modifier
                 .padding(horizontal = 16.dp)
-                .height(480.dp) // Fixed height to prevent layout shifts and overlap
-                .border(2.dp, DarkPurple.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+                // Fixed height to prevent layout jumps between bidding and resolution phases
+                .height(510.dp)
+                .border(3.dp, DarkPurple.copy(alpha = 0.2f), RoundedCornerShape(24.dp)),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -141,23 +140,31 @@ fun AuctionView(
             Spacer(modifier = Modifier.height(20.dp))
 
             Box(
-                modifier =
-                    Modifier
-                        .background(
-                            brush =
-                                Brush.radialGradient(
-                                    colors = listOf(WhitePurple, Color.Transparent),
-                                ),
-                            shape = RoundedCornerShape(12.dp),
-                        ).padding(8.dp),
+                modifier = Modifier.size(width = 200.dp, height = 220.dp),
+                contentAlignment = Alignment.BottomCenter,
             ) {
+                // The Auction Box rendered behind the animal
+                // Offsets are fine-tuned to align with the animal card's feet in a 3D-like perspective
+                Image(
+                    painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_auctionbox),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .size(140.dp)
+                            .offset(x = 10.dp, y = 65.dp),
+                )
+
+                // The Animal Card rendered in front of the box
                 Image(
                     painter =
                         painterResource(
                             id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
                         ),
                     contentDescription = null,
-                    modifier = Modifier.size(width = 160.dp, height = 220.dp),
+                    modifier =
+                        Modifier
+                            .size(width = 150.dp, height = 200.dp)
+                            .offset(y = (-10).dp),
                 )
             }
 

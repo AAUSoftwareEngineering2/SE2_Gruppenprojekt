@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +43,7 @@ fun OtherFarm(
     farmColor: FarmColor,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showName: Boolean = true,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -50,6 +52,8 @@ fun OtherFarm(
                 .padding(4.dp)
                 .clickable { onClick() },
     ) {
+        // Hide name during auctions to match mockup layout
+        // Using alpha instead of conditional visibility to prevent layout shifts
         Text(
             text = player.name,
             style =
@@ -63,6 +67,10 @@ fun OtherFarm(
                 ),
             color = DarkPurple,
             fontWeight = FontWeight.Bold,
+            modifier =
+                Modifier.drawWithContent {
+                    if (showName) drawContent()
+                },
         )
         Box(contentAlignment = Alignment.Center) {
             Image(
@@ -109,6 +117,7 @@ fun OpponentList(
     myId: String?,
     onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isAuctionActive: Boolean = false,
 ) {
     val opponents = players.filter { it.id != myId }
     Column(
@@ -127,6 +136,7 @@ fun OpponentList(
                         player = player,
                         farmColor = color,
                         onClick = { onOpponentClick(player.id) },
+                        showName = !isAuctionActive,
                     )
                 }
             }

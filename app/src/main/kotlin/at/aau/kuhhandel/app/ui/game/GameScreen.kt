@@ -2,9 +2,12 @@ package at.aau.kuhhandel.app.ui.game
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,6 +71,9 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Derived state for auction-related UI changes
+    val isAuctionActive = uiState.isAuctionActive
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val alpha by infiniteTransition.animateFloat(
@@ -160,19 +167,16 @@ fun GameScreen(
         )
 
         // --- TOP: OPPONENTS ---
-        if (uiState.currentPhase !in
-            listOf(GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION)
-        ) {
-            OpponentList(
-                players = uiState.gameState?.players ?: emptyList(),
-                myId = uiState.myPlayerId,
-                onOpponentClick = onSelectTargetPlayer,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 48.dp),
-            )
-        }
+        OpponentList(
+            players = uiState.gameState?.players ?: emptyList(),
+            myId = uiState.myPlayerId,
+            onOpponentClick = onSelectTargetPlayer,
+            isAuctionActive = isAuctionActive,
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp),
+        )
 
         // --- CENTER: THE BOARD ---
         Box(
@@ -406,6 +410,17 @@ fun GameScreen(
         // Placing it last in the Box ensures it's on top of everything else
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
         if (myPlayer != null) {
+            val handPadding by animateDpAsState(
+                targetValue = if (isAuctionActive) 10.dp else 80.dp,
+                animationSpec = spring(stiffness = 200f),
+                label = "handPaddingAnimation",
+            )
+            val handScale by animateFloatAsState(
+                targetValue = if (isAuctionActive) 1.3f else 1.0f,
+                animationSpec = spring(dampingRatio = 0.8f),
+                label = "handScaleAnimation",
+            )
+
             MoneyHand(
                 cards = myPlayer.moneyCards,
                 selectedCardIds = uiState.selectedMoneyCardIds,
@@ -421,7 +436,8 @@ fun GameScreen(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp), // Base position adjusted for screen layout
+                        .padding(bottom = handPadding)
+                        .scale(handScale),
             )
         }
     }

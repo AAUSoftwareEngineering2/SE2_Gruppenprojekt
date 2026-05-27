@@ -42,6 +42,12 @@ data class GameUiState(
     val selectedTargetPlayerId: String? = null,
     val isHandFanned: Boolean = false,
 ) {
+    /** Helper property to check if an auction is currently in progress. */
+    val isAuctionActive: Boolean
+        get() =
+            currentPhase == GamePhase.AUCTION_BIDDING ||
+                currentPhase == GamePhase.AUCTION_RESOLUTION
+
     val isMyTurn: Boolean
         get() =
             gameState?.currentPlayerIndex?.let {
