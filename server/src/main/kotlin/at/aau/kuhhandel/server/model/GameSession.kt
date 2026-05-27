@@ -290,11 +290,24 @@ class GameSession(
         ensureTradeInitiatorHasAnimalType(initiator, animalType)
         ensureTradeTargetHasAnimalType(target, animalType)
         ensureOfferNotEmpty(offeredMoneyCardIds)
-        ensureOwnsMoneyCards(initiator, offeredMoneyCardIds)
+        val offeredMoneyCards = requireOwnsMoneyCards(initiator, offeredMoneyCardIds)
+
+        // Remove money cards from the player and update all players
+        val updatedInitiator =
+            initiator.copy(moneyCards = initiator.moneyCards - offeredMoneyCards.toSet())
+        val updatedPlayers =
+            state.players.map { player ->
+                if (player.id == initiator.id) {
+                    updatedInitiator
+                } else {
+                    player
+                }
+            }
 
         state =
             state.copy(
                 phase = GamePhase.TRADE_RESPONSE,
+                players = updatedPlayers,
                 tradeState =
                     TradeState(
                         initiatorId = initiator.id,
@@ -302,6 +315,8 @@ class GameSession(
                         requestedAnimalType = animalType,
                         offeredMoneyCardIds = offeredMoneyCardIds,
                         counterOfferedMoneyCardIds = emptySet(),
+                        initiatorMoneyCards = offeredMoneyCards,
+                        targetMoneyCards = null,
                     ),
             )
 
@@ -309,8 +324,8 @@ class GameSession(
     }
 
     /**
-     * Processes the defender's trade reaction, with empty
-     * [counterOfferedMoneyCardIds] representing blind acceptance.
+     * Adds the trade target's response information to the game state, with
+     * empty [counterOfferedMoneyCardIds] representing blind acceptance.
      */
     fun respondToTrade(
         actorId: String,
@@ -320,73 +335,39 @@ class GameSession(
         ensurePhase(GamePhase.TRADE_RESPONSE)
         ensureTradeTarget(actorId)
 
-        val tradeState = state.tradeState!!
-        val initiator = state.players.find { it.id == tradeState.initiatorId }!!
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in response phase"
+            }
         var updatedPlayers = state.players
+        var counterOfferedMoneyCards = emptySet<MoneyCard>()
 
-        val offeredMoneyCards =
-            initiator.moneyCards.filter { it.id in tradeState.offeredMoneyCardIds }
-        var counterOfferedMoneyCards = emptyList<MoneyCard>()
-
-        val winner: Player
-        val loser: Player
-
-        if (counterOfferedMoneyCardIds.isEmpty()) {
-            // The trade target accepts the trade blindly
-            winner = initiator
-            loser = target
-
-            // Process the payment
-            updatedPlayers =
-                transferMoneyCards(updatedPlayers, winner, loser, tradeState.offeredMoneyCardIds)
-        } else {
-            // The trade target makes a counteroffer
+        // If the trade target does not accept the trade blindly
+        if (counterOfferedMoneyCardIds.isNotEmpty()) {
             counterOfferedMoneyCards = requireOwnsMoneyCards(target, counterOfferedMoneyCardIds)
 
-            val initiatorTotal = offeredMoneyCards.sumOf { it.value }
-            val targetTotal = counterOfferedMoneyCards.sumOf { it.value }
-
-            if (initiatorTotal >= targetTotal) {
-                winner = initiator
-                loser = target
-            } else {
-                winner = target
-                loser = initiator
-            }
-
-            // Process the payment
+            // Remove money cards from the player and update all players
+            val updatedTarget =
+                target.copy(moneyCards = target.moneyCards - counterOfferedMoneyCards)
             updatedPlayers =
-                transferMoneyCards(
-                    updatedPlayers,
-                    initiator,
-                    target,
-                    tradeState.offeredMoneyCardIds,
-                )
-            updatedPlayers =
-                transferMoneyCards(
-                    updatedPlayers,
-                    target,
-                    initiator,
-                    counterOfferedMoneyCardIds,
-                )
+                state.players.map { player ->
+                    if (player.id == target.id) {
+                        updatedTarget
+                    } else {
+                        player
+                    }
+                }
         }
 
-        // Move cards of the requested animal type
         state =
             state.copy(
                 phase = GamePhase.TRADE_REVEAL,
-                players =
-                    moveAnimalType(
-                        updatedPlayers,
-                        loser,
-                        winner,
-                        tradeState.requestedAnimalType,
-                    ),
+                players = updatedPlayers,
                 tradeState =
                     tradeState.copy(
-                        offeredMoney = offeredMoneyCards.sumOf { it.value },
                         counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
                         counterOfferedMoney = counterOfferedMoneyCards.sumOf { it.value },
+                        targetMoneyCards = counterOfferedMoneyCards,
                     ),
             )
 
@@ -394,14 +375,75 @@ class GameSession(
     }
 
     /**
-     * Clears the trade session information and wraps up the visibility sequence.
+     * Handles the trade result and wraps up the visibility sequence.
      */
     fun endTradeReveal(): GameState {
         check(
             state.phase == GamePhase.TRADE_REVEAL,
         ) { "Expected a trade reveal but the current phase is ${state.phase}" }
 
-        state = state.copy(tradeState = null)
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in reveal phase"
+            }
+
+        // Exchange the money cards
+        val initiatorMoneyCards = tradeState.initiatorMoneyCards
+        val targetMoneyCards =
+            checkNotNull(tradeState.targetMoneyCards) {
+                "Missing trade counteroffer in reveal phase"
+            }
+
+        val updatedPlayers =
+            state.players.map { player ->
+                when (player.id) {
+                    tradeState.initiatorId ->
+                        player.copy(
+                            moneyCards = player.moneyCards + targetMoneyCards,
+                        )
+
+                    tradeState.targetId ->
+                        player.copy(
+                            moneyCards = player.moneyCards + initiatorMoneyCards,
+                        )
+
+                    else -> player
+                }
+            }
+
+        // Move cards of the requested animal type to the winner
+        val initiatorTotal = initiatorMoneyCards.sumOf { it.value }
+        val targetTotal = targetMoneyCards.sumOf { it.value }
+
+        val (winnerId, loserId) =
+            if (initiatorTotal >= targetTotal) {
+                tradeState.initiatorId to tradeState.targetId
+            } else {
+                tradeState.targetId to tradeState.initiatorId
+            }
+
+        val winner =
+            checkNotNull(updatedPlayers.find { it.id == winnerId }) {
+                "Trade winner missing from game state"
+            }
+        val loser =
+            checkNotNull(updatedPlayers.find { it.id == loserId }) {
+                "Trade loser missing from game state"
+            }
+
+        val finalPlayers =
+            moveAnimalType(
+                updatedPlayers,
+                loser,
+                winner,
+                tradeState.requestedAnimalType,
+            )
+
+        state =
+            state.copy(
+                players = finalPlayers,
+                tradeState = null,
+            )
         state = advanceTurnAndCheckGameEnd()
 
         return state
@@ -603,29 +645,17 @@ class GameSession(
         if (offeredMoneyCardIds.isEmpty()) throw GameException(GameErrorReason.OFFER_EMPTY)
     }
 
-    private fun ensureOwnsMoneyCards(
-        player: Player,
-        moneyCardIds: Set<String>,
-    ) {
-        val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
-        if (moneyCards.size <
-            moneyCardIds.size
-        ) {
-            throw GameException(GameErrorReason.NOT_OWNED_MONEY_CARDS)
-        }
-    }
-
     private fun requireOwnsMoneyCards(
         player: Player,
         moneyCardIds: Set<String>,
-    ): List<MoneyCard> {
+    ): Set<MoneyCard> {
         val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
         if (moneyCards.size <
             moneyCardIds.size
         ) {
             throw GameException(GameErrorReason.NOT_OWNED_MONEY_CARDS)
         }
-        return moneyCards
+        return moneyCards.toSet()
     }
 
     /**
