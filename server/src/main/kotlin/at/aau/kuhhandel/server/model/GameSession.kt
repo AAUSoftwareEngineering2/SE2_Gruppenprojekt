@@ -200,20 +200,20 @@ class GameSession(
     fun closeAuctionAfterTimeout(): GameState {
         val auctionState = state.auctionState!!
 
-        // Edge case: no one placed a bid
+        // If no one placed a bid, the auctioneer gets the card for free.
+        // We still transition to AUCTION_RESOLUTION so players can see the result.
         if (auctionState.highestBidderId == null) {
             state =
                 state.copy(
+                    phase = GamePhase.AUCTION_RESOLUTION,
                     players =
                         addAnimalToPlayer(
                             state.players,
                             auctionState.auctioneerId,
                             auctionState.auctionCard,
                         ),
-                    auctionState = null,
-                    currentFaceUpCard = null,
+                    auctionState = auctionState.copy(timerEndTime = null),
                 )
-            state = advanceTurnAndCheckGameEnd()
 
             return state
         }
@@ -238,8 +238,20 @@ class GameSession(
         ensurePhase(GamePhase.AUCTION_RESOLUTION)
         ensureAuctioneer(actorId)
 
-        // The zero-bid case was handled by closeAuctionAfterTimeout()
         val auctionState = state.auctionState!!
+
+        // Handle the 0-bid case (card was already given in closeAuctionAfterTimeout)
+        if (auctionState.highestBidderId == null) {
+            state =
+                state.copy(
+                    auctionState = null,
+                    currentFaceUpCard = null,
+                )
+            state = advanceTurnAndCheckGameEnd()
+
+            return state
+        }
+
         val highestBidderId = auctionState.highestBidderId!!
         val highestBidder = state.players.find { it.id == highestBidderId }!!
 

@@ -1,5 +1,11 @@
 package at.aau.kuhhandel.app.ui.game
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,22 +24,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
 import at.aau.kuhhandel.app.ui.components.MainBackground
+import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameEvent
@@ -53,9 +65,22 @@ fun GameScreen(
     onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
+    onToggleHandFanned: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(800, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "pulseAlpha",
+    )
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -137,15 +162,19 @@ fun GameScreen(
         )
 
         // --- TOP: OPPONENTS ---
-        OpponentList(
-            players = uiState.gameState?.players ?: emptyList(),
-            myId = uiState.myPlayerId,
-            onOpponentClick = onSelectTargetPlayer,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 48.dp),
-        )
+        if (uiState.currentPhase !in
+            listOf(GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION)
+        ) {
+            OpponentList(
+                players = uiState.gameState?.players ?: emptyList(),
+                myId = uiState.myPlayerId,
+                onOpponentClick = onSelectTargetPlayer,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 48.dp),
+            )
+        }
 
         // --- CENTER: THE BOARD ---
         Box(
@@ -171,7 +200,7 @@ fun GameScreen(
                         Text(
                             text = message,
                             style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
+                            color = PureWhite,
                         )
                     }
                 }
@@ -187,14 +216,17 @@ fun GameScreen(
 
                         revealedCard?.let { card ->
                             Image(
-                                painter = painterResource(id = getAnimalDrawable(card.type)),
+                                painter =
+                                    painterResource(
+                                        id = getAnimalDrawable(card.type, AnimalStyle.CARD),
+                                    ),
                                 contentDescription = null,
-                                modifier = Modifier.size(150.dp),
+                                modifier = Modifier.size(width = 150.dp, height = 210.dp),
                             )
                             Text(
                                 card.type.name,
                                 style = MaterialTheme.typography.headlineMedium,
-                                color = Color.White,
+                                color = PureWhite,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 8.dp),
                             )
@@ -207,8 +239,16 @@ fun GameScreen(
                             if (!uiState.isMyTurn) {
                                 Text(
                                     "Waiting for ${uiState.activePlayerName}...",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = Color.White.copy(alpha = 0.7f),
+                                    style =
+                                        MaterialTheme.typography.headlineSmall.copy(
+                                            shadow =
+                                                Shadow(
+                                                    color = PureWhite,
+                                                    offset = Offset(4f, 4f),
+                                                    blurRadius = 8f,
+                                                ),
+                                        ),
+                                    color = DarkPurple.copy(alpha = alpha),
                                     modifier = Modifier.padding(top = 16.dp),
                                 )
                             }
@@ -228,45 +268,81 @@ fun GameScreen(
                 GamePhase.AUCTION_BIDDING,
                 GamePhase.AUCTION_RESOLUTION,
                 -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AuctionView(
-                            auction = uiState.gameState?.auctionState,
-                            timerSeconds = uiState.auctionTimerSeconds,
-                            players = uiState.gameState?.players ?: emptyList(),
-                        )
-                        if (uiState.isConnected &&
-                            !uiState.isAuctioneer &&
-                            (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
+                    // During auctions, we move the UI to the top and hide opponents to avoid overlap with money cards
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(top = 24.dp),
                         ) {
-                            AuctionControls(
-                                onBid = onPlaceBid,
-                                currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
-                                myTotalMoney = uiState.myTotalMoney,
+                            AuctionView(
+                                auction = uiState.gameState?.auctionState,
+                                timerSeconds = uiState.auctionTimerSeconds,
+                                players = uiState.gameState?.players ?: emptyList(),
                             )
-                        } else if (uiState.isAuctioneer &&
-                            (uiState.gameState?.phase != GamePhase.AUCTION_BIDDING)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "Auction Closed. Choose your action:",
-                                    color = Color.White,
-                                    modifier = Modifier.padding(bottom = 8.dp),
+                            if (uiState.isConnected &&
+                                !uiState.isAuctioneer &&
+                                (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
+                            ) {
+                                AuctionControls(
+                                    onBid = onPlaceBid,
+                                    currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
+                                    myTotalMoney = uiState.myTotalMoney,
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                                    Button(
-                                        onClick = { onBuyBack(false) },
-                                    ) { Text("Let Winner Buy") }
+                            } else if (uiState.isAuctioneer &&
+                                (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION)
+                            ) {
+                                val highestBidderId =
+                                    uiState.gameState
+                                        ?.auctionState
+                                        ?.highestBidderId
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        if (highestBidderId ==
+                                            null
+                                        ) {
+                                            "Auction Closed. No one bid!"
+                                        } else {
+                                            "Auction Closed. Choose your action:"
+                                        },
+                                        style =
+                                            MaterialTheme.typography.headlineSmall.copy(
+                                                shadow =
+                                                    Shadow(
+                                                        color = PureWhite,
+                                                        offset = Offset(4f, 4f),
+                                                        blurRadius = 8f,
+                                                    ),
+                                            ),
+                                        color = DarkPurple.copy(alpha = alpha),
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                    )
+                                    if (highestBidderId == null) {
+                                        Button(onClick = { onBuyBack(true) }) {
+                                            Text("CONTINUE")
+                                        }
+                                    } else {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = { onBuyBack(true) },
+                                            ) { Text("Buy Back") }
+                                            Button(
+                                                onClick = { onBuyBack(false) },
+                                            ) { Text("Let Winner Buy") }
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                            Button(
-                                onClick = onFinishTradeReveal,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                Text("CONTINUE")
+                            if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+                                Button(
+                                    onClick = onFinishTradeReveal,
+                                    modifier = Modifier.padding(top = 16.dp),
+                                ) {
+                                    Text("CONTINUE")
+                                }
                             }
                         }
                     }
@@ -313,12 +389,8 @@ fun GameScreen(
                     Text(
                         "GAME OVER",
                         style = MaterialTheme.typography.headlineLarge,
-                        color = Color.White,
+                        color = PureWhite,
                     )
-                }
-
-                else -> {
-                    Text("Current Phase: ${uiState.currentPhase}", color = Color.White)
                 }
             }
         }
@@ -327,6 +399,8 @@ fun GameScreen(
         PlayerFarm(
             player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
             isMyTurn = uiState.isMyTurn,
+            isHandFanned = uiState.isHandFanned,
+            onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
             onCardClick = { onToggleMoneyCard(it.id) },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -336,6 +410,29 @@ fun GameScreen(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp),
         )
+
+        // --- TOP LAYER: PLAYER'S MONEY HAND ---
+        // Placing it last in the Box ensures it's on top of everything else
+        val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
+        if (myPlayer != null) {
+            MoneyHand(
+                cards = myPlayer.moneyCards,
+                selectedCardIds = uiState.selectedMoneyCardIds,
+                onCardClick = { onToggleMoneyCard(it.id) },
+                isFanned = uiState.isHandFanned,
+                onToggleFanned = onToggleHandFanned,
+                isTradePhase =
+                    uiState.currentPhase in
+                        listOf(
+                            GamePhase.TRADE_OFFER,
+                            GamePhase.TRADE_RESPONSE,
+                        ),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp), // Base position adjusted for screen layout
+            )
+        }
     }
 }
 
@@ -364,6 +461,7 @@ fun GameScreenPreview() {
             deckCountText = "5",
             canRevealCard = true,
             myMoneyCards = players[4].moneyCards,
+            isHandFanned = false,
         )
     GameScreen(
         uiState = uiState,
@@ -376,5 +474,6 @@ fun GameScreenPreview() {
         onInitiateTrade = { _, _ -> },
         onSelectTargetPlayer = {},
         onToggleMoneyCard = {},
+        onToggleHandFanned = {},
     )
 }
