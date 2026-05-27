@@ -25,7 +25,7 @@ data class GameCreatedPayload(
 )
 
 /**
- * Payload used by GAME_STARTED, GAME_STATE_UPDATED, and SNAPSHOT events
+ * Payload used by GAME_STATE_UPDATED and SNAPSHOT events
  */
 @Serializable
 data class GameStatePayload(
