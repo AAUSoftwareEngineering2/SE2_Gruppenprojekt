@@ -43,4 +43,5 @@ enum class GameErrorReason {
     OFFER_EMPTY,
     NOT_OWNED_MONEY_CARDS,
     NOT_TRADE_TARGET,
+    PLAYER_EXCLUDED_FROM_AUCTION,
 }

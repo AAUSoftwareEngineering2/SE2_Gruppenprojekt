@@ -1,0 +1,23 @@
+# Task Management
+
+- [x] Initial Research & File Exploration
+- [x] Add KotlinDocs to major methods in `:app`
+	- [x] `GameWebSocketClient.kt`
+	- [x] `GameRepository.kt`
+	- [x] `GameViewModel.kt`
+	- [x] `MenuComponents.kt`
+	- [x] `GameComponents.kt`
+	- [x] Internal technical methods
+- [x] Refactor UI Structure
+	- [x] Split `GameComponents.kt` into `FarmComponents.kt`, `AuctionComponents.kt`, `TradeComponents.kt`, and `GameAssets.kt`
+- [x] Fix UI Crash (Negative Padding)
+	- [x] Refactor `isAuctionActive` animation in `GameScreen.kt` to use `offset`
+- [x] Implementation of Bluffing Mechanism
+	- [x] Update `shared` models (`AuctionState`, `GameErrorReason`, `GameEvent`)
+	- [x] Update `server` logic (`GameSession.kt`)
+	- [x] Update `app` UI (`AuctionControls.kt`, `GameScreen.kt`)
+- [x] Refactor `GameScreen.kt` into phase-based modules
+	- [x] Extract `ChoicePhase` Composable
+	- [x] Extract `AuctionPhase` Composable
+	- [x] Extract `TradePhase` Composable
+	- [x] Create `GameScreenPhases.kt`

@@ -248,8 +248,29 @@ fun AuctionControls(
     onBid: (Int) -> Unit,
     currentBid: Int,
     myTotalMoney: Int,
+    isExcluded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    if (isExcluded) {
+        Column(
+            modifier = modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "EXCLUDED",
+                color = AlertRed,
+                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                "You bluffed and cannot bid anymore.",
+                color = DarkPurple.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        return
+    }
+
     Row(
         modifier = modifier.padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -259,20 +280,14 @@ fun AuctionControls(
             val nextBid = currentBid + amount
             val isBluff = nextBid > myTotalMoney
             Button(
-                onClick = {
-                    if (!isBluff) {
-                        onBid(nextBid)
-                    }
-                },
-                enabled = !isBluff,
+                onClick = { onBid(nextBid) },
                 shape = RoundedCornerShape(12.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                 colors =
                     if (isBluff) {
                         ButtonDefaults.buttonColors(
                             containerColor = AlertRed,
-                            disabledContainerColor = AlertRed.copy(alpha = 0.5f),
-                            disabledContentColor = Color.White.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         )
                     } else {
                         ButtonDefaults.buttonColors(
@@ -281,11 +296,20 @@ fun AuctionControls(
                         )
                     },
             ) {
-                Text(
-                    "+$amount",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "+$amount",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    if (isBluff) {
+                        Text(
+                            "BLUFF",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                }
             }
         }
     }

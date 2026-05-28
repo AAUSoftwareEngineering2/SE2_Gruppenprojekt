@@ -174,10 +174,10 @@ class GameSession(
         actorId: String,
         amount: Int,
     ): GameState {
-        val actor = requireActorInRoom(actorId)
+        requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
         ensureNotAuctioneer(actorId)
-        ensureHasEnoughMoney(actor, amount)
+        ensureNotExcluded(actorId)
         ensureBidNotTooLow(amount)
 
         state =
@@ -264,6 +264,27 @@ class GameSession(
             receiver = actor
             seller = highestBidder
         } else {
+            // Bluff Check: If the winner can't pay the auctioneer, they bluffed.
+            if (highestBidder.totalMoney() < auctionState.highestBid) {
+                state =
+                    state.copy(
+                        phase = GamePhase.AUCTION_BIDDING,
+                        auctionState =
+                            auctionState.copy(
+                                highestBid = 0,
+                                highestBidderId = null,
+                                timerEndTime = System.currentTimeMillis() + 5000,
+                                excludedPlayerIds = auctionState.excludedPlayerIds + highestBidderId,
+                            ),
+                        lastEvent =
+                            GameEvent.BluffDetected(
+                                playerId = highestBidderId,
+                                playerName = highestBidder.name,
+                                message = "${highestBidder.name} bluffed! Auction restarts.",
+                            ),
+                    )
+                return state
+            }
             receiver = highestBidder
             seller = actor
         }
@@ -537,6 +558,12 @@ class GameSession(
             playerId
         ) {
             throw GameException(GameErrorReason.OWN_AUCTION)
+        }
+    }
+
+    private fun ensureNotExcluded(playerId: String) {
+        if (state.auctionState?.excludedPlayerIds?.contains(playerId) == true) {
+            throw GameException(GameErrorReason.PLAYER_EXCLUDED_FROM_AUCTION)
         }
     }
 

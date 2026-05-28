@@ -1,19 +1,11 @@
 package at.aau.kuhhandel.app.ui.game
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -34,25 +26,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.ui.components.AnimalStyle
-import at.aau.kuhhandel.app.ui.components.AuctionControls
-import at.aau.kuhhandel.app.ui.components.AuctionView
-import at.aau.kuhhandel.app.ui.components.DeckView
-import at.aau.kuhhandel.app.ui.components.GameStatusText
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
-import at.aau.kuhhandel.app.ui.components.TradeView
-import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
@@ -73,25 +56,13 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Derived state for auction-related UI changes
-    val isAuctionActive = uiState.isAuctionActive
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(800, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "pulseAlpha",
-    )
+    val isAuctionActive =
+        uiState.currentPhase == GamePhase.AUCTION_BIDDING ||
+            uiState.currentPhase == GamePhase.AUCTION_RESOLUTION
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
-        if (event is GameEvent.MoneyBonus) {
+        if (event != null) {
             snackbarHostState.showSnackbar(
                 message = event.message,
                 withDismissAction = true,
@@ -121,15 +92,6 @@ fun GameScreen(
                                 },
                             ) {
                                 Text(animal.name)
-                            }
-                        }
-
-                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                            Button(
-                                onClick = onFinishTradeReveal,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                Text("CONTINUE")
                             }
                         }
                     }
@@ -173,7 +135,6 @@ fun GameScreen(
             players = uiState.gameState?.players ?: emptyList(),
             myId = uiState.myPlayerId,
             onOpponentClick = onSelectTargetPlayer,
-            isAuctionActive = isAuctionActive,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
@@ -206,181 +167,31 @@ fun GameScreen(
                 }
 
                 GamePhase.PLAYER_CHOICE -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val revealedCard =
-                            if (uiState.currentPhase == GamePhase.PLAYER_CHOICE) {
-                                null // Force deck view in CHOICE phase
-                            } else {
-                                uiState.gameState?.currentFaceUpCard
-                            }
-
-                        revealedCard?.let { card ->
-                            Image(
-                                painter =
-                                    painterResource(
-                                        id = getAnimalDrawable(card.type, AnimalStyle.CARD),
-                                    ),
-                                contentDescription = null,
-                                modifier = Modifier.size(width = 150.dp, height = 210.dp),
-                            )
-                            Text(
-                                card.type.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = PureWhite,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        } ?: run {
-                            DeckView(
-                                count = uiState.deckCountText,
-                                onClick = onRevealCard,
-                                canClick = uiState.isMyTurn,
-                            )
-                            val statusMessage =
-                                if (uiState.isMyTurn) {
-                                    "YOUR TURN !"
-                                } else {
-                                    "Waiting for ${uiState.activePlayerName}..."
-                                }
-                            GameStatusText(
-                                text = statusMessage,
-                                alpha = alpha,
-                                modifier = Modifier.padding(top = 16.dp),
-                            )
-                        }
-
-                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                            Button(
-                                onClick = onFinishTradeReveal,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                Text("CONTINUE")
-                            }
-                        }
-                    }
+                    ChoicePhaseContent(
+                        uiState = uiState,
+                        onRevealCard = onRevealCard,
+                    )
                 }
 
                 GamePhase.AUCTION_BIDDING,
                 GamePhase.AUCTION_RESOLUTION,
                 -> {
-                    // During auctions, we move the UI to the top and hide opponents to avoid overlap with money cards
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.TopCenter,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(top = 24.dp),
-                        ) {
-                            AuctionView(
-                                auction = uiState.gameState?.auctionState,
-                                timerSeconds = uiState.auctionTimerSeconds,
-                                players = uiState.gameState?.players ?: emptyList(),
-                            )
-                            if (uiState.isConnected &&
-                                !uiState.isAuctioneer &&
-                                (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
-                            ) {
-                                AuctionControls(
-                                    onBid = onPlaceBid,
-                                    currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
-                                    myTotalMoney = uiState.myTotalMoney,
-                                )
-                            } else if (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
-                                val highestBidderId =
-                                    uiState.gameState
-                                        ?.auctionState
-                                        ?.highestBidderId
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(top = 24.dp),
-                                ) {
-                                    if (uiState.isAuctioneer) {
-                                        val statusText =
-                                            if (highestBidderId == null) {
-                                                "Auction Closed. No one bid!"
-                                            } else {
-                                                "Auction Closed. Choose your action:"
-                                            }
-                                        GameStatusText(
-                                            text = statusText,
-                                            alpha = alpha,
-                                            modifier = Modifier.padding(bottom = 8.dp),
-                                        )
-                                        if (highestBidderId == null) {
-                                            Button(onClick = { onBuyBack(true) }) {
-                                                Text("CONTINUE")
-                                            }
-                                        } else {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            ) {
-                                                Button(
-                                                    onClick = { onBuyBack(true) },
-                                                ) { Text("Buy Back") }
-                                                Button(
-                                                    onClick = { onBuyBack(false) },
-                                                ) { Text("Let Winner Buy") }
-                                            }
-                                        }
-                                    } else {
-                                        GameStatusText(
-                                            text =
-                                                "Waiting for player " +
-                                                    "${uiState.activePlayerName}...",
-                                            alpha = alpha,
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                                Button(
-                                    onClick = onFinishTradeReveal,
-                                    modifier = Modifier.padding(top = 16.dp),
-                                ) {
-                                    Text("CONTINUE")
-                                }
-                            }
-                        }
-                    }
+                    AuctionPhaseContent(
+                        uiState = uiState,
+                        onPlaceBid = onPlaceBid,
+                        onBuyBack = onBuyBack,
+                    )
                 }
 
                 GamePhase.TRADE_OFFER,
                 GamePhase.TRADE_RESPONSE,
                 GamePhase.TRADE_REVEAL,
                 -> {
-                    val trade = uiState.gameState?.tradeState
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        TradeView(
-                            trade = trade,
-                            onAccept = { onRespondToTrade() },
-                            onCounter = { onRespondToTrade() },
-                            modifier = Modifier,
-                            myId = uiState.myPlayerId,
-                        )
-                        // If I am the initiator, I might need to send my first offer
-                        if (trade?.initiatorId == uiState.myPlayerId &&
-                            (trade?.offeredMoneyCardIds?.size ?: 0) == 0
-                        ) {
-                            Button(
-                                onClick = { onRespondToTrade() },
-                                modifier = Modifier.padding(top = 8.dp),
-                                enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
-                            ) {
-                                Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
-                            }
-                        }
-
-                        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
-                            Button(
-                                onClick = onFinishTradeReveal,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                Text("CONTINUE")
-                            }
-                        }
-                    }
+                    TradePhaseContent(
+                        uiState = uiState,
+                        onRespondToTrade = onRespondToTrade,
+                        onFinishTradeReveal = onFinishTradeReveal,
+                    )
                 }
 
                 GamePhase.FINISHED -> {
