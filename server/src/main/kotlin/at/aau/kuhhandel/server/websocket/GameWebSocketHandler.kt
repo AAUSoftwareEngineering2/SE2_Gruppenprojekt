@@ -149,6 +149,7 @@ class GameWebSocketHandler(
                             gameId = gameId,
                             playerId = playerId,
                             state = result.gameState,
+                            stateView = result.gameState.createViewForPlayer(playerId),
                         ),
                     ),
             ),
@@ -167,7 +168,7 @@ class GameWebSocketHandler(
 
         val state = gameService.startGame(gameId, actorId)
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -205,6 +206,7 @@ class GameWebSocketHandler(
                         GameJoinedPayload(
                             playerId = playerId,
                             state = state,
+                            stateView = state.createViewForPlayer(playerId),
                         ),
                     ),
             ),
@@ -291,6 +293,7 @@ class GameWebSocketHandler(
                         GameStatePayload.serializer(),
                         GameStatePayload(
                             state = state,
+                            stateView = state.createViewForPlayer(payload.playerId),
                         ),
                     ),
             ),
@@ -309,7 +312,7 @@ class GameWebSocketHandler(
 
         val state = gameService.chooseAuction(gameId, actorId)
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -333,7 +336,7 @@ class GameWebSocketHandler(
                 payload.moneyCardIds,
             )
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -355,7 +358,7 @@ class GameWebSocketHandler(
                 payload.counterOfferedMoneyCardIds,
             )
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -372,7 +375,7 @@ class GameWebSocketHandler(
 
         val state = gameService.placeBid(gameId, actorId, payload.amount)
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -389,7 +392,7 @@ class GameWebSocketHandler(
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -405,7 +408,7 @@ class GameWebSocketHandler(
 
         val state = gameService.finishTradeReveal(gameId, actorId)
 
-        sendStateUpdate(session, envelope.requestId, state)
+        sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
     }
 
@@ -467,6 +470,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         requestId: String?,
         state: GameState,
+        playerId: String,
     ) {
         send(
             session,
@@ -476,7 +480,10 @@ class GameWebSocketHandler(
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         GameStatePayload.serializer(),
-                        GameStatePayload(state),
+                        GameStatePayload(
+                            state = state,
+                            stateView = state.createViewForPlayer(playerId),
+                        ),
                     ),
             ),
         )
@@ -492,27 +499,39 @@ class GameWebSocketHandler(
     ) {
         val sessions = connectionRegistry.sessionsFor(gameId)
 
-        val envelope =
-            WebSocketEnvelope(
-                type = WebSocketType.GAME_STATE_UPDATED,
-                requestId = null,
-                payload =
-                    WebSocketJson.json.encodeToJsonElement(
-                        GameStatePayload.serializer(),
-                        GameStatePayload(state),
-                    ),
-            )
-        val json =
-            WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
-        val message = TextMessage(json)
-
         sessions.forEach { session ->
-            if (session != ignoredSession) {
+            if (session == ignoredSession) return@forEach
+
+            val playerId = connectionRegistry.playerIdFor(session.id) ?: return@forEach
+
+            try {
+                val envelope =
+                    WebSocketEnvelope(
+                        type = WebSocketType.GAME_STATE_UPDATED,
+                        requestId = null,
+                        payload =
+                            WebSocketJson.json.encodeToJsonElement(
+                                GameStatePayload.serializer(),
+                                GameStatePayload(
+                                    state = state,
+                                    stateView = state.createViewForPlayer(playerId),
+                                ),
+                            ),
+                    )
+                val json =
+                    WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
+                val message = TextMessage(json)
+
                 synchronized(session) {
                     if (session.isOpen) {
                         session.sendMessage(message)
                     }
                 }
+            } catch (e: Exception) {
+                logger.error(
+                    "State update broadcast failed for session ${session.id} corresponding to player $playerId",
+                    e,
+                )
             }
         }
     }

@@ -16,7 +16,7 @@ import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -71,7 +71,7 @@ class GamePersistenceServiceTest
                     phase = GamePhase.PLAYER_CHOICE,
                     players =
                         listOf(
-                            PlayerState(
+                            Player(
                                 id = "player-1",
                                 name = "player-1",
                                 animals =
@@ -128,8 +128,8 @@ class GamePersistenceServiceTest
                     phase = GamePhase.AUCTION_BIDDING,
                     players =
                         listOf(
-                            PlayerState(id = "player-1", name = "player-1"),
-                            PlayerState(id = "player-2", name = "player-2"),
+                            Player(id = "player-1", name = "player-1"),
+                            Player(id = "player-2", name = "player-2"),
                         ),
                     currentPlayerIndex = 0,
                     auctionState =
@@ -156,8 +156,8 @@ class GamePersistenceServiceTest
                     phase = GamePhase.AUCTION_BIDDING,
                     players =
                         listOf(
-                            PlayerState(id = "player-1", name = "player-1"),
-                            PlayerState(id = "player-2", name = "player-2"),
+                            Player(id = "player-1", name = "player-1"),
+                            Player(id = "player-2", name = "player-2"),
                         ),
                     currentPlayerIndex = 0,
                     auctionState =
@@ -219,7 +219,7 @@ class GamePersistenceServiceTest
                     phase = GamePhase.TRADE_OFFER,
                     players =
                         listOf(
-                            PlayerState(
+                            Player(
                                 id = "player-1",
                                 name = "player-1",
                                 moneyCards =
@@ -229,7 +229,7 @@ class GamePersistenceServiceTest
                                         MoneyCard("money-3", 10),
                                     ),
                             ),
-                            PlayerState(
+                            Player(
                                 id = "player-2",
                                 name = "player-2",
                                 moneyCards =
@@ -275,7 +275,7 @@ class GamePersistenceServiceTest
             val withAuction =
                 initialLobbyState().copy(
                     phase = GamePhase.AUCTION_BIDDING,
-                    players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                    players = listOf(Player(id = "player-1", name = "player-1")),
                     auctionState =
                         AuctionState(
                             auctionCard = AnimalCard(id = "card-1", type = AnimalType.CAT),
@@ -296,7 +296,7 @@ class GamePersistenceServiceTest
                     phase = GamePhase.TRADE_OFFER,
                     players =
                         listOf(
-                            PlayerState(
+                            Player(
                                 id = "player-1",
                                 name = "player-1",
                                 moneyCards =
@@ -305,7 +305,7 @@ class GamePersistenceServiceTest
                                         MoneyCard(id = "m2", value = 50),
                                     ),
                             ),
-                            PlayerState(
+                            Player(
                                 id = "player-2",
                                 name = "player-2",
                                 moneyCards = listOf(MoneyCard(id = "m3", value = 20)),
@@ -337,7 +337,7 @@ class GamePersistenceServiceTest
                     deck = AnimalDeck(listOf(AnimalCard(id = "1", type = AnimalType.COW))),
                     players =
                         listOf(
-                            PlayerState(
+                            Player(
                                 id = "player-1",
                                 name = "player-1",
                                 animals = listOf(AnimalCard(id = "a1", type = AnimalType.CHICKEN)),
@@ -358,7 +358,7 @@ class GamePersistenceServiceTest
                         ),
                     players =
                         listOf(
-                            PlayerState(
+                            Player(
                                 id = "player-1",
                                 name = "player-1",
                                 animals =
@@ -403,6 +403,6 @@ class GamePersistenceServiceTest
         private fun initialLobbyState(): GameState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
-                players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                players = listOf(Player(id = "player-1", name = "player-1")),
             )
     }

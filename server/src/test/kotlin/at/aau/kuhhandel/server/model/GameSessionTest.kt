@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -27,9 +27,9 @@ class GameSessionTest {
             phase = GamePhase.NOT_STARTED,
             players =
                 listOf(
-                    PlayerState(id = "player-1", name = "Player 1"),
-                    PlayerState(id = "player-2", name = "Player 2"),
-                    PlayerState(id = "player-3", name = "Player 3"),
+                    Player(id = "player-1", name = "Player 1"),
+                    Player(id = "player-2", name = "Player 2"),
+                    Player(id = "player-3", name = "Player 3"),
                 ),
             hostPlayerId = "player-1",
         )
@@ -124,8 +124,8 @@ class GameSessionTest {
             baselineState.copy(
                 players =
                     baselineState.players +
-                        PlayerState(id = "player-4", "Player-4") +
-                        PlayerState(id = "player-5", "Player 5"),
+                        Player(id = "player-4", "Player-4") +
+                        Player(id = "player-5", "Player 5"),
             )
 
         val session = GameSession.fromState("game-1", brokenState)
@@ -164,7 +164,7 @@ class GameSessionTest {
         val singlePlayerState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
-                players = listOf(PlayerState(id = "player-1", name = "player-1")),
+                players = listOf(Player(id = "player-1", name = "player-1")),
                 hostPlayerId = "player-1",
             )
         val session = GameSession.fromState("game-1", singlePlayerState)
@@ -261,8 +261,8 @@ class GameSessionTest {
             baselineState.copy(
                 players =
                     listOf(
-                        PlayerState(id = "player-1", name = "Player 1"),
-                        PlayerState(id = "player-2", name = "Player 2"),
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2"),
                     ),
             )
         val session = GameSession.fromState("game-1", lowPlayerState)
@@ -445,6 +445,14 @@ class GameSessionTest {
     }
 
     @Test
+    fun `placeBid throws IllegalStateException if auction state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.AUCTION_BIDDING)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.placeBid("player-2", amount = 10) }
+    }
+
+    @Test
     fun `placeBid fails if actor is the auctioneer`() {
         val initialAuction =
             AuctionState(
@@ -619,6 +627,17 @@ class GameSessionTest {
     }
 
     @Test
+    fun `closeAuctionAfterTimeout throws IllegalStateException if auction state is missing`() {
+        val biddingState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+            )
+        val session = GameSession.fromState("game-1", biddingState)
+
+        assertThrows<IllegalStateException> { session.closeAuctionAfterTimeout() }
+    }
+
+    @Test
     fun `resolveAuction functions correctly when auctioneer sells`() {
         // Setup: Player 1 is auctioneer. Player 2 wins with a bid of 20 and has two 10 money cards.
         val targetCard = AnimalCard("cow-1", AnimalType.COW)
@@ -631,13 +650,13 @@ class GameSessionTest {
             )
         val initialPlayers =
             listOf(
-                PlayerState(id = "player-1", name = "Player 1", moneyCards = emptyList()),
-                PlayerState(
+                Player(id = "player-1", name = "Player 1", moneyCards = emptyList()),
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     moneyCards = createDummyMoney("player-2", listOf(10, 10)),
                 ),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -679,13 +698,13 @@ class GameSessionTest {
             )
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = createDummyMoney("player-1", listOf(50)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -737,6 +756,19 @@ class GameSessionTest {
     }
 
     @Test
+    fun `resolveAuction throws IllegalStateException if auction state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.AUCTION_RESOLUTION)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> {
+            session.resolveAuction(
+                "player-1",
+                auctioneerBuysCard = false,
+            )
+        }
+    }
+
+    @Test
     fun `resolveAuction fails if actor is not the auctioneer`() {
         val auctionState =
             AuctionState(
@@ -774,13 +806,13 @@ class GameSessionTest {
         // Auctioneer only has 10 money, but needs 40 to buy
         val poorAuctioneerPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = listOf(MoneyCard("p1-10", 10)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val resolutionState =
             baselineState.copy(
@@ -806,18 +838,18 @@ class GameSessionTest {
 
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = player1Money,
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
                 ),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-3", name = "Player 3"),
             )
         val playableState =
             baselineState.copy(
@@ -837,8 +869,11 @@ class GameSessionTest {
                 offeredMoneyCardIds = setOf(targetCardId),
             )
 
-        // Assert: Phase transition
+        val initiator = updatedState.players.find { it.id == "player-1" }!!
+
+        // Assert: Phase transitions, money cards are taken from initiator
         assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
+        assertTrue(initiator.moneyCards.none { it.id == targetCardId })
 
         // Assert: Trade details are initialized accurately
         val trade = updatedState.tradeState
@@ -846,8 +881,9 @@ class GameSessionTest {
         assertEquals("player-1", trade.initiatorId)
         assertEquals("player-2", trade.targetId)
         assertEquals(AnimalType.COW, trade.requestedAnimalType)
-        assertEquals(setOf(targetCardId), trade.offeredMoneyCardIds)
-        assertTrue(trade.counterOfferedMoneyCardIds.isEmpty())
+        assertEquals(1, trade.offeredMoneyCards.size)
+        assertTrue(trade.offeredMoneyCards.any { it.id == targetCardId })
+        assertNull(trade.counterOfferedMoneyCards)
     }
 
     @Test
@@ -926,12 +962,12 @@ class GameSessionTest {
         // Player 1 has a PIG instead of a COW
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("p1", AnimalType.PIG)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
@@ -957,12 +993,12 @@ class GameSessionTest {
         // Player 2 (target) has an empty animal list
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", animals = emptyList()),
+                Player(id = "player-2", name = "Player 2", animals = emptyList()),
             )
         val playableState =
             baselineState.copy(
@@ -983,12 +1019,12 @@ class GameSessionTest {
     fun `chooseTrade fails if money offer is empty`() {
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1018,13 +1054,13 @@ class GameSessionTest {
     fun `chooseTrade fails if initiator does not own the offered money cards`() {
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1051,7 +1087,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `respondToTrade processes blind acceptance path successfully`() {
+    fun `respondToTrade updates trade information and transitions phase on blind acceptance`() {
         // Setup: Player 1 offers 10 money for a COW. Player 2 accepts blindly.
         val offerCardId = "player-1-10-1"
 
@@ -1064,13 +1100,13 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1089,20 +1125,21 @@ class GameSessionTest {
         val updatedState =
             session.respondToTrade("player-2", counterOfferedMoneyCardIds = emptySet())
 
-        val initiator = updatedState.players.find { it.id == "player-1" }!!
-        val target = updatedState.players.find { it.id == "player-2" }!!
-
-        // Assert: Phase transitions, initiator gets the card, money changes hands
+        // Assert: Phase transitions, initial trade details are not changed
         assertEquals(GamePhase.TRADE_REVEAL, updatedState.phase)
-        assertEquals(2, initiator.animals.size) // Got Player 2's cow
-        assertTrue(target.animals.isEmpty())
-        assertTrue(target.moneyCards.any { it.id == offerCardId })
-        assertEquals(10, updatedState.tradeState?.offeredMoney)
-        assertEquals(0, updatedState.tradeState?.counterOfferedMoney)
+        val updatedTrade = updatedState.tradeState
+        assertNotNull(updatedTrade)
+        assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
+        assertEquals(tradeState.targetId, updatedTrade.targetId)
+        assertEquals(tradeState.requestedAnimalType, updatedTrade.requestedAnimalType)
+        assertEquals(tradeState.offeredMoneyCards, updatedTrade.offeredMoneyCards)
+
+        // Assert: New trade information is added correctly
+        assertEquals(emptySet(), updatedTrade.counterOfferedMoneyCards)
     }
 
     @Test
-    fun `respondToTrade processes counteroffer where initiator wins the tiebreaker`() {
+    fun `respondToTrade updates trade information and transitions phase on counteroffer`() {
         // Rule check: initiator Total >= target Total means initiator wins on ties
         val initiatorCardId = "player-1-10-1"
         val targetCardId = "player-2-10-1"
@@ -1116,13 +1153,13 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     animals = listOf(AnimalCard("c1", AnimalType.COW)),
                     moneyCards = createDummyMoney("player-1", listOf(10)),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     animals = listOf(AnimalCard("c2", AnimalType.COW)),
@@ -1141,62 +1178,20 @@ class GameSessionTest {
         val updatedState =
             session.respondToTrade("player-2", counterOfferedMoneyCardIds = setOf(targetCardId))
 
-        val initiator = updatedState.players.find { it.id == "player-1" }!!
-        val target = updatedState.players.find { it.id == "player-2" }!!
+        // Assert: Phase transitions, initial trade details are not changed
+        assertEquals(GamePhase.TRADE_REVEAL, updatedState.phase)
+        val updatedTrade = updatedState.tradeState
+        assertNotNull(updatedTrade)
+        assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
+        assertEquals(tradeState.targetId, updatedTrade.targetId)
+        assertEquals(tradeState.requestedAnimalType, updatedTrade.requestedAnimalType)
+        assertEquals(tradeState.offeredMoneyCards, updatedTrade.offeredMoneyCards)
 
-        // Assert: Initiator wins the tiebreaker and takes the card. Both kept both sets of cash.
-        assertEquals(2, initiator.animals.size)
-        assertTrue(target.animals.isEmpty())
-        assertTrue(initiator.moneyCards.any { it.id == targetCardId })
-        assertTrue(target.moneyCards.any { it.id == initiatorCardId })
-    }
-
-    @Test
-    fun `respondToTrade processes counteroffer where target wins with higher value`() {
-        val initiatorCardId = "player-1-10-1"
-        val targetCardId = "player-2-50-1"
-
-        val tradeState =
-            TradeState(
-                initiatorId = "player-1",
-                targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
-                offeredMoneyCardIds = setOf(initiatorCardId),
-            )
-        val customPlayers =
-            listOf(
-                PlayerState(
-                    id = "player-1",
-                    name = "Player 1",
-                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
-                    moneyCards = createDummyMoney("player-1", listOf(10)),
-                ),
-                PlayerState(
-                    id = "player-2",
-                    name = "Player 2",
-                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
-                    moneyCards = createDummyMoney("player-2", listOf(50)),
-                ),
-            )
-        val activeState =
-            baselineState.copy(
-                phase = GamePhase.TRADE_RESPONSE,
-                tradeState = tradeState,
-                players = customPlayers,
-            )
-        val session = GameSession.fromState("game-1", activeState)
-
-        // Act: Player 2 counters with a 50 card
-        val updatedState =
-            session.respondToTrade("player-2", counterOfferedMoneyCardIds = setOf(targetCardId))
-
-        val initiator = updatedState.players.find { it.id == "player-1" }!!
-        val target = updatedState.players.find { it.id == "player-2" }!!
-
-        // Assert: Target wins (50 > 10) and takes the initiator's card
-        assertTrue(initiator.animals.isEmpty())
-        assertEquals(2, target.animals.size)
-        assertEquals(50, updatedState.tradeState?.counterOfferedMoney)
+        // Assert: New trade information is added correctly
+        val targetMoneyCards = updatedTrade.counterOfferedMoneyCards
+        assertNotNull(targetMoneyCards)
+        assertEquals(1, targetMoneyCards.size)
+        assertTrue(targetMoneyCards.any { it.id == targetCardId })
     }
 
     @Test
@@ -1224,6 +1219,35 @@ class GameSessionTest {
                 session.respondToTrade("player-2", counterOfferedMoneyCardIds = emptySet())
             }
         assertEquals(GameErrorReason.INVALID_PHASE, exception.reason)
+    }
+
+    @Test
+    fun `respondToTrade throws IllegalStateException if trade state is missing`() {
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = createDummyMoney("player-1", listOf(10)),
+                ),
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_RESPONSE,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        assertThrows<IllegalStateException> {
+            session.respondToTrade("player-2", counterOfferedMoneyCardIds = emptySet())
+        }
     }
 
     @Test
@@ -1258,8 +1282,8 @@ class GameSessionTest {
             )
         val customPlayers =
             listOf(
-                PlayerState(id = "player-1", name = "Player 1"),
-                PlayerState(
+                Player(id = "player-1", name = "Player 1"),
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     moneyCards = createDummyMoney("player-2", listOf(10)),
@@ -1284,27 +1308,117 @@ class GameSessionTest {
     }
 
     @Test
-    fun `endTradeReveal clears trade state and advances turn on happy path`() {
-        // Setup: Game is in the TRADE_REVEAL phase with an active trade state
+    fun `endTradeReveal processes counteroffer where initiator wins the tiebreaker`() {
+        // Rule check: initiator Total >= target Total means initiator wins on ties
+        val initiatorCardId = "player-1-10-1"
+        val targetCardId = "player-2-10-1"
+
         val tradeState =
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(10)).toSet(),
             )
-        val activeRevealState =
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val activeState =
             baselineState.copy(
                 phase = GamePhase.TRADE_REVEAL,
                 tradeState = tradeState,
+                players = customPlayers,
                 currentPlayerIndex = 0, // It was Player 1's turn
                 roundNumber = 5,
             )
-        val session = GameSession.fromState("game-1", activeRevealState)
+        val session = GameSession.fromState("game-1", activeState)
 
+        // Act: End the trade reveal
         val updatedState = session.endTradeReveal()
+
+        val initiator = updatedState.players.find { it.id == "player-1" }!!
+        val target = updatedState.players.find { it.id == "player-2" }!!
 
         // Assert: Trade state is cleared
         assertNull(updatedState.tradeState)
+
+        // Assert: Initiator wins the tiebreaker and takes the animal, money cards are exchanged
+        assertEquals(2, initiator.animals.size)
+        assertTrue(target.animals.isEmpty())
+        assertTrue(initiator.moneyCards.any { it.id == targetCardId })
+        assertTrue(target.moneyCards.any { it.id == initiatorCardId })
+
+        // Assert: Phase goes back to PLAYER_CHOICE and turn advances to the next player
+        assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
+        assertEquals(1, updatedState.currentPlayerIndex) // Moved to Player 2
+        assertEquals(6, updatedState.roundNumber) // Round incremented
+    }
+
+    @Test
+    fun `endTradeReveal processes counteroffer where target wins with higher value`() {
+        val initiatorCardId = "player-1-10-1"
+        val targetCardId = "player-2-50-1"
+
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+            )
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+                players = customPlayers,
+                currentPlayerIndex = 0, // It was Player 1's turn
+                roundNumber = 5,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: End the trade reveal
+        val updatedState = session.endTradeReveal()
+
+        val initiator = updatedState.players.find { it.id == "player-1" }!!
+        val target = updatedState.players.find { it.id == "player-2" }!!
+
+        // Assert: Trade state is cleared
+        assertNull(updatedState.tradeState)
+
+        // Assert: Target wins (50 > 10) and takes the initiator's animal, money cards are exchanged
+        assertTrue(initiator.animals.isEmpty())
+        assertEquals(2, target.animals.size)
+        assertTrue(initiator.moneyCards.any { it.id == targetCardId })
+        assertTrue(target.moneyCards.any { it.id == initiatorCardId })
 
         // Assert: Phase goes back to PLAYER_CHOICE and turn advances to the next player
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
@@ -1322,6 +1436,93 @@ class GameSessionTest {
         assertThrows<IllegalStateException> {
             session.endTradeReveal()
         }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade state is missing`() {
+        val brokenState = baselineState.copy(phase = GamePhase.TRADE_REVEAL)
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade counteroffer is missing`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade winner is not in player list`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+            )
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-1",
+                    name = "Player 1",
+                    animals = listOf(AnimalCard("c1", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
+    }
+
+    @Test
+    fun `endTradeReveal throws IllegalStateException if trade loser is not in player list`() {
+        val tradeState =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = createDummyMoney("player-2", listOf(50)).toSet(),
+            )
+        val customPlayers =
+            listOf(
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    animals = listOf(AnimalCard("c2", AnimalType.COW)),
+                    moneyCards = emptyList(),
+                ),
+            )
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_REVEAL,
+                tradeState = tradeState,
+                players = customPlayers,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.endTradeReveal() }
     }
 
     @Test
@@ -1413,13 +1614,13 @@ class GameSessionTest {
         // Let's test: 10, 10, 50. Need to pay 15. Optimal is 10+10=20.
         val initialPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "Player 1",
                     moneyCards = createDummyMoney("player-1", listOf(50, 10, 10)),
                 ),
-                PlayerState(id = "player-2", name = "Player 2", moneyCards = emptyList()),
-                PlayerState(id = "player-3", name = "Player 3"),
+                Player(id = "player-2", name = "Player 2", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3"),
             )
         val auctionState =
             AuctionState(
@@ -1460,37 +1661,37 @@ class GameSessionTest {
                 initiatorId = "player-1",
                 targetId = "player-2",
                 requestedAnimalType = AnimalType.COW,
-                offeredMoneyCardIds = setOf("player-1-10-1"),
+                offeredMoneyCards = createDummyMoney("player-1", listOf(10)).toSet(),
+                counterOfferedMoneyCards = emptySet(),
             )
 
         val customPlayers =
             listOf(
-                PlayerState(
+                Player(
                     id = "player-1",
                     name = "P1",
                     animals = p1Cows,
-                    moneyCards =
-                        createDummyMoney("player-1", listOf(10)),
+                    moneyCards = emptyList(),
                 ),
-                PlayerState(
+                Player(
                     id = "player-2",
                     name = "P2",
                     animals = p2Cows,
                     moneyCards = emptyList(),
                 ),
-                PlayerState(id = "player-3", name = "P3"),
+                Player(id = "player-3", name = "P3"),
             )
 
         val activeState =
             baselineState.copy(
-                phase = GamePhase.TRADE_RESPONSE,
+                phase = GamePhase.TRADE_REVEAL,
                 tradeState = tradeState,
                 players = customPlayers,
             )
         val session = GameSession.fromState("game-1", activeState)
 
         // Act: Blind acceptance
-        val updatedState = session.respondToTrade("player-2", emptySet())
+        val updatedState = session.endTradeReveal()
 
         val initiator = updatedState.players.find { it.id == "player-1" }!!
         val target = updatedState.players.find { it.id == "player-2" }!!

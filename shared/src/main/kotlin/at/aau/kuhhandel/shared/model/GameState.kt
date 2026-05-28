@@ -10,7 +10,7 @@ data class GameState(
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = -1,
-    val players: List<PlayerState> = emptyList(),
+    val players: List<Player> = emptyList(),
     val hostPlayerId: String? = null,
     // Active auction state, null if no auction is running
     val auctionState: AuctionState? = null,
@@ -19,6 +19,85 @@ data class GameState(
     // The last event that occurred, e.g. a money bonus from a donkey
     val lastEvent: GameEvent? = null,
 ) {
+    fun createViewForPlayer(playerId: String): GameStateView {
+        val localPlayer = this.players.find { it.id == playerId }
+        checkNotNull(localPlayer) {
+            "Viewing player $playerId not found in game state"
+        }
+
+        val opponents =
+            this.players
+                .filter { it.id != playerId }
+                .map { player ->
+                    Opponent(
+                        id = player.id,
+                        name = player.name,
+                        animals = player.animals,
+                        moneyCardCount = player.moneyCards.size,
+                    )
+                }
+
+        val tradeStateView =
+            this.tradeState?.let { tradeState ->
+                val isRevealPhase = this.phase == GamePhase.TRADE_REVEAL
+
+                val initiatorCards =
+                    if (isRevealPhase || playerId == tradeState.initiatorId) {
+                        tradeState.offeredMoneyCards
+                    } else {
+                        null
+                    }
+
+                val targetCards =
+                    if (isRevealPhase) {
+                        tradeState.counterOfferedMoneyCards
+                    } else {
+                        null
+                    }
+
+                TradeStateView(
+                    initiatorId = tradeState.initiatorId,
+                    targetId = tradeState.targetId,
+                    requestedAnimalType = tradeState.requestedAnimalType,
+                    initiatorCardCount = tradeState.offeredMoneyCards.size,
+                    targetCardCount = targetCards?.size,
+                    visibleInitiatorCards = initiatorCards?.toList(),
+                    visibleTargetCards = targetCards?.toList(),
+                )
+            }
+
+        return GameStateView(
+            phase = this.phase,
+            localPlayer = localPlayer,
+            opponents = opponents,
+            hostPlayerId = checkNotNull(this.hostPlayerId) { "Game state has no host" },
+            roundNumber = this.roundNumber,
+            currentPlayerIndex = this.currentPlayerIndex,
+            deckSize = this.deck.size(),
+            auctionState = this.auctionState,
+            tradeState = tradeStateView,
+            lastEvent = this.lastEvent,
+        )
+    }
+
+    fun updatePlayer(
+        playerId: String,
+        transform: (Player) -> Player,
+    ): GameState {
+        var playerFound = false
+        val updatedPlayers =
+            this.players.map { player ->
+                if (player.id == playerId) {
+                    playerFound = true
+                    transform(player)
+                } else {
+                    player
+                }
+            }
+        check(playerFound) { "Player $playerId not found to update" }
+        return this.copy(players = updatedPlayers)
+    }
+
     companion object {
         fun fromCreatingPlayer(
             id: String,
@@ -32,7 +111,7 @@ data class GameState(
                 currentPlayerIndex = -1,
                 players =
                     listOf(
-                        PlayerState(
+                        Player(
                             id = id,
                             name = name,
                         ),

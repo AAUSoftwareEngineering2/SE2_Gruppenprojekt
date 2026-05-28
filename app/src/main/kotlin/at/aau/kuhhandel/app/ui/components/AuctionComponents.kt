@@ -23,14 +23,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 /** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
 fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
-    players: List<PlayerState> = emptyList(),
+    players: List<Player> = emptyList(),
 ) {
     if (auction == null) return
 

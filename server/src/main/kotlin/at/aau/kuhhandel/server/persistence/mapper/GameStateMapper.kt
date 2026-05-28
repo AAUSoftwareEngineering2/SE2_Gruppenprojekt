@@ -8,13 +8,14 @@ import at.aau.kuhhandel.server.persistence.entity.GameStatus
 import at.aau.kuhhandel.server.persistence.entity.PlayerAnimalEntity
 import at.aau.kuhhandel.server.persistence.entity.PlayerMoneyEntity
 import at.aau.kuhhandel.server.persistence.entity.TradeStateEntity
+import at.aau.kuhhandel.server.persistence.mapper.GameStateMapper.expandMoney
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -42,6 +43,7 @@ object GameStateMapper {
             GamePhase.TRADE_RESPONSE,
             GamePhase.TRADE_REVEAL,
             -> GameStatus.TRADE
+
             GamePhase.FINISHED -> GameStatus.FINISHED
             GamePhase.NOT_STARTED, GamePhase.PLAYER_CHOICE -> GameStatus.LOBBY
         }
@@ -83,10 +85,10 @@ object GameStateMapper {
         val sortedPlayers = players.sortedBy { it.seatOrder }
         val gameIdString = game.id.toString()
 
-        val playerStates =
+        val domainPlayers =
             sortedPlayers.map { player ->
                 val playerKey = requireNotNull(player.id) { "GamePlayerEntity must be persisted" }
-                PlayerState(
+                Player(
                     id = player.user.passwordHash.ifBlank { player.user.username },
                     name = player.user.username,
                     animals =
@@ -109,7 +111,7 @@ object GameStateMapper {
             if (activeUsername == null) {
                 -1
             } else {
-                playerStates.indexOfFirst { it.name == activeUsername }.let {
+                domainPlayers.indexOfFirst { it.name == activeUsername }.let {
                     if (it ==
                         -1
                     ) {
@@ -139,7 +141,7 @@ object GameStateMapper {
                     gameIdString,
                     entity,
                     sortedPlayers,
-                    playerStates,
+                    domainPlayers,
                 )
             }
         val tradeDto =
@@ -147,7 +149,7 @@ object GameStateMapper {
                 toTradeState(gameIdString, entity, sortedPlayers)
             }
 
-        val phase = toGamePhase(game.status, animalDeck, playerStates)
+        val phase = toGamePhase(game.status, animalDeck, domainPlayers)
 
         val faceUpCard =
             game.faceUpAnimalType?.let { animalType ->
@@ -160,17 +162,17 @@ object GameStateMapper {
             deck = animalDeck,
             currentFaceUpCard = faceUpCard,
             currentPlayerIndex = currentPlayerIndex,
-            players = playerStates,
+            players = domainPlayers,
             auctionState = auctionDto,
             tradeState = tradeDto,
-            hostPlayerId = playerStates.firstOrNull()?.id,
+            hostPlayerId = domainPlayers.firstOrNull()?.id,
         )
     }
 
     private fun toGamePhase(
         status: GameStatus,
         deck: AnimalDeck,
-        players: List<PlayerState>,
+        players: List<Player>,
     ): GamePhase =
         when (status) {
             // On restart mid-auction, return to bidding phase; the auction state is still present.
@@ -217,12 +219,12 @@ object GameStateMapper {
         gameId: String,
         entity: AuctionStateEntity,
         players: List<GamePlayerEntity>,
-        playerStates: List<PlayerState>,
+        domainPlayers: List<Player>,
     ): AuctionState {
         val auctioneerId =
             entity.game.activePlayer?.let { active ->
                 players.firstOrNull { it.user.username == active.username }?.user?.passwordHash
-            } ?: playerStates.firstOrNull()?.id ?: ""
+            } ?: domainPlayers.firstOrNull()?.id ?: ""
         val highestBidderId =
             entity.highestBidder?.let { bidder -> findPlayerIdForPlayer(bidder, players) }
 

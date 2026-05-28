@@ -3,11 +3,11 @@ package at.aau.kuhhandel.shared.model
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-class PlayerStateTest {
+class PlayerTest {
     @Test
     fun test_totalMoney() {
         val player =
-            PlayerState(
+            Player(
                 id = "1",
                 name = "Test",
                 moneyCards =
