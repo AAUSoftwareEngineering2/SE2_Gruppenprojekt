@@ -24,7 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.audio.rememberButtonClickSound
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
@@ -54,7 +54,7 @@ fun MainMenuScreen(
     // ==========================================================
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val playClickSound = rememberButtonClickSound()
+    val playClickSound = LocalButtonClickSound.current
 
     MenuBackground(modifier = modifier) {
         // Title

@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.ButtonClickSoundProvider
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
 import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.network.game.GameRepository
@@ -71,108 +72,110 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     }
 
     MenuMusicPlayer(isGameStarted = isGameStarted) {
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Main,
-            modifier = modifier,
-        ) {
-            composable<Screen.Main> {
-                MainMenuScreen(
-                    onCreateLobby = { navController.navigate(Screen.RoomCreation) },
-                    onJoinLobby = { navController.navigate(Screen.RoomJoining) },
-                    onRules = { navController.navigate(Screen.Rules) },
-                )
-            }
+        ButtonClickSoundProvider {
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Main,
+                modifier = modifier,
+            ) {
+                composable<Screen.Main> {
+                    MainMenuScreen(
+                        onCreateLobby = { navController.navigate(Screen.RoomCreation) },
+                        onJoinLobby = { navController.navigate(Screen.RoomJoining) },
+                        onRules = { navController.navigate(Screen.Rules) },
+                    )
+                }
 
-            composable<Screen.RoomCreation> {
-                val creationViewModel =
-                    remember(repository, scope) {
-                        LobbyCreationViewModel(repository, scope)
-                    }
-                val creationUiState by creationViewModel.uiState.collectAsState()
-
-                RoomCreationScreen(
-                    uiState = creationUiState,
-                    onCreateLobby = creationViewModel::createLobby,
-                    onBack = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
-                    },
-                    onLobbyCreated = { lobbyCode ->
-                        navController.navigate(Screen.Lobby(lobbyCode)) {
-                            popUpTo(Screen.RoomCreation) { inclusive = true }
+                composable<Screen.RoomCreation> {
+                    val creationViewModel =
+                        remember(repository, scope) {
+                            LobbyCreationViewModel(repository, scope)
                         }
-                    },
-                )
-            }
+                    val creationUiState by creationViewModel.uiState.collectAsState()
 
-            composable<Screen.RoomJoining> {
-                val joiningViewModel =
-                    remember(repository, scope) {
-                        LobbyJoiningViewModel(repository, scope)
-                    }
-                val joiningUiState by joiningViewModel.uiState.collectAsState()
+                    RoomCreationScreen(
+                        uiState = creationUiState,
+                        onCreateLobby = creationViewModel::createLobby,
+                        onBack = {
+                            repository.disconnect()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        },
+                        onLobbyCreated = { lobbyCode ->
+                            navController.navigate(Screen.Lobby(lobbyCode)) {
+                                popUpTo(Screen.RoomCreation) { inclusive = true }
+                            }
+                        },
+                    )
+                }
 
-                RoomJoiningScreen(
-                    uiState = joiningUiState,
-                    onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
-                    onJoinLobby = joiningViewModel::joinLobby,
-                    onBack = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
-                    },
-                    onLobbyJoined = { lobbyCode ->
-                        navController.navigate(Screen.Lobby(lobbyCode)) {
-                            popUpTo(Screen.RoomJoining) { inclusive = true }
+                composable<Screen.RoomJoining> {
+                    val joiningViewModel =
+                        remember(repository, scope) {
+                            LobbyJoiningViewModel(repository, scope)
                         }
-                    },
-                )
-            }
+                    val joiningUiState by joiningViewModel.uiState.collectAsState()
 
-            composable<Screen.Lobby> { backStackEntry ->
-                val route: Screen.Lobby = backStackEntry.toRoute()
-                val lobbyViewModel =
-                    remember(repository, scope, route.lobbyCode) {
-                        LobbyViewModel(repository, scope, route.lobbyCode)
-                    }
-                val lobbyUiState by lobbyViewModel.uiState.collectAsState()
+                    RoomJoiningScreen(
+                        uiState = joiningUiState,
+                        onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
+                        onJoinLobby = joiningViewModel::joinLobby,
+                        onBack = {
+                            repository.disconnect()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        },
+                        onLobbyJoined = { lobbyCode ->
+                            navController.navigate(Screen.Lobby(lobbyCode)) {
+                                popUpTo(Screen.RoomJoining) { inclusive = true }
+                            }
+                        },
+                    )
+                }
 
-                LobbyScreen(
-                    uiState = lobbyUiState,
-                    onStartGame = lobbyViewModel::startGame,
-                    onDismissError = lobbyViewModel::clearError,
-                    onBack = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
-                    },
-                )
-            }
+                composable<Screen.Lobby> { backStackEntry ->
+                    val route: Screen.Lobby = backStackEntry.toRoute()
+                    val lobbyViewModel =
+                        remember(repository, scope, route.lobbyCode) {
+                            LobbyViewModel(repository, scope, route.lobbyCode)
+                        }
+                    val lobbyUiState by lobbyViewModel.uiState.collectAsState()
 
-            composable<Screen.Rules> {
-                RulesScreen(
-                    onBack = { navController.popBackStack(Screen.Main, inclusive = false) },
-                )
-            }
+                    LobbyScreen(
+                        uiState = lobbyUiState,
+                        onStartGame = lobbyViewModel::startGame,
+                        onDismissError = lobbyViewModel::clearError,
+                        onBack = {
+                            repository.disconnect()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        },
+                    )
+                }
 
-            composable<Screen.Game> {
-                val gameViewModel =
-                    remember(repository, scope) {
-                        GameViewModel(repository, scope)
-                    }
-                val gameUiState by gameViewModel.uiState.collectAsState()
+                composable<Screen.Rules> {
+                    RulesScreen(
+                        onBack = { navController.popBackStack(Screen.Main, inclusive = false) },
+                    )
+                }
 
-                GameScreen(
-                    uiState = gameUiState,
-                    onStartGame = gameViewModel::startGame,
-                    onRevealCard = gameViewModel::revealCard,
-                    onPlaceBid = gameViewModel::placeBid,
-                    onBuyBack = gameViewModel::buyBack,
-                    onRespondToTrade = gameViewModel::respondToTrade,
-                    onFinishTradeReveal = gameViewModel::finishTradeReveal,
-                    onInitiateTrade = gameViewModel::initiateTrade,
-                    onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
-                    onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
-                )
+                composable<Screen.Game> {
+                    val gameViewModel =
+                        remember(repository, scope) {
+                            GameViewModel(repository, scope)
+                        }
+                    val gameUiState by gameViewModel.uiState.collectAsState()
+
+                    GameScreen(
+                        uiState = gameUiState,
+                        onStartGame = gameViewModel::startGame,
+                        onRevealCard = gameViewModel::revealCard,
+                        onPlaceBid = gameViewModel::placeBid,
+                        onBuyBack = gameViewModel::buyBack,
+                        onRespondToTrade = gameViewModel::respondToTrade,
+                        onFinishTradeReveal = gameViewModel::finishTradeReveal,
+                        onInitiateTrade = gameViewModel::initiateTrade,
+                        onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
+                        onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
+                    )
+                }
             }
         }
     }

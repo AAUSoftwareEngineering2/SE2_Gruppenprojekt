@@ -17,7 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import at.aau.kuhhandel.app.audio.rememberButtonClickSound
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -29,7 +29,7 @@ fun RoomJoiningScreen(
     onBack: () -> Unit,
     onLobbyJoined: (String) -> Unit,
 ) {
-    val playClickSound = rememberButtonClickSound()
+    val playClickSound = LocalButtonClickSound.current
 
     LaunchedEffect(uiState.isJoined, uiState.joinedLobbyCode) {
         if (uiState.isJoined && uiState.joinedLobbyCode != null) {

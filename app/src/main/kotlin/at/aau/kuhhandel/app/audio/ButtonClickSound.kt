@@ -4,16 +4,27 @@ import android.media.AudioAttributes
 import android.media.SoundPool
 import androidx.annotation.RawRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import at.aau.kuhhandel.app.R
 
+val LocalButtonClickSound = staticCompositionLocalOf<() -> Unit> { {} }
+
 @Composable
-fun rememberButtonClickSound(): () -> Unit = rememberSoundEffect(R.raw.button_click)
+fun ButtonClickSoundProvider(content: @Composable () -> Unit) {
+    val playButtonClickSound = rememberSoundEffect(R.raw.button_click)
+
+    CompositionLocalProvider(
+        LocalButtonClickSound provides playButtonClickSound,
+        content = content,
+    )
+}
 
 @Composable
 fun rememberSoundEffect(
