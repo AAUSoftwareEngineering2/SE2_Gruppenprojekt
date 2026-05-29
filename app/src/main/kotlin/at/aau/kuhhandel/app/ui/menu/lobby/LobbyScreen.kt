@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.rememberButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -38,6 +39,8 @@ fun LobbyScreen(
     onDismissError: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val playClickSound = rememberButtonClickSound()
+
     MenuBackground(modifier = modifier) {
         Box(
             modifier =
@@ -100,7 +103,10 @@ fun LobbyScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = onDismissError,
+                        onClick = {
+                            playClickSound()
+                            onDismissError()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Hide Errors")
@@ -137,7 +143,10 @@ fun LobbyScreen(
                 ) {
                     if (uiState.canStartGame) {
                         Button(
-                            onClick = onStartGame,
+                            onClick = {
+                                playClickSound()
+                                onStartGame()
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Start Game")
@@ -145,7 +154,10 @@ fun LobbyScreen(
                     }
 
                     OutlinedButton(
-                        onClick = onBack,
+                        onClick = {
+                            playClickSound()
+                            onBack()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Cancel")

@@ -15,9 +15,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.rememberButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationUiState
 
 @Composable
 fun RoomCreationScreen(
@@ -26,6 +26,8 @@ fun RoomCreationScreen(
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
+    val playClickSound = rememberButtonClickSound()
+
     LaunchedEffect(Unit) {
         onCreateLobby()
     }
@@ -54,7 +56,10 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onBack,
+                            onClick = {
+                                playClickSound()
+                                onBack()
+                            },
                             modifier = Modifier.fillMaxWidth(0.6f),
                         ) {
                             Text("Back")

@@ -4,14 +4,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
@@ -41,13 +45,24 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
     val repositoryState by repository.state.collectAsState()
     val currentPhase = repositoryState.gameState?.phase
+    val playGameStartSound = rememberSoundEffect(R.raw.rooster_sound)
+    var hasPlayedGameStartSound by remember { mutableStateOf(false) }
 
     // Musiksteuerung
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
     // Handle Game State transitions via Navigation
     LaunchedEffect(currentPhase) {
+        if (currentPhase == null || currentPhase == GamePhase.NOT_STARTED) {
+            hasPlayedGameStartSound = false
+        }
+
         if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
+            if (!hasPlayedGameStartSound) {
+                playGameStartSound()
+                hasPlayedGameStartSound = true
+            }
+
             navController.navigate(Screen.Game) {
                 // Pop up to Main to clear the backstack when game starts
                 popUpTo(Screen.Main) { inclusive = false }

@@ -34,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberButtonClickSound
 
 /**
  * This file also includes UI Elements which may also be used in the Game Views.
@@ -150,6 +151,7 @@ fun MenuButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val playClickSound = rememberButtonClickSound()
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
@@ -189,7 +191,10 @@ fun MenuButton(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = onClick,
+                        onClick = {
+                            playClickSound()
+                            onClick()
+                        },
                     ),
         )
     }
@@ -200,8 +205,13 @@ fun BackButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val playClickSound = rememberButtonClickSound()
+
     IconButton(
-        onClick = onClick,
+        onClick = {
+            playClickSound()
+            onClick()
+        },
         modifier = modifier.size(64.dp),
     ) {
         Image(

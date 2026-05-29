@@ -17,9 +17,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.rememberButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningUiState
 
 @Composable
 fun RoomJoiningScreen(
@@ -29,6 +29,8 @@ fun RoomJoiningScreen(
     onBack: () -> Unit,
     onLobbyJoined: (String) -> Unit,
 ) {
+    val playClickSound = rememberButtonClickSound()
+
     LaunchedEffect(uiState.isJoined, uiState.joinedLobbyCode) {
         if (uiState.isJoined && uiState.joinedLobbyCode != null) {
             onLobbyJoined(uiState.joinedLobbyCode)
@@ -85,7 +87,10 @@ fun RoomJoiningScreen(
                     CircularProgressIndicator()
                 } else {
                     Button(
-                        onClick = onJoinLobby,
+                        onClick = {
+                            playClickSound()
+                            onJoinLobby()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = uiState.lobbyCode.length == 5,
                     ) {
