@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.rememberAnimalAuctionSound
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
@@ -56,6 +57,8 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val playAnimalAuctionSound = rememberAnimalAuctionSound()
+    val auctionCard = uiState.gameState?.auctionState?.auctionCard
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -64,6 +67,12 @@ fun GameScreen(
                 message = event.message,
                 withDismissAction = true,
             )
+        }
+    }
+
+    LaunchedEffect(auctionCard?.id) {
+        if (uiState.currentPhase == GamePhase.AUCTION_BIDDING && auctionCard != null) {
+            playAnimalAuctionSound(auctionCard.type)
         }
     }
 
