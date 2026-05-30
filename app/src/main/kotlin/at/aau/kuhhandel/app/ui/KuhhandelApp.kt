@@ -46,28 +46,27 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
     val repositoryState by repository.state.collectAsState()
     val currentPhase = repositoryState.gameState?.phase
-    val playGameStartSound = rememberSoundEffect(R.raw.rooster_sound)
+    val playGameStartSound = rememberSoundEffect(R.raw.game_start_sound)
     var hasPlayedGameStartSound by remember { mutableStateOf(false) }
 
     // Musiksteuerung
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
     // Handle Game State transitions via Navigation
-    LaunchedEffect(currentPhase) {
-        if (currentPhase == null || currentPhase == GamePhase.NOT_STARTED) {
+    LaunchedEffect(isGameStarted) {
+        if (!isGameStarted) {
             hasPlayedGameStartSound = false
+            return@LaunchedEffect
         }
 
-        if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
-            if (!hasPlayedGameStartSound) {
-                playGameStartSound()
-                hasPlayedGameStartSound = true
-            }
+        if (!hasPlayedGameStartSound) {
+            playGameStartSound()
+            hasPlayedGameStartSound = true
+        }
 
-            navController.navigate(Screen.Game) {
-                // Pop up to Main to clear the backstack when game starts
-                popUpTo(Screen.Main) { inclusive = false }
-            }
+        navController.navigate(Screen.Game) {
+            // Pop up to Main to clear the backstack when game starts
+            popUpTo(Screen.Main) { inclusive = false }
         }
     }
 
