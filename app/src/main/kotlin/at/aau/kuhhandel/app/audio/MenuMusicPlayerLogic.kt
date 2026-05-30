@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.audio
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import at.aau.kuhhandel.app.R
 
@@ -16,7 +17,16 @@ internal fun MediaPlayer.managePlayback(isGameStarted: Boolean) {
 }
 
 internal fun createMenuMediaPlayer(context: Context): MediaPlayer =
-    MediaPlayer.create(context, R.raw.mainmenu)
+    MediaPlayer.create(
+        context,
+        R.raw.mainmenu,
+        AudioAttributes
+            .Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build(),
+        0,
+    )
 
 internal fun releaseMediaPlayer(mediaPlayer: MediaPlayer) {
     mediaPlayer.release()
