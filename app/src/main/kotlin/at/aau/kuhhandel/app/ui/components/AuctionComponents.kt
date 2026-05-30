@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.Player
 
@@ -96,6 +98,8 @@ fun AuctionControls(
     myTotalMoney: Int,
     modifier: Modifier = Modifier,
 ) {
+    val playBidHigherSound = rememberSoundEffect(R.raw.bid_higher)
+
     Row(
         modifier = modifier.padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -107,6 +111,7 @@ fun AuctionControls(
             Button(
                 onClick = {
                     if (!isBluff) {
+                        playBidHigherSound()
                         onBid(nextBid)
                     }
                 },
