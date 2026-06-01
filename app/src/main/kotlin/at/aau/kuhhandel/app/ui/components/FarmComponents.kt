@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,7 +28,6 @@ import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
-import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PlayerState
 
@@ -207,7 +205,7 @@ fun PlayerFarm(
                         .fillMaxWidth()
                         .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
             ) {
                 Column {
                     Text(
@@ -223,19 +221,6 @@ fun PlayerFarm(
                             ),
                         color = DefaultPurple,
                         fontWeight = FontWeight.Black,
-                    )
-                }
-
-                Surface(
-                    color = DarkPurple.copy(alpha = 0.7f),
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Text(
-                        "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = WhitePurple,
-                        fontWeight = FontWeight.Bold,
                     )
                 }
             }

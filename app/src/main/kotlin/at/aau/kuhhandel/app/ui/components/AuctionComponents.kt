@@ -58,6 +58,7 @@ fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
     players: List<PlayerState> = emptyList(),
+    myPlayerId: String? = null,
     modifier: Modifier = Modifier,
     footerContent: @Composable () -> Unit = {},
 ) {
@@ -201,12 +202,6 @@ fun AuctionView(
                     modifier = Modifier.scale(bidScale.value),
                 ) {
                     Text(
-                        if (auction.highestBidderId != null) "Current Bid" else "Starting...",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DarkPurple.copy(alpha = 0.6f),
-                    )
-
-                    Text(
                         if (auction.highestBidderId !=
                             null
                         ) {
@@ -221,6 +216,21 @@ fun AuctionView(
                         fontWeight = FontWeight.ExtraBold,
                         color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
                     )
+
+                    auction.highestBidderId?.let { bidderId ->
+                        val bidderName =
+                            if (bidderId == myPlayerId) {
+                                "You"
+                            } else {
+                                players.find { it.id == bidderId }?.name ?: bidderId
+                            }
+                        Text(
+                            "from $bidderName",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = DarkPurple.copy(alpha = 0.62f),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
 

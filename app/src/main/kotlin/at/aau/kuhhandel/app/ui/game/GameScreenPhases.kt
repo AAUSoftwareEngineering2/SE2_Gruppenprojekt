@@ -18,6 +18,7 @@ import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
 import at.aau.kuhhandel.app.ui.components.TradeView
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.GamePhase
 
@@ -41,6 +42,7 @@ fun ChoicePhaseContent(
         GameStatusText(
             text = statusMessage,
             modifier = Modifier.padding(top = 16.dp),
+            color = DarkPurple,
         )
     }
 }
@@ -63,6 +65,7 @@ fun AuctionPhaseContent(
             auction = auctionState,
             timerSeconds = uiState.auctionTimerSeconds,
             players = gameState?.players ?: emptyList(),
+            myPlayerId = uiState.myPlayerId,
             footerContent = {
                 if (!uiState.isAuctioneer &&
                     (gameState?.phase == GamePhase.AUCTION_BIDDING)
@@ -90,6 +93,7 @@ fun AuctionPhaseContent(
                             GameStatusText(
                                 text = statusText,
                                 modifier = Modifier.padding(bottom = 8.dp),
+                                color = DarkPurple,
                             )
                             if (highestBidderId == null) {
                                 Button(onClick = { onBuyBack(true) }) {
@@ -106,6 +110,7 @@ fun AuctionPhaseContent(
                         } else {
                             GameStatusText(
                                 text = "Waiting for player ${uiState.activePlayerName}...",
+                                color = DarkPurple,
                             )
                         }
                     }

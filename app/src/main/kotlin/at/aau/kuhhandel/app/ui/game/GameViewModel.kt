@@ -152,7 +152,7 @@ class GameViewModel(
                 gameState = gameState,
                 myPlayerId = repoState.myPlayerId,
                 currentPhase = currentPhase,
-                deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
+                deckCountText = "${gameState?.deck?.size() ?: 0}",
                 activeCardLabel =
                     gameState?.currentFaceUpCard?.let { card ->
                         "${card.type.name} (#${card.id})"
