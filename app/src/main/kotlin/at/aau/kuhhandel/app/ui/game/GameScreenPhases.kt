@@ -52,62 +52,66 @@ fun AuctionPhaseContent(
     onBuyBack: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val gameState = uiState.gameState
+    val auctionState = gameState?.auctionState
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(top = 24.dp),
+        modifier = modifier.padding(top = 32.dp),
     ) {
         AuctionView(
-            auction = uiState.gameState?.auctionState,
+            auction = auctionState,
             timerSeconds = uiState.auctionTimerSeconds,
-            players = uiState.gameState?.players ?: emptyList(),
-        )
-
-        if (!uiState.isAuctioneer &&
-            (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
-        ) {
-            AuctionControls(
-                onBid = onPlaceBid,
-                currentBid = uiState.gameState?.auctionState?.highestBid ?: 0,
-                myTotalMoney = uiState.myTotalMoney,
-                isExcluded =
-                    uiState.gameState?.auctionState?.excludedPlayerIds?.contains(
-                        uiState.myPlayerId,
-                    ) == true,
-            )
-        } else if (uiState.gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
-            val highestBidderId = uiState.gameState?.auctionState?.highestBidderId
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 24.dp),
-            ) {
-                if (uiState.isAuctioneer) {
-                    val statusText =
-                        if (highestBidderId == null) {
-                            "Auction Closed. No one bid!"
-                        } else {
-                            "Auction Closed. Choose your action:"
-                        }
-                    GameStatusText(
-                        text = statusText,
-                        modifier = Modifier.padding(bottom = 8.dp),
+            players = gameState?.players ?: emptyList(),
+            footerContent = {
+                if (!uiState.isAuctioneer &&
+                    (gameState?.phase == GamePhase.AUCTION_BIDDING)
+                ) {
+                    AuctionControls(
+                        onBid = onPlaceBid,
+                        currentBid = auctionState?.highestBid ?: 0,
+                        isExcluded =
+                            auctionState?.excludedPlayerIds?.contains(
+                                uiState.myPlayerId,
+                            ) == true,
                     )
-                    if (highestBidderId == null) {
-                        Button(onClick = { onBuyBack(true) }) {
-                            Text("CONTINUE")
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                            Button(onClick = { onBuyBack(false) }) { Text("Let Winner Buy") }
+                } else if (gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
+                    val highestBidderId = auctionState?.highestBidderId
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (uiState.isAuctioneer) {
+                            val statusText =
+                                if (highestBidderId == null) {
+                                    "Auction Closed. No one bid!"
+                                } else {
+                                    "Auction Closed. Choose your action:"
+                                }
+                            GameStatusText(
+                                text = statusText,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                            if (highestBidderId == null) {
+                                Button(onClick = { onBuyBack(true) }) {
+                                    Text("CONTINUE")
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
+                                    Button(onClick = { onBuyBack(false) }) {
+                                        Text("Let Winner Buy")
+                                    }
+                                }
+                            }
+                        } else {
+                            GameStatusText(
+                                text = "Waiting for player ${uiState.activePlayerName}...",
+                            )
                         }
                     }
-                } else {
-                    GameStatusText(
-                        text = "Waiting for player ${uiState.activePlayerName}...",
-                    )
                 }
-            }
-        }
+            },
+        )
     }
 }
 

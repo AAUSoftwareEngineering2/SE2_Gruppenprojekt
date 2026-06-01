@@ -67,3 +67,16 @@ fun getHiddenMoneyStackDrawable(count: Int): Int =
         7 -> R.drawable.ig_money_hidden_large_7
         else -> R.drawable.ig_money_hidden_large_7
     }
+
+/** Maps a card count to the corresponding diagonal hidden stack drawable resource ID. */
+fun getHiddenMoneyDiagonalDrawable(count: Int): Int =
+    when (count.coerceIn(1, 7)) {
+        1 -> R.drawable.ig_money_hidden_diagonal_1
+        2 -> R.drawable.ig_money_hidden_diagonal_2
+        3 -> R.drawable.ig_money_hidden_diagonal_3
+        4 -> R.drawable.ig_money_hidden_diagonal_4
+        5 -> R.drawable.ig_money_hidden_diagonal_5
+        6 -> R.drawable.ig_money_hidden_diagonal_6
+        7 -> R.drawable.ig_money_hidden_diagonal_7
+        else -> R.drawable.ig_money_hidden_diagonal_7
+    }

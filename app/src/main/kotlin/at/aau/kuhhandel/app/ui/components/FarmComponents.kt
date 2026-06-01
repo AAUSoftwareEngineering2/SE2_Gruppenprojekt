@@ -1,19 +1,16 @@
 package at.aau.kuhhandel.app.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,48 +73,51 @@ fun OtherFarm(
             Image(
                 painter = painterResource(id = parseFarmColor(farmColor)),
                 contentDescription = "OtherFarm",
-                modifier = Modifier.size(135.dp),
+                modifier = Modifier.size(165.dp),
             )
             // Display animal chips in the middle of the farm
             Box(
                 modifier =
                     Modifier
-                        .size(width = 110.dp, height = 80.dp)
+                        .size(width = 135.dp, height = 100.dp)
                         .align(Alignment.Center),
                 contentAlignment = Alignment.Center,
             ) {
                 AnimalFarmChipsView(
                     animals = player.animals,
-                    chipSize = 28.dp,
+                    chipSize = 34.dp,
                 )
             }
-            Surface(
-                color = PureWhite,
-                shape = MaterialTheme.shapes.medium,
+            Box(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(x = (-5).dp, y = (-5).dp),
-                border = BorderStroke(1.dp, DarkPurple.copy(alpha = 0.2f)),
-                shadowElevation = 2.dp,
+                        .offset(x = (-7).dp, y = (-7).dp)
+                        .size(width = 58.dp, height = 48.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_money_hidden_diagonal_1),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = player.moneyCards.size.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DarkPurple,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                }
+                Image(
+                    painter =
+                        painterResource(
+                            id = getHiddenMoneyDiagonalDrawable(player.moneyCards.size),
+                        ),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 58.dp, height = 48.dp),
+                )
+                Text(
+                    text = player.moneyCards.size.toString(),
+                    style =
+                        MaterialTheme.typography.titleSmall.copy(
+                            shadow =
+                                Shadow(
+                                    color = PureWhite,
+                                    offset = Offset(0f, 0f),
+                                    blurRadius = 6f,
+                                ),
+                        ),
+                    color = DarkPurple,
+                    fontWeight = FontWeight.ExtraBold,
+                )
             }
         }
     }

@@ -36,7 +36,6 @@ data class GameUiState(
     val auctionTimerSeconds: Int? = null,
     val errorMessage: String? = null,
     val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
-    val myTotalMoney: Int = 0,
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
@@ -182,8 +181,6 @@ class GameViewModel(
                 myMoneyCards =
                     gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
                         ?: emptyList(),
-                myTotalMoney =
-                    gameState?.players?.find { it.id == repoState.myPlayerId }?.totalMoney() ?: 0,
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
