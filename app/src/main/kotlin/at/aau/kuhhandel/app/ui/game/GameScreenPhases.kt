@@ -50,10 +50,11 @@ fun AuctionPhaseContent(
     uiState: GameUiState,
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(top = 24.dp),
+        modifier = modifier.padding(top = 24.dp),
     ) {
         AuctionView(
             auction = uiState.gameState?.auctionState,
@@ -61,8 +62,7 @@ fun AuctionPhaseContent(
             players = uiState.gameState?.players ?: emptyList(),
         )
 
-        if (uiState.isConnected &&
-            !uiState.isAuctioneer &&
+        if (!uiState.isAuctioneer &&
             (uiState.gameState?.phase == GamePhase.AUCTION_BIDDING)
         ) {
             AuctionControls(

@@ -469,7 +469,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `placeBid fails if actor does not have enough money`() {
+    fun `placeBid allows actor to bid more than available money as bluff`() {
         val initialAuction =
             AuctionState(
                 auctionCard = AnimalCard("cow-1", AnimalType.COW),
@@ -502,14 +502,16 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", poorPlayerState)
 
-        val exception =
-            assertThrows<GameException> {
-                session.placeBid(
-                    "player-2",
-                    amount = illegalBidAmount,
-                )
-            }
-        assertEquals(GameErrorReason.NOT_ENOUGH_MONEY, exception.reason)
+        val updatedState =
+            session.placeBid(
+                "player-2",
+                amount = illegalBidAmount,
+            )
+
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertEquals(illegalBidAmount, auction.highestBid)
+        assertEquals("player-2", auction.highestBidderId)
     }
 
     @Test
@@ -871,6 +873,50 @@ class GameSessionTest {
                 session.resolveAuction("player-1", auctioneerBuysCard = true)
             }
         assertEquals(GameErrorReason.NOT_ENOUGH_MONEY, exception.reason)
+    }
+
+    @Test
+    fun `resolveAuction restarts auction and excludes bidder when winning bid was a bluff`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val auctionState =
+            AuctionState(
+                auctionCard = targetCard,
+                auctioneerId = "player-1",
+                highestBid = 20,
+                highestBidderId = "player-2",
+            )
+        val bluffingBidderPlayers =
+            listOf(
+                PlayerState(id = "player-1", name = "Player 1", moneyCards = emptyList()),
+                PlayerState(
+                    id = "player-2",
+                    name = "Player 2",
+                    moneyCards = createDummyMoney("player-2", listOf(10)),
+                ),
+                PlayerState(id = "player-3", name = "Player 3", moneyCards = emptyList()),
+            )
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESOLUTION,
+                auctionState = auctionState,
+                players = bluffingBidderPlayers,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        val updatedState = session.resolveAuction("player-1", auctioneerBuysCard = false)
+
+        assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
+        val restartedAuction = updatedState.auctionState
+        assertNotNull(restartedAuction)
+        assertEquals(targetCard, restartedAuction.auctionCard)
+        assertEquals(0, restartedAuction.highestBid)
+        assertNull(restartedAuction.highestBidderId)
+        assertTrue("player-2" in restartedAuction.excludedPlayerIds)
+        assertNotNull(restartedAuction.timerEndTime)
+
+        val event = updatedState.lastEvent
+        assertTrue(event is GameEvent.BluffDetected)
+        assertEquals("player-2", event.playerId)
     }
 
     @Test

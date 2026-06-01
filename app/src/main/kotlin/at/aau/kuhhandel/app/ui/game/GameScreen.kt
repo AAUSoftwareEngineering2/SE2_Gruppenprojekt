@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,9 +58,7 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val isAuctionActive =
-        uiState.currentPhase == GamePhase.AUCTION_BIDDING ||
-            uiState.currentPhase == GamePhase.AUCTION_RESOLUTION
+    val isAuctionActive = uiState.isAuctionActive
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -103,11 +103,7 @@ fun GameScreen(
         )
     }
 
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize(),
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         // --- DECOR ---
         Image(
             painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
@@ -130,76 +126,72 @@ fun GameScreen(
             alpha = 0.6f,
         )
 
-        // --- TOP: OPPONENTS ---
-        OpponentList(
-            players = uiState.gameState?.players ?: emptyList(),
-            myId = uiState.myPlayerId,
-            onOpponentClick = onSelectTargetPlayer,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 48.dp),
-        )
+        // --- TOP: OPPONENTS (Hidden during auctions) ---
+        if (!isAuctionActive) {
+            OpponentList(
+                players = uiState.gameState?.players ?: emptyList(),
+                myId = uiState.myPlayerId,
+                onOpponentClick = onSelectTargetPlayer,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 48.dp),
+            )
+        }
 
         // --- CENTER: THE BOARD ---
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.Center),
-            contentAlignment = Alignment.Center,
-        ) {
-            when (uiState.currentPhase) {
-                GamePhase.NOT_STARTED -> {
-                    if (uiState.canStartGame) {
-                        Button(onClick = onStartGame) {
-                            Text("START MATCH")
-                        }
-                    } else {
-                        val message =
-                            if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
-                                "Waiting for players (min. 3)..."
-                            } else {
-                                "Waiting for host to start..."
+        if (!isAuctionActive) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.Center),
+                contentAlignment = Alignment.Center,
+            ) {
+                when (uiState.currentPhase) {
+                    GamePhase.NOT_STARTED -> {
+                        if (uiState.canStartGame) {
+                            Button(onClick = onStartGame) {
+                                Text("START MATCH")
                             }
-                        GameStatusText(text = message)
+                        } else {
+                            val message =
+                                if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
+                                    "Waiting for players (min. 3)..."
+                                } else {
+                                    "Waiting for host to start..."
+                                }
+                            GameStatusText(text = message)
+                        }
                     }
-                }
 
-                GamePhase.PLAYER_CHOICE -> {
-                    ChoicePhaseContent(
-                        uiState = uiState,
-                        onRevealCard = onRevealCard,
-                    )
-                }
+                    GamePhase.PLAYER_CHOICE -> {
+                        ChoicePhaseContent(
+                            uiState = uiState,
+                            onRevealCard = onRevealCard,
+                        )
+                    }
 
-                GamePhase.AUCTION_BIDDING,
-                GamePhase.AUCTION_RESOLUTION,
-                -> {
-                    AuctionPhaseContent(
-                        uiState = uiState,
-                        onPlaceBid = onPlaceBid,
-                        onBuyBack = onBuyBack,
-                    )
-                }
+                    GamePhase.TRADE_OFFER,
+                    GamePhase.TRADE_RESPONSE,
+                    GamePhase.TRADE_REVEAL,
+                    -> {
+                        TradePhaseContent(
+                            uiState = uiState,
+                            onRespondToTrade = onRespondToTrade,
+                            onFinishTradeReveal = onFinishTradeReveal,
+                        )
+                    }
 
-                GamePhase.TRADE_OFFER,
-                GamePhase.TRADE_RESPONSE,
-                GamePhase.TRADE_REVEAL,
-                -> {
-                    TradePhaseContent(
-                        uiState = uiState,
-                        onRespondToTrade = onRespondToTrade,
-                        onFinishTradeReveal = onFinishTradeReveal,
-                    )
-                }
+                    GamePhase.FINISHED -> {
+                        Text(
+                            "GAME OVER",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = PureWhite,
+                        )
+                    }
 
-                GamePhase.FINISHED -> {
-                    Text(
-                        "GAME OVER",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = PureWhite,
-                    )
+                    else -> Unit
                 }
             }
         }
@@ -220,7 +212,6 @@ fun GameScreen(
         )
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
-        // Placing it last in the Box ensures it's on top of everything else
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
         if (myPlayer != null) {
             val handTranslationY by animateDpAsState(
@@ -253,6 +244,23 @@ fun GameScreen(
                         .offset(y = handTranslationY)
                         .scale(handScale),
             )
+        }
+
+        // --- AUCTION OVERLAY (Modal layer with highest priority) ---
+        if (isAuctionActive) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                AuctionPhaseContent(
+                    uiState = uiState,
+                    onPlaceBid = onPlaceBid,
+                    onBuyBack = onBuyBack,
+                )
+            }
         }
     }
 }

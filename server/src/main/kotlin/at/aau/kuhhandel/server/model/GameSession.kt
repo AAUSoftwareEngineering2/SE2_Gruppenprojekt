@@ -274,7 +274,8 @@ class GameSession(
                                 highestBid = 0,
                                 highestBidderId = null,
                                 timerEndTime = System.currentTimeMillis() + 5000,
-                                excludedPlayerIds = auctionState.excludedPlayerIds + highestBidderId,
+                                excludedPlayerIds =
+                                    auctionState.excludedPlayerIds + highestBidderId,
                             ),
                         lastEvent =
                             GameEvent.BluffDetected(
@@ -567,7 +568,7 @@ class GameSession(
         }
     }
 
-    // Temporary check for Sprint 2; will be replaced with another feature in Sprint 3
+    // The auctioneer may only buy back the card when they can actually pay the winning bid.
     private fun ensureHasEnoughMoney(
         player: PlayerState,
         amount: Int,

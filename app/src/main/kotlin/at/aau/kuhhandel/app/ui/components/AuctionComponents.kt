@@ -111,11 +111,11 @@ fun AuctionView(
             Modifier
                 .padding(horizontal = 16.dp)
                 // Fixed height to prevent layout jumps between bidding and resolution phases
-                .height(510.dp)
+                .height(420.dp)
                 .border(3.dp, DarkPurple.copy(alpha = 0.2f), RoundedCornerShape(24.dp)),
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -125,7 +125,7 @@ fun AuctionView(
                 color = DarkPurple.copy(alpha = 0.7f),
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             timerSeconds?.let {
                 Text(
@@ -137,21 +137,20 @@ fun AuctionView(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Box(
-                modifier = Modifier.size(width = 200.dp, height = 220.dp),
+                modifier = Modifier.size(width = 160.dp, height = 180.dp),
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 // The Auction Box rendered behind the animal
-                // Offsets are fine-tuned to align with the animal card's feet in a 3D-like perspective
                 Image(
                     painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_auctionbox),
                     contentDescription = null,
                     modifier =
                         Modifier
-                            .size(140.dp)
-                            .offset(x = 10.dp, y = 65.dp),
+                            .size(110.dp)
+                            .offset(x = 10.dp, y = 50.dp),
                 )
 
                 // The Animal Card rendered in front of the box
@@ -163,12 +162,12 @@ fun AuctionView(
                     contentDescription = null,
                     modifier =
                         Modifier
-                            .size(width = 150.dp, height = 200.dp)
+                            .size(width = 110.dp, height = 150.dp)
                             .offset(y = (-10).dp),
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 auction.auctionCard.type.name,
@@ -178,7 +177,7 @@ fun AuctionView(
             )
 
             HorizontalDivider(
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier.padding(vertical = 12.dp),
                 color = DarkPurple.copy(alpha = 0.15f),
             )
 

@@ -33,7 +33,7 @@ enum class GameErrorReason {
     DECK_EMPTY,
     OWN_AUCTION,
     BID_TOO_LOW,
-    NOT_ENOUGH_MONEY, // Temporary reason for Sprint 2
+    NOT_ENOUGH_MONEY,
     NOT_AUCTIONEER,
 
     UNKNOWN_TRADE_TARGET,
