@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,139 +55,185 @@ fun WinScreen(
 ) {
     val leaderboard = uiState.leaderboard
     val winner = leaderboard.firstOrNull()
-    val runnerUps = leaderboard.drop(1) // Adaptable for any number of remaining players
+    val runnerUps = leaderboard.drop(1)
 
     MenuBackground(modifier = modifier) {
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 40.dp)
+                    .padding(horizontal = 24.dp, vertical = 32.dp)
                     .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.Top,
         ) {
-            MenuCard(
+            Box(
                 modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                // Winner Header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 16.dp),
+                MenuCard(
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        text = "WINNER",
-                        style =
-                            Typography.headlineLarge.copy(
-                                color = DefaultPurple,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                            ),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "👑", fontSize = 28.sp)
-                }
-
-                if (winner != null) {
-                    Text(
-                        text = winner.playerName.uppercase(),
-                        style =
-                            Typography.headlineLarge.copy(
-                                color = DarkPurple,
-                                fontSize = 44.sp,
-                                fontWeight = FontWeight.Bold,
-                            ),
-                        textAlign = TextAlign.Center,
-                    )
-
-                    // Points Badge
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = DefaultPurple,
-                        modifier = Modifier.padding(top = 8.dp),
+                    // 1. WINNER HEADER
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 24.dp),
                     ) {
                         Text(
-                            text = "${winner.points}p",
-                            modifier = Modifier.padding(horizontal = 32.dp, vertical = 6.dp),
-                            color = PureWhite,
+                            text = "WINNER",
                             style =
-                                Typography.bodyLarge.copy(
+                                Typography.headlineLarge.copy(
+                                    color = DefaultPurple,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                ),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "👑", fontSize = 28.sp)
+                    }
+
+                    if (winner != null) {
+                        Text(
+                            text = winner.playerName.uppercase(),
+                            style =
+                                Typography.headlineLarge.copy(
+                                    color = DarkPurple,
+                                    fontSize = 44.sp,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp,
+                                ),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+
+                        // Points Badge
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = DefaultPurple,
+                        ) {
+                            Text(
+                                text = "${winner.points}p",
+                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 6.dp),
+                                color = PureWhite,
+                                style =
+                                    Typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp,
+                                    ),
+                            )
+                        }
+                    }
+
+                    // 2. SPACER FOR ANIMALS (Large Padding above/below hero row)
+                    Spacer(modifier = Modifier.height(280.dp))
+
+                    // 3. RUNNER-UP GRID
+                    FlowRow(
+                        maxItemsInEachRow = 2,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    ) {
+                        runnerUps.forEachIndexed { index, result ->
+                            Box(modifier = Modifier.fillMaxWidth(0.47f)) {
+                                RunnerUpCard(rank = index + 2, result = result)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // 4. HOME BUTTON (Inside the Card)
+                    Button(
+                        onClick = onHome,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(72.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = Color.Gray,
+                                contentColor = PureWhite,
+                            ),
+                    ) {
+                        Text(
+                            text = "HOME",
+                            style =
+                                Typography.headlineLarge.copy(
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
                                 ),
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Animal Illustration Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.Bottom,
+                // 5. HERO ANIMALS OVERLAY (Cat - Horse - Donkey - Cow - Dog)
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(280.dp)
+                            .offset(y = (-110).dp), // Moves animals UP to avoid ranking overlap
+                    contentAlignment = Alignment.BottomCenter,
                 ) {
-                    val animals =
-                        listOf(
-                            R.drawable.auc_cat to 100.dp,
-                            R.drawable.auc_horse to 150.dp,
-                            R.drawable.auc_pig to 110.dp,
-                            R.drawable.auc_dog to 125.dp,
-                        )
-                    animals.forEachIndexed { index, pair ->
-                        val (res, size) = pair
-                        Image(
-                            painter = painterResource(id = res),
-                            contentDescription = null,
-                            modifier =
-                                Modifier
-                                    .size(size)
-                                    .offset(x = ((-25) * index).dp),
-                        )
-                    }
+                    // 1. Dog (Right Pop-out) - BACK
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_dog),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(130.dp)
+                                .offset(x = 30.dp),
+                    )
+
+                    // 2. Cat (Left Pop-out)
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_cat),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .size(120.dp)
+                                .offset(x = (-35).dp, y = 5.dp),
+                    )
+
+                    // 3. Horse (Center-Left)
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_horse),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .size(200.dp)
+                                .offset(x = (-75).dp), // Moved right from -95
+                    )
+
+                    // 4. Cow (Center-Right)
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_cow),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .size(180.dp)
+                                .offset(x = 75.dp),
+                    )
+
+                    // 5. Donkey (Middle) - FRONT
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_donkey),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .size(180.dp)
+                                .scale(scaleX = -1f, scaleY = 1f)
+                                .offset(y = (-5).dp),
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Runner-up Grid
-                FlowRow(
-                    maxItemsInEachRow = 2,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    runnerUps.forEachIndexed { index, result ->
-                        Box(modifier = Modifier.fillMaxWidth(0.47f)) {
-                            RunnerUpCard(rank = index + 2, result = result)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Home Button
-            Button(
-                onClick = onHome,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(72.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.Gray,
-                        contentColor = PureWhite,
-                    ),
-            ) {
-                Text(
-                    text = "HOME",
-                    style =
-                        Typography.headlineLarge.copy(
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
             }
         }
     }
@@ -246,11 +293,13 @@ fun WinScreenPreview() {
         listOf(
             Player(
                 "1",
-                "Winner Name",
+                "Player Name",
                 animals = generateQuartets(listOf(AnimalType.HORSE, AnimalType.COW)),
             ),
             Player("2", "Player Two", animals = generateQuartets(listOf(AnimalType.PIG))),
             Player("3", "Player Three", animals = generateQuartets(listOf(AnimalType.DOG))),
+            Player("4", "Player Four", animals = generateQuartets(listOf(AnimalType.CAT))),
+            Player("5", "Player Five", animals = generateQuartets(listOf(AnimalType.GOOSE))),
         )
     val leaderboard = ScoreCalculator.getLeaderboard(samplePlayers)
     val uiState = GameUiState(leaderboard = leaderboard)
