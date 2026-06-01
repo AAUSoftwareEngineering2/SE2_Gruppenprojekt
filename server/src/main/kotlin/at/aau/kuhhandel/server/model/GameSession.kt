@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 
 /**
@@ -183,9 +183,9 @@ class GameSession(
             checkNotNull(state.auctionState) {
                 "Missing auction state in bidding phase"
             }
-        ensureNotAuctioneer(actorId)
+        ensureNotAuctioneer(auctionState, actorId)
         ensureNotExcluded(actorId)
-        ensureBidNotTooLow(amount)
+        ensureBidNotTooLow(auctionState, amount)
 
         state =
             state.copy(
@@ -252,7 +252,18 @@ class GameSession(
             }
         ensureAuctioneer(auctionState, actorId)
 
-        // The zero-bid case was handled by closeAuctionAfterTimeout()
+        // The zero-bid case was awarded by closeAuctionAfterTimeout(); resolving only advances play.
+        if (auctionState.highestBidderId == null) {
+            state =
+                state.copy(
+                    auctionState = null,
+                    currentFaceUpCard = null,
+                )
+            state = advanceTurnAndCheckGameEnd()
+
+            return state
+        }
+
         val highestBidderId =
             checkNotNull(auctionState.highestBidderId) {
                 "Missing highest bidder in bidding resolution"

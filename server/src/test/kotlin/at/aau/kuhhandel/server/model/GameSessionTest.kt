@@ -607,9 +607,9 @@ class GameSessionTest {
                     ),
                 players =
                     listOf(
-                        PlayerState(id = "player-1", name = "Player 1"),
-                        PlayerState(id = "player-2", name = "Player 2"),
-                        PlayerState(id = "player-3", name = "Player 3"),
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2"),
+                        Player(id = "player-3", name = "Player 3"),
                     ),
             )
         val session = GameSession.fromState("game-1", biddingState)
@@ -646,13 +646,13 @@ class GameSessionTest {
                     ),
                 players =
                     listOf(
-                        PlayerState(
+                        Player(
                             id = "player-1",
                             name = "Player 1",
                             animals = listOf(targetCard),
                         ),
-                        PlayerState(id = "player-2", name = "Player 2"),
-                        PlayerState(id = "player-3", name = "Player 3"),
+                        Player(id = "player-2", name = "Player 2"),
+                        Player(id = "player-3", name = "Player 3"),
                     ),
                 currentPlayerIndex = 0,
             )
@@ -919,13 +919,13 @@ class GameSessionTest {
             )
         val bluffingBidderPlayers =
             listOf(
-                PlayerState(id = "player-1", name = "Player 1", moneyCards = emptyList()),
-                PlayerState(
+                Player(id = "player-1", name = "Player 1", moneyCards = emptyList()),
+                Player(
                     id = "player-2",
                     name = "Player 2",
                     moneyCards = createDummyMoney("player-2", listOf(10)),
                 ),
-                PlayerState(id = "player-3", name = "Player 3", moneyCards = emptyList()),
+                Player(id = "player-3", name = "Player 3", moneyCards = emptyList()),
             )
         val resolutionState =
             baselineState.copy(
