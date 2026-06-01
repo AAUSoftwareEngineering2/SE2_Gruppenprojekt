@@ -16,6 +16,7 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
+import at.aau.kuhhandel.app.ui.game.WinScreen
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
@@ -48,8 +49,9 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     // Handle Game State transitions via Navigation
     LaunchedEffect(currentPhase) {
         if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
-            navController.navigate(Screen.Game) {
-                // Pop up to Main to clear the backstack when game starts
+            val destination = if (currentPhase == GamePhase.FINISHED) Screen.Win else Screen.Game
+            navController.navigate(destination) {
+                // Pop up to Main to clear the backstack when game starts or ends
                 popUpTo(Screen.Main) { inclusive = false }
             }
         }
@@ -157,6 +159,22 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onInitiateTrade = gameViewModel::initiateTrade,
                     onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
+                )
+            }
+
+            composable<Screen.Win> {
+                val gameViewModel =
+                    remember(repository, scope) {
+                        GameViewModel(repository, scope)
+                    }
+                val gameUiState by gameViewModel.uiState.collectAsState()
+
+                WinScreen(
+                    uiState = gameUiState,
+                    onHome = {
+                        repository.disconnect()
+                        navController.popBackStack(Screen.Main, inclusive = false)
+                    },
                 )
             }
         }

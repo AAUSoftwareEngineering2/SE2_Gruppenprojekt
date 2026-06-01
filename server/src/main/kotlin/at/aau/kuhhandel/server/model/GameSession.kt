@@ -471,7 +471,8 @@ class GameSession(
         if (totalQuartetsFormed == AnimalType.entries.size) {
             state = state.copy(phase = GamePhase.FINISHED, lastEvent = null)
 
-            // Add score calculation and storing
+            // Game over! Winner evaluation is implemented in ScoreCalculator (shared module).
+            // The clients use ScoreCalculator.getLeaderboard(players) to display results.
         } else {
             state =
                 state.copy(

@@ -4,6 +4,8 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.utils.PlayerResult
+import at.aau.kuhhandel.shared.utils.ScoreCalculator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -40,6 +42,7 @@ data class GameUiState(
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
+    val leaderboard: List<PlayerResult> = emptyList(),
 ) {
     val isMyTurn: Boolean
         get() =
@@ -178,6 +181,12 @@ class GameViewModel(
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
+                leaderboard =
+                    if (currentPhase == GamePhase.FINISHED && gameState != null) {
+                        ScoreCalculator.getLeaderboard(gameState.players)
+                    } else {
+                        emptyList()
+                    },
             )
         }.distinctUntilChanged()
             .stateIn(
