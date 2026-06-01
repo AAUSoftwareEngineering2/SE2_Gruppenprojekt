@@ -28,7 +28,7 @@ data class GameUiState(
     val gameState: GameState? = null,
     val myPlayerId: String? = null,
     val currentPhase: GamePhase = GamePhase.NOT_STARTED,
-    val deckCountText: String = "0 cards left",
+    val deckCountText: String = "0",
     val activeCardLabel: String = "No card revealed",
     val isConnected: Boolean = false,
     val canRevealCard: Boolean = false,
