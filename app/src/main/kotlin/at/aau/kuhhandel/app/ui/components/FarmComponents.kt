@@ -29,12 +29,12 @@ import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 /** Displays a summary of an opponent's farm, including their name and money card count. */
 @Composable
 fun OtherFarm(
-    player: PlayerState,
+    player: Player,
     farmColor: FarmColor,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -124,7 +124,7 @@ fun OtherFarm(
 /** Renders a grid of all opponents in the game. */
 @Composable
 fun OpponentList(
-    players: List<PlayerState>,
+    players: List<Player>,
     myId: String?,
     onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -159,7 +159,7 @@ fun OpponentList(
 @Composable
 fun PlayerFarm(
     modifier: Modifier = Modifier,
-    player: PlayerState?,
+    player: Player?,
     isHandFanned: Boolean = false,
     onToggleHandFanned: () -> Unit = {},
     selectedMoneyCardIds: Set<String> = emptySet(),

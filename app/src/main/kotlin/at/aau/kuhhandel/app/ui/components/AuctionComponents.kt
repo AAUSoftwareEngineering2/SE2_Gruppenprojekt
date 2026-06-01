@@ -50,14 +50,14 @@ import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 /** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
 fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
-    players: List<PlayerState> = emptyList(),
+    players: List<Player> = emptyList(),
     myPlayerId: String? = null,
     modifier: Modifier = Modifier,
     footerContent: @Composable () -> Unit = {},

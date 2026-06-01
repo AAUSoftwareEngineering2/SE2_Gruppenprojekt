@@ -38,7 +38,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 @Composable
 fun GameScreen(
@@ -206,7 +206,10 @@ fun GameScreen(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 140.dp),
         )
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
@@ -265,7 +268,7 @@ fun GameScreen(
 fun GameScreenPreview() {
     val players =
         listOf(
-            PlayerState(
+            Player(
                 "1",
                 "Player 1",
                 moneyCards = List(6) { MoneyCard("a$it", 10) },
@@ -281,7 +284,7 @@ fun GameScreenPreview() {
                         ),
                     ),
             ),
-            PlayerState(
+            Player(
                 "2",
                 "Player 2",
                 moneyCards = List(3) { MoneyCard("b$it", 10) },
@@ -292,13 +295,13 @@ fun GameScreenPreview() {
                         AnimalCard("b3", AnimalType.PIG),
                     ),
             ),
-            PlayerState(
+            Player(
                 "3",
                 "Player 3",
                 moneyCards = List(5) { MoneyCard("c$it", 10) },
                 animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
             ),
-            PlayerState(
+            Player(
                 "4",
                 "Player 4",
                 moneyCards = List(12) { MoneyCard("d$it", 10) },
@@ -310,7 +313,7 @@ fun GameScreenPreview() {
                         AnimalCard("d4", AnimalType.HORSE),
                     ),
             ),
-            PlayerState(
+            Player(
                 "5",
                 "Me",
                 moneyCards = List(5) { MoneyCard("m$it", 50) },

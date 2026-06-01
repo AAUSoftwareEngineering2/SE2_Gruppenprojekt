@@ -11,7 +11,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
@@ -42,7 +42,7 @@ class GameServiceTest {
     private lateinit var service: GameService
     private val gameStateToReturn =
         GameState(
-            players = listOf(PlayerState("player-1", "Player 1")),
+            players = listOf(Player("player-1", "Player 1")),
             hostPlayerId = "explicit string for testing",
         )
 

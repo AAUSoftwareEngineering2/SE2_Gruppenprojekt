@@ -3,7 +3,7 @@ package at.aau.kuhhandel.shared.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class PlayerState(
+data class Player(
     val id: String,
     val name: String,
     val animals: List<AnimalCard> = emptyList(),

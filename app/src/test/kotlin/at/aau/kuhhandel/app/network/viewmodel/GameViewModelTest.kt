@@ -9,7 +9,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -118,7 +118,7 @@ class GameViewModelTest {
                     gameState =
                         GameState(
                             phase = GamePhase.PLAYER_CHOICE,
-                            players = listOf(PlayerState(id = "me", name = "Me")),
+                            players = listOf(Player(id = "me", name = "Me")),
                             currentPlayerIndex = 0,
                         ),
                 )
@@ -222,7 +222,7 @@ class GameViewModelTest {
                     gameState =
                         GameState(
                             phase = GamePhase.PLAYER_CHOICE,
-                            players = listOf(PlayerState("me", "Me")),
+                            players = listOf(Player("me", "Me")),
                             currentPlayerIndex = 5,
                         ),
                 )
@@ -237,7 +237,7 @@ class GameViewModelTest {
                     gameState =
                         GameState(
                             phase = GamePhase.PLAYER_CHOICE,
-                            players = listOf(PlayerState("me", "Me")),
+                            players = listOf(Player("me", "Me")),
                             currentPlayerIndex = 0,
                         ),
                 )
@@ -277,7 +277,7 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     myPlayerId = "me",
-                    gameState = GameState(players = listOf(PlayerState("other", "Other"))),
+                    gameState = GameState(players = listOf(Player("other", "Other"))),
                 )
             advanceUntilIdle()
             assertTrue(
@@ -350,7 +350,7 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     myPlayerId = "me",
-                    gameState = GameState(players = listOf(PlayerState("me", "Me"))),
+                    gameState = GameState(players = listOf(Player("me", "Me"))),
                 )
             viewModel.selectTargetPlayer("other")
             advanceUntilIdle()
@@ -407,9 +407,9 @@ class GameViewModelTest {
                             phase = GamePhase.NOT_STARTED,
                             players =
                                 listOf(
-                                    PlayerState("host-id", "Host"),
-                                    PlayerState("p2", "P2"),
-                                    PlayerState("p3", "P3"),
+                                    Player("host-id", "Host"),
+                                    Player("p2", "P2"),
+                                    Player("p3", "P3"),
                                 ),
                             hostPlayerId = "host-id",
                         ),
@@ -427,9 +427,9 @@ class GameViewModelTest {
                             phase = GamePhase.NOT_STARTED,
                             players =
                                 listOf(
-                                    PlayerState("host-id", "Host"),
-                                    PlayerState("p2", "P2"),
-                                    PlayerState("p3", "P3"),
+                                    Player("host-id", "Host"),
+                                    Player("p2", "P2"),
+                                    Player("p3", "P3"),
                                 ),
                             hostPlayerId = "host-id",
                         ),
@@ -447,8 +447,8 @@ class GameViewModelTest {
                             phase = GamePhase.NOT_STARTED,
                             players =
                                 listOf(
-                                    PlayerState("host-id", "Host"),
-                                    PlayerState("p2", "P2"),
+                                    Player("host-id", "Host"),
+                                    Player("p2", "P2"),
                                 ),
                             hostPlayerId = "host-id",
                         ),
@@ -674,7 +674,7 @@ class GameViewModelTest {
             }
 
             val me =
-                PlayerState(
+                Player(
                     id = "me",
                     name = "Me",
                     animals =
@@ -684,7 +684,7 @@ class GameViewModelTest {
                         ),
                 )
             val other =
-                PlayerState(
+                Player(
                     id = "other",
                     name = "Other",
                     animals =
@@ -748,7 +748,7 @@ class GameViewModelTest {
                             auctionCard = AnimalCard("1", AnimalType.COW),
                             timerEndTime = endTime,
                         ),
-                    players = listOf(PlayerState(id = "p1", name = "P1")),
+                    players = listOf(Player(id = "p1", name = "P1")),
                 )
 
             repoStateFlow.value =
@@ -791,7 +791,7 @@ class GameViewModelTest {
                             auctionCard = AnimalCard("1", AnimalType.COW),
                             timerEndTime = endTime,
                         ),
-                    players = listOf(PlayerState(id = "p1", name = "P1")),
+                    players = listOf(Player(id = "p1", name = "P1")),
                 )
 
             repoStateFlow.value =

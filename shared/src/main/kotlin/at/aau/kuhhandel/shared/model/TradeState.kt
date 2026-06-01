@@ -21,4 +21,8 @@ data class TradeState(
     val counterOfferedMoneyCardIds: Set<String> = emptySet(),
     // Can later be used to mark the trade as finished
     val isResolved: Boolean = false,
+    // New fields to replace offeredMoney, offeredMoneyCardIds,
+    // counterOfferedMoney, and counterOfferedMoneyCardIds
+    val offeredMoneyCards: Set<MoneyCard> = emptySet(),
+    val counterOfferedMoneyCards: Set<MoneyCard>? = null,
 )

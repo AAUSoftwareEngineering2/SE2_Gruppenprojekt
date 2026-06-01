@@ -1,7 +1,10 @@
 package at.aau.kuhhandel.shared.websocket
 
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
+import at.aau.kuhhandel.shared.model.Player
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -70,7 +73,13 @@ class WebSocketProtocolTest {
 
     @Test
     fun `GameCreatedPayload round-trips`() {
-        val payload = GameCreatedPayload(gameId = "Id", playerId = "P1", state = GameState())
+        val payload =
+            GameCreatedPayload(
+                gameId = "Id",
+                playerId = "P1",
+                state = GameState(),
+                stateView = testGameStateView(),
+            )
 
         val encoded = json.encodeToString(GameCreatedPayload.serializer(), payload)
         val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
@@ -83,7 +92,7 @@ class WebSocketProtocolTest {
 
     @Test
     fun `GameStatePayload round-trips`() {
-        val payload = GameStatePayload(state = GameState())
+        val payload = GameStatePayload(state = GameState(), stateView = testGameStateView())
 
         val encoded = json.encodeToString(GameStatePayload.serializer(), payload)
         val decoded = json.decodeFromString(GameStatePayload.serializer(), encoded)
@@ -106,7 +115,12 @@ class WebSocketProtocolTest {
 
     @Test
     fun `GameJoinedPayload round-trips`() {
-        val payload = GameJoinedPayload(playerId = "player-1", state = GameState())
+        val payload =
+            GameJoinedPayload(
+                playerId = "player-1",
+                state = GameState(),
+                stateView = testGameStateView(),
+            )
 
         val encoded = json.encodeToString(GameJoinedPayload.serializer(), payload)
         val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
@@ -235,4 +249,18 @@ class WebSocketProtocolTest {
         assert(!encoded.contains("playerId"))
         assert(!encoded.contains("payload"))
     }
+
+    private fun testGameStateView() =
+        GameStateView(
+            phase = GamePhase.NOT_STARTED,
+            localPlayer = Player("player-1", "Player 1"),
+            opponents = emptyList(),
+            hostPlayerId = "player-1",
+            roundNumber = 0,
+            currentPlayerIndex = -1,
+            deckSize = 5,
+            auctionState = null,
+            tradeState = null,
+            lastEvent = null,
+        )
 }
