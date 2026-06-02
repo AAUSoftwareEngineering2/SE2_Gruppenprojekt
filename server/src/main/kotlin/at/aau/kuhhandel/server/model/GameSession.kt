@@ -177,14 +177,14 @@ class GameSession(
         actorId: String,
         amount: Int,
     ): GameState {
-        requireActorInRoom(actorId)
+        ensureActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
         val auctionState =
             checkNotNull(state.auctionState) {
                 "Missing auction state in bidding phase"
             }
         ensureNotAuctioneer(auctionState, actorId)
-        ensureNotExcluded(actorId)
+        ensureNotExcludedFromAuction(auctionState, actorId)
         ensureBidNotTooLow(auctionState, amount)
 
         state =
@@ -608,9 +608,12 @@ class GameSession(
         }
     }
 
-    private fun ensureNotExcluded(playerId: String) {
-        if (state.auctionState?.excludedPlayerIds?.contains(playerId) == true) {
-            throw GameException(GameErrorReason.PLAYER_EXCLUDED_FROM_AUCTION)
+    private fun ensureNotExcludedFromAuction(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.excludedPlayerIds.contains(playerId)) {
+            throw GameException(GameErrorReason.EXCLUDED_FROM_AUCTION)
         }
     }
 

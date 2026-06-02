@@ -7,8 +7,8 @@ class GameErrorReasonTest {
     @Test
     fun `PLAYER_EXCLUDED_FROM_AUCTION has stable serialized name`() {
         assertEquals(
-            "PLAYER_EXCLUDED_FROM_AUCTION",
-            GameErrorReason.PLAYER_EXCLUDED_FROM_AUCTION.name,
+            "EXCLUDED_FROM_AUCTION",
+            GameErrorReason.EXCLUDED_FROM_AUCTION.name,
         )
     }
 }
