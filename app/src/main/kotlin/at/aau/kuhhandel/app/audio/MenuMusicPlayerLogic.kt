@@ -7,12 +7,38 @@ import at.aau.kuhhandel.app.R
 
 internal fun shouldPlayMenuMusic(isGameStarted: Boolean): Boolean = !isGameStarted
 
+private var activeMenuMediaPlayer: MediaPlayer? = null
+
+internal fun registerActiveMenuMediaPlayer(mediaPlayer: MediaPlayer) {
+    activeMenuMediaPlayer
+        ?.takeIf { it !== mediaPlayer }
+        ?.let { previousPlayer ->
+            if (previousPlayer.isPlaying) {
+                previousPlayer.stop()
+            }
+            previousPlayer.release()
+        }
+    activeMenuMediaPlayer = mediaPlayer
+}
+
+internal fun releaseMenuMediaPlayer(mediaPlayer: MediaPlayer) {
+    if (activeMenuMediaPlayer === mediaPlayer) {
+        activeMenuMediaPlayer = null
+    }
+    releaseMediaPlayer(mediaPlayer)
+}
+
 internal fun MediaPlayer.managePlayback(isGameStarted: Boolean) {
     if (shouldPlayMenuMusic(isGameStarted)) {
         isLooping = true
-        start()
+        if (!isPlaying) {
+            start()
+        }
     } else {
-        pause()
+        if (isPlaying) {
+            pause()
+        }
+        seekTo(0)
     }
 }
 
