@@ -1,15 +1,11 @@
 package at.aau.kuhhandel.app.ui.components
 
-import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -33,62 +30,111 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.AlertRed
-import at.aau.kuhhandel.app.ui.theme.AlertRedHighlight
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
+import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.Player
 
+private const val DEFAULT_AUCTION_TIMER_SECONDS = 5
+private const val FULL_CIRCLE_DEGREES = 360f
+private const val CLOCK_START_ANGLE_DEGREES = -90f
+private const val TIMER_COUNTDOWN_ANIMATION_MS = 900
+private const val TIMER_RESET_ANIMATION_MS = 160
+
+@Composable
+fun PieTimer(
+    remainingSeconds: Int,
+    modifier: Modifier = Modifier,
+    totalSeconds: Int = DEFAULT_AUCTION_TIMER_SECONDS,
+    fillColor: Color = DefaultPurple,
+    trackColor: Color = DarkPurple.copy(alpha = 0.12f),
+    borderColor: Color = DarkPurple.copy(alpha = 0.22f),
+    showRemainingSeconds: Boolean = true,
+) {
+    val boundedTotalSeconds = totalSeconds.coerceAtLeast(1)
+    val boundedRemainingSeconds = remainingSeconds.coerceIn(0, boundedTotalSeconds)
+    val targetProgress = boundedRemainingSeconds.toFloat() / boundedTotalSeconds
+    val progress = remember { Animatable(targetProgress) }
+
+    LaunchedEffect(targetProgress) {
+        val animationDuration =
+            if (targetProgress > progress.value) {
+                TIMER_RESET_ANIMATION_MS
+            } else {
+                TIMER_COUNTDOWN_ANIMATION_MS
+            }
+        progress.animateTo(
+            targetValue = targetProgress,
+            animationSpec = tween(durationMillis = animationDuration, easing = LinearEasing),
+        )
+    }
+
+    Box(
+        modifier =
+            modifier
+                .size(112.dp)
+                .semantics {
+                    contentDescription = "$boundedRemainingSeconds seconds remaining"
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val radius = size.minDimension / 2f
+            val borderWidth = size.minDimension * 0.055f
+
+            drawCircle(color = trackColor, radius = radius)
+            drawArc(
+                color = fillColor,
+                startAngle = CLOCK_START_ANGLE_DEGREES,
+                sweepAngle = FULL_CIRCLE_DEGREES * progress.value,
+                useCenter = true,
+            )
+            drawCircle(
+                color = borderColor,
+                radius = radius - borderWidth / 2f,
+                style = Stroke(width = borderWidth),
+            )
+        }
+
+        if (showRemainingSeconds) {
+            Text(
+                text = boundedRemainingSeconds.toString(),
+                style = MaterialTheme.typography.headlineMedium.copy(fontSize = 34.sp),
+                fontWeight = FontWeight.Black,
+                color = PureWhite,
+            )
+        }
+    }
+}
+
 /** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
 fun AuctionView(
+    modifier: Modifier = Modifier,
     auction: AuctionState?,
     timerSeconds: Int? = null,
     players: List<Player> = emptyList(),
     myPlayerId: String? = null,
-    modifier: Modifier = Modifier,
     footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
-
-    // Timer animation logic: Faster and brighter pulse when time is running out (< 3s)
-    val isTimeLow = (timerSeconds != null && timerSeconds <= 3)
-    val pulseDuration = if (isTimeLow) 400 else 1000
-
-    val infiniteTransition = rememberInfiniteTransition(label = "auctionTimer")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (isTimeLow) 1.2f else 1.05f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = pulseDuration, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "timerPulse",
-    )
-    val pulseColor by infiniteTransition.animateColor(
-        initialValue = AlertRed,
-        targetValue = if (isTimeLow) AlertRedHighlight else AlertRed.copy(alpha = 0.8f),
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = pulseDuration),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "timerColor",
-    )
 
     // "Pop" animation whenever a new bid is placed
     val bidScale = remember { Animatable(1f) }
@@ -118,128 +164,132 @@ fun AuctionView(
             modifier
                 .padding(horizontal = 28.dp)
                 .fillMaxWidth()
-                .height(700.dp)
                 .border(4.dp, DarkPurple.copy(alpha = 0.18f), RoundedCornerShape(42.dp)),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                "LIVE AUCTION",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Black,
-                color = DarkPurple.copy(alpha = 0.7f),
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            timerSeconds?.let {
-                Text(
-                    "Time left: ${it}s",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = pulseColor,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.scale(pulseScale),
+        Box(modifier = Modifier.fillMaxWidth()) {
+            timerSeconds?.let { remainingSeconds ->
+                PieTimer(
+                    remainingSeconds = remainingSeconds,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 20.dp, end = 22.dp),
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier.size(width = 330.dp, height = 340.dp),
-                contentAlignment = Alignment.BottomCenter,
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // The Auction Box rendered behind the animal
-                Image(
-                    painter = painterResource(id = R.drawable.ig_auctionbox),
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .size(220.dp)
-                            .offset(y = 74.dp),
+                Text(
+                    "LIVE AUCTION",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = DarkPurple.copy(alpha = 0.7f),
                 )
 
-                // The Animal Card rendered in front of the box
-                Image(
-                    painter =
-                        painterResource(
-                            id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
-                        ),
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .size(width = 220.dp, height = 280.dp)
-                            .offset(x = (-24).dp, y = (-36).dp),
-                )
-            }
+                Spacer(modifier = Modifier.height(54.dp))
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (auction.highestBidderId == null && timerSeconds == null) {
-                val auctioneerName =
-                    players.find { it.id == auction.auctioneerId }?.name ?: "The auctioneer"
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "Auction Closed",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DarkPurple.copy(alpha = 0.6f),
+                Box(
+                    modifier = Modifier.size(width = 330.dp, height = 340.dp),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    // The Auction Box rendered behind the animal
+                    Image(
+                        painter = painterResource(id = R.drawable.ig_auctionbox),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(220.dp)
+                                .offset(y = 74.dp),
                     )
-                    Text(
-                        "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = DefaultPurple,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+
+                    // The Animal Card rendered in front of the box
+                    Image(
+                        painter =
+                            painterResource(
+                                id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
+                            ),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(width = 220.dp, height = 280.dp)
+                                .offset(x = (-24).dp, y = (-36).dp),
                     )
                 }
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.scale(bidScale.value),
-                ) {
-                    Text(
-                        if (auction.highestBidderId !=
-                            null
-                        ) {
-                            "${auction.highestBid}€"
-                        } else {
-                            "0€"
-                        },
-                        style =
-                            MaterialTheme.typography.displayMedium.copy(
-                                fontSize = 86.sp,
-                            ),
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
-                    )
 
-                    auction.highestBidderId?.let { bidderId ->
-                        val bidderName =
-                            if (bidderId == myPlayerId) {
-                                "You"
-                            } else {
-                                players.find { it.id == bidderId }?.name ?: bidderId
-                            }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (auction.highestBidderId == null && timerSeconds == null) {
+                    val auctioneerName =
+                        players.find { it.id == auction.auctioneerId }?.name ?: "The auctioneer"
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "from $bidderName",
+                            "Auction Closed",
                             style = MaterialTheme.typography.labelMedium,
-                            color = DarkPurple.copy(alpha = 0.62f),
-                            fontWeight = FontWeight.Bold,
+                            color = DarkPurple.copy(alpha = 0.6f),
+                        )
+                        Text(
+                            "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = DefaultPurple,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.scale(bidScale.value),
+                    ) {
+                        Text(
+                            if (auction.highestBidderId !=
+                                null
+                            ) {
+                                "${auction.highestBid}€"
+                            } else {
+                                "0€"
+                            },
+                            style =
+                                MaterialTheme.typography.displayMedium.copy(
+                                    fontSize = 86.sp,
+                                ),
+                            fontWeight = FontWeight.ExtraBold,
+                            color =
+                                if (auction.highestBidderId != null) {
+                                    DefaultPurple
+                                } else {
+                                    DarkPurple
+                                },
+                        )
+
+                        auction.highestBidderId?.let { bidderId ->
+                            val bidderName =
+                                if (bidderId == myPlayerId) {
+                                    "You"
+                                } else {
+                                    players.find { it.id == bidderId }?.name ?: bidderId
+                                }
+                            Text(
+                                "from $bidderName",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = DarkPurple.copy(alpha = 0.62f),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
                 }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    color = DarkPurple.copy(alpha = 0.12f),
+                )
+
+                footerContent()
             }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 10.dp),
-                color = DarkPurple.copy(alpha = 0.12f),
-            )
-
-            footerContent()
         }
     }
 }
@@ -247,10 +297,10 @@ fun AuctionView(
 /** Provides buttons for placing incremented bids based on the current highest bid. */
 @Composable
 fun AuctionControls(
+    modifier: Modifier = Modifier,
     onBid: (Int) -> Unit,
     currentBid: Int,
     isExcluded: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     if (isExcluded) {
         Column(
