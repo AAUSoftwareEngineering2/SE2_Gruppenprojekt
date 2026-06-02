@@ -11,14 +11,16 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,11 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.AlertRed
 import at.aau.kuhhandel.app.ui.theme.AlertRedHighlight
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
@@ -48,14 +50,17 @@ import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 /** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
 fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
-    players: List<PlayerState> = emptyList(),
+    players: List<Player> = emptyList(),
+    myPlayerId: String? = null,
+    modifier: Modifier = Modifier,
+    footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
 
@@ -104,19 +109,23 @@ fun AuctionView(
     Card(
         colors =
             CardDefaults.cardColors(
-                containerColor = LightPurple.copy(alpha = 0.95f),
+                containerColor = WhitePurple.copy(alpha = 0.86f),
                 contentColor = DarkPurple,
             ),
-        elevation = CardDefaults.cardElevation(16.dp),
-        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(0.dp),
+        shape = RoundedCornerShape(42.dp),
         modifier =
-            Modifier
-                .padding(horizontal = 16.dp)
-                .height(480.dp) // Fixed height to prevent layout shifts and overlap
-                .border(2.dp, DarkPurple.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+            modifier
+                .padding(horizontal = 28.dp)
+                .fillMaxWidth()
+                .height(700.dp)
+                .border(4.dp, DarkPurple.copy(alpha = 0.18f), RoundedCornerShape(42.dp)),
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -126,59 +135,49 @@ fun AuctionView(
                 color = DarkPurple.copy(alpha = 0.7f),
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             timerSeconds?.let {
                 Text(
                     "Time left: ${it}s",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = pulseColor,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.scale(pulseScale),
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Box(
-                modifier =
-                    Modifier
-                        .background(
-                            brush =
-                                Brush.radialGradient(
-                                    colors = listOf(WhitePurple, Color.Transparent),
-                                ),
-                            shape = RoundedCornerShape(12.dp),
-                        ).padding(8.dp),
+                modifier = Modifier.size(width = 330.dp, height = 340.dp),
+                contentAlignment = Alignment.BottomCenter,
             ) {
+                // The Auction Box rendered behind the animal
+                Image(
+                    painter = painterResource(id = R.drawable.ig_auctionbox),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .size(220.dp)
+                            .offset(y = 74.dp),
+                )
+
+                // The Animal Card rendered in front of the box
                 Image(
                     painter =
                         painterResource(
                             id = getAnimalDrawable(auction.auctionCard.type, AnimalStyle.CARD),
                         ),
                     contentDescription = null,
-                    modifier = Modifier.size(width = 160.dp, height = 220.dp),
+                    modifier =
+                        Modifier
+                            .size(width = 220.dp, height = 280.dp)
+                            .offset(x = (-24).dp, y = (-36).dp),
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                auction.auctionCard.type.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                color = DarkPurple,
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 16.dp),
-                color = DarkPurple.copy(alpha = 0.15f),
-            )
-
-            val bidderName =
-                auction.highestBidderId?.let { id ->
-                    players.find { it.id == id }?.name ?: id
-                } ?: "No bids yet"
+            Spacer(modifier = Modifier.height(6.dp))
 
             if (auction.highestBidderId == null && timerSeconds == null) {
                 val auctioneerName =
@@ -191,7 +190,7 @@ fun AuctionView(
                     )
                     Text(
                         "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = DefaultPurple,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -203,34 +202,44 @@ fun AuctionView(
                     modifier = Modifier.scale(bidScale.value),
                 ) {
                     Text(
-                        if (auction.highestBidderId != null) "Current Bid" else "Starting...",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DarkPurple.copy(alpha = 0.6f),
-                    )
-
-                    Text(
                         if (auction.highestBidderId !=
                             null
                         ) {
                             "${auction.highestBid}€"
                         } else {
-                            "Waiting for bids"
+                            "0€"
                         },
-                        style = MaterialTheme.typography.headlineSmall,
+                        style =
+                            MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 86.sp,
+                            ),
                         fontWeight = FontWeight.ExtraBold,
                         color = if (auction.highestBidderId != null) DefaultPurple else DarkPurple,
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        "By: $bidderName",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = DarkPurple.copy(alpha = 0.8f),
-                    )
+                    auction.highestBidderId?.let { bidderId ->
+                        val bidderName =
+                            if (bidderId == myPlayerId) {
+                                "You"
+                            } else {
+                                players.find { it.id == bidderId }?.name ?: bidderId
+                            }
+                        Text(
+                            "from $bidderName",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = DarkPurple.copy(alpha = 0.62f),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 10.dp),
+                color = DarkPurple.copy(alpha = 0.12f),
+            )
+
+            footerContent()
         }
     }
 }
@@ -240,45 +249,69 @@ fun AuctionView(
 fun AuctionControls(
     onBid: (Int) -> Unit,
     currentBid: Int,
-    myTotalMoney: Int,
+    isExcluded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    if (isExcluded) {
+        Column(
+            modifier = modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "EXCLUDED",
+                color = AlertRed,
+                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                "You bluffed and cannot bid anymore.",
+                color = DarkPurple.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        return
+    }
+
     Row(
-        modifier = modifier.padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         val options = listOf(10, 50, 100)
         options.forEach { amount ->
             val nextBid = currentBid + amount
-            val isBluff = nextBid > myTotalMoney
             Button(
-                onClick = {
-                    if (!isBluff) {
-                        onBid(nextBid)
-                    }
-                },
-                enabled = !isBluff,
-                shape = RoundedCornerShape(12.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                onClick = { onBid(nextBid) },
+                shape = RoundedCornerShape(24.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                contentPadding = PaddingValues(0.dp),
                 colors =
-                    if (isBluff) {
-                        ButtonDefaults.buttonColors(
-                            containerColor = AlertRed,
-                            disabledContainerColor = AlertRed.copy(alpha = 0.5f),
-                            disabledContentColor = Color.White.copy(alpha = 0.7f),
-                        )
-                    } else {
-                        ButtonDefaults.buttonColors(
-                            containerColor = DefaultPurple,
-                            contentColor = Color.White,
-                        )
-                    },
+                    ButtonDefaults.buttonColors(
+                        containerColor = LightPurple.copy(alpha = 0.74f),
+                        contentColor = DarkPurple,
+                    ),
             ) {
-                Text(
-                    "+$amount",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Box(
+                    modifier = Modifier.size(width = 94.dp, height = 70.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_plus),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .offset(x = 10.dp, y = 8.dp)
+                                .size(34.dp),
+                    )
+                    Text(
+                        amount.toString(),
+                        fontWeight = FontWeight.Black,
+                        style =
+                            MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 38.sp,
+                            ),
+                    )
+                }
             }
         }
     }

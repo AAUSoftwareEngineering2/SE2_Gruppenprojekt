@@ -28,7 +28,7 @@ data class GameUiState(
     val gameState: GameState? = null,
     val myPlayerId: String? = null,
     val currentPhase: GamePhase = GamePhase.NOT_STARTED,
-    val deckCountText: String = "0 cards left",
+    val deckCountText: String = "0",
     val activeCardLabel: String = "No card revealed",
     val isConnected: Boolean = false,
     val canRevealCard: Boolean = false,
@@ -36,12 +36,17 @@ data class GameUiState(
     val auctionTimerSeconds: Int? = null,
     val errorMessage: String? = null,
     val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
-    val myTotalMoney: Int = 0,
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
     val isHandFanned: Boolean = false,
 ) {
+    /** Helper property to check if an auction is currently in progress. */
+    val isAuctionActive: Boolean
+        get() =
+            currentPhase == GamePhase.AUCTION_BIDDING ||
+                currentPhase == GamePhase.AUCTION_RESOLUTION
+
     val isMyTurn: Boolean
         get() =
             gameState?.currentPlayerIndex?.let {
@@ -147,7 +152,7 @@ class GameViewModel(
                 gameState = gameState,
                 myPlayerId = repoState.myPlayerId,
                 currentPhase = currentPhase,
-                deckCountText = "${gameState?.deck?.size() ?: 0} cards left",
+                deckCountText = "${gameState?.deck?.size() ?: 0}",
                 activeCardLabel =
                     gameState?.currentFaceUpCard?.let { card ->
                         "${card.type.name} (#${card.id})"
@@ -176,8 +181,6 @@ class GameViewModel(
                 myMoneyCards =
                     gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
                         ?: emptyList(),
-                myTotalMoney =
-                    gameState?.players?.find { it.id == repoState.myPlayerId }?.totalMoney() ?: 0,
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,

@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 
 /**
@@ -65,7 +65,7 @@ class GameSession(
         ensurePhase(GamePhase.NOT_STARTED)
         ensureRoomNotFull()
 
-        val player = PlayerState(playerId, playerName)
+        val player = Player(playerId, playerName)
 
         state =
             state.copy(
@@ -111,7 +111,10 @@ class GameSession(
         ensureDeckNotEmpty()
 
         val (auctionCard, updatedDeck) = state.deck.drawTopCard()
-        val card = auctionCard!!
+        val card =
+            checkNotNull(auctionCard) {
+                "Drawn card is null even though deck was not empty"
+            }
 
         var updatedPlayers = state.players
         var event: GameEvent? = null
@@ -174,17 +177,21 @@ class GameSession(
         actorId: String,
         amount: Int,
     ): GameState {
-        val actor = requireActorInRoom(actorId)
+        ensureActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
-        ensureNotAuctioneer(actorId)
-        ensureHasEnoughMoney(actor, amount)
-        ensureBidNotTooLow(amount)
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in bidding phase"
+            }
+        ensureNotAuctioneer(auctionState, actorId)
+        ensureNotExcludedFromAuction(auctionState, actorId)
+        ensureBidNotTooLow(auctionState, amount)
 
         state =
             state.copy(
                 lastEvent = null,
                 auctionState =
-                    state.auctionState!!.copy(
+                    auctionState.copy(
                         highestBid = amount,
                         highestBidderId = actorId,
                         timerEndTime = System.currentTimeMillis() + 5000,
@@ -198,7 +205,10 @@ class GameSession(
      * Concludes the auction once the bidding timeout ends.
      */
     fun closeAuctionAfterTimeout(): GameState {
-        val auctionState = state.auctionState!!
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "No auction state to close"
+            }
 
         // If no one placed a bid, the auctioneer gets the card for free.
         // We still transition to AUCTION_RESOLUTION so players can see the result.
@@ -236,11 +246,13 @@ class GameSession(
     ): GameState {
         val actor = requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_RESOLUTION)
-        ensureAuctioneer(actorId)
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in resolution phase"
+            }
+        ensureAuctioneer(auctionState, actorId)
 
-        val auctionState = state.auctionState!!
-
-        // Handle the 0-bid case (card was already given in closeAuctionAfterTimeout)
+        // The zero-bid case was awarded by closeAuctionAfterTimeout(); resolving only advances play.
         if (auctionState.highestBidderId == null) {
             state =
                 state.copy(
@@ -252,18 +264,46 @@ class GameSession(
             return state
         }
 
-        val highestBidderId = auctionState.highestBidderId!!
-        val highestBidder = state.players.find { it.id == highestBidderId }!!
+        val highestBidderId =
+            checkNotNull(auctionState.highestBidderId) {
+                "Missing highest bidder in bidding resolution"
+            }
+        val highestBidder =
+            checkNotNull(state.players.find { it.id == highestBidderId }) {
+                "Highest bidder $highestBidderId not found among players"
+            }
 
         // Determine the card receiver and seller
-        val receiver: PlayerState
-        val seller: PlayerState
+        val receiver: Player
+        val seller: Player
 
         if (auctioneerBuysCard) {
             ensureHasEnoughMoney(actor, auctionState.highestBid)
             receiver = actor
             seller = highestBidder
         } else {
+            // Bluff Check: If the winner can't pay the auctioneer, they bluffed.
+            if (highestBidder.totalMoney() < auctionState.highestBid) {
+                state =
+                    state.copy(
+                        phase = GamePhase.AUCTION_BIDDING,
+                        auctionState =
+                            auctionState.copy(
+                                highestBid = 0,
+                                highestBidderId = null,
+                                timerEndTime = System.currentTimeMillis() + 5000,
+                                excludedPlayerIds =
+                                    auctionState.excludedPlayerIds + highestBidderId,
+                            ),
+                        lastEvent =
+                            GameEvent.BluffDetected(
+                                playerId = highestBidderId,
+                                playerName = highestBidder.name,
+                                message = "${highestBidder.name} bluffed! Auction restarts.",
+                            ),
+                    )
+                return state
+            }
             receiver = highestBidder
             seller = actor
         }
@@ -302,27 +342,34 @@ class GameSession(
         ensureTradeInitiatorHasAnimalType(initiator, animalType)
         ensureTradeTargetHasAnimalType(target, animalType)
         ensureOfferNotEmpty(offeredMoneyCardIds)
-        ensureOwnsMoneyCards(initiator, offeredMoneyCardIds)
+        val offeredMoneyCards = requireOwnsMoneyCards(initiator, offeredMoneyCardIds)
 
+        // Remove the money cards from the player, transition
+        // the phase, and store the trade information
         state =
-            state.copy(
-                phase = GamePhase.TRADE_RESPONSE,
-                tradeState =
-                    TradeState(
-                        initiatorId = initiator.id,
-                        targetId = target.id,
-                        requestedAnimalType = animalType,
-                        offeredMoneyCardIds = offeredMoneyCardIds,
-                        counterOfferedMoneyCardIds = emptySet(),
-                    ),
-            )
+            state
+                .updatePlayer(initiator.id) { player ->
+                    player.copy(moneyCards = initiator.moneyCards - offeredMoneyCards.toSet())
+                }.copy(
+                    phase = GamePhase.TRADE_RESPONSE,
+                    tradeState =
+                        TradeState(
+                            initiatorId = initiator.id,
+                            targetId = target.id,
+                            requestedAnimalType = animalType,
+                            offeredMoneyCardIds = offeredMoneyCardIds,
+                            counterOfferedMoneyCardIds = emptySet(),
+                            offeredMoneyCards = offeredMoneyCards,
+                            counterOfferedMoneyCards = null,
+                        ),
+                )
 
         return state
     }
 
     /**
-     * Processes the defender's trade reaction, with empty
-     * [counterOfferedMoneyCardIds] representing blind acceptance.
+     * Adds the trade target's response information to the game state, with
+     * empty [counterOfferedMoneyCardIds] representing blind acceptance.
      */
     fun respondToTrade(
         actorId: String,
@@ -330,75 +377,34 @@ class GameSession(
     ): GameState {
         val target = requireActorInRoom(actorId)
         ensurePhase(GamePhase.TRADE_RESPONSE)
-        ensureTradeTarget(actorId)
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in response phase"
+            }
+        ensureTradeTarget(tradeState, actorId)
 
-        val tradeState = state.tradeState!!
-        val initiator = state.players.find { it.id == tradeState.initiatorId }!!
-        var updatedPlayers = state.players
+        var counterOfferedMoneyCards = emptySet<MoneyCard>()
 
-        val offeredMoneyCards =
-            initiator.moneyCards.filter { it.id in tradeState.offeredMoneyCardIds }
-        var counterOfferedMoneyCards = emptyList<MoneyCard>()
-
-        val winner: PlayerState
-        val loser: PlayerState
-
-        if (counterOfferedMoneyCardIds.isEmpty()) {
-            // The trade target accepts the trade blindly
-            winner = initiator
-            loser = target
-
-            // Process the payment
-            updatedPlayers =
-                transferMoneyCards(updatedPlayers, winner, loser, tradeState.offeredMoneyCardIds)
-        } else {
-            // The trade target makes a counteroffer
+        // If the trade target does not accept the trade blindly
+        if (counterOfferedMoneyCardIds.isNotEmpty()) {
             counterOfferedMoneyCards = requireOwnsMoneyCards(target, counterOfferedMoneyCardIds)
 
-            val initiatorTotal = offeredMoneyCards.sumOf { it.value }
-            val targetTotal = counterOfferedMoneyCards.sumOf { it.value }
-
-            if (initiatorTotal >= targetTotal) {
-                winner = initiator
-                loser = target
-            } else {
-                winner = target
-                loser = initiator
-            }
-
-            // Process the payment
-            updatedPlayers =
-                transferMoneyCards(
-                    updatedPlayers,
-                    initiator,
-                    target,
-                    tradeState.offeredMoneyCardIds,
-                )
-            updatedPlayers =
-                transferMoneyCards(
-                    updatedPlayers,
-                    target,
-                    initiator,
-                    counterOfferedMoneyCardIds,
-                )
+            // Remove the money cards from the player
+            state =
+                state.updatePlayer(target.id) { player ->
+                    player.copy(moneyCards = target.moneyCards - counterOfferedMoneyCards)
+                }
         }
 
-        // Move cards of the requested animal type
+        // Transition the phase and update the trade information
         state =
             state.copy(
                 phase = GamePhase.TRADE_REVEAL,
-                players =
-                    moveAnimalType(
-                        updatedPlayers,
-                        loser,
-                        winner,
-                        tradeState.requestedAnimalType,
-                    ),
                 tradeState =
                     tradeState.copy(
-                        offeredMoney = offeredMoneyCards.sumOf { it.value },
                         counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
                         counterOfferedMoney = counterOfferedMoneyCards.sumOf { it.value },
+                        counterOfferedMoneyCards = counterOfferedMoneyCards,
                     ),
             )
 
@@ -406,14 +412,75 @@ class GameSession(
     }
 
     /**
-     * Clears the trade session information and wraps up the visibility sequence.
+     * Handles the trade result and wraps up the visibility sequence.
      */
     fun endTradeReveal(): GameState {
         check(
             state.phase == GamePhase.TRADE_REVEAL,
         ) { "Expected a trade reveal but the current phase is ${state.phase}" }
 
-        state = state.copy(tradeState = null)
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in reveal phase"
+            }
+
+        // Exchange the money cards
+        val initiatorMoneyCards = tradeState.offeredMoneyCards
+        val targetMoneyCards =
+            checkNotNull(tradeState.counterOfferedMoneyCards) {
+                "Missing trade counteroffer in reveal phase"
+            }
+
+        val updatedPlayers =
+            state.players.map { player ->
+                when (player.id) {
+                    tradeState.initiatorId ->
+                        player.copy(
+                            moneyCards = player.moneyCards + targetMoneyCards,
+                        )
+
+                    tradeState.targetId ->
+                        player.copy(
+                            moneyCards = player.moneyCards + initiatorMoneyCards,
+                        )
+
+                    else -> player
+                }
+            }
+
+        // Move cards of the requested animal type to the winner
+        val initiatorTotal = initiatorMoneyCards.sumOf { it.value }
+        val targetTotal = targetMoneyCards.sumOf { it.value }
+
+        val (winnerId, loserId) =
+            if (initiatorTotal >= targetTotal) {
+                tradeState.initiatorId to tradeState.targetId
+            } else {
+                tradeState.targetId to tradeState.initiatorId
+            }
+
+        val winner =
+            checkNotNull(updatedPlayers.find { it.id == winnerId }) {
+                "Trade winner $winnerId missing from game state"
+            }
+        val loser =
+            checkNotNull(updatedPlayers.find { it.id == loserId }) {
+                "Trade loser $loserId missing from game state"
+            }
+
+        val finalPlayers =
+            moveAnimalType(
+                updatedPlayers,
+                loser,
+                winner,
+                tradeState.requestedAnimalType,
+            )
+
+        state =
+            state.copy(
+                players = finalPlayers,
+                tradeState = null,
+            )
         state = advanceTurnAndCheckGameEnd()
 
         return state
@@ -492,7 +559,7 @@ class GameSession(
         }
     }
 
-    private fun requireActorInRoom(actorId: String): PlayerState =
+    private fun requireActorInRoom(actorId: String): Player =
         state.players.find { it.id == actorId }
             ?: throw GameException(GameErrorReason.UNKNOWN_ACTOR)
 
@@ -532,17 +599,27 @@ class GameSession(
         if (state.deck.isEmpty()) throw GameException(GameErrorReason.DECK_EMPTY)
     }
 
-    private fun ensureNotAuctioneer(playerId: String) {
-        if (state.auctionState!!.auctioneerId ==
-            playerId
-        ) {
+    private fun ensureNotAuctioneer(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.auctioneerId == playerId) {
             throw GameException(GameErrorReason.OWN_AUCTION)
         }
     }
 
-    // Temporary check for Sprint 2; will be replaced with another feature in Sprint 3
+    private fun ensureNotExcludedFromAuction(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.excludedPlayerIds.contains(playerId)) {
+            throw GameException(GameErrorReason.EXCLUDED_FROM_AUCTION)
+        }
+    }
+
+    // The auctioneer may only buy back the card when they can actually pay the winning bid.
     private fun ensureHasEnoughMoney(
-        player: PlayerState,
+        player: Player,
         amount: Int,
     ) {
         if (player.totalMoney() < amount) {
@@ -552,23 +629,29 @@ class GameSession(
         }
     }
 
-    private fun ensureBidNotTooLow(amount: Int) {
-        if (state.auctionState!!.highestBid >=
+    private fun ensureBidNotTooLow(
+        auctionState: AuctionState,
+        amount: Int,
+    ) {
+        if (auctionState.highestBid >=
             amount
         ) {
             throw GameException(GameErrorReason.BID_TOO_LOW)
         }
     }
 
-    private fun ensureAuctioneer(playerId: String) {
-        if (state.auctionState!!.auctioneerId !=
+    private fun ensureAuctioneer(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.auctioneerId !=
             playerId
         ) {
             throw GameException(GameErrorReason.NOT_AUCTIONEER)
         }
     }
 
-    private fun requireValidTradeTarget(playerId: String): PlayerState =
+    private fun requireValidTradeTarget(playerId: String): Player =
         state.players.find { it.id == playerId }
             ?: throw GameException(GameErrorReason.UNKNOWN_TRADE_TARGET)
 
@@ -580,7 +663,7 @@ class GameSession(
     }
 
     private fun ensureTradeInitiatorHasAnimalType(
-        initiator: PlayerState,
+        initiator: Player,
         animalType: AnimalType,
     ) {
         if (initiator.animals.none {
@@ -592,7 +675,7 @@ class GameSession(
     }
 
     private fun ensureTradeTargetHasAnimalType(
-        target: PlayerState,
+        target: Player,
         animalType: AnimalType,
     ) {
         if (target.animals.none {
@@ -603,10 +686,11 @@ class GameSession(
         }
     }
 
-    private fun ensureTradeTarget(playerId: String) {
-        if (state.tradeState!!.targetId !=
-            playerId
-        ) {
+    private fun ensureTradeTarget(
+        tradeState: TradeState,
+        playerId: String,
+    ) {
+        if (tradeState.targetId != playerId) {
             throw GameException(GameErrorReason.NOT_TRADE_TARGET)
         }
     }
@@ -615,39 +699,27 @@ class GameSession(
         if (offeredMoneyCardIds.isEmpty()) throw GameException(GameErrorReason.OFFER_EMPTY)
     }
 
-    private fun ensureOwnsMoneyCards(
-        player: PlayerState,
-        moneyCardIds: Set<String>,
-    ) {
-        val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
-        if (moneyCards.size <
-            moneyCardIds.size
-        ) {
-            throw GameException(GameErrorReason.NOT_OWNED_MONEY_CARDS)
-        }
-    }
-
     private fun requireOwnsMoneyCards(
-        player: PlayerState,
+        player: Player,
         moneyCardIds: Set<String>,
-    ): List<MoneyCard> {
+    ): Set<MoneyCard> {
         val moneyCards = player.moneyCards.filter { it.id in moneyCardIds }
         if (moneyCards.size <
             moneyCardIds.size
         ) {
             throw GameException(GameErrorReason.NOT_OWNED_MONEY_CARDS)
         }
-        return moneyCards
+        return moneyCards.toSet()
     }
 
     /**
      * Appends an animal card to the given player's collection.
      */
     private fun addAnimalToPlayer(
-        players: List<PlayerState>,
+        players: List<Player>,
         receiverId: String,
         animalCard: AnimalCard,
-    ): List<PlayerState> {
+    ): List<Player> {
         // GameState is immutable, so create an updated player list with the card added to the winner.
         return players.map { player ->
             if (player.id == receiverId) {
@@ -662,7 +734,7 @@ class GameSession(
      * Calculates the mathematically optimal combination of money cards to satisfy a transaction.
      */
     private fun selectMoneyCardsForPayment(
-        player: PlayerState,
+        player: Player,
         amount: Int,
     ): Set<String> {
         check(player.totalMoney() >= amount) {
@@ -713,11 +785,11 @@ class GameSession(
      * Determines whether to move one or two cards based on the counts owned by the players.
      */
     private fun moveAnimalType(
-        players: List<PlayerState>,
-        from: PlayerState,
-        to: PlayerState,
+        players: List<Player>,
+        from: Player,
+        to: Player,
         animalType: AnimalType,
-    ): List<PlayerState> {
+    ): List<Player> {
         val fromMatchingCards = from.animals.filter { it.type == animalType }
         val fromCount = fromMatchingCards.size
         val toCount = to.animals.count { it.type == animalType }
@@ -749,11 +821,11 @@ class GameSession(
      * Transfers designated money cards between two players.
      */
     private fun transferMoneyCards(
-        players: List<PlayerState>,
-        from: PlayerState,
-        to: PlayerState,
+        players: List<Player>,
+        from: Player,
+        to: Player,
         moneyCardIds: Set<String>,
-    ): List<PlayerState> {
+    ): List<Player> {
         if (moneyCardIds.isEmpty()) {
             return players
         }

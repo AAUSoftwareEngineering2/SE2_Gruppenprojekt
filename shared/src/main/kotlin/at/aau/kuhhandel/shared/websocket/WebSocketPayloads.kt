@@ -2,6 +2,7 @@ package at.aau.kuhhandel.shared.websocket
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import kotlinx.serialization.Serializable
 
 /**
@@ -20,14 +21,16 @@ data class GameCreatedPayload(
     val gameId: String,
     val playerId: String,
     val state: GameState,
+    val stateView: GameStateView? = null,
 )
 
 /**
- * Payload used by GAME_STARTED, GAME_STATE_UPDATED, and SNAPSHOT events
+ * Payload used by GAME_STATE_UPDATED and SNAPSHOT events
  */
 @Serializable
 data class GameStatePayload(
     val state: GameState,
+    val stateView: GameStateView? = null,
 )
 
 /**
@@ -46,6 +49,7 @@ data class JoinGamePayload(
 data class GameJoinedPayload(
     val playerId: String,
     val state: GameState,
+    val stateView: GameStateView? = null,
 )
 
 /**

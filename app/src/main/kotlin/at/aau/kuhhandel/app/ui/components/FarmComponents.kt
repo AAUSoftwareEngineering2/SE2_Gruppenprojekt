@@ -1,32 +1,23 @@
 package at.aau.kuhhandel.app.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
@@ -36,19 +27,18 @@ import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
-import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
-import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 
 /** Displays a summary of an opponent's farm, including their name and money card count. */
 @Composable
 fun OtherFarm(
-    player: PlayerState,
+    player: Player,
     farmColor: FarmColor,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showName: Boolean = true,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -57,6 +47,8 @@ fun OtherFarm(
                 .padding(4.dp)
                 .clickable { onClick() },
     ) {
+        // Hide name during auctions to match mockup layout
+        // Using alpha instead of conditional visibility to prevent layout shifts
         Text(
             text = player.name,
             style =
@@ -70,40 +62,60 @@ fun OtherFarm(
                 ),
             color = DarkPurple,
             fontWeight = FontWeight.Bold,
+            modifier =
+                Modifier.drawWithContent {
+                    if (showName) drawContent()
+                },
         )
         Box(contentAlignment = Alignment.Center) {
             Image(
                 painter = painterResource(id = parseFarmColor(farmColor)),
                 contentDescription = "OtherFarm",
-                modifier = Modifier.size(135.dp),
+                modifier = Modifier.size(165.dp),
             )
-            Surface(
-                color = PureWhite,
-                shape = MaterialTheme.shapes.medium,
+            // Display animal chips in the middle of the farm
+            Box(
+                modifier =
+                    Modifier
+                        .size(width = 135.dp, height = 100.dp)
+                        .align(Alignment.Center),
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimalFarmChipsView(
+                    animals = player.animals,
+                    chipSize = 34.dp,
+                )
+            }
+            Box(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(x = (-5).dp, y = (-5).dp),
-                border = BorderStroke(1.dp, DarkPurple.copy(alpha = 0.2f)),
-                shadowElevation = 2.dp,
+                        .offset(x = (-7).dp, y = (-7).dp)
+                        .size(width = 58.dp, height = 48.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_money_hidden_diagonal_1),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = player.moneyCards.size.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DarkPurple,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                }
+                Image(
+                    painter =
+                        painterResource(
+                            id = getHiddenMoneyDiagonalDrawable(player.moneyCards.size),
+                        ),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 58.dp, height = 48.dp),
+                )
+                Text(
+                    text = player.moneyCards.size.toString(),
+                    style =
+                        MaterialTheme.typography.titleSmall.copy(
+                            shadow =
+                                Shadow(
+                                    color = PureWhite,
+                                    offset = Offset(0f, 0f),
+                                    blurRadius = 6f,
+                                ),
+                        ),
+                    color = DarkPurple,
+                    fontWeight = FontWeight.ExtraBold,
+                )
             }
         }
     }
@@ -112,10 +124,11 @@ fun OtherFarm(
 /** Renders a grid of all opponents in the game. */
 @Composable
 fun OpponentList(
-    players: List<PlayerState>,
+    players: List<Player>,
     myId: String?,
     onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isAuctionActive: Boolean = false,
 ) {
     val opponents = players.filter { it.id != myId }
     Column(
@@ -134,6 +147,7 @@ fun OpponentList(
                         player = player,
                         farmColor = color,
                         onClick = { onOpponentClick(player.id) },
+                        showName = !isAuctionActive,
                     )
                 }
             }
@@ -145,8 +159,7 @@ fun OpponentList(
 @Composable
 fun PlayerFarm(
     modifier: Modifier = Modifier,
-    player: PlayerState?,
-    isMyTurn: Boolean,
+    player: Player?,
     isHandFanned: Boolean = false,
     onToggleHandFanned: () -> Unit = {},
     selectedMoneyCardIds: Set<String> = emptySet(),
@@ -174,13 +187,25 @@ fun PlayerFarm(
                 alignment = Alignment.Center,
             )
 
+            // Display my own animal chips - centered and bigger
+            if (player != null) {
+                AnimalFarmChipsView(
+                    animals = player.animals,
+                    chipSize = 48.dp,
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 64.dp, bottom = 48.dp),
+                )
+            }
+
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
             ) {
                 Column {
                     Text(
@@ -196,47 +221,6 @@ fun PlayerFarm(
                             ),
                         color = DefaultPurple,
                         fontWeight = FontWeight.Black,
-                    )
-                    if (isMyTurn) {
-                        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                        val alpha by infiniteTransition.animateFloat(
-                            initialValue = 0.6f,
-                            targetValue = 1f,
-                            animationSpec =
-                                infiniteRepeatable(
-                                    animation = tween(800, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Reverse,
-                                ),
-                            label = "pulseAlpha",
-                        )
-
-                        Text(
-                            "YOUR TURN",
-                            style =
-                                MaterialTheme.typography.titleMedium.copy(
-                                    shadow =
-                                        Shadow(
-                                            color = DarkPurple.copy(alpha = 0.8f),
-                                            offset = Offset(2f, 2f),
-                                            blurRadius = 4f,
-                                        ),
-                                ),
-                            color = LightPurple.copy(alpha = alpha),
-                            fontWeight = FontWeight.ExtraBold,
-                        )
-                    }
-                }
-
-                Surface(
-                    color = DarkPurple.copy(alpha = 0.7f),
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Text(
-                        "${player?.moneyCards?.size ?: 0} Cards | Total: ${player?.totalMoney() ?: 0}",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = WhitePurple,
-                        fontWeight = FontWeight.Bold,
                     )
                 }
             }

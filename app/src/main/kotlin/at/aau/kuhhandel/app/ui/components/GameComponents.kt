@@ -42,6 +42,30 @@ import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.model.MoneyCard
 
+/** A unified text component for game status messages. */
+@Composable
+fun GameStatusText(
+    text: String,
+    alpha: Float = 1f,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style =
+            MaterialTheme.typography.headlineSmall.copy(
+                shadow =
+                    Shadow(
+                        color = PureWhite,
+                        offset = Offset(4f, 4f),
+                        blurRadius = 8f,
+                    ),
+            ),
+        color = DarkPurple.copy(alpha = alpha),
+        fontWeight = FontWeight.Bold,
+        modifier = modifier,
+    )
+}
+
 /** Shows the draw deck and provides an interaction point to reveal the next card. */
 @Composable
 fun DeckView(
@@ -77,6 +101,24 @@ fun DeckView(
                 color = PureWhite,
                 fontWeight = FontWeight.Black,
             )
+
+            if (canClick) {
+                Text(
+                    text = "tap to start an auction!",
+                    modifier = Modifier.offset(y = 40.dp),
+                    style =
+                        MaterialTheme.typography.labelLarge.copy(
+                            shadow =
+                                Shadow(
+                                    color = DarkPurple.copy(alpha = 0.8f),
+                                    offset = Offset(2f, 2f),
+                                    blurRadius = 4f,
+                                ),
+                        ),
+                    color = PureWhite,
+                    fontWeight = FontWeight.Black,
+                )
+            }
         }
 
         Image(

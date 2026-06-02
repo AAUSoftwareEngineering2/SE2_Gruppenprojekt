@@ -10,7 +10,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerState
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -54,6 +54,16 @@ class GameWebSocketHandlerTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
+    private val baseState =
+        GameState(
+            players =
+                listOf(
+                    Player("player-1", "Player 1"),
+                    Player("player-2", "Player 2"),
+                ),
+            hostPlayerId = "player-1",
+        )
+
     @BeforeEach
     fun setUp() {
         gameService = mock(GameService::class.java)
@@ -70,10 +80,12 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `handleGameStateChanged sends GAME_STATE_UPDATED to all sessions`() {
-        val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+    fun `handleGameStateChanged broadcasts GAME_STATE_UPDATED`() {
+        val gameState = baseState.copy(phase = GamePhase.AUCTION_BIDDING)
         val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
 
+        whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+        whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
         whenever(
             connectionRegistry.sessionsFor("game-1"),
         ).thenReturn(setOf(session1, session2))
@@ -82,9 +94,21 @@ class GameWebSocketHandlerTest {
 
         val response1 = captureResponse(session1)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+        assertNull(response1.requestId)
+
+        val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+        assertEquals(gameState, payload1.state)
+        assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
         val response2 = captureResponse(session2)
         assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+        assertNull(response2.requestId)
+
+        val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+        assertEquals(gameState, payload2.state)
+        assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
     }
 
     @Test
@@ -159,6 +183,7 @@ class GameWebSocketHandlerTest {
 
             assertEquals("game-1", payload.gameId)
             assertEquals(createdSession.state, payload.state)
+            assertEquals(createdSession.state.createViewForPlayer("player-1"), payload.stateView)
         }
 
     @Test
@@ -188,9 +213,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.startGame("game-1", "player-1")).thenReturn(gameState)
 
             sendEnvelope(
@@ -208,6 +234,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -216,6 +243,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -235,11 +263,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `JOIN_GAME binds game and player, sends GAME_JOINED, and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            val state =
-                GameState(
-                    players = listOf(PlayerState("player-1", "Player 1")),
-                    hostPlayerId = "player-1",
-                )
+            val state = baseState
 
             val returnedResult =
                 RoomActionResult(
@@ -249,6 +273,7 @@ class GameWebSocketHandlerTest {
                 )
 
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn(null)
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
             whenever(
@@ -278,6 +303,7 @@ class GameWebSocketHandlerTest {
 
             assertEquals("player-1", payload1.playerId)
             assertEquals(state, payload1.state)
+            assertEquals(state.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -286,6 +312,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(state, payload2.state)
+            assertEquals(state.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -337,14 +364,11 @@ class GameWebSocketHandlerTest {
     @Test
     fun `LEAVE_GAME unbinds session, sends GAME_LEFT, and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            val returnedState =
-                GameState(
-                    players = listOf(PlayerState("player-2", "Player 2")),
-                    hostPlayerId = "player-2",
-                )
+            val returnedState = baseState
 
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
 
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
@@ -369,6 +393,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(returnedState, payload2.state)
+            assertEquals(returnedState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -426,11 +451,59 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
+    fun `broadcastStateUpdate continues even if one player throws an exception`() =
+        runTest(testDispatcher.scheduler) {
+            val session3 = mock(WebSocketSession::class.java)
+            whenever(session3.id).thenReturn("session-3")
+
+            val returnedState = baseState
+
+            whenever(connectionRegistry.gameIdFor("session-3")).thenReturn("game-1")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
+            whenever(connectionRegistry.playerIdFor("session-3")).thenReturn("player-3")
+            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                    session3,
+                ),
+            )
+
+            // Session 1 is open, but its network stream is broken and throws an error on write
+            whenever(session1.isOpen).thenReturn(true)
+            whenever(
+                session1.sendMessage(any()),
+            ).thenThrow(RuntimeException("Network socket broken"))
+
+            // Session 2 is completely healthy
+            whenever(session2.isOpen).thenReturn(true)
+
+            // Session 2 is completely healthy and represents the acting player
+            whenever(session3.isOpen).thenReturn(true)
+
+            whenever(gameService.leaveGame("game-1", "player-3")).thenReturn(returnedState)
+
+            // Act
+            sendEnvelope(
+                session = session3,
+                type = WebSocketType.LEAVE_GAME,
+                requestId = "req-1",
+            )
+
+            // Assert: Session 1 crashed, but Session 2 still received
+            // the update and session3 received the direct message
+            verify(session1).sendMessage(any())
+            verify(session2).sendMessage(any())
+            verify(session3).sendMessage(any())
+        }
+
+    @Test
     fun `broadcastStateUpdate ignores closed sessions`() =
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(PlayerState("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player 2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -455,7 +528,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(PlayerState("player-1", "Player 1")),
+                    players = listOf(Player("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
             val gameSession =
@@ -490,6 +563,7 @@ class GameWebSocketHandlerTest {
             val payload = decodePayload(response, GameStatePayload.serializer())
 
             assertEquals(returnedState, payload.state)
+            assertEquals(returnedState.createViewForPlayer("player-1"), payload.stateView)
         }
 
     @Test
@@ -542,9 +616,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+            val gameState = baseState.copy(phase = GamePhase.AUCTION_BIDDING)
             whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
 
             sendEnvelope(
@@ -562,6 +637,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -570,6 +646,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -622,16 +699,17 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `afterConnectionClosed triggers leave for bound sessions`() =
+    fun `afterConnectionClosed removes player and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(),
-                    hostPlayerId = null,
+                    players = listOf(Player("player-2", "Player 2")),
+                    hostPlayerId = "player-2",
                 )
 
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
 
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
@@ -646,43 +724,7 @@ class GameWebSocketHandlerTest {
 
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
             assertEquals(returnedState, payload2.state)
-        }
-
-    @Test
-    fun `afterConnectionClosed with multiple sessions handles them correctly`() =
-        runTest(testDispatcher.scheduler) {
-            val sessionA = mock(WebSocketSession::class.java)
-            whenever(sessionA.id).thenReturn("session-A")
-            whenever(sessionA.isOpen).thenReturn(true)
-
-            val sessionB = mock(WebSocketSession::class.java)
-            whenever(sessionB.id).thenReturn("session-B")
-            whenever(sessionB.isOpen).thenReturn(true)
-
-            whenever(connectionRegistry.gameIdFor("session-A")).thenReturn("game-1")
-            whenever(connectionRegistry.playerIdFor("session-A")).thenReturn("player-A")
-
-            whenever(connectionRegistry.gameIdFor("session-B")).thenReturn("game-1")
-            whenever(connectionRegistry.playerIdFor("session-B")).thenReturn("player-B")
-
-            val stateAfterALeaves = GameState(players = listOf(PlayerState("player-B", "Player B")))
-            whenever(gameService.leaveGame("game-1", "player-A")).thenReturn(stateAfterALeaves)
-
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(sessionB))
-
-            // Act: Session A disconnects
-            handler.afterConnectionClosed(sessionA, CloseStatus.NORMAL)
-
-            // Assert: A is removed, B gets updated state
-            verify(gameService).leaveGame("game-1", "player-A")
-            verify(connectionRegistry).unbind("session-A")
-
-            val responseB = captureResponse(sessionB)
-            assertEquals(WebSocketType.GAME_STATE_UPDATED, responseB.type)
-            assertEquals(
-                stateAfterALeaves,
-                decodePayload(responseB, GameStatePayload.serializer()).state,
-            )
+            assertEquals(returnedState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -690,9 +732,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.TRADE_OFFER)
+            val gameState = baseState.copy(phase = GamePhase.TRADE_OFFER)
             whenever(
                 gameService.chooseTrade(
                     "game-1",
@@ -733,6 +776,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -741,6 +785,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -803,13 +848,13 @@ class GameWebSocketHandlerTest {
     fun `RESPOND_TO_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
-            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-2")
+            whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.TRADE_REVEAL)
-            whenever(gameService.respondToTrade("game-1", "player-2", emptySet())).thenReturn(
-                gameState,
-            )
+            val gameState = baseState.copy(phase = GamePhase.TRADE_REVEAL)
+            whenever(gameService.respondToTrade("game-1", "player-1", emptySet()))
+                .thenReturn(gameState)
 
             sendEnvelope(
                 session = session1,
@@ -819,13 +864,13 @@ class GameWebSocketHandlerTest {
                     WebSocketJson.json.encodeToJsonElement(
                         RespondToTradePayload.serializer(),
                         RespondToTradePayload(
-                            respondingPlayerId = "player-2",
+                            respondingPlayerId = "player-1",
                             counterOfferedMoneyCardIds = emptySet(),
                         ),
                     ),
             )
 
-            verify(gameService).respondToTrade("game-1", "player-2", emptySet())
+            verify(gameService).respondToTrade("game-1", "player-1", emptySet())
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -834,6 +879,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -842,6 +888,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -904,9 +951,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.AUCTION_BIDDING)
+            val gameState = baseState.copy(phase = GamePhase.AUCTION_BIDDING)
             whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
 
             sendEnvelope(
@@ -929,6 +977,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -937,6 +986,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -1014,9 +1064,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
 
             sendEnvelope(
@@ -1039,6 +1090,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -1047,6 +1099,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
@@ -1105,9 +1158,10 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.gameIdFor("session-1")).thenReturn("game-1")
             whenever(connectionRegistry.playerIdFor("session-1")).thenReturn("player-1")
+            whenever(connectionRegistry.playerIdFor("session-2")).thenReturn("player-2")
             whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
 
-            val gameState = GameState(phase = GamePhase.PLAYER_CHOICE)
+            val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.finishTradeReveal("game-1", "player-1")).thenReturn(gameState)
 
             sendEnvelope(
@@ -1125,6 +1179,7 @@ class GameWebSocketHandlerTest {
             val payload1 = decodePayload(response1, GameStatePayload.serializer())
 
             assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -1133,6 +1188,7 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
 
             assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
