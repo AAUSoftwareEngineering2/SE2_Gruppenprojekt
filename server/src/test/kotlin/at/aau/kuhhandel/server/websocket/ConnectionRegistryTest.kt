@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNotNull
 import org.mockito.Mockito.mock
 import org.springframework.web.socket.WebSocketSession
 import org.mockito.Mockito.`when` as whenever
@@ -28,52 +29,27 @@ class ConnectionRegistryTest {
     }
 
     @Test
-    fun `bindGame with unbound sessions stores mapping`() {
+    fun `bindPlayerSession stores mapping`() {
         val sessionId1 = "session-1"
+        val playerId1 = "player-1"
         val sessionId2 = "session-2"
+        val playerId2 = "player-2"
         val gameId = "game-1"
 
-        registry.bindGame(sessionId1, gameId)
-        registry.bindGame(sessionId2, gameId)
+        registry.bindPlayerSession(sessionId1, gameId, playerId1)
+        registry.bindPlayerSession(sessionId2, gameId, playerId2)
 
-        assertEquals(gameId, registry.gameIdFor(sessionId1))
-        assertEquals(gameId, registry.gameIdFor(sessionId2))
+        val playerSession1 = registry.playerSessionFor(sessionId1)
+        assertNotNull(playerSession1)
+        assertEquals(gameId, playerSession1.gameId)
+        assertEquals(playerId1, playerSession1.playerId)
+
+        val playerSession2 = registry.playerSessionFor(sessionId2)
+        assertNotNull(playerSession2)
+        assertEquals(gameId, playerSession2.gameId)
+        assertEquals(playerId2, playerSession2.playerId)
+
         assertEquals(setOf(sessionId1, sessionId2), registry.sessionIdsFor(gameId))
-    }
-
-    @Test
-    fun `bindGame with bound session does not store mapping`() {
-        val sessionId = "session-1"
-        val gameId1 = "game-1"
-        val gameId2 = "game-2"
-        registry.bindGame(sessionId, gameId1)
-
-        registry.bindGame(sessionId, gameId2)
-
-        assertEquals(gameId1, registry.gameIdFor(sessionId))
-        assertEquals(setOf<String>(), registry.sessionIdsFor(gameId2))
-    }
-
-    @Test
-    fun `bindPlayer with unbound session stores mapping`() {
-        val sessionId = "session-1"
-        val playerId = "player-1"
-
-        registry.bindPlayer(sessionId, playerId)
-
-        assertEquals(playerId, registry.playerIdFor(sessionId))
-    }
-
-    @Test
-    fun `bindPlayer with bound session does not store mapping`() {
-        val sessionId = "session-1"
-        val playerId1 = "player-1"
-        val playerId2 = "player-2"
-        registry.bindPlayer(sessionId, playerId1)
-
-        registry.bindPlayer(sessionId, playerId2)
-
-        assertEquals(playerId1, registry.playerIdFor(sessionId))
     }
 
     @Test
@@ -87,13 +63,16 @@ class ConnectionRegistryTest {
 
         val gameId1 = "game-1"
         val gameId2 = "game-2"
+        val playerId1 = "player-1"
+        val playerId2 = "player-2"
+        val playerId3 = "player-3"
 
         registry.bindSession(session1)
-        registry.bindGame(session1.id, gameId1)
+        registry.bindPlayerSession(session1.id, gameId1, playerId1)
         registry.bindSession(session2)
-        registry.bindGame(session2.id, gameId1)
+        registry.bindPlayerSession(session2.id, gameId1, playerId2)
         registry.bindSession(session3)
-        registry.bindGame(session3.id, gameId2)
+        registry.bindPlayerSession(session3.id, gameId2, playerId3)
 
         val game1Sessions = registry.sessionsFor(gameId1)
         assertEquals(2, game1Sessions.size)
@@ -150,16 +129,13 @@ class ConnectionRegistryTest {
         val playerId2 = "player-2"
         val gameId = "game-1"
         registry.bindSession(session1)
-        registry.bindGame(session1.id, gameId)
-        registry.bindPlayer(session1.id, playerId1)
+        registry.bindPlayerSession(session1.id, gameId, playerId1)
         registry.bindSession(session2)
-        registry.bindGame(session2.id, gameId)
-        registry.bindPlayer(session2.id, playerId2)
+        registry.bindPlayerSession(session2.id, gameId, playerId2)
 
         registry.unbind(session1.id)
 
-        assertNull(registry.gameIdFor(session1.id))
-        assertNull(registry.playerIdFor(session1.id))
+        assertNull(registry.playerSessionFor(session1.id))
         assertEquals(setOf(session2.id), registry.sessionIdsFor(gameId))
         assertEquals(setOf(session2), registry.sessionsFor(gameId))
     }

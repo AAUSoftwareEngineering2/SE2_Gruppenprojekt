@@ -9,8 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class ConnectionRegistry {
-    private val gameBySessionId = ConcurrentHashMap<String, String>()
-    private val playerBySessionId = ConcurrentHashMap<String, String>()
+    private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
     private val sessionsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
     private val sessionBySessionId = ConcurrentHashMap<String, WebSocketSession>()
 
@@ -22,33 +21,23 @@ class ConnectionRegistry {
     }
 
     /**
-     * Binds a registered connection instance to a running game instance.
+     * Binds a game ID, player ID, and reconnection token to a WebSocket session ID.
      */
-    fun bindGame(
+    fun bindPlayerSession(
         sessionId: String,
         gameId: String,
-    ) {
-        val existing = gameBySessionId.putIfAbsent(sessionId, gameId)
-        if (existing != null) return
-
-        sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(sessionId)
-    }
-
-    /**
-     * Binds a registered connection instance to a player identity.
-     */
-    fun bindPlayer(
-        sessionId: String,
         playerId: String,
     ) {
-        playerBySessionId.putIfAbsent(sessionId, playerId)
+        playerSessions[sessionId] = PlayerSession(gameId, playerId)
+        sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(sessionId)
     }
 
     fun sessionFor(sessionId: String): WebSocketSession? = sessionBySessionId[sessionId]
 
-    fun gameIdFor(sessionId: String): String? = gameBySessionId[sessionId]
-
-    fun playerIdFor(sessionId: String): String? = playerBySessionId[sessionId]
+    /**
+     * Retrieves the UserSession associated with a WebSocket session ID.
+     */
+    fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
 
     fun sessionIdsFor(gameId: String): Set<String> = sessionsByGameId[gameId]?.toSet().orEmpty()
 
@@ -65,14 +54,13 @@ class ConnectionRegistry {
      * Unbinds a connection instance, removing all data associated with it.
      */
     fun unbind(sessionId: String) {
-        val gameId = gameBySessionId.remove(sessionId)
-        playerBySessionId.remove(sessionId)
+        val boundSession = playerSessions.remove(sessionId)
         sessionBySessionId.remove(sessionId)
 
-        if (gameId != null) {
-            sessionsByGameId[gameId]?.remove(sessionId)
-            if (sessionsByGameId[gameId].isNullOrEmpty()) {
-                sessionsByGameId.remove(gameId)
+        if (boundSession != null) {
+            sessionsByGameId[boundSession.gameId]?.remove(sessionId)
+            if (sessionsByGameId[boundSession.gameId].isNullOrEmpty()) {
+                sessionsByGameId.remove(boundSession.gameId)
             }
         }
     }

@@ -105,12 +105,11 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
-        val gameId = connectionRegistry.gameIdFor(session.id)
-        val playerId = connectionRegistry.playerIdFor(session.id)
+        val playerSession = connectionRegistry.playerSessionFor(session.id)
 
-        if (gameId != null && playerId != null) {
+        if (playerSession != null) {
             handlerScope.launch {
-                performLeave(session.id, gameId, playerId)
+                performLeave(session.id, playerSession.gameId, playerSession.playerId)
             }
         } else {
             connectionRegistry.unbind(session.id)
@@ -124,7 +123,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        ensureNoBoundGame(session.id)
+        ensureNoBoundPlayerSession(session.id)
 
         val payload = decodePayload(envelope, CreateGamePayload.serializer())
         // For now, uses a temporary player name if no name is provided; will be changed in the future
@@ -134,8 +133,7 @@ class GameWebSocketHandler(
         val gameId = result.gameId
         val playerId = result.playerId
 
-        connectionRegistry.bindGame(session.id, gameId)
-        connectionRegistry.bindPlayer(session.id, playerId)
+        connectionRegistry.bindPlayerSession(session.id, gameId, playerId)
 
         send(
             session,
@@ -163,8 +161,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
 
         val state = gameService.startGame(gameId, actorId)
 
@@ -179,7 +176,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        ensureNoBoundGame(session.id)
+        ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
@@ -192,8 +189,7 @@ class GameWebSocketHandler(
         val playerId = result.playerId
         val state = result.gameState
 
-        connectionRegistry.bindGame(session.id, joinedGameId)
-        connectionRegistry.bindPlayer(session.id, playerId)
+        connectionRegistry.bindPlayerSession(session.id, joinedGameId, playerId)
 
         send(
             session,
@@ -222,8 +218,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val playerId = requireBoundPlayer(session.id)
+        val (gameId, playerId) = requireBoundPlayerSession(session.id)
 
         send(
             session,
@@ -266,7 +261,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        ensureNoBoundGame(session.id)
+        ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
 
         // getGame transparently rehydrates from persistence when no live in-memory session exists
@@ -280,8 +275,7 @@ class GameWebSocketHandler(
 
         val state = gameSession.state
 
-        connectionRegistry.bindGame(session.id, payload.gameId)
-        connectionRegistry.bindPlayer(session.id, payload.playerId)
+        connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId)
 
         send(
             session,
@@ -307,8 +301,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
 
         val state = gameService.chooseAuction(gameId, actorId)
 
@@ -323,8 +316,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, InitiateTradePayload.serializer())
 
         val state =
@@ -347,8 +339,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, RespondToTradePayload.serializer())
 
         val state =
@@ -369,8 +360,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, PlaceBidPayload.serializer())
 
         val state = gameService.placeBid(gameId, actorId, payload.amount)
@@ -386,8 +376,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
@@ -403,8 +392,7 @@ class GameWebSocketHandler(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
-        val gameId = requireBoundGame(session.id)
-        val actorId = requireBoundPlayer(session.id)
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
 
         val state = gameService.finishTradeReveal(gameId, actorId)
 
@@ -413,27 +401,20 @@ class GameWebSocketHandler(
     }
 
     /**
-     * Asserts that the session is not linked to any game instance.
+     * Asserts that the WebSocket session is not linked to any player session
      */
-    private fun ensureNoBoundGame(sessionId: String) {
-        if (connectionRegistry.gameIdFor(sessionId) != null) {
+    private fun ensureNoBoundPlayerSession(sessionId: String) {
+        if (connectionRegistry.playerSessionFor(sessionId) != null) {
             throw GameException(GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME)
         }
     }
 
     /**
-     * Resolves the linked game ID for a session, checking that the binding exists.
+     * Resolves the linked player session for a WebSocket session, checking that the binding exists.
      */
-    private fun requireBoundGame(sessionId: String): String =
-        connectionRegistry.gameIdFor(sessionId)
+    private fun requireBoundPlayerSession(sessionId: String): PlayerSession =
+        connectionRegistry.playerSessionFor(sessionId)
             ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_GAME)
-
-    /**
-     * Resolves the linked player ID for a session, checking that the binding exists.
-     */
-    private fun requireBoundPlayer(sessionId: String): String =
-        connectionRegistry.playerIdFor(sessionId)
-            ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_PLAYER)
 
     /**
      * Safely unmarshalls a raw network text frame into a structured message envelope.
@@ -502,7 +483,7 @@ class GameWebSocketHandler(
         sessions.forEach { session ->
             if (session == ignoredSession) return@forEach
 
-            val playerId = connectionRegistry.playerIdFor(session.id) ?: return@forEach
+            val (_, playerId) = connectionRegistry.playerSessionFor(session.id) ?: return@forEach
 
             try {
                 val envelope =
