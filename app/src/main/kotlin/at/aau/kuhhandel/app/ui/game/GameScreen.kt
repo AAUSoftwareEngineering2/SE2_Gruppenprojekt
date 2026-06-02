@@ -26,7 +26,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.audio.rememberAnimalAuctionSound
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
@@ -57,7 +60,9 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val playClickSound = LocalButtonClickSound.current
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
+    val playGavelSound = rememberSoundEffect(R.raw.gavel)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
@@ -73,6 +78,14 @@ fun GameScreen(
     LaunchedEffect(auctionCard?.id) {
         if (uiState.currentPhase == GamePhase.AUCTION_BIDDING && auctionCard != null) {
             playAnimalAuctionSound(auctionCard.type)
+        }
+    }
+
+    LaunchedEffect(uiState.currentPhase, uiState.auctionTimerSeconds) {
+        if (uiState.currentPhase == GamePhase.AUCTION_BIDDING &&
+            uiState.auctionTimerSeconds == 0
+        ) {
+            playGavelSound()
         }
     }
 
@@ -262,9 +275,17 @@ fun GameScreen(
                                     modifier = Modifier.padding(bottom = 8.dp),
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
                                     Button(
-                                        onClick = { onBuyBack(false) },
+                                        onClick = {
+                                            playClickSound()
+                                            onBuyBack(true)
+                                        },
+                                    ) { Text("Buy Back") }
+                                    Button(
+                                        onClick = {
+                                            playClickSound()
+                                            onBuyBack(false)
+                                        },
                                     ) { Text("Let Winner Buy") }
                                 }
                             }
