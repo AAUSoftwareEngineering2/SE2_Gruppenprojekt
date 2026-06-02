@@ -23,11 +23,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.audio.LocalButtonClickSound
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -40,6 +47,23 @@ fun LobbyScreen(
     onBack: () -> Unit,
 ) {
     val playClickSound = LocalButtonClickSound.current
+    val playPlayerJoinedSound = rememberSoundEffect(R.raw.player_joined)
+    val playPlayerLeftSound = rememberSoundEffect(R.raw.player_left)
+    var previousPlayerCount by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(uiState.players.size) {
+        val currentPlayerCount = uiState.players.size
+        val previousCount = previousPlayerCount
+
+        if (previousCount != null && previousCount > 0) {
+            when {
+                currentPlayerCount > previousCount -> playPlayerJoinedSound()
+                currentPlayerCount < previousCount -> playPlayerLeftSound()
+            }
+        }
+
+        previousPlayerCount = currentPlayerCount
+    }
 
     MenuBackground(modifier = modifier) {
         Box(
