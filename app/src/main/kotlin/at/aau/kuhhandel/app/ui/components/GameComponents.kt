@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
@@ -100,6 +101,8 @@ fun MoneyCardView(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val playPickMoneyCardSound = rememberSoundEffect(R.raw.pick_money_card)
+
     Surface(
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else WhitePurple,
         shape = MaterialTheme.shapes.small,
@@ -108,7 +111,10 @@ fun MoneyCardView(
             modifier
                 .size(width = 60.dp, height = 90.dp)
                 .offset(y = if (isSelected) (-10).dp else 0.dp)
-                .clickable { onClick() },
+                .clickable {
+                    playPickMoneyCardSound()
+                    onClick()
+                },
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {
