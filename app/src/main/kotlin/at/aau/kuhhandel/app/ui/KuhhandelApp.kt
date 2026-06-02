@@ -50,9 +50,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     // Musiksteuerung
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
     val shouldUseGameMusic = isGameStarted || isGameScreenActive
-    val isAuctionActive =
-        currentPhase == GamePhase.AUCTION_BIDDING ||
-            currentPhase == GamePhase.AUCTION_RESOLUTION
+    val isAuctionActive = currentPhase == GamePhase.AUCTION_BIDDING
 
     // Handle Game State transitions via Navigation
     LaunchedEffect(isGameStarted) {
