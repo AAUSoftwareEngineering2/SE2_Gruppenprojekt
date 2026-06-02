@@ -613,7 +613,7 @@ class GameSession(
         playerId: String,
     ) {
         if (auctionState.excludedPlayerIds.contains(playerId)) {
-            throw GameException(GameErrorReason.PLAYER_EXCLUDED_FROM_AUCTION)
+            throw GameException(GameErrorReason.EXCLUDED_FROM_AUCTION)
         }
     }
 
