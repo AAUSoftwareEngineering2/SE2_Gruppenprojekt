@@ -42,7 +42,7 @@ class GameService(
      */
     fun createGame(hostPlayerName: String): RoomActionResult {
         val gameId: String
-        val playerId = UUID.randomUUID().toString()
+        val playerId = generatePlayerId()
         val session: GameSession
 
         synchronized(rooms) {
@@ -129,7 +129,7 @@ class GameService(
             rooms[gameId]
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
-        val playerId = UUID.randomUUID().toString()
+        val playerId = generatePlayerId()
 
         room.mutex.withLock {
             val updatedState = room.session.addPlayer(playerId, playerName)
@@ -354,6 +354,11 @@ class GameService(
 
         return code
     }
+
+    /**
+     * Generates a unique player identifier.
+     */
+    private fun generatePlayerId(): String = UUID.randomUUID().toString()
 
     /**
      * Asserts that a game session exists in the active room map.
