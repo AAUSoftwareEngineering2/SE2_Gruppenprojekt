@@ -531,16 +531,10 @@ class GameWebSocketHandlerTest {
                     players = listOf(Player("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
-            val gameSession =
-                GameSession(
-                    gameId = "game-1",
-                    hostPlayerId = "player-1",
-                    hostPlayerName = "Player 1",
-                    initialState = returnedState,
-                )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getGame("game-1")).thenReturn(gameSession)
+            whenever(gameService.getStateForReconnection("game-1", "player-1"))
+                .thenReturn(returnedState)
             whenever(connectionRegistry.isValidToken("player-1", "token-1")).thenReturn(true)
 
             sendEnvelope(
@@ -621,16 +615,10 @@ class GameWebSocketHandlerTest {
                     players = listOf(Player("player-1", "Player 1")),
                     hostPlayerId = "player-1",
                 )
-            val gameSession =
-                GameSession(
-                    gameId = "game-1",
-                    hostPlayerId = "player-1",
-                    hostPlayerName = "Player 1",
-                    initialState = returnedState,
-                )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getGame("game-1")).thenReturn(gameSession)
+            whenever(gameService.getStateForReconnection("game-1", "player-1"))
+                .thenReturn(returnedState)
             whenever(connectionRegistry.isValidToken("player-1", "invalid-token")).thenReturn(false)
 
             sendEnvelope(

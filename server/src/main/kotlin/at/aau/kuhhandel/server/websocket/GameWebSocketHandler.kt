@@ -272,20 +272,11 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
 
-        // getGame transparently rehydrates from persistence when no live in-memory session exists
-        val gameSession =
-            gameService.getGame(payload.gameId)
-                ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
-
-        if (!gameSession.hasPlayer(payload.playerId)) {
-            throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
-        }
+        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
 
         if (!connectionRegistry.isValidToken(payload.playerId, payload.token)) {
             throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
         }
-
-        val state = gameSession.state
 
         val newToken = generateReconnectToken()
 

@@ -158,7 +158,8 @@ class GameService(
     }
 
     /**
-     * Starts an existing game.
+     * Retrieves the state of the game with the given game ID if
+     * the provided player ID corresponds to one of the players.
      *
      * Fails with a client-facing error if the game does not exist or if the player ID is invalid.
      */
@@ -166,6 +167,8 @@ class GameService(
         gameId: String,
         playerId: String,
     ): GameState {
+        getGame(gameId)
+
         val room =
             rooms[gameId]
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
