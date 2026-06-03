@@ -358,7 +358,7 @@ class GameService(
     /**
      * Generates a unique player identifier.
      *
-     * The infrastructure class [at.aau.kuhhandel.server.websocket.ConnectionRegistry] relies
+     * The map [at.aau.kuhhandel.server.websocket.ConnectionRegistry.reconnectTokens] relies
      * on the global uniqueness of player IDs to map them directly to reconnection tokens
      * without requiring composite keys that include game IDs.
      */
