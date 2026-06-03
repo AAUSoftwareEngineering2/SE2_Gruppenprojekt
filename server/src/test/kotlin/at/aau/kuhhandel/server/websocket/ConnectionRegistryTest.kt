@@ -1,7 +1,9 @@
 package at.aau.kuhhandel.server.websocket
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNotNull
@@ -32,22 +34,26 @@ class ConnectionRegistryTest {
     fun `bindPlayerSession stores mapping`() {
         val sessionId1 = "session-1"
         val playerId1 = "player-1"
+        val token1 = "token-1"
         val sessionId2 = "session-2"
         val playerId2 = "player-2"
+        val token2 = "token-2"
         val gameId = "game-1"
 
-        registry.bindPlayerSession(sessionId1, gameId, playerId1)
-        registry.bindPlayerSession(sessionId2, gameId, playerId2)
+        registry.bindPlayerSession(sessionId1, gameId, playerId1, token1)
+        registry.bindPlayerSession(sessionId2, gameId, playerId2, token2)
 
         val playerSession1 = registry.playerSessionFor(sessionId1)
         assertNotNull(playerSession1)
         assertEquals(gameId, playerSession1.gameId)
         assertEquals(playerId1, playerSession1.playerId)
+        assertTrue(registry.isValidToken(playerId1, token1))
 
         val playerSession2 = registry.playerSessionFor(sessionId2)
         assertNotNull(playerSession2)
         assertEquals(gameId, playerSession2.gameId)
         assertEquals(playerId2, playerSession2.playerId)
+        assertTrue(registry.isValidToken(playerId2, token2))
 
         assertEquals(setOf(sessionId1, sessionId2), registry.connectionIdsFor(gameId))
     }
@@ -64,15 +70,18 @@ class ConnectionRegistryTest {
         val gameId1 = "game-1"
         val gameId2 = "game-2"
         val playerId1 = "player-1"
+        val token1 = "token-3"
         val playerId2 = "player-2"
+        val token2 = "token-3"
         val playerId3 = "player-3"
+        val token3 = "token-3"
 
         registry.bindConnection(session1)
-        registry.bindPlayerSession(session1.id, gameId1, playerId1)
+        registry.bindPlayerSession(session1.id, gameId1, playerId1, token1)
         registry.bindConnection(session2)
-        registry.bindPlayerSession(session2.id, gameId1, playerId2)
+        registry.bindPlayerSession(session2.id, gameId1, playerId2, token2)
         registry.bindConnection(session3)
-        registry.bindPlayerSession(session3.id, gameId2, playerId3)
+        registry.bindPlayerSession(session3.id, gameId2, playerId3, token3)
 
         val game1Sessions = registry.connectionsFor(gameId1)
         assertEquals(2, game1Sessions.size)
@@ -124,18 +133,21 @@ class ConnectionRegistryTest {
         val session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
         val playerId1 = "player-1"
+        val token1 = "token-1"
         val session2 = mock(WebSocketSession::class.java)
         whenever(session2.id).thenReturn("session-2")
         val playerId2 = "player-2"
+        val token2 = "token-2"
         val gameId = "game-1"
         registry.bindConnection(session1)
-        registry.bindPlayerSession(session1.id, gameId, playerId1)
+        registry.bindPlayerSession(session1.id, gameId, playerId1, token1)
         registry.bindConnection(session2)
-        registry.bindPlayerSession(session2.id, gameId, playerId2)
+        registry.bindPlayerSession(session2.id, gameId, playerId2, token2)
 
         registry.unbind(session1.id)
 
         assertNull(registry.playerSessionFor(session1.id))
+        assertFalse(registry.isValidToken(playerId1, token1))
         assertEquals(setOf(session2.id), registry.connectionIdsFor(gameId))
         assertEquals(setOf(session2), registry.connectionsFor(gameId))
     }

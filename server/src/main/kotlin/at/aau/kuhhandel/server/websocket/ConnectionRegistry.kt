@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class ConnectionRegistry {
     private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
+    private val reconnectTokens = ConcurrentHashMap<String, String>()
     private val connectionIdsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
     private val connections = ConcurrentHashMap<String, WebSocketSession>()
 
@@ -27,8 +28,11 @@ class ConnectionRegistry {
         sessionId: String,
         gameId: String,
         playerId: String,
+        token: String,
     ) {
         playerSessions[sessionId] = PlayerSession(gameId, playerId)
+        reconnectTokens[playerId] = token
+
         connectionIdsByGameId
             .computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }
             .add(sessionId)
@@ -40,6 +44,11 @@ class ConnectionRegistry {
      * Retrieves the PlayerSession associated with a WebSocket session ID.
      */
     fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
+
+    fun isValidToken(
+        playerId: String,
+        token: String,
+    ): Boolean = reconnectTokens[playerId] == token
 
     fun connectionIdsFor(gameId: String): Set<String> =
         connectionIdsByGameId[gameId]?.toSet().orEmpty()
@@ -61,6 +70,8 @@ class ConnectionRegistry {
         connections.remove(sessionId)
 
         if (boundSession != null) {
+            reconnectTokens.remove(boundSession.playerId)
+
             connectionIdsByGameId[boundSession.gameId]?.remove(sessionId)
             if (connectionIdsByGameId[boundSession.gameId].isNullOrEmpty()) {
                 connectionIdsByGameId.remove(boundSession.gameId)

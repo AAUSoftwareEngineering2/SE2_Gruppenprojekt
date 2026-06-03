@@ -151,7 +151,12 @@ class GameRepositoryTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     GameCreatedPayload.serializer(),
-                    GameCreatedPayload(gameId = gameId, playerId = "me", state = state),
+                    GameCreatedPayload(
+                        gameId = gameId,
+                        playerId = "me",
+                        reconnectToken = "test-token",
+                        state = state,
+                    ),
                 ),
         )
 
@@ -363,7 +368,12 @@ class GameRepositoryTest {
                     payload =
                         WebSocketJson.json.encodeToJsonElement(
                             GameCreatedPayload.serializer(),
-                            GameCreatedPayload(gameId = "g1", playerId = "me", state = state),
+                            GameCreatedPayload(
+                                gameId = "g1",
+                                playerId = "me",
+                                reconnectToken = "test-token",
+                                state = state,
+                            ),
                         ),
                 )
 
@@ -392,6 +402,7 @@ class GameRepositoryTest {
                                 .serializer(),
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
                                 playerId = "player-7da6",
+                                reconnectToken = "test-token",
                                 state = state,
                             ),
                         ),

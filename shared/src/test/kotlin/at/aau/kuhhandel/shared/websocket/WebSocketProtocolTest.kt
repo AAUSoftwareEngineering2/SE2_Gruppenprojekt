@@ -77,6 +77,7 @@ class WebSocketProtocolTest {
             GameCreatedPayload(
                 gameId = "Id",
                 playerId = "P1",
+                reconnectToken = "token-1",
                 state = GameState(),
                 stateView = testGameStateView(),
             )
@@ -118,6 +119,7 @@ class WebSocketProtocolTest {
         val payload =
             GameJoinedPayload(
                 playerId = "player-1",
+                reconnectToken = "token-1",
                 state = GameState(),
                 stateView = testGameStateView(),
             )
@@ -137,6 +139,21 @@ class WebSocketProtocolTest {
 
         val encoded = json.encodeToString(ReconnectPayload.serializer(), payload)
         val decoded = json.decodeFromString(ReconnectPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `SnapshotPayload round-trips`() {
+        val payload =
+            SnapshotPayload(
+                reconnectToken = "token-1",
+                state = GameState(),
+                stateView = testGameStateView(),
+            )
+
+        val encoded = json.encodeToString(SnapshotPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SnapshotPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
     }

@@ -20,12 +20,13 @@ data class CreateGamePayload(
 data class GameCreatedPayload(
     val gameId: String,
     val playerId: String,
+    val reconnectToken: String,
     val state: GameState,
     val stateView: GameStateView? = null,
 )
 
 /**
- * Payload used by GAME_STATE_UPDATED and SNAPSHOT events
+ * Payload used by GAME_STATE_UPDATED events
  */
 @Serializable
 data class GameStatePayload(
@@ -48,6 +49,7 @@ data class JoinGamePayload(
 @Serializable
 data class GameJoinedPayload(
     val playerId: String,
+    val reconnectToken: String,
     val state: GameState,
     val stateView: GameStateView? = null,
 )
@@ -59,6 +61,16 @@ data class GameJoinedPayload(
 data class ReconnectPayload(
     val gameId: String,
     val playerId: String,
+)
+
+/**
+ * Payload used by SNAPSHOT events
+ */
+@Serializable
+data class SnapshotPayload(
+    val reconnectToken: String,
+    val state: GameState,
+    val stateView: GameStateView? = null,
 )
 
 /**

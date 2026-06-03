@@ -22,6 +22,7 @@ import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -181,7 +182,6 @@ class GameWebSocketHandlerTest {
             )
 
             verify(gameService).createGame("Player 1")
-            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
 
             val response = captureResponse(session1)
             assertEquals(WebSocketType.GAME_CREATED, response.type)
@@ -192,6 +192,12 @@ class GameWebSocketHandlerTest {
             assertEquals("game-1", payload.gameId)
             assertEquals(createdSession.state, payload.state)
             assertEquals(createdSession.state.createViewForPlayer("player-1"), payload.stateView)
+            verify(connectionRegistry).bindPlayerSession(
+                "session-1",
+                "game-1",
+                "player-1",
+                payload.reconnectToken,
+            )
         }
 
     @Test
@@ -209,7 +215,7 @@ class GameWebSocketHandlerTest {
 
         verifyNoInteractions(gameService)
         verify(connectionRegistry).playerSessionFor("session-1")
-        verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any())
+        verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any(), any())
 
         assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
     }
@@ -304,7 +310,6 @@ class GameWebSocketHandlerTest {
             )
 
             verify(gameService).joinGame("game-1", "Player 1")
-            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_JOINED, response1.type)
@@ -315,6 +320,12 @@ class GameWebSocketHandlerTest {
             assertEquals("player-1", payload1.playerId)
             assertEquals(state, payload1.state)
             assertEquals(state.createViewForPlayer("player-1"), payload1.stateView)
+            verify(connectionRegistry).bindPlayerSession(
+                "session-1",
+                "game-1",
+                "player-1",
+                payload1.reconnectToken,
+            )
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -542,16 +553,20 @@ class GameWebSocketHandlerTest {
                     ),
             )
 
-            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
-
             val response = captureResponse(session1)
             assertEquals(WebSocketType.SNAPSHOT, response.type)
             assertEquals("req-1", response.requestId)
 
-            val payload = decodePayload(response, GameStatePayload.serializer())
+            val payload = decodePayload(response, SnapshotPayload.serializer())
 
             assertEquals(returnedState, payload.state)
             assertEquals(returnedState.createViewForPlayer("player-1"), payload.stateView)
+            verify(connectionRegistry).bindPlayerSession(
+                "session-1",
+                "game-1",
+                "player-1",
+                payload.reconnectToken,
+            )
         }
 
     @Test
