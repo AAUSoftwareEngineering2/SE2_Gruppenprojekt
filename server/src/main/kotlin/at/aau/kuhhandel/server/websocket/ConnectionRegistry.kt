@@ -37,7 +37,7 @@ class ConnectionRegistry {
     fun connectionFor(sessionId: String): WebSocketSession? = connections[sessionId]
 
     /**
-     * Retrieves the UserSession associated with a WebSocket session ID.
+     * Retrieves the PlayerSession associated with a WebSocket session ID.
      */
     fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
 
