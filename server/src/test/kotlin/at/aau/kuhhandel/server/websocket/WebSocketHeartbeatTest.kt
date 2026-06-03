@@ -25,8 +25,8 @@ class WebSocketHeartbeatTest {
     fun `sendHeartbeats pings every open session`() {
         val session1 = openSession("session-1")
         val session2 = openSession("session-2")
-        registry.bindSession(session1)
-        registry.bindSession(session2)
+        registry.bindConnection(session1)
+        registry.bindConnection(session2)
 
         heartbeat.sendHeartbeats()
 
@@ -39,12 +39,12 @@ class WebSocketHeartbeatTest {
         val session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-closed")
         whenever(session.isOpen).thenReturn(false)
-        registry.bindSession(session)
+        registry.bindConnection(session)
 
         heartbeat.sendHeartbeats()
 
         verify(session, never()).sendMessage(any())
-        assert(registry.sessionFor(session.id) == null) {
+        assert(registry.connectionFor(session.id) == null) {
             "Closed session must be evicted from the registry"
         }
     }
@@ -54,11 +54,11 @@ class WebSocketHeartbeatTest {
         val session = openSession("session-broken")
         whenever(session.sendMessage(any(PingMessage::class.java)))
             .thenThrow(IOException("broken pipe"))
-        registry.bindSession(session)
+        registry.bindConnection(session)
 
         heartbeat.sendHeartbeats()
 
-        assert(registry.sessionFor(session.id) == null) {
+        assert(registry.connectionFor(session.id) == null) {
             "Session whose send throws must be evicted from the registry"
         }
     }

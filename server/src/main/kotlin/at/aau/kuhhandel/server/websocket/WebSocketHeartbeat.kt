@@ -28,7 +28,7 @@ class WebSocketHeartbeat(
 
     @Scheduled(fixedDelay = HEARTBEAT_INTERVAL_MS, initialDelay = HEARTBEAT_INTERVAL_MS)
     fun sendHeartbeats() {
-        connectionRegistry.allSessions().forEach { session ->
+        connectionRegistry.allConnections().forEach { session ->
             pingOrEvict(session)
         }
     }

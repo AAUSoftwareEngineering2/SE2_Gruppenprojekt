@@ -10,14 +10,14 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class ConnectionRegistry {
     private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
-    private val sessionsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
-    private val sessionBySessionId = ConcurrentHashMap<String, WebSocketSession>()
+    private val connectionIdsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
+    private val connections = ConcurrentHashMap<String, WebSocketSession>()
 
     /**
      * Registers a new raw network socket under its ID.
      */
-    fun bindSession(session: WebSocketSession) {
-        sessionBySessionId[session.id] = session
+    fun bindConnection(session: WebSocketSession) {
+        connections[session.id] = session
     }
 
     /**
@@ -29,38 +29,41 @@ class ConnectionRegistry {
         playerId: String,
     ) {
         playerSessions[sessionId] = PlayerSession(gameId, playerId)
-        sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(sessionId)
+        connectionIdsByGameId
+            .computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }
+            .add(sessionId)
     }
 
-    fun sessionFor(sessionId: String): WebSocketSession? = sessionBySessionId[sessionId]
+    fun connectionFor(sessionId: String): WebSocketSession? = connections[sessionId]
 
     /**
      * Retrieves the UserSession associated with a WebSocket session ID.
      */
     fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
 
-    fun sessionIdsFor(gameId: String): Set<String> = sessionsByGameId[gameId]?.toSet().orEmpty()
+    fun connectionIdsFor(gameId: String): Set<String> =
+        connectionIdsByGameId[gameId]?.toSet().orEmpty()
 
-    fun sessionsFor(gameId: String): Set<WebSocketSession> =
-        sessionIdsFor(gameId).mapNotNull { sessionBySessionId[it] }.toSet()
+    fun connectionsFor(gameId: String): Set<WebSocketSession> =
+        connectionIdsFor(gameId).mapNotNull { connections[it] }.toSet()
 
     /**
-     * Snapshot of every currently bound session. Used by WebSocketHeartbeat to ping every live
-     * connection without iterating per-game.
+     * Snapshot of every currently bound WebSocket session. Used by WebSocketHeartbeat to ping
+     * every live connection without iterating per-game.
      */
-    fun allSessions(): Collection<WebSocketSession> = sessionBySessionId.values.toList()
+    fun allConnections(): Collection<WebSocketSession> = connections.values.toList()
 
     /**
      * Unbinds a connection instance, removing all data associated with it.
      */
     fun unbind(sessionId: String) {
         val boundSession = playerSessions.remove(sessionId)
-        sessionBySessionId.remove(sessionId)
+        connections.remove(sessionId)
 
         if (boundSession != null) {
-            sessionsByGameId[boundSession.gameId]?.remove(sessionId)
-            if (sessionsByGameId[boundSession.gameId].isNullOrEmpty()) {
-                sessionsByGameId.remove(boundSession.gameId)
+            connectionIdsByGameId[boundSession.gameId]?.remove(sessionId)
+            if (connectionIdsByGameId[boundSession.gameId].isNullOrEmpty()) {
+                connectionIdsByGameId.remove(boundSession.gameId)
             }
         }
     }

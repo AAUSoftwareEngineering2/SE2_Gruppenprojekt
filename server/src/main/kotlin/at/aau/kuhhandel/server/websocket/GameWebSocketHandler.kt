@@ -95,7 +95,7 @@ class GameWebSocketHandler(
      * Registers a new network connection into the registry.
      */
     override fun afterConnectionEstablished(session: WebSocketSession) {
-        connectionRegistry.bindSession(session)
+        connectionRegistry.bindConnection(session)
     }
 
     /**
@@ -478,7 +478,7 @@ class GameWebSocketHandler(
         state: GameState,
         ignoredSession: WebSocketSession? = null,
     ) {
-        val sessions = connectionRegistry.sessionsFor(gameId)
+        val sessions = connectionRegistry.connectionsFor(gameId)
 
         sessions.forEach { session ->
             if (session == ignoredSession) return@forEach

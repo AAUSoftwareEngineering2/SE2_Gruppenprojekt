@@ -91,7 +91,7 @@ class GameWebSocketHandlerTest {
         )
 
         whenever(
-            connectionRegistry.sessionsFor("game-1"),
+            connectionRegistry.connectionsFor("game-1"),
         ).thenReturn(setOf(session1, session2))
     }
 
@@ -127,7 +127,7 @@ class GameWebSocketHandlerTest {
         val event = GameStateChangedEvent(gameId = "game-1", newState = gameState)
 
         whenever(session1.isOpen).thenReturn(false)
-        whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1))
+        whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf(session1))
 
         handler.handleGameStateChanged(event)
 
@@ -217,7 +217,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `START_GAME sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.startGame("game-1", "player-1")).thenReturn(gameState)
@@ -276,7 +281,12 @@ class GameWebSocketHandlerTest {
                 )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             whenever(
                 gameService.joinGame("game-1", "Player 1"),
@@ -365,7 +375,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState = baseState
 
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf(session2))
 
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
 
@@ -415,7 +425,7 @@ class GameWebSocketHandlerTest {
                     hostPlayerId = null,
                 )
 
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf())
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf())
 
             whenever(session1.isOpen).thenReturn(false)
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
@@ -443,7 +453,7 @@ class GameWebSocketHandlerTest {
                     "player-3",
                 ),
             )
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
                 setOf(
                     session1,
                     session2,
@@ -488,7 +498,7 @@ class GameWebSocketHandlerTest {
                     hostPlayerId = "player-2",
                 )
 
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf(session2))
 
             whenever(session2.isOpen).thenReturn(false)
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
@@ -590,7 +600,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `CHOOSE_AUCTION sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.AUCTION_BIDDING)
             whenever(gameService.chooseAuction("game-1", "player-1")).thenReturn(gameState)
@@ -661,7 +676,7 @@ class GameWebSocketHandlerTest {
     fun `afterConnectionEstablished binds session`() {
         handler.afterConnectionEstablished(session1)
 
-        verify(connectionRegistry).bindSession(session1)
+        verify(connectionRegistry).bindConnection(session1)
     }
 
     @Test
@@ -680,7 +695,7 @@ class GameWebSocketHandlerTest {
                     hostPlayerId = "player-2",
                 )
 
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf(session2))
 
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
 
@@ -700,7 +715,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `INITIATE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.TRADE_OFFER)
             whenever(
@@ -808,7 +828,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RESPOND_TO_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.TRADE_REVEAL)
             whenever(gameService.respondToTrade("game-1", "player-1", emptySet()))
@@ -901,7 +926,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `PLACE_BID sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.AUCTION_BIDDING)
             whenever(gameService.placeBid("game-1", "player-1", 100)).thenReturn(gameState)
@@ -986,7 +1016,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `AUCTION_BUY_BACK sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
@@ -1071,7 +1106,12 @@ class GameWebSocketHandlerTest {
     @Test
     fun `FINISH_TRADE_REVEAL sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.sessionsFor("game-1")).thenReturn(setOf(session1, session2))
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
             whenever(gameService.finishTradeReveal("game-1", "player-1")).thenReturn(gameState)

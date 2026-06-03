@@ -18,14 +18,14 @@ class ConnectionRegistryTest {
     }
 
     @Test
-    fun `bindSession stores mapping`() {
+    fun `bindConnection stores mapping`() {
         val sessionId = "session-1"
         val session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn(sessionId)
 
-        registry.bindSession(session)
+        registry.bindConnection(session)
 
-        assertEquals(session, registry.sessionFor(sessionId))
+        assertEquals(session, registry.connectionFor(sessionId))
     }
 
     @Test
@@ -49,11 +49,11 @@ class ConnectionRegistryTest {
         assertEquals(gameId, playerSession2.gameId)
         assertEquals(playerId2, playerSession2.playerId)
 
-        assertEquals(setOf(sessionId1, sessionId2), registry.sessionIdsFor(gameId))
+        assertEquals(setOf(sessionId1, sessionId2), registry.connectionIdsFor(gameId))
     }
 
     @Test
-    fun `sessionsFor returns all sessions for a specific game`() {
+    fun `connectionsFor returns all sessions for a specific game`() {
         val session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
         val session2 = mock(WebSocketSession::class.java)
@@ -67,56 +67,56 @@ class ConnectionRegistryTest {
         val playerId2 = "player-2"
         val playerId3 = "player-3"
 
-        registry.bindSession(session1)
+        registry.bindConnection(session1)
         registry.bindPlayerSession(session1.id, gameId1, playerId1)
-        registry.bindSession(session2)
+        registry.bindConnection(session2)
         registry.bindPlayerSession(session2.id, gameId1, playerId2)
-        registry.bindSession(session3)
+        registry.bindConnection(session3)
         registry.bindPlayerSession(session3.id, gameId2, playerId3)
 
-        val game1Sessions = registry.sessionsFor(gameId1)
+        val game1Sessions = registry.connectionsFor(gameId1)
         assertEquals(2, game1Sessions.size)
         assertEquals(setOf(session1, session2), game1Sessions.toSet())
 
-        val game2Sessions = registry.sessionsFor(gameId2)
+        val game2Sessions = registry.connectionsFor(gameId2)
         assertEquals(1, game2Sessions.size)
         assertEquals(setOf(session3), game2Sessions)
     }
 
     @Test
-    fun `sessionsFor returns empty list if no sessions for game`() {
-        val sessions = registry.sessionsFor("unknown")
+    fun `connectionsFor returns empty list if no sessions for game`() {
+        val sessions = registry.connectionsFor("unknown")
 
         assertEquals(0, sessions.size)
     }
 
     @Test
-    fun `allSessions returns snapshot of all bound sessions`() {
+    fun `allConnections returns snapshot of all bound sessions`() {
         val session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
         val session2 = mock(WebSocketSession::class.java)
         whenever(session2.id).thenReturn("session-2")
 
-        registry.bindSession(session1)
-        registry.bindSession(session2)
+        registry.bindConnection(session1)
+        registry.bindConnection(session2)
 
-        assertEquals(setOf(session1, session2), registry.allSessions().toSet())
+        assertEquals(setOf(session1, session2), registry.allConnections().toSet())
     }
 
     @Test
-    fun `allSessions returns empty when no sessions are bound`() {
-        assertEquals(emptyList<WebSocketSession>(), registry.allSessions().toList())
+    fun `allConnections returns empty when no sessions are bound`() {
+        assertEquals(emptyList<WebSocketSession>(), registry.allConnections().toList())
     }
 
     @Test
-    fun `allSessions reflects unbinds`() {
+    fun `allConnections reflects unbinds`() {
         val session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-1")
-        registry.bindSession(session)
+        registry.bindConnection(session)
 
         registry.unbind(session.id)
 
-        assertEquals(emptyList<WebSocketSession>(), registry.allSessions().toList())
+        assertEquals(emptyList<WebSocketSession>(), registry.allConnections().toList())
     }
 
     @Test
@@ -128,15 +128,15 @@ class ConnectionRegistryTest {
         whenever(session2.id).thenReturn("session-2")
         val playerId2 = "player-2"
         val gameId = "game-1"
-        registry.bindSession(session1)
+        registry.bindConnection(session1)
         registry.bindPlayerSession(session1.id, gameId, playerId1)
-        registry.bindSession(session2)
+        registry.bindConnection(session2)
         registry.bindPlayerSession(session2.id, gameId, playerId2)
 
         registry.unbind(session1.id)
 
         assertNull(registry.playerSessionFor(session1.id))
-        assertEquals(setOf(session2.id), registry.sessionIdsFor(gameId))
-        assertEquals(setOf(session2), registry.sessionsFor(gameId))
+        assertEquals(setOf(session2.id), registry.connectionIdsFor(gameId))
+        assertEquals(setOf(session2), registry.connectionsFor(gameId))
     }
 }
