@@ -135,7 +135,7 @@ class WebSocketProtocolTest {
 
     @Test
     fun `ReconnectPayload round-trips`() {
-        val payload = ReconnectPayload(gameId = "game-1", playerId = "player-1")
+        val payload = ReconnectPayload(gameId = "game-1", playerId = "player-1", token = "token-1")
 
         val encoded = json.encodeToString(ReconnectPayload.serializer(), payload)
         val decoded = json.decodeFromString(ReconnectPayload.serializer(), encoded)

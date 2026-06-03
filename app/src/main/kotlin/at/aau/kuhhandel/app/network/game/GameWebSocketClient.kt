@@ -200,12 +200,13 @@ class GameWebSocketClient(
     suspend fun reconnect(
         gameId: String,
         playerId: String,
+        token: String,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 ReconnectPayload.serializer(),
-                ReconnectPayload(gameId = gameId, playerId = playerId),
+                ReconnectPayload(gameId = gameId, playerId = playerId, token = token),
             )
         send(WebSocketEnvelope(WebSocketType.RECONNECT, requestId, payload))
         return requestId

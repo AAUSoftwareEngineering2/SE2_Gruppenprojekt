@@ -549,7 +549,7 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         ReconnectPayload.serializer(),
-                        ReconnectPayload("game-1", "player-1"),
+                        ReconnectPayload("game-1", "player-1", "token-1"),
                     ),
             )
 

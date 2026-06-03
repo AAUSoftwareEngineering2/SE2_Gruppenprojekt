@@ -359,7 +359,7 @@ class GameWebSocketClientTest {
     fun `reconnect sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
-            client.reconnect("g1", "p1")
+            client.reconnect("g1", "p1", "t1")
             assertEquals(WebSocketType.RECONNECT, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }

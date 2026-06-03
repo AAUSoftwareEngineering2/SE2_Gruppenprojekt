@@ -61,6 +61,7 @@ data class GameJoinedPayload(
 data class ReconnectPayload(
     val gameId: String,
     val playerId: String,
+    val token: String,
 )
 
 /**
