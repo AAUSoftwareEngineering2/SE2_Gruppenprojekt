@@ -217,7 +217,7 @@ class GameWebSocketHandlerTest {
         verify(connectionRegistry).playerSessionFor("session-1")
         verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any(), any())
 
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_ALREADY_BOUND.name)
     }
 
     @Test
@@ -271,7 +271,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -351,7 +351,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_ALREADY_BOUND.name)
     }
 
     @Test
@@ -424,7 +424,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -582,7 +582,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_ALREADY_BOUND.name)
     }
 
     @Test
@@ -663,7 +663,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -810,7 +810,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -908,7 +908,7 @@ class GameWebSocketHandlerTest {
         )
 
         verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -998,7 +998,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -1088,7 +1088,7 @@ class GameWebSocketHandlerTest {
                 ),
         )
 
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     @Test
@@ -1168,7 +1168,7 @@ class GameWebSocketHandlerTest {
             requestId = "req-1",
         )
 
-        assertErrorResponse(session1, "req-1", GameErrorReason.SESSION_NOT_BOUND_TO_GAME.name)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     private fun sendEnvelope(

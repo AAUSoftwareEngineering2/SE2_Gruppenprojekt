@@ -416,7 +416,7 @@ class GameWebSocketHandler(
      */
     private fun ensureNoBoundPlayerSession(sessionId: String) {
         if (connectionRegistry.playerSessionFor(sessionId) != null) {
-            throw GameException(GameErrorReason.SESSION_ALREADY_BOUND_TO_GAME)
+            throw GameException(GameErrorReason.CONNECTION_ALREADY_BOUND)
         }
     }
 
@@ -425,7 +425,7 @@ class GameWebSocketHandler(
      */
     private fun requireBoundPlayerSession(sessionId: String): PlayerSession =
         connectionRegistry.playerSessionFor(sessionId)
-            ?: throw GameException(GameErrorReason.SESSION_NOT_BOUND_TO_GAME)
+            ?: throw GameException(GameErrorReason.CONNECTION_NOT_BOUND)
 
     /**
      * Safely unmarshalls a raw network text frame into a structured message envelope.
