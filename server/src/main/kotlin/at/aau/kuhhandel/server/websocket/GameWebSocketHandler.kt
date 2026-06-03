@@ -281,6 +281,10 @@ class GameWebSocketHandler(
             throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
         }
 
+        if (!connectionRegistry.isValidToken(payload.playerId, payload.token)) {
+            throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
+        }
+
         val state = gameSession.state
 
         val newToken = generateReconnectToken()

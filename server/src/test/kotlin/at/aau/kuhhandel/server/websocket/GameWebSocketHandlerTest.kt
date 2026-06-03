@@ -541,6 +541,7 @@ class GameWebSocketHandlerTest {
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
             whenever(gameService.getGame("game-1")).thenReturn(gameSession)
+            whenever(connectionRegistry.isValidToken("player-1", "token-1")).thenReturn(true)
 
             sendEnvelope(
                 session = session1,
@@ -611,6 +612,40 @@ class GameWebSocketHandlerTest {
 
         assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
+
+    @Test
+    fun `RECONNECT with invalid reconnection token sends ERROR`() =
+        runTest(testDispatcher.scheduler) {
+            val returnedState =
+                GameState(
+                    players = listOf(Player("player-1", "Player 1")),
+                    hostPlayerId = "player-1",
+                )
+            val gameSession =
+                GameSession(
+                    gameId = "game-1",
+                    hostPlayerId = "player-1",
+                    hostPlayerName = "Player 1",
+                    initialState = returnedState,
+                )
+
+            whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
+            whenever(gameService.getGame("game-1")).thenReturn(gameSession)
+            whenever(connectionRegistry.isValidToken("player-1", "invalid-token")).thenReturn(false)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.RECONNECT,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        ReconnectPayload.serializer(),
+                        ReconnectPayload("game-1", "player-1", "invalid-token"),
+                    ),
+            )
+
+            assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_RECONNECTION_TOKEN.name)
+        }
 
     @Test
     fun `CHOOSE_AUCTION sends and broadcasts GAME_STATE_UPDATED`() =

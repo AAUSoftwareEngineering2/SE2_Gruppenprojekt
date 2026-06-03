@@ -18,6 +18,7 @@ enum class GameErrorReason {
     CONNECTION_NOT_BOUND,
     GAME_NOT_FOUND,
     PLAYER_NOT_IN_GAME,
+    INVALID_RECONNECTION_TOKEN,
 
     // Game flow
     INVALID_PHASE,
