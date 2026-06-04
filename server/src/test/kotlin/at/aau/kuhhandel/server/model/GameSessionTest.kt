@@ -477,7 +477,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `placeBid fails if actor does not have enough money`() {
+    fun `placeBid allows actor to bid more than available money as bluff`() {
         val initialAuction =
             AuctionState(
                 auctionCard = AnimalCard("cow-1", AnimalType.COW),
@@ -510,14 +510,16 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", poorPlayerState)
 
-        val exception =
-            assertThrows<GameException> {
-                session.placeBid(
-                    "player-2",
-                    amount = illegalBidAmount,
-                )
-            }
-        assertEquals(GameErrorReason.NOT_ENOUGH_MONEY, exception.reason)
+        val updatedState =
+            session.placeBid(
+                "player-2",
+                amount = illegalBidAmount,
+            )
+
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertEquals(illegalBidAmount, auction.highestBid)
+        assertEquals("player-2", auction.highestBidderId)
     }
 
     @Test
@@ -580,12 +582,88 @@ class GameSessionTest {
         val auctioneer = updatedState.players.find { it.id == "player-1" }!!
         assertTrue(auctioneer.animals.any { it.id == "cow-1" && it.type == AnimalType.COW })
 
-        // Assert: Auction state is cleared out completely
-        assertNull(updatedState.auctionState)
+        // Assert: Transitions to AUCTION_RESOLUTION phase
+        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
 
-        // Assert: Phase goes back to choice and turn advances to the next player
+        // Assert: The auction details remain, but the expiration timer is null
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertNull(auction.highestBidderId)
+        assertNull(auction.timerEndTime)
+    }
+
+    @Test
+    fun `closeAuctionAfterTimeout moves to resolution and awards card when no one bid`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val biddingState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+                auctionState =
+                    AuctionState(
+                        auctionCard = targetCard,
+                        auctioneerId = "player-1",
+                        highestBid = 0,
+                        highestBidderId = null,
+                    ),
+                players =
+                    listOf(
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2"),
+                        Player(id = "player-3", name = "Player 3"),
+                    ),
+            )
+        val session = GameSession.fromState("game-1", biddingState)
+
+        val updatedState = session.closeAuctionAfterTimeout()
+
+        // Assert: Transitions to AUCTION_RESOLUTION phase
+        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
+
+        // Assert: The auction details remain, but the expiration timer is null
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertNull(auction.highestBidderId)
+        assertNull(auction.timerEndTime)
+
+        // Assert: The card HAS been given to the auctioneer (player-1)
+        val auctioneer = updatedState.players.find { it.id == "player-1" }!!
+        assertEquals(1, auctioneer.animals.size)
+        assertEquals(targetCard, auctioneer.animals.first())
+    }
+
+    @Test
+    fun `resolveAuction advances turn in zero-bid case`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESOLUTION,
+                auctionState =
+                    AuctionState(
+                        auctionCard = targetCard,
+                        auctioneerId = "player-1",
+                        highestBid = 0,
+                        highestBidderId = null,
+                    ),
+                players =
+                    listOf(
+                        Player(
+                            id = "player-1",
+                            name = "Player 1",
+                            animals = listOf(targetCard),
+                        ),
+                        Player(id = "player-2", name = "Player 2"),
+                        Player(id = "player-3", name = "Player 3"),
+                    ),
+                currentPlayerIndex = 0,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        val updatedState = session.resolveAuction("player-1", true)
+
+        // Assert: Advances to next turn (PLAYER_CHOICE)
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
-        assertEquals(1, updatedState.currentPlayerIndex) // Shifted to Player 2
+        assertEquals(1, updatedState.currentPlayerIndex) // Next player's turn
+        assertNull(updatedState.auctionState)
         assertEquals(baselineState.roundNumber + 1, updatedState.roundNumber)
     }
 
@@ -827,6 +905,50 @@ class GameSessionTest {
                 session.resolveAuction("player-1", auctioneerBuysCard = true)
             }
         assertEquals(GameErrorReason.NOT_ENOUGH_MONEY, exception.reason)
+    }
+
+    @Test
+    fun `resolveAuction restarts auction and excludes bidder when winning bid was a bluff`() {
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val auctionState =
+            AuctionState(
+                auctionCard = targetCard,
+                auctioneerId = "player-1",
+                highestBid = 20,
+                highestBidderId = "player-2",
+            )
+        val bluffingBidderPlayers =
+            listOf(
+                Player(id = "player-1", name = "Player 1", moneyCards = emptyList()),
+                Player(
+                    id = "player-2",
+                    name = "Player 2",
+                    moneyCards = createDummyMoney("player-2", listOf(10)),
+                ),
+                Player(id = "player-3", name = "Player 3", moneyCards = emptyList()),
+            )
+        val resolutionState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESOLUTION,
+                auctionState = auctionState,
+                players = bluffingBidderPlayers,
+            )
+        val session = GameSession.fromState("game-1", resolutionState)
+
+        val updatedState = session.resolveAuction("player-1", auctioneerBuysCard = false)
+
+        assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
+        val restartedAuction = updatedState.auctionState
+        assertNotNull(restartedAuction)
+        assertEquals(targetCard, restartedAuction.auctionCard)
+        assertEquals(0, restartedAuction.highestBid)
+        assertNull(restartedAuction.highestBidderId)
+        assertTrue("player-2" in restartedAuction.excludedPlayerIds)
+        assertNotNull(restartedAuction.timerEndTime)
+
+        val event = updatedState.lastEvent
+        assertTrue(event is GameEvent.BluffDetected)
+        assertEquals("player-2", event.playerId)
     }
 
     @Test
@@ -1599,7 +1721,13 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", resolutionState)
 
         // Act: Close auction (no bids, auctioneer gets it)
-        val updatedState = session.closeAuctionAfterTimeout()
+        val intermediateState = session.closeAuctionAfterTimeout()
+
+        // Assert: Transitions to resolution first
+        assertEquals(GamePhase.AUCTION_RESOLUTION, intermediateState.phase)
+
+        // Act: Resolve auction
+        val updatedState = session.resolveAuction("player-1", true)
 
         // Assert: Game is finished
         assertEquals(GamePhase.FINISHED, updatedState.phase)

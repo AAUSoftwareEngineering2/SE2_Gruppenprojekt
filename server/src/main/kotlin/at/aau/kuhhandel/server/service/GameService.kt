@@ -262,6 +262,7 @@ class GameService(
         room.mutex.withLock {
             val state = room.session.resolveAuction(actorId, auctioneerBuysCard)
             persistSafely(room.session)
+            scheduleAuctionAutoClose(gameId)
             return state
         }
     }

@@ -300,6 +300,53 @@ class GameServiceTest {
         }
 
     @Test
+    fun test_resolveAuction_schedulesAutoClose_whenBluffRestartsAuction() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+            val restartedAuctionState =
+                AuctionState(
+                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
+                    auctioneerId = result.playerId,
+                    timerEndTime = 10000L,
+                    excludedPlayerIds = setOf("player-2"),
+                )
+            val restartedGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    auctionState = restartedAuctionState,
+                )
+            val closedGameState =
+                restartedGameState.copy(
+                    phase = GamePhase.AUCTION_RESOLUTION,
+                    auctionState = restartedAuctionState.copy(timerEndTime = null),
+                )
+
+            whenever(
+                gameSession.resolveAuction(
+                    result.playerId,
+                    auctioneerBuysCard = false,
+                ),
+            ).thenReturn(restartedGameState)
+            whenever(gameSession.state).thenReturn(restartedGameState)
+            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(closedGameState)
+
+            val state =
+                service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
+            advanceTimeBy(6000)
+
+            assertEquals(restartedGameState, state)
+            verify(gameSession).closeAuctionAfterTimeout()
+            verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
     fun test_resolveAuction_throws_forInvalidGameId() =
         runTest {
             assertThrows<IllegalStateException> {

@@ -64,7 +64,7 @@ class GameViewModelTest {
         runTest {
             val uiState = viewModel.uiState.value
             assertEquals(GamePhase.NOT_STARTED, uiState.currentPhase)
-            assertEquals("0 cards left", uiState.deckCountText)
+            assertEquals("0", uiState.deckCountText)
             assertEquals("No card revealed", uiState.activeCardLabel)
             assertFalse(uiState.isConnected)
         }
@@ -95,7 +95,7 @@ class GameViewModelTest {
 
             val uiState = viewModel.uiState.value
             assertEquals(GamePhase.PLAYER_CHOICE, uiState.currentPhase)
-            assertEquals("1 cards left", uiState.deckCountText)
+            assertEquals("1", uiState.deckCountText)
             assertEquals("PIG (#2)", uiState.activeCardLabel)
             assertTrue(uiState.isConnected)
             assertTrue(uiState.canRevealCard)

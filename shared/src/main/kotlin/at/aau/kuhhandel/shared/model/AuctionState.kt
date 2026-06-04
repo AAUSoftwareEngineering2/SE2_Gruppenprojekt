@@ -14,4 +14,6 @@ data class AuctionState(
     val highestBidderId: String? = null,
     // Epoch milliseconds when the auction timer expires
     val timerEndTime: Long? = null,
+    // IDs of players who bluffed and are excluded from bidding in this auction
+    val excludedPlayerIds: Set<String> = emptySet(),
 )
