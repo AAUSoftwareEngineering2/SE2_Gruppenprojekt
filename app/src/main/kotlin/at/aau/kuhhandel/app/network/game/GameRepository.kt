@@ -139,6 +139,7 @@ class GameRepository(
             eventsJob = null
             activeJob?.cancel()
             client.disconnect()
+            tokenStorage.clearSession()
             _state.value = GameRepositoryState()
         }
     }
@@ -425,8 +426,7 @@ class GameRepository(
             }
 
             WebSocketType.GAME_LEFT -> {
-                // If we receive a GAME_LEFT, we should disconnect and clear stored session data
-                tokenStorage.clearSession()
+                // If we receive a GAME_LEFT, we should disconnect
             }
 
             WebSocketType.ERROR -> {
