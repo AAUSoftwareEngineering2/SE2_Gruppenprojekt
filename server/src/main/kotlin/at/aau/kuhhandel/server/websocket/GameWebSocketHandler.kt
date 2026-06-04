@@ -247,6 +247,8 @@ class GameWebSocketHandler(
         gameId: String,
         playerId: String,
     ) {
+        connectionRegistry.unbind(sessionId)
+
         try {
             val state = gameService.leaveGame(gameId, playerId)
             broadcastStateUpdate(gameId, state)
@@ -257,8 +259,6 @@ class GameWebSocketHandler(
                 gameId,
                 e.message,
             )
-        } finally {
-            connectionRegistry.unbind(sessionId)
         }
     }
 
