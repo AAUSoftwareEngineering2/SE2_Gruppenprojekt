@@ -109,6 +109,13 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    configure<JacocoTaskExtension> {
+        // Enables coverage for dynamic runtime classes, specifically for Robolectric's sandbox
+        isIncludeNoLocationClasses = true
+        // Prevents JaCoCo from trying to modify JVM-internal classes
+        excludes = listOf("jdk.internal.*")
+    }
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
