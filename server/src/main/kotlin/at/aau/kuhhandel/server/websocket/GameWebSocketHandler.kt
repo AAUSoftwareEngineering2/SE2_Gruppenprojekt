@@ -109,12 +109,29 @@ class GameWebSocketHandler(
     ) {
         val playerSession = connectionRegistry.playerSessionFor(session.id)
 
+        connectionRegistry.unbind(session.id)
+
         if (playerSession != null) {
             handlerScope.launch {
-                performLeave(session.id, playerSession.gameId, playerSession.playerId)
+                try {
+                    val state = gameService.leaveGame(playerSession.gameId, playerSession.playerId)
+                    broadcastStateUpdate(playerSession.gameId, state)
+                } catch (e: GameException) {
+                    logger.info(
+                        "Player {} could not leave game {} on disconnect. Reason: {}",
+                        playerSession.playerId,
+                        playerSession.gameId,
+                        e.reason,
+                    )
+                } catch (e: Exception) {
+                    logger.error(
+                        "Unexpected system error when removing player {} from game {} on disconnect",
+                        playerSession.playerId,
+                        playerSession.gameId,
+                        e,
+                    )
+                }
             }
-        } else {
-            connectionRegistry.unbind(session.id)
         }
     }
 
@@ -228,6 +245,10 @@ class GameWebSocketHandler(
     ) {
         val (gameId, playerId) = requireBoundPlayerSession(session.id)
 
+        val state = gameService.leaveGame(gameId, playerId)
+
+        connectionRegistry.unbind(session.id)
+
         send(
             session,
             WebSocketEnvelope(
@@ -236,30 +257,7 @@ class GameWebSocketHandler(
             ),
         )
 
-        performLeave(session.id, gameId, playerId)
-    }
-
-    /**
-     * Executes the exit logic in the service and cleans up connection bindings.
-     */
-    private suspend fun performLeave(
-        sessionId: String,
-        gameId: String,
-        playerId: String,
-    ) {
-        connectionRegistry.unbind(sessionId)
-
-        try {
-            val state = gameService.leaveGame(gameId, playerId)
-            broadcastStateUpdate(gameId, state)
-        } catch (e: Exception) {
-            logger.info(
-                "Player {} could not leave game {} on disconnect: {}",
-                playerId,
-                gameId,
-                e.message,
-            )
-        }
+        broadcastStateUpdate(gameId, state)
     }
 
     /**
