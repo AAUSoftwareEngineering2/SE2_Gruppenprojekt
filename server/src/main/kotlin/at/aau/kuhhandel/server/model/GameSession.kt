@@ -177,14 +177,14 @@ class GameSession(
         actorId: String,
         amount: Int,
     ): GameState {
-        val actor = requireActorInRoom(actorId)
+        ensureActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_BIDDING)
         val auctionState =
             checkNotNull(state.auctionState) {
                 "Missing auction state in bidding phase"
             }
         ensureNotAuctioneer(auctionState, actorId)
-        ensureHasEnoughMoney(actor, amount)
+        ensureNotExcludedFromAuction(auctionState, actorId)
         ensureBidNotTooLow(auctionState, amount)
 
         state =
@@ -210,20 +210,20 @@ class GameSession(
                 "No auction state to close"
             }
 
-        // Edge case: no one placed a bid
+        // If no one placed a bid, the auctioneer gets the card for free.
+        // We still transition to AUCTION_RESOLUTION so players can see the result.
         if (auctionState.highestBidderId == null) {
             state =
                 state.copy(
+                    phase = GamePhase.AUCTION_RESOLUTION,
                     players =
                         addAnimalToPlayer(
                             state.players,
                             auctionState.auctioneerId,
                             auctionState.auctionCard,
                         ),
-                    auctionState = null,
-                    currentFaceUpCard = null,
+                    auctionState = auctionState.copy(timerEndTime = null),
                 )
-            state = advanceTurnAndCheckGameEnd()
 
             return state
         }
@@ -252,7 +252,18 @@ class GameSession(
             }
         ensureAuctioneer(auctionState, actorId)
 
-        // The zero-bid case was handled by closeAuctionAfterTimeout()
+        // The zero-bid case was awarded by closeAuctionAfterTimeout(); resolving only advances play.
+        if (auctionState.highestBidderId == null) {
+            state =
+                state.copy(
+                    auctionState = null,
+                    currentFaceUpCard = null,
+                )
+            state = advanceTurnAndCheckGameEnd()
+
+            return state
+        }
+
         val highestBidderId =
             checkNotNull(auctionState.highestBidderId) {
                 "Missing highest bidder in bidding resolution"
@@ -271,6 +282,28 @@ class GameSession(
             receiver = actor
             seller = highestBidder
         } else {
+            // Bluff Check: If the winner can't pay the auctioneer, they bluffed.
+            if (highestBidder.totalMoney() < auctionState.highestBid) {
+                state =
+                    state.copy(
+                        phase = GamePhase.AUCTION_BIDDING,
+                        auctionState =
+                            auctionState.copy(
+                                highestBid = 0,
+                                highestBidderId = null,
+                                timerEndTime = System.currentTimeMillis() + 5000,
+                                excludedPlayerIds =
+                                    auctionState.excludedPlayerIds + highestBidderId,
+                            ),
+                        lastEvent =
+                            GameEvent.BluffDetected(
+                                playerId = highestBidderId,
+                                playerName = highestBidder.name,
+                                message = "${highestBidder.name} bluffed! Auction restarts.",
+                            ),
+                    )
+                return state
+            }
             receiver = highestBidder
             seller = actor
         }
@@ -575,7 +608,16 @@ class GameSession(
         }
     }
 
-    // Temporary check for Sprint 2; will be replaced with another feature in Sprint 3
+    private fun ensureNotExcludedFromAuction(
+        auctionState: AuctionState,
+        playerId: String,
+    ) {
+        if (auctionState.excludedPlayerIds.contains(playerId)) {
+            throw GameException(GameErrorReason.EXCLUDED_FROM_AUCTION)
+        }
+    }
+
+    // The auctioneer may only buy back the card when they can actually pay the winning bid.
     private fun ensureHasEnoughMoney(
         player: Player,
         amount: Int,

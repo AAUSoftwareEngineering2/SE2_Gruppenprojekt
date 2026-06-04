@@ -1,0 +1,175 @@
+package at.aau.kuhhandel.app.ui.game
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.ui.components.AuctionControls
+import at.aau.kuhhandel.app.ui.components.AuctionView
+import at.aau.kuhhandel.app.ui.components.DeckView
+import at.aau.kuhhandel.app.ui.components.TradeView
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.PureWhite
+import at.aau.kuhhandel.shared.enums.GamePhase
+
+@Composable
+fun ChoicePhaseContent(
+    uiState: GameUiState,
+    onRevealCard: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        DeckView(
+            count = uiState.deckCountText,
+            onClick = onRevealCard,
+            canClick = uiState.isMyTurn,
+        )
+        val statusMessage =
+            if (uiState.isMyTurn) {
+                "YOUR TURN !"
+            } else {
+                "Waiting for ${uiState.activePlayerName}..."
+            }
+        GameStatusText(
+            text = statusMessage,
+            modifier = Modifier.padding(top = 16.dp),
+            color = DarkPurple,
+        )
+    }
+}
+
+@Composable
+fun AuctionPhaseContent(
+    uiState: GameUiState,
+    onPlaceBid: (Int) -> Unit,
+    onBuyBack: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val gameState = uiState.gameState
+    val auctionState = gameState?.auctionState
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.padding(top = 32.dp),
+    ) {
+        AuctionView(
+            auction = auctionState,
+            timerSeconds = uiState.auctionTimerSeconds,
+            players = gameState?.players ?: emptyList(),
+            myPlayerId = uiState.myPlayerId,
+            footerContent = {
+                if (!uiState.isAuctioneer &&
+                    (gameState?.phase == GamePhase.AUCTION_BIDDING)
+                ) {
+                    AuctionControls(
+                        onBid = onPlaceBid,
+                        currentBid = auctionState?.highestBid ?: 0,
+                        isExcluded =
+                            auctionState?.excludedPlayerIds?.contains(
+                                uiState.myPlayerId,
+                            ) == true,
+                    )
+                } else if (gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
+                    val highestBidderId = auctionState?.highestBidderId
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (uiState.isAuctioneer) {
+                            val statusText =
+                                if (highestBidderId == null) {
+                                    "Auction Closed. No one bid!"
+                                } else {
+                                    "Auction Closed. Choose your action:"
+                                }
+                            GameStatusText(
+                                text = statusText,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                                color = DarkPurple,
+                            )
+                            if (highestBidderId == null) {
+                                Button(onClick = { onBuyBack(true) }) {
+                                    Text("CONTINUE")
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
+                                    Button(onClick = { onBuyBack(false) }) {
+                                        Text("Let Winner Buy")
+                                    }
+                                }
+                            }
+                        } else {
+                            GameStatusText(
+                                text = "Waiting for player ${uiState.activePlayerName}...",
+                                color = DarkPurple,
+                            )
+                        }
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+fun TradePhaseContent(
+    uiState: GameUiState,
+    onRespondToTrade: () -> Unit,
+    onFinishTradeReveal: () -> Unit,
+) {
+    val trade = uiState.gameState?.tradeState
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        TradeView(
+            trade = trade,
+            onAccept = onRespondToTrade,
+            onCounter = onRespondToTrade,
+            myId = uiState.myPlayerId,
+        )
+
+        if (trade?.initiatorId == uiState.myPlayerId &&
+            (trade?.offeredMoneyCardIds?.size ?: 0) == 0
+        ) {
+            Button(
+                onClick = onRespondToTrade,
+                modifier = Modifier.padding(top = 8.dp),
+                enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
+            ) {
+                Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
+            }
+        }
+
+        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+            Button(
+                onClick = onFinishTradeReveal,
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                Text("CONTINUE")
+            }
+        }
+    }
+}
+
+@Composable
+fun GameStatusText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = PureWhite,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.headlineSmall,
+        color = color,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        modifier = modifier,
+    )
+}
