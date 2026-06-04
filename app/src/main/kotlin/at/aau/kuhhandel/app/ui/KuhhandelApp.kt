@@ -27,6 +27,7 @@ import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase
+import kotlinx.coroutines.launch
 
 /** Root Composable that defines the navigation graph and handles screen transitions. */
 @Composable
@@ -132,8 +133,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onStartGame = lobbyViewModel::startGame,
                     onDismissError = lobbyViewModel::clearError,
                     onBack = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
+                        scope.launch {
+                            repository.leaveGame()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        }
                     },
                 )
             }
