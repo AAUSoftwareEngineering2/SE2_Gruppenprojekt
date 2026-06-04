@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class ConnectionRegistry {
     private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
+
+    // TODO: Implement an eviction strategy to prune stale entries
     private val reconnectTokens = ConcurrentHashMap<String, String>()
     private val connectionIdsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
     private val connections = ConcurrentHashMap<String, WebSocketSession>()
@@ -70,8 +72,6 @@ class ConnectionRegistry {
         connections.remove(sessionId)
 
         if (boundSession != null) {
-            reconnectTokens.remove(boundSession.playerId)
-
             connectionIdsByGameId[boundSession.gameId]?.remove(sessionId)
             if (connectionIdsByGameId[boundSession.gameId].isNullOrEmpty()) {
                 connectionIdsByGameId.remove(boundSession.gameId)

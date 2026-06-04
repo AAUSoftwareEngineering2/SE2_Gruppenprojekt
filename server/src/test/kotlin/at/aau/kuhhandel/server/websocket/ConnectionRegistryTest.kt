@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.server.websocket
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -147,7 +146,6 @@ class ConnectionRegistryTest {
         registry.unbind(session1.id)
 
         assertNull(registry.playerSessionFor(session1.id))
-        assertFalse(registry.isValidToken(playerId1, token1))
         assertEquals(setOf(session2.id), registry.connectionIdsFor(gameId))
         assertEquals(setOf(session2), registry.connectionsFor(gameId))
     }
