@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,39 +52,91 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.Player
+import kotlinx.coroutines.delay
 
-private const val DEFAULT_AUCTION_TIMER_SECONDS = 5
+private const val DEFAULT_AUCTION_TIMER_MILLIS = 5000L
 private const val FULL_CIRCLE_DEGREES = 360f
 private const val CLOCK_START_ANGLE_DEGREES = -90f
-private const val TIMER_COUNTDOWN_ANIMATION_MS = 900
 private const val TIMER_RESET_ANIMATION_MS = 160
+private const val TIMER_TEXT_UPDATE_INTERVAL_MS = 100L
 
 @Composable
 fun PieTimer(
-    remainingSeconds: Int,
+    timerEndTimeMillis: Long,
     modifier: Modifier = Modifier,
-    totalSeconds: Int = DEFAULT_AUCTION_TIMER_SECONDS,
+    totalDurationMillis: Long = DEFAULT_AUCTION_TIMER_MILLIS,
     fillColor: Color = DefaultPurple,
     trackColor: Color = DarkPurple.copy(alpha = 0.12f),
     borderColor: Color = DarkPurple.copy(alpha = 0.22f),
     showRemainingSeconds: Boolean = true,
 ) {
-    val boundedTotalSeconds = totalSeconds.coerceAtLeast(1)
-    val boundedRemainingSeconds = remainingSeconds.coerceIn(0, boundedTotalSeconds)
-    val targetProgress = boundedRemainingSeconds.toFloat() / boundedTotalSeconds
-    val progress = remember { Animatable(targetProgress) }
+    val boundedTotalDurationMillis = totalDurationMillis.coerceAtLeast(1L)
+    val progress = remember { Animatable(1f) }
+    val displayedRemainingSeconds =
+        remember {
+            mutableIntStateOf(
+                remainingTimerSeconds(
+                    timerEndTimeMillis = timerEndTimeMillis,
+                    totalDurationMillis = boundedTotalDurationMillis,
+                ),
+            )
+        }
 
-    LaunchedEffect(targetProgress) {
-        val animationDuration =
-            if (targetProgress > progress.value) {
-                TIMER_RESET_ANIMATION_MS
-            } else {
-                TIMER_COUNTDOWN_ANIMATION_MS
-            }
-        progress.animateTo(
-            targetValue = targetProgress,
-            animationSpec = tween(durationMillis = animationDuration, easing = LinearEasing),
-        )
+    LaunchedEffect(timerEndTimeMillis, boundedTotalDurationMillis) {
+        val targetProgress =
+            timerProgress(
+                timerEndTimeMillis = timerEndTimeMillis,
+                totalDurationMillis = boundedTotalDurationMillis,
+            )
+        displayedRemainingSeconds.intValue =
+            remainingTimerSeconds(
+                timerEndTimeMillis = timerEndTimeMillis,
+                totalDurationMillis = boundedTotalDurationMillis,
+            )
+
+        if (targetProgress > progress.value) {
+            progress.animateTo(
+                targetValue = targetProgress,
+                animationSpec =
+                    tween(
+                        durationMillis = TIMER_RESET_ANIMATION_MS,
+                        easing = LinearEasing,
+                    ),
+            )
+        } else {
+            progress.snapTo(targetProgress)
+        }
+
+        val countdownMillis =
+            remainingTimerMillis(
+                timerEndTimeMillis = timerEndTimeMillis,
+                totalDurationMillis = boundedTotalDurationMillis,
+            )
+        if (countdownMillis > 0L) {
+            progress.animateTo(
+                targetValue = 0f,
+                animationSpec =
+                    tween(
+                        durationMillis = countdownMillis.toInt(),
+                        easing = LinearEasing,
+                    ),
+            )
+        } else {
+            progress.snapTo(0f)
+        }
+    }
+
+    LaunchedEffect(timerEndTimeMillis, boundedTotalDurationMillis) {
+        while (true) {
+            val remainingMillis =
+                remainingTimerMillis(
+                    timerEndTimeMillis = timerEndTimeMillis,
+                    totalDurationMillis = boundedTotalDurationMillis,
+                )
+            displayedRemainingSeconds.intValue = secondsFromRemainingMillis(remainingMillis)
+            if (remainingMillis <= 0L) break
+            delay(TIMER_TEXT_UPDATE_INTERVAL_MS)
+        }
     }
 
     Box(
@@ -91,7 +144,7 @@ fun PieTimer(
             modifier
                 .size(112.dp)
                 .semantics {
-                    contentDescription = "$boundedRemainingSeconds seconds remaining"
+                    contentDescription = "${displayedRemainingSeconds.intValue} seconds remaining"
                 },
         contentAlignment = Alignment.Center,
     ) {
@@ -115,7 +168,7 @@ fun PieTimer(
 
         if (showRemainingSeconds) {
             Text(
-                text = boundedRemainingSeconds.toString(),
+                text = displayedRemainingSeconds.intValue.toString(),
                 style = MaterialTheme.typography.headlineMedium.copy(fontSize = 34.sp),
                 fontWeight = FontWeight.Black,
                 color = PureWhite,
@@ -123,6 +176,36 @@ fun PieTimer(
         }
     }
 }
+
+private fun remainingTimerMillis(
+    timerEndTimeMillis: Long,
+    totalDurationMillis: Long,
+): Long =
+    (timerEndTimeMillis - System.currentTimeMillis())
+        .coerceIn(0L, totalDurationMillis)
+
+private fun timerProgress(
+    timerEndTimeMillis: Long,
+    totalDurationMillis: Long,
+): Float =
+    remainingTimerMillis(
+        timerEndTimeMillis = timerEndTimeMillis,
+        totalDurationMillis = totalDurationMillis,
+    ).toFloat() / totalDurationMillis
+
+private fun remainingTimerSeconds(
+    timerEndTimeMillis: Long,
+    totalDurationMillis: Long,
+): Int =
+    secondsFromRemainingMillis(
+        remainingTimerMillis(
+            timerEndTimeMillis = timerEndTimeMillis,
+            totalDurationMillis = totalDurationMillis,
+        ),
+    )
+
+private fun secondsFromRemainingMillis(remainingMillis: Long): Int =
+    ((remainingMillis + 999L) / 1000L).toInt()
 
 /** Displays the current auction details, including the animal card, timer, and current highest bid. */
 @Composable
@@ -167,9 +250,9 @@ fun AuctionView(
                 .border(4.dp, DarkPurple.copy(alpha = 0.18f), RoundedCornerShape(42.dp)),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            timerSeconds?.let { remainingSeconds ->
+            auction.timerEndTime?.let { timerEndTime ->
                 PieTimer(
-                    remainingSeconds = remainingSeconds,
+                    timerEndTimeMillis = timerEndTime,
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)
