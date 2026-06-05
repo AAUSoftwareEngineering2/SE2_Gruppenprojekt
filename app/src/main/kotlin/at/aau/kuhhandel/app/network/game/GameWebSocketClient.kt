@@ -253,7 +253,7 @@ class GameWebSocketClient(
                 AuctionBuyBackPayload.serializer(),
                 AuctionBuyBackPayload(buyBack = buyBack),
             )
-        send(WebSocketEnvelope(WebSocketType.AUCTION_BUY_BACK, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
         return requestId
     }
 
@@ -273,7 +273,7 @@ class GameWebSocketClient(
                     moneyCardIds = moneyCardIds,
                 ),
             )
-        send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.CHOOSE_TRADE, requestId, payload))
         return requestId
     }
 

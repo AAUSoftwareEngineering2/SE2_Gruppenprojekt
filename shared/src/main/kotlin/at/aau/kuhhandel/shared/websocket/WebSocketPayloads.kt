@@ -83,7 +83,7 @@ data class ErrorPayload(
 )
 
 /**
- * Payload used by [WebSocketType.INITIATE_TRADE] commands.
+ * Payload used by [WebSocketType.CHOOSE_TRADE] commands.
  * Sent by the active (initiating) player to start a trade challenge against another player.
  */
 @Serializable
@@ -112,7 +112,7 @@ data class PlaceBidPayload(
 )
 
 /**
- * Payload used by [WebSocketType.AUCTION_BUY_BACK] commands.
+ * Payload used by [WebSocketType.RESOLVE_AUCTION] commands.
  */
 @Serializable
 data class AuctionBuyBackPayload(

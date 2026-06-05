@@ -773,7 +773,7 @@ class GameWebSocketHandlerTest {
 
             sendEnvelope(
                 session = session1,
-                type = WebSocketType.INITIATE_TRADE,
+                type = WebSocketType.CHOOSE_TRADE,
                 requestId = "req-1",
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
@@ -819,7 +819,7 @@ class GameWebSocketHandlerTest {
 
         sendEnvelope(
             session = session1,
-            type = WebSocketType.INITIATE_TRADE,
+            type = WebSocketType.CHOOSE_TRADE,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
@@ -840,7 +840,7 @@ class GameWebSocketHandlerTest {
     fun `INITIATE_TRADE with missing payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.INITIATE_TRADE,
+            type = WebSocketType.CHOOSE_TRADE,
             requestId = "req-1",
         )
 
@@ -851,7 +851,7 @@ class GameWebSocketHandlerTest {
     fun `INITIATE_TRADE with invalid payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.INITIATE_TRADE,
+            type = WebSocketType.CHOOSE_TRADE,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
@@ -1066,7 +1066,7 @@ class GameWebSocketHandlerTest {
 
             sendEnvelope(
                 session = session1,
-                type = WebSocketType.AUCTION_BUY_BACK,
+                type = WebSocketType.RESOLVE_AUCTION,
                 requestId = "req-1",
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
@@ -1102,7 +1102,7 @@ class GameWebSocketHandlerTest {
 
         sendEnvelope(
             session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
+            type = WebSocketType.RESOLVE_AUCTION,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
@@ -1118,7 +1118,7 @@ class GameWebSocketHandlerTest {
     fun `AUCTION_BUY_BACK with missing payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
+            type = WebSocketType.RESOLVE_AUCTION,
             requestId = "req-1",
         )
 
@@ -1129,7 +1129,7 @@ class GameWebSocketHandlerTest {
     fun `AUCTION_BUY_BACK with invalid payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
+            type = WebSocketType.RESOLVE_AUCTION,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
@@ -1187,7 +1187,7 @@ class GameWebSocketHandlerTest {
 
         sendEnvelope(
             session = session1,
-            type = WebSocketType.AUCTION_BUY_BACK,
+            type = WebSocketType.RESOLVE_AUCTION,
             requestId = "req-1",
         )
 

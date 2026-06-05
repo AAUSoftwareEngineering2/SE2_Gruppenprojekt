@@ -11,10 +11,10 @@ enum class WebSocketType {
     LEAVE_GAME,
     CHOOSE_AUCTION,
     RECONNECT,
-    INITIATE_TRADE,
+    CHOOSE_TRADE,
     RESPOND_TO_TRADE,
     PLACE_BID,
-    AUCTION_BUY_BACK,
+    RESOLVE_AUCTION,
     FINISH_TRADE_REVEAL,
 
     // Server events

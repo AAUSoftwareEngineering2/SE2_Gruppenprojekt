@@ -76,10 +76,10 @@ class GameWebSocketHandler(
                     WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
                     WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
                     WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
-                    WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
+                    WebSocketType.CHOOSE_TRADE -> handleInitiateTrade(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
                     WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
-                    WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
+                    WebSocketType.RESOLVE_AUCTION -> handleAuctionBuyBack(session, envelope)
                     WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
                     WebSocketType.RECONNECT -> handleReconnect(session, envelope)
                     else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
@@ -314,7 +314,7 @@ class GameWebSocketHandler(
     }
 
     /**
-     * Processes [WebSocketType.INITIATE_TRADE] commands.
+     * Processes [WebSocketType.CHOOSE_TRADE] commands.
      */
     private suspend fun handleInitiateTrade(
         session: WebSocketSession,
@@ -374,7 +374,7 @@ class GameWebSocketHandler(
     }
 
     /**
-     * Processes [WebSocketType.AUCTION_BUY_BACK] commands.
+     * Processes [WebSocketType.RESOLVE_AUCTION] commands.
      */
     private suspend fun handleAuctionBuyBack(
         session: WebSocketSession,
