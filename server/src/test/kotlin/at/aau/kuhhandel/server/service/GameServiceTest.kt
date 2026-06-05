@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
-import org.mockito.kotlin.after
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.timeout
@@ -310,21 +309,26 @@ class GameServiceTest {
                 )
 
             val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
             val restartedAuctionState =
                 AuctionState(
                     auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
                     auctioneerId = result.playerId,
-                    timerEndTime = 10000L,
+                    timerEndTime = targetTimerEnd,
                     excludedPlayerIds = setOf("player-2"),
                 )
             val restartedGameState =
                 gameStateToReturn.copy(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
                     auctionState = restartedAuctionState,
                 )
             val closedGameState =
                 restartedGameState.copy(
                     phase = GamePhase.AUCTIONEER_DECISION,
+                    timerEnd = null,
                     auctionState = restartedAuctionState.copy(timerEndTime = null),
                 )
 
@@ -339,7 +343,9 @@ class GameServiceTest {
 
             val state =
                 service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
-            advanceTimeBy(6000)
+
+            // Advance past the 5000ms delay + 100ms safety pad
+            advanceTimeBy(5200)
 
             assertEquals(restartedGameState, state)
             verify(gameSession).closeAuctionAfterTimeout()
@@ -439,7 +445,7 @@ class GameServiceTest {
         }
 
     @Test
-    fun test_scheduleAuctionAutoClose_executesAndPublishesEvent() =
+    fun test_schedulePhaseTimeout_executesAndPublishesEvent() =
         runTest {
             service =
                 GameService(
@@ -449,22 +455,34 @@ class GameServiceTest {
                 )
 
             val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
             val auctionState =
                 AuctionState(
                     auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
                     auctioneerId = "player-1",
-                    timerEndTime = 10000L,
+                    timerEndTime = targetTimerEnd,
+                )
+            val activeGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                    auctionState = auctionState,
                 )
 
-            whenever(
-                gameSession.state,
-            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
-            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(gameStateToReturn)
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
+            whenever(gameSession.state).thenAnswer { activeGameState }
+            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(
+                gameStateToReturn.copy(
+                    timerEnd = null,
+                ),
+            )
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // The timer is set to 5 seconds. We need to wait for the coroutine.
-            advanceTimeBy(6000)
+            // Advance time to trigger the coroutine
+            advanceTimeBy(5200)
 
             // We verify that an event is published, and specifically one for the auto-close.
             verify(gameSession).closeAuctionAfterTimeout()
@@ -472,7 +490,7 @@ class GameServiceTest {
         }
 
     @Test
-    fun test_scheduleAuctionAutoClose_abortsIfTimerChanged() =
+    fun test_schedulePhaseTimeout_abortsIfTimerChanged() =
         runTest {
             service =
                 GameService(
@@ -480,40 +498,53 @@ class GameServiceTest {
                     gameSessionFactory = { _, _, _ -> gameSession },
                     serviceScope = backgroundScope,
                 )
+
+            val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val initialTimerEnd = now + 5000L
+            val updatedTimerEnd = now + 10000L
 
             val auctionState1 =
                 AuctionState(
                     auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
                     auctioneerId = "player-1",
-                    timerEndTime = 10000L,
+                    timerEndTime = initialTimerEnd,
                 )
-            val auctionState2 = auctionState1.copy(timerEndTime = 28125L)
+            val state1 =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = initialTimerEnd,
+                    auctionState = auctionState1,
+                )
 
-            val result = service.createGame("Player 1")
-            whenever(
-                gameSession.state,
-            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState1))
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(state1)
+
+            // Use a mutable variable to simulate the state changing mid-flight
+            var currentMockedState = state1
+            whenever(gameSession.state).thenAnswer { currentMockedState }
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Simulate a bid halfway through
-            advanceTimeBy(3000)
-            whenever(
-                gameSession.state,
-            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState2))
-
-            // Wait for the first scheduleAutoClose to finish
+            // Simulate a new bid coming in halfway through the countdown (at 3 seconds)
             advanceTimeBy(3000)
 
-            // The auction should NOT be closed by the FIRST scheduleAutoClose
-            // because the timerEndTime changed.
-            // Note: the SECOND scheduleAutoClose (from placeBid) might still be running.
+            val auctionState2 = auctionState1.copy(timerEndTime = updatedTimerEnd)
+            currentMockedState =
+                state1.copy(
+                    timerEnd = updatedTimerEnd, // The timer has changed
+                    auctionState = auctionState2,
+                )
+
+            // Pass the remaining 2200ms of the first timer
+            advanceTimeBy(2200)
+
+            // The first timeout job should skip execution because the timer end updated
             verify(gameSession, never()).closeAuctionAfterTimeout()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 
     @Test
-    fun test_scheduleAuctionAutoClose_abortsIfAuctionAlreadyClosed() =
+    fun test_schedulePhaseTimeout_abortsIfAuctionAlreadyClosed() =
         runTest {
             service =
                 GameService(
@@ -523,31 +554,46 @@ class GameServiceTest {
                 )
 
             val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
             val auctionState =
                 AuctionState(
                     auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
                     auctioneerId = "player-1",
-                    timerEndTime = 10000L,
+                    timerEndTime = targetTimerEnd,
+                )
+            val activeGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                    auctionState = auctionState,
                 )
 
-            whenever(
-                gameSession.state,
-            ).thenReturn(gameStateToReturn.copy(auctionState = auctionState))
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
+
+            var currentMockedState = activeGameState
+            whenever(gameSession.state).thenAnswer { currentMockedState }
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Simulate auction closing
-            whenever(gameSession.state).thenReturn(gameStateToReturn)
+            // Simulate closing the auction early
+            currentMockedState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTIONEER_DECISION,
+                    timerEnd = null, // The timer was cleared
+                    auctionState = null,
+                )
 
-            advanceTimeBy(6000)
-            // Should not have published more events from scheduleAutoClose if it checks isClosed
-            // No NEW events after the auction is closed
+            advanceTimeBy(5200)
+
+            // The background timer should abort since the timer end is now null
             verify(gameSession, never()).closeAuctionAfterTimeout()
-            verify(eventPublisher, after(1000).never()).publishEvent(any<GameStateChangedEvent>())
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 
     @Test
-    fun test_scheduleAuctionAutoClose_returnsEarlyIfSessionRemoved() =
+    fun test_schedulePhaseTimeout_returnsEarlyIfSessionRemoved() =
         runTest {
             service =
                 GameService(
@@ -557,14 +603,25 @@ class GameServiceTest {
                 )
 
             val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
+            val activeGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                )
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
+            whenever(gameSession.state).thenReturn(activeGameState)
 
             service.chooseAuction(result.gameId, result.playerId)
 
+            // Remove the game from memory mid-flight
             service.removeGame(result.gameId)
 
-            advanceTimeBy(6000)
-            verify(gameSession, never()).closeAuctionAfterTimeout()
+            advanceTimeBy(5200)
 
+            verify(gameSession, never()).closeAuctionAfterTimeout()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 }

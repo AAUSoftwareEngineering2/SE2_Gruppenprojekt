@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -75,8 +76,8 @@ class GameService(
         rooms[gameId] = SyncGameRoom(session)
         // Restart the auction watcher when reviving an in-flight auction from disk — the
         // in-memory coroutine that originally guarded it is gone with the previous server life.
-        if (loadedState.auctionState != null) {
-            scheduleAuctionAutoClose(gameId)
+        if (loadedState.timerEnd != null) {
+            schedulePhaseTimeout(gameId)
         }
         return session
     }
@@ -86,14 +87,15 @@ class GameService(
      * reload it via [getGame]. Use [purgeGame] to wipe persistence as well.
      */
     fun removeGame(gameId: String) {
-        rooms.remove(gameId)
+        val room = rooms.remove(gameId)
+        room?.timerJob?.cancel()
     }
 
     /**
      * Removes both the in-memory session and the persisted snapshot for [gameId].
      */
     fun purgeGame(gameId: String) {
-        rooms.remove(gameId)
+        removeGame(gameId)
         runCatching { persistenceService?.deleteGame(gameId) }
             .onFailure { logger.warn("Failed to purge persisted game $gameId", it) }
     }
@@ -151,8 +153,11 @@ class GameService(
 
         room.mutex.withLock {
             val updatedState = room.session.removePlayer(playerId)
-            if (updatedState.players.isEmpty()) rooms.remove(gameId)
-            persistSafely(room.session)
+            if (updatedState.players.isEmpty()) {
+                purgeGame(gameId)
+            } else {
+                persistSafely(room.session)
+            }
             return updatedState
         }
     }
@@ -196,7 +201,7 @@ class GameService(
         room.mutex.withLock {
             val state = room.session.chooseAuction(actorId)
             persistSafely(room.session)
-            scheduleAuctionAutoClose(gameId)
+            schedulePhaseTimeout(gameId)
             return state
         }
     }
@@ -216,34 +221,8 @@ class GameService(
         room.mutex.withLock {
             val state = room.session.placeBid(actorId, amount)
             persistSafely(room.session)
-            scheduleAuctionAutoClose(gameId)
+            schedulePhaseTimeout(gameId)
             return state
-        }
-    }
-
-    /**
-     * Launches a background coroutine that ends the auction if the bid deadline passes.
-     */
-    private fun scheduleAuctionAutoClose(gameId: String) {
-        val room = rooms[gameId] ?: return
-        val endTime =
-            room.session.state.auctionState
-                ?.timerEndTime ?: return
-
-        serviceScope.launch {
-            delay(5100) // Wait slightly longer than the timer to be safe
-            val currentRoom = rooms[gameId] ?: return@launch
-
-            currentRoom.mutex.withLock {
-                // If the timerEndTime is still the same, it means no new bid happened
-                if (currentRoom.session.state.auctionState
-                        ?.timerEndTime == endTime
-                ) {
-                    val updatedState = currentRoom.session.closeAuctionAfterTimeout()
-                    persistSafely(currentRoom.session)
-                    eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
-                }
-            }
         }
     }
 
@@ -262,7 +241,7 @@ class GameService(
         room.mutex.withLock {
             val state = room.session.resolveAuction(actorId, auctioneerBuysCard)
             persistSafely(room.session)
-            scheduleAuctionAutoClose(gameId)
+            schedulePhaseTimeout(gameId)
             return state
         }
     }
@@ -337,6 +316,47 @@ class GameService(
     }
 
     /**
+     * Schedules a background check to automatically advance
+     * the game state when the current phase's timer expires.
+     */
+    private fun schedulePhaseTimeout(gameId: String) {
+        val room = rooms[gameId] ?: return
+        val timerEnd = room.session.state.timerEnd ?: return
+
+        // Defensively cancel the previous timer coroutine job for this room to prevent leaks
+        room.timerJob?.cancel()
+
+        // Launch a fresh job tracking the current timeout window
+        room.timerJob =
+            serviceScope.launch {
+                val now = System.currentTimeMillis()
+                val delayDuration = timerEnd - now
+
+                // Wait out the timer duration, plus a 100ms safety pad to avoid clock race conditions
+                if (delayDuration > 0) {
+                    delay(delayDuration + 100)
+                }
+
+                // Acquire the game session's mutex lock to safely advance the game
+                room.mutex.withLock {
+                    // Confirm the state has not been changed or updated while this routine was waiting
+                    if (room.session.state.timerEnd == timerEnd) {
+                        val updatedState = room.session.closeAuctionAfterTimeout()
+
+                        persistSafely(room.session)
+
+                        eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
+
+                        // If the next state also sets a timeout, recursively spin up the next handler
+                        if (updatedState.timerEnd != null) {
+                            schedulePhaseTimeout(gameId)
+                        }
+                    }
+                }
+            }
+    }
+
+    /**
      * Best-effort persistence — failures are logged but never propagated so that in-memory game
      * play continues to work if the database is briefly unavailable.
      */
@@ -380,9 +400,11 @@ class GameService(
 }
 
 /**
- * Wrapper coupling a running [GameSession] with its atomic execution [Mutex].
+ * Wrapper coupling a running [GameSession] with its atomic
+ * execution [Mutex] and background timeout task.
  */
 private class SyncGameRoom(
     val session: GameSession,
     val mutex: Mutex = Mutex(),
+    var timerJob: Job? = null,
 )

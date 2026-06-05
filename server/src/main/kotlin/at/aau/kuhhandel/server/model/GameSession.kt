@@ -150,9 +150,12 @@ class GameSession(
             }
         }
 
+        val calculatedTimeout = System.currentTimeMillis() + 5000
+
         state =
             state.copy(
                 phase = GamePhase.AUCTION_BIDDING,
+                timerEnd = calculatedTimeout,
                 deck = updatedDeck,
                 currentFaceUpCard = card,
                 players = updatedPlayers,
@@ -163,7 +166,7 @@ class GameSession(
                         auctioneerId = actorId,
                         highestBid = 0,
                         highestBidderId = null,
-                        timerEndTime = System.currentTimeMillis() + 5000,
+                        timerEndTime = calculatedTimeout,
                     ),
             )
 
@@ -187,14 +190,17 @@ class GameSession(
         ensureNotExcludedFromAuction(auctionState, actorId)
         ensureBidNotTooLow(auctionState, amount)
 
+        val calculatedTimeout = System.currentTimeMillis() + 5000
+
         state =
             state.copy(
+                timerEnd = calculatedTimeout,
                 lastEvent = null,
                 auctionState =
                     auctionState.copy(
                         highestBid = amount,
                         highestBidderId = actorId,
-                        timerEndTime = System.currentTimeMillis() + 5000,
+                        timerEndTime = calculatedTimeout,
                     ),
             )
 
@@ -216,6 +222,7 @@ class GameSession(
             state =
                 state.copy(
                     phase = GamePhase.AUCTIONEER_DECISION,
+                    timerEnd = null,
                     players =
                         addAnimalToPlayer(
                             state.players,
@@ -231,6 +238,7 @@ class GameSession(
         state =
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
+                timerEnd = null,
                 auctionState = auctionState.copy(timerEndTime = null),
             )
 
