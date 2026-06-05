@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GameState(
     val phase: GamePhase = GamePhase.NOT_STARTED,
+    val timerEnd: Long? = null,
     val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
@@ -68,6 +69,7 @@ data class GameState(
 
         return GameStateView(
             phase = this.phase,
+            timerEnd = this.timerEnd,
             localPlayer = localPlayer,
             opponents = opponents,
             hostPlayerId = checkNotNull(this.hostPlayerId) { "Game state has no host" },
@@ -105,6 +107,7 @@ data class GameState(
         ): GameState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
+                timerEnd = null,
                 roundNumber = 0,
                 deck = AnimalDeck(),
                 currentFaceUpCard = null,

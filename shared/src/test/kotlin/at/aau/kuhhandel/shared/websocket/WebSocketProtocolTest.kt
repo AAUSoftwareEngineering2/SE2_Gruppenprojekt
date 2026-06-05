@@ -270,6 +270,7 @@ class WebSocketProtocolTest {
     private fun testGameStateView() =
         GameStateView(
             phase = GamePhase.NOT_STARTED,
+            timerEnd = null,
             localPlayer = Player("player-1", "Player 1"),
             opponents = emptyList(),
             hostPlayerId = "player-1",
