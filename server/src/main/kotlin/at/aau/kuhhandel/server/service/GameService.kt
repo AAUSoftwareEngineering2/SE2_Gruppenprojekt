@@ -298,24 +298,6 @@ class GameService(
     }
 
     /**
-     * Concludes the temporary card visibility sequence, finishing a trade
-     *
-     * Expects a valid [gameId].
-     */
-    suspend fun finishTradeReveal(
-        gameId: String,
-        actorId: String,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state = room.session.endTradeReveal()
-            persistSafely(room.session)
-            return state
-        }
-    }
-
-    /**
      * Schedules a background check to automatically advance
      * the game state when the current phase's timer expires.
      */

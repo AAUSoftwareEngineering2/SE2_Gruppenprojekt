@@ -1141,59 +1141,6 @@ class GameWebSocketHandlerTest {
         assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
 
-    @Test
-    fun `FINISH_TRADE_REVEAL sends and broadcasts GAME_STATE_UPDATED`() =
-        runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
-                setOf(
-                    session1,
-                    session2,
-                ),
-            )
-
-            val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
-            whenever(gameService.finishTradeReveal("game-1", "player-1")).thenReturn(gameState)
-
-            sendEnvelope(
-                session = session1,
-                type = WebSocketType.FINISH_TRADE_REVEAL,
-                requestId = "req-1",
-            )
-
-            verify(gameService).finishTradeReveal("game-1", "player-1")
-
-            val response1 = captureResponse(session1)
-            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
-            assertEquals("req-1", response1.requestId)
-
-            val payload1 = decodePayload(response1, GameStatePayload.serializer())
-
-            assertEquals(gameState, payload1.state)
-            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
-
-            val response2 = captureResponse(session2)
-            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
-            assertNull(response2.requestId)
-
-            val payload2 = decodePayload(response2, GameStatePayload.serializer())
-
-            assertEquals(gameState, payload2.state)
-            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
-        }
-
-    @Test
-    fun `FINISH_TRADE_REVEAL with no bound player session sends ERROR`() {
-        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.RESOLVE_AUCTION,
-            requestId = "req-1",
-        )
-
-        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
-    }
-
     private fun sendEnvelope(
         session: WebSocketSession,
         type: WebSocketType,

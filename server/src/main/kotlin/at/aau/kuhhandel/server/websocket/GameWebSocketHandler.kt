@@ -80,7 +80,6 @@ class GameWebSocketHandler(
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
                     WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
                     WebSocketType.RESOLVE_AUCTION -> handleAuctionBuyBack(session, envelope)
-                    WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
                     WebSocketType.RECONNECT -> handleReconnect(session, envelope)
                     else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
                 }
@@ -384,21 +383,6 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
-
-        sendStateUpdate(session, envelope.requestId, state, actorId)
-        broadcastStateUpdate(gameId, state, session)
-    }
-
-    /**
-     * Processes [WebSocketType.FINISH_TRADE_REVEAL] commands.
-     */
-    private suspend fun handleFinishTradeReveal(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val (gameId, actorId) = requireBoundPlayerSession(session.id)
-
-        val state = gameService.finishTradeReveal(gameId, actorId)
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
