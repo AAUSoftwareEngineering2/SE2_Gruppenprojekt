@@ -1,9 +1,11 @@
 package at.aau.kuhhandel.app.network.game
 
+import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
+import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -35,6 +37,7 @@ data class GameRepositoryState(
 class GameRepository(
     private val client: GameWebSocketClient,
     private val scope: CoroutineScope,
+    private val tokenStorage: TokenStorage,
 ) {
     private companion object {
         const val CONNECTION_FAILED = "Connection failed"
@@ -136,6 +139,7 @@ class GameRepository(
             eventsJob = null
             activeJob?.cancel()
             client.disconnect()
+            tokenStorage.clearSession()
             _state.value = GameRepositoryState()
         }
     }
@@ -155,12 +159,14 @@ class GameRepository(
         val currentState = _state.value
         val gameId = currentState.gameId
         val playerId = currentState.myPlayerId
-        if (gameId != null && playerId != null) {
+        val token = tokenStorage.getReconnectToken()
+
+        if (gameId != null && playerId != null && token != null) {
             scope.launch {
                 try {
                     // We reconnect with the same gameId and playerId.
                     // The server will recognize us if we provide identification.
-                    client.reconnect(gameId, playerId)
+                    client.reconnect(gameId, playerId, token)
                 } catch (e: Exception) {
                     // Silently fail reconnect, the user might see a connection error anyway
                 }
@@ -312,6 +318,11 @@ class GameRepository(
                     }.getOrNull()
 
                 if (created != null) {
+                    tokenStorage.saveSession(
+                        created.gameId,
+                        created.playerId,
+                        created.reconnectToken,
+                    )
                     _state.update {
                         it.copy(
                             gameId = created.gameId,
@@ -334,6 +345,13 @@ class GameRepository(
                     }.getOrNull()
 
                 if (joined != null) {
+                    // The repository should already have the game ID
+                    val resolvedGameId = _state.value.gameId ?: ""
+                    tokenStorage.saveSession(
+                        resolvedGameId,
+                        joined.playerId,
+                        joined.reconnectToken,
+                    )
                     _state.update {
                         it.copy(
                             myPlayerId = it.myPlayerId ?: joined.playerId,
@@ -373,9 +391,7 @@ class GameRepository(
                 }
             }
 
-            WebSocketType.GAME_STATE_UPDATED,
-            WebSocketType.SNAPSHOT,
-            -> {
+            WebSocketType.GAME_STATE_UPDATED -> {
                 val payload =
                     decodePayload(
                         envelope = envelope,
@@ -391,9 +407,26 @@ class GameRepository(
                 }
             }
 
+            WebSocketType.SNAPSHOT -> {
+                val payload =
+                    decodePayload(
+                        envelope = envelope,
+                        serializer = SnapshotPayload.serializer(),
+                        invalidMessage = "Invalid SNAPSHOT message",
+                    ) ?: return
+
+                tokenStorage.saveReconnectToken(payload.reconnectToken)
+
+                _state.update {
+                    it.copy(
+                        gameState = payload.state,
+                        errorMessage = null,
+                    )
+                }
+            }
+
             WebSocketType.GAME_LEFT -> {
-                // If we receive a GAME_LEFT and it's our own ID, we should disconnect
-                // If it's someone else, the GAME_STATE_UPDATED (snapshot) usually follows
+                // If we receive a GAME_LEFT, we should disconnect
             }
 
             WebSocketType.ERROR -> {

@@ -7,11 +7,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
+import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
@@ -25,17 +27,21 @@ import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase
+import kotlinx.coroutines.launch
 
 /** Root Composable that defines the navigation graph and handles screen transitions. */
 @Composable
 fun KuhhandelApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val tokenStorage = remember(context) { TokenStorage(context) }
     val repository =
         remember(scope) {
             GameRepository(
                 client = GameWebSocketClient(),
                 scope = scope,
+                tokenStorage = tokenStorage,
             )
         }
 
@@ -127,8 +133,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onStartGame = lobbyViewModel::startGame,
                     onDismissError = lobbyViewModel::clearError,
                     onBack = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
+                        scope.launch {
+                            repository.leaveGame()
+                            navController.popBackStack(Screen.Main, inclusive = false)
+                        }
                     },
                 )
             }

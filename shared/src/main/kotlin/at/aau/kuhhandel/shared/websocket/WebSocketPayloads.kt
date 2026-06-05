@@ -6,7 +6,7 @@ import at.aau.kuhhandel.shared.model.GameStateView
 import kotlinx.serialization.Serializable
 
 /**
- * Payload used by CREATE_GAME commands
+ * Payload used by [WebSocketType.CREATE_GAME] commands
  */
 @Serializable
 data class CreateGamePayload(
@@ -14,18 +14,19 @@ data class CreateGamePayload(
 )
 
 /**
- * Payload used by GAME_CREATED events
+ * Payload used by [WebSocketType.GAME_CREATED] events
  */
 @Serializable
 data class GameCreatedPayload(
     val gameId: String,
     val playerId: String,
+    val reconnectToken: String,
     val state: GameState,
     val stateView: GameStateView? = null,
 )
 
 /**
- * Payload used by GAME_STATE_UPDATED and SNAPSHOT events
+ * Payload used by [WebSocketType.GAME_STATE_UPDATED] events
  */
 @Serializable
 data class GameStatePayload(
@@ -34,7 +35,7 @@ data class GameStatePayload(
 )
 
 /**
- * Payload used by JOIN_GAME commands
+ * Payload used by [WebSocketType.JOIN_GAME] commands
  */
 @Serializable
 data class JoinGamePayload(
@@ -43,26 +44,38 @@ data class JoinGamePayload(
 )
 
 /**
- * Payload used by GAME_JOINED events
+ * Payload used by [WebSocketType.GAME_JOINED] events
  */
 @Serializable
 data class GameJoinedPayload(
     val playerId: String,
+    val reconnectToken: String,
     val state: GameState,
     val stateView: GameStateView? = null,
 )
 
 /**
- * Payload used by RECONNECT commands
+ * Payload used by [WebSocketType.RECONNECT] commands
  */
 @Serializable
 data class ReconnectPayload(
     val gameId: String,
     val playerId: String,
+    val token: String,
 )
 
 /**
- * Payload used by ERROR events
+ * Payload used by [WebSocketType.SNAPSHOT] events
+ */
+@Serializable
+data class SnapshotPayload(
+    val reconnectToken: String,
+    val state: GameState,
+    val stateView: GameStateView? = null,
+)
+
+/**
+ * Payload used by [WebSocketType.ERROR] events
  */
 @Serializable
 data class ErrorPayload(
@@ -70,7 +83,7 @@ data class ErrorPayload(
 )
 
 /**
- * Payload used by INITIATE_TRADE commands.
+ * Payload used by [WebSocketType.INITIATE_TRADE] commands.
  * Sent by the active (initiating) player to start a trade challenge against another player.
  */
 @Serializable
@@ -81,7 +94,7 @@ data class InitiateTradePayload(
 )
 
 /**
- * Payload used by RESPOND_TO_TRADE commands.
+ * Payload used by [WebSocketType.RESPOND_TO_TRADE] commands.
  * Sent by the challenged player to accept or reject the pending trade offer.
  */
 @Serializable
@@ -91,7 +104,7 @@ data class RespondToTradePayload(
 )
 
 /**
- * Payload used by PLACE_BID commands.
+ * Payload used by [WebSocketType.PLACE_BID] commands.
  */
 @Serializable
 data class PlaceBidPayload(
@@ -99,7 +112,7 @@ data class PlaceBidPayload(
 )
 
 /**
- * Payload used by AUCTION_BUY_BACK commands.
+ * Payload used by [WebSocketType.AUCTION_BUY_BACK] commands.
  */
 @Serializable
 data class AuctionBuyBackPayload(

@@ -99,6 +99,7 @@ dependencies {
 
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -108,6 +109,13 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    configure<JacocoTaskExtension> {
+        // Enables coverage for dynamic runtime classes, specifically for Robolectric's sandbox
+        isIncludeNoLocationClasses = true
+        // Prevents JaCoCo from trying to modify JVM-internal classes
+        excludes = listOf("jdk.internal.*")
+    }
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {
