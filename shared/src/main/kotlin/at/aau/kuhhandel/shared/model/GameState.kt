@@ -39,7 +39,7 @@ data class GameState(
 
         val tradeStateView =
             this.tradeState?.let { tradeState ->
-                val isRevealPhase = this.phase == GamePhase.TRADE_REVEAL
+                val isRevealPhase = this.phase == GamePhase.TRADE_RESULT
 
                 val initiatorCards =
                     if (isRevealPhase || playerId == tradeState.initiatorId) {

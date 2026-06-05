@@ -38,10 +38,10 @@ object GameStateMapper {
 
     fun toGameStatus(phase: GamePhase): GameStatus =
         when (phase) {
-            GamePhase.AUCTION_BIDDING, GamePhase.AUCTION_RESOLUTION -> GameStatus.AUCTION
+            GamePhase.AUCTION_BIDDING, GamePhase.AUCTIONEER_DECISION -> GameStatus.AUCTION
             GamePhase.TRADE_OFFER,
             GamePhase.TRADE_RESPONSE,
-            GamePhase.TRADE_REVEAL,
+            GamePhase.TRADE_RESULT,
             -> GameStatus.TRADE
 
             GamePhase.FINISHED -> GameStatus.FINISHED

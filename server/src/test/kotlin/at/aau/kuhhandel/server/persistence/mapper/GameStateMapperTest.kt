@@ -13,7 +13,7 @@ class GameStateMapperTest {
         )
         kotlin.test.assertEquals(
             PersistedStatus.AUCTION,
-            GameStateMapper.toGameStatus(GamePhase.AUCTION_RESOLUTION),
+            GameStateMapper.toGameStatus(GamePhase.AUCTIONEER_DECISION),
         )
     }
 
@@ -29,7 +29,7 @@ class GameStateMapperTest {
         )
         kotlin.test.assertEquals(
             PersistedStatus.TRADE,
-            GameStateMapper.toGameStatus(GamePhase.TRADE_REVEAL),
+            GameStateMapper.toGameStatus(GamePhase.TRADE_RESULT),
         )
     }
 

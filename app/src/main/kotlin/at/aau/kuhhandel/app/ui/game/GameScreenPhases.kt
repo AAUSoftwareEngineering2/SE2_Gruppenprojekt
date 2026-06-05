@@ -78,7 +78,7 @@ fun AuctionPhaseContent(
                                 uiState.myPlayerId,
                             ) == true,
                     )
-                } else if (gameState?.phase == GamePhase.AUCTION_RESOLUTION) {
+                } else if (gameState?.phase == GamePhase.AUCTIONEER_DECISION) {
                     val highestBidderId = auctionState?.highestBidderId
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -147,7 +147,7 @@ fun TradePhaseContent(
             }
         }
 
-        if (uiState.currentPhase == GamePhase.TRADE_REVEAL) {
+        if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
             Button(
                 onClick = onFinishTradeReveal,
                 modifier = Modifier.padding(top = 16.dp),

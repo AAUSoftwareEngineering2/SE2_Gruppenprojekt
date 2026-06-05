@@ -583,7 +583,7 @@ class GameSessionTest {
         assertTrue(auctioneer.animals.any { it.id == "cow-1" && it.type == AnimalType.COW })
 
         // Assert: Transitions to AUCTION_RESOLUTION phase
-        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
+        assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
 
         // Assert: The auction details remain, but the expiration timer is null
         val auction = updatedState.auctionState
@@ -617,7 +617,7 @@ class GameSessionTest {
         val updatedState = session.closeAuctionAfterTimeout()
 
         // Assert: Transitions to AUCTION_RESOLUTION phase
-        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
+        assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
 
         // Assert: The auction details remain, but the expiration timer is null
         val auction = updatedState.auctionState
@@ -636,7 +636,7 @@ class GameSessionTest {
         val targetCard = AnimalCard("cow-1", AnimalType.COW)
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState =
                     AuctionState(
                         auctionCard = targetCard,
@@ -689,7 +689,7 @@ class GameSessionTest {
         val updatedState = session.closeAuctionAfterTimeout()
 
         // Assert: Transitions directly to the AUCTION_RESOLUTION phase
-        assertEquals(GamePhase.AUCTION_RESOLUTION, updatedState.phase)
+        assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
 
         // Assert: The auction details remain, but the expiration timer gets cleared out
         val auction = updatedState.auctionState
@@ -738,7 +738,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState,
                 players = initialPlayers,
                 currentPlayerIndex = 0,
@@ -786,7 +786,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState,
                 players = initialPlayers,
             )
@@ -811,7 +811,7 @@ class GameSessionTest {
         val session =
             GameSession.fromState(
                 "game-1",
-                baselineState.copy(phase = GamePhase.AUCTION_RESOLUTION),
+                baselineState.copy(phase = GamePhase.AUCTIONEER_DECISION),
             )
 
         val exception =
@@ -835,7 +835,7 @@ class GameSessionTest {
 
     @Test
     fun `resolveAuction throws IllegalStateException if auction state is missing`() {
-        val brokenState = baselineState.copy(phase = GamePhase.AUCTION_RESOLUTION)
+        val brokenState = baselineState.copy(phase = GamePhase.AUCTIONEER_DECISION)
         val session = GameSession.fromState("game-1", brokenState)
 
         assertThrows<IllegalStateException> {
@@ -857,7 +857,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState,
             )
         val session = GameSession.fromState("game-1", resolutionState)
@@ -894,7 +894,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState,
                 players = poorAuctioneerPlayers,
             )
@@ -929,7 +929,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState,
                 players = bluffingBidderPlayers,
             )
@@ -1248,7 +1248,7 @@ class GameSessionTest {
             session.respondToTrade("player-2", counterOfferedMoneyCardIds = emptySet())
 
         // Assert: Phase transitions, initial trade details are not changed
-        assertEquals(GamePhase.TRADE_REVEAL, updatedState.phase)
+        assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
         val updatedTrade = updatedState.tradeState
         assertNotNull(updatedTrade)
         assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
@@ -1301,7 +1301,7 @@ class GameSessionTest {
             session.respondToTrade("player-2", counterOfferedMoneyCardIds = setOf(targetCardId))
 
         // Assert: Phase transitions, initial trade details are not changed
-        assertEquals(GamePhase.TRADE_REVEAL, updatedState.phase)
+        assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
         val updatedTrade = updatedState.tradeState
         assertNotNull(updatedTrade)
         assertNotNull(tradeState.initiatorId, updatedTrade.initiatorId)
@@ -1460,7 +1460,7 @@ class GameSessionTest {
             )
         val activeState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
                 players = customPlayers,
                 currentPlayerIndex = 0, // It was Player 1's turn
@@ -1519,7 +1519,7 @@ class GameSessionTest {
             )
         val activeState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
                 players = customPlayers,
                 currentPlayerIndex = 0, // It was Player 1's turn
@@ -1562,7 +1562,7 @@ class GameSessionTest {
 
     @Test
     fun `endTradeReveal throws IllegalStateException if trade state is missing`() {
-        val brokenState = baselineState.copy(phase = GamePhase.TRADE_REVEAL)
+        val brokenState = baselineState.copy(phase = GamePhase.TRADE_RESULT)
         val session = GameSession.fromState("game-1", brokenState)
 
         assertThrows<IllegalStateException> { session.endTradeReveal() }
@@ -1579,7 +1579,7 @@ class GameSessionTest {
             )
         val brokenState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
             )
         val session = GameSession.fromState("game-1", brokenState)
@@ -1608,7 +1608,7 @@ class GameSessionTest {
             )
         val brokenState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
                 players = customPlayers,
             )
@@ -1638,7 +1638,7 @@ class GameSessionTest {
             )
         val brokenState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
                 players = customPlayers,
             )
@@ -1724,7 +1724,7 @@ class GameSessionTest {
         val intermediateState = session.closeAuctionAfterTimeout()
 
         // Assert: Transitions to resolution first
-        assertEquals(GamePhase.AUCTION_RESOLUTION, intermediateState.phase)
+        assertEquals(GamePhase.AUCTIONEER_DECISION, intermediateState.phase)
 
         // Act: Resolve auction
         val updatedState = session.resolveAuction("player-1", true)
@@ -1759,7 +1759,7 @@ class GameSessionTest {
             )
         val resolutionState =
             baselineState.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 players = initialPlayers,
                 auctionState = auctionState,
             )
@@ -1812,7 +1812,7 @@ class GameSessionTest {
 
         val activeState =
             baselineState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState = tradeState,
                 players = customPlayers,
             )

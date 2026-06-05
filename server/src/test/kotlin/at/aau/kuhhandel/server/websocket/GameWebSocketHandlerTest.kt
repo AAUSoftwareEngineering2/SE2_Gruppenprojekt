@@ -873,7 +873,7 @@ class GameWebSocketHandlerTest {
                 ),
             )
 
-            val gameState = baseState.copy(phase = GamePhase.TRADE_REVEAL)
+            val gameState = baseState.copy(phase = GamePhase.TRADE_RESULT)
             whenever(gameService.respondToTrade("game-1", "player-1", emptySet()))
                 .thenReturn(gameState)
 

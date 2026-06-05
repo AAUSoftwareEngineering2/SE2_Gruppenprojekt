@@ -172,7 +172,7 @@ fun GameScreen(
 
                     GamePhase.TRADE_OFFER,
                     GamePhase.TRADE_RESPONSE,
-                    GamePhase.TRADE_REVEAL,
+                    GamePhase.TRADE_RESULT,
                     -> {
                         TradePhaseContent(
                             uiState = uiState,

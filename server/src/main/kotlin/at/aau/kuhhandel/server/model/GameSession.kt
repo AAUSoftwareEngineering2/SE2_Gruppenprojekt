@@ -215,7 +215,7 @@ class GameSession(
         if (auctionState.highestBidderId == null) {
             state =
                 state.copy(
-                    phase = GamePhase.AUCTION_RESOLUTION,
+                    phase = GamePhase.AUCTIONEER_DECISION,
                     players =
                         addAnimalToPlayer(
                             state.players,
@@ -230,7 +230,7 @@ class GameSession(
 
         state =
             state.copy(
-                phase = GamePhase.AUCTION_RESOLUTION,
+                phase = GamePhase.AUCTIONEER_DECISION,
                 auctionState = auctionState.copy(timerEndTime = null),
             )
 
@@ -245,7 +245,7 @@ class GameSession(
         auctioneerBuysCard: Boolean,
     ): GameState {
         val actor = requireActorInRoom(actorId)
-        ensurePhase(GamePhase.AUCTION_RESOLUTION)
+        ensurePhase(GamePhase.AUCTIONEER_DECISION)
         val auctionState =
             checkNotNull(state.auctionState) {
                 "Missing auction state in resolution phase"
@@ -399,7 +399,7 @@ class GameSession(
         // Transition the phase and update the trade information
         state =
             state.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState =
                     tradeState.copy(
                         counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
@@ -416,7 +416,7 @@ class GameSession(
      */
     fun endTradeReveal(): GameState {
         check(
-            state.phase == GamePhase.TRADE_REVEAL,
+            state.phase == GamePhase.TRADE_RESULT,
         ) { "Expected a trade reveal but the current phase is ${state.phase}" }
 
         val tradeState =

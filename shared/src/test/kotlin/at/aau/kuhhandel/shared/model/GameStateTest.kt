@@ -152,7 +152,7 @@ class GameStateTest {
     fun test_createViewForPlayer_showsTradeData_forTradeObserverDuringReveal() {
         val revealState =
             baseState.copy(
-                phase = GamePhase.TRADE_REVEAL,
+                phase = GamePhase.TRADE_RESULT,
                 tradeState =
                     baseState.tradeState?.copy(
                         counterOfferedMoneyCards = setOf(MoneyCard("money-0-2", 0)),

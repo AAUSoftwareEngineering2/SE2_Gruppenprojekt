@@ -324,7 +324,7 @@ class GameServiceTest {
                 )
             val closedGameState =
                 restartedGameState.copy(
-                    phase = GamePhase.AUCTION_RESOLUTION,
+                    phase = GamePhase.AUCTIONEER_DECISION,
                     auctionState = restartedAuctionState.copy(timerEndTime = null),
                 )
 
