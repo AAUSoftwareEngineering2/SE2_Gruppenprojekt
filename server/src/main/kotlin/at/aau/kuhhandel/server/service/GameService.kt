@@ -108,15 +108,7 @@ class GameService(
     suspend fun startGame(
         gameId: String,
         actorId: String,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state = room.session.startGame(actorId)
-            persistSafely(room.session)
-            return state
-        }
-    }
+    ): GameState = executeAction(gameId) { session -> session.startGame(actorId) }
 
     /**
      * Adds a player to a game.
@@ -195,16 +187,7 @@ class GameService(
     suspend fun chooseAuction(
         gameId: String,
         actorId: String,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state = room.session.chooseAuction(actorId)
-            persistSafely(room.session)
-            schedulePhaseTimeout(gameId)
-            return state
-        }
-    }
+    ): GameState = executeAction(gameId) { session -> session.chooseAuction(actorId) }
 
     /**
      * Placed a bid on an ongoing auction.
@@ -215,16 +198,7 @@ class GameService(
         gameId: String,
         actorId: String,
         amount: Int,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state = room.session.placeBid(actorId, amount)
-            persistSafely(room.session)
-            schedulePhaseTimeout(gameId)
-            return state
-        }
-    }
+    ): GameState = executeAction(gameId) { session -> session.placeBid(actorId, amount) }
 
     /**
      * Resolves the current auction phase, allowing the auctioneer to buy back the card or sell to the high bidder.
@@ -235,16 +209,8 @@ class GameService(
         gameId: String,
         actorId: String,
         auctioneerBuysCard: Boolean,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state = room.session.resolveAuction(actorId, auctioneerBuysCard)
-            persistSafely(room.session)
-            schedulePhaseTimeout(gameId)
-            return state
-        }
-    }
+    ): GameState =
+        executeAction(gameId) { session -> session.resolveAuction(actorId, auctioneerBuysCard) }
 
     /**
      * Starts a trade against an opponent.
@@ -257,21 +223,15 @@ class GameService(
         targetId: String,
         animalType: AnimalType,
         offeredMoneyCardIds: Set<String>,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val state =
-                room.session.chooseTrade(
-                    actorId = actorId,
-                    targetId = targetId,
-                    animalType = animalType,
-                    offeredMoneyCardIds = offeredMoneyCardIds,
-                )
-            persistSafely(room.session)
-            return state
+    ): GameState =
+        executeAction(gameId) { session ->
+            session.chooseTrade(
+                actorId,
+                targetId,
+                animalType,
+                offeredMoneyCardIds,
+            )
         }
-    }
 
     /**
      * Submits a response to a trade, with empty [counterOfferedMoneyCardIds]
@@ -283,17 +243,32 @@ class GameService(
         gameId: String,
         actorId: String,
         counterOfferedMoneyCardIds: Set<String>,
+    ): GameState =
+        executeAction(gameId) { session ->
+            session.respondToTrade(
+                actorId,
+                counterOfferedMoneyCardIds,
+            )
+        }
+
+    /**
+     * Centralized helper that handles room fetching, mutex locking, state persistence,
+     * and automatic timer updates for all game modifications.
+     */
+    private suspend inline fun executeAction(
+        gameId: String,
+        crossinline action: (GameSession) -> GameState,
     ): GameState {
         val room = fetchGameRoom(gameId)
 
         room.mutex.withLock {
-            val state =
-                room.session.respondToTrade(
-                    actorId = actorId,
-                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-                )
+            val newState = action(room.session)
             persistSafely(room.session)
-            return state
+
+            // Update the background job
+            schedulePhaseTimeout(gameId)
+
+            return newState
         }
     }
 
@@ -303,10 +278,12 @@ class GameService(
      */
     private fun schedulePhaseTimeout(gameId: String) {
         val room = rooms[gameId] ?: return
-        val timerEnd = room.session.state.timerEnd ?: return
 
         // Defensively cancel the previous timer coroutine job for this room to prevent leaks
         room.timerJob?.cancel()
+        room.timerJob = null
+
+        val timerEnd = room.session.state.timerEnd ?: return
 
         // Launch a fresh job tracking the current timeout window
         room.timerJob =
