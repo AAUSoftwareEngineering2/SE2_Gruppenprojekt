@@ -123,6 +123,6 @@ data class PlaceBidPayload(
  * Payload used by [WebSocketType.RESOLVE_AUCTION] commands.
  */
 @Serializable
-data class AuctionBuyBackPayload(
+data class ResolveAuctionPayload(
     val buyBack: Boolean,
 )

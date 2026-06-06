@@ -5,7 +5,6 @@ import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -15,6 +14,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
@@ -338,7 +338,7 @@ class GameWebSocketHandler(
         envelope: WebSocketEnvelope,
     ) {
         val (gameId, actorId) = requireBoundPlayerSession(session.id)
-        val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
+        val payload = decodePayload(envelope, ResolveAuctionPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
 

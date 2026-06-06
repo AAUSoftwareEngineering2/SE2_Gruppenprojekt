@@ -222,12 +222,12 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `AuctionBuyBackPayload round-trips and exposes its fields`() {
-        val payload = AuctionBuyBackPayload(buyBack = true)
+    fun `ResolveAuctionPayload round-trips and exposes its fields`() {
+        val payload = ResolveAuctionPayload(buyBack = true)
         assertEquals(true, payload.buyBack)
 
-        val encoded = json.encodeToString(AuctionBuyBackPayload.serializer(), payload)
-        val decoded = json.decodeFromString(AuctionBuyBackPayload.serializer(), encoded)
+        val encoded = json.encodeToString(ResolveAuctionPayload.serializer(), payload)
+        val decoded = json.decodeFromString(ResolveAuctionPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
         assertEquals(payload.hashCode(), decoded.hashCode())

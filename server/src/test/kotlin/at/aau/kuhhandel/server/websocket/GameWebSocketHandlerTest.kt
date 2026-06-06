@@ -11,7 +11,6 @@ import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -21,6 +20,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
@@ -860,8 +860,8 @@ class GameWebSocketHandlerTest {
                 requestId = "req-1",
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
-                        AuctionBuyBackPayload.serializer(),
-                        AuctionBuyBackPayload(buyBack = true),
+                        ResolveAuctionPayload.serializer(),
+                        ResolveAuctionPayload(buyBack = true),
                     ),
             )
 
@@ -896,8 +896,8 @@ class GameWebSocketHandlerTest {
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    AuctionBuyBackPayload.serializer(),
-                    AuctionBuyBackPayload(buyBack = true),
+                    ResolveAuctionPayload.serializer(),
+                    ResolveAuctionPayload(buyBack = true),
                 ),
         )
 
