@@ -159,11 +159,25 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `ErrorPayload round-trips`() {
-        val payload = ErrorPayload(message = "Something went wrong")
+    fun `PlaceBidPayload round-trips`() {
+        val payload = PlaceBidPayload(amount = 100)
+        assertEquals(100, payload.amount)
 
-        val encoded = json.encodeToString(ErrorPayload.serializer(), payload)
-        val decoded = json.decodeFromString(ErrorPayload.serializer(), encoded)
+        val encoded = json.encodeToString(PlaceBidPayload.serializer(), payload)
+        val decoded = json.decodeFromString(PlaceBidPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+        assertEquals(payload.hashCode(), decoded.hashCode())
+        assertEquals(payload.toString(), decoded.toString())
+    }
+
+    @Test
+    fun `ResolveAuctionPayload round-trips`() {
+        val payload = ResolveAuctionPayload(buyBack = true)
+        assertEquals(true, payload.buyBack)
+
+        val encoded = json.encodeToString(ResolveAuctionPayload.serializer(), payload)
+        val decoded = json.decodeFromString(ResolveAuctionPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
         assertEquals(payload.hashCode(), decoded.hashCode())
@@ -209,25 +223,11 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `PlaceBidPayload round-trips`() {
-        val payload = PlaceBidPayload(amount = 100)
-        assertEquals(100, payload.amount)
+    fun `ErrorPayload round-trips`() {
+        val payload = ErrorPayload(message = "Something went wrong")
 
-        val encoded = json.encodeToString(PlaceBidPayload.serializer(), payload)
-        val decoded = json.decodeFromString(PlaceBidPayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-    }
-
-    @Test
-    fun `ResolveAuctionPayload round-trips`() {
-        val payload = ResolveAuctionPayload(buyBack = true)
-        assertEquals(true, payload.buyBack)
-
-        val encoded = json.encodeToString(ResolveAuctionPayload.serializer(), payload)
-        val decoded = json.decodeFromString(ResolveAuctionPayload.serializer(), encoded)
+        val encoded = json.encodeToString(ErrorPayload.serializer(), payload)
+        val decoded = json.decodeFromString(ErrorPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
         assertEquals(payload.hashCode(), decoded.hashCode())

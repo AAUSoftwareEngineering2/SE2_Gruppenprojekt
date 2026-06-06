@@ -75,11 +75,19 @@ data class SnapshotPayload(
 )
 
 /**
- * Payload used by [WebSocketType.ERROR] events
+ * Payload used by [WebSocketType.PLACE_BID] commands.
  */
 @Serializable
-data class ErrorPayload(
-    val message: String,
+data class PlaceBidPayload(
+    val amount: Int,
+)
+
+/**
+ * Payload used by [WebSocketType.RESOLVE_AUCTION] commands.
+ */
+@Serializable
+data class ResolveAuctionPayload(
+    val buyBack: Boolean,
 )
 
 /**
@@ -112,17 +120,9 @@ data class RespondToTradePayload(
 )
 
 /**
- * Payload used by [WebSocketType.PLACE_BID] commands.
+ * Payload used by [WebSocketType.ERROR] events
  */
 @Serializable
-data class PlaceBidPayload(
-    val amount: Int,
-)
-
-/**
- * Payload used by [WebSocketType.RESOLVE_AUCTION] commands.
- */
-@Serializable
-data class ResolveAuctionPayload(
-    val buyBack: Boolean,
+data class ErrorPayload(
+    val message: String,
 )
