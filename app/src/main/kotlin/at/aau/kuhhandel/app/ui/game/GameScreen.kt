@@ -227,9 +227,7 @@ fun GameScreen(
             }
         }
 
-        if (isTradeActive) {
-            TradingView()
-        }
+        TradingView(visible = isTradeActive)
     }
 }
 
