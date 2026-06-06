@@ -327,7 +327,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             harness.buyBack(true)
-            assertEquals(WebSocketType.AUCTION_BUY_BACK, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.RESOLVE_AUCTION, harness.sentEnvelope().type)
         }
     }
 
@@ -345,7 +345,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             harness.initiateTrade("p2")
-            assertEquals(WebSocketType.INITIATE_TRADE, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.CHOOSE_TRADE, harness.sentEnvelope().type)
         }
     }
 
@@ -771,7 +771,7 @@ class GameRepositoryTest {
                     RespondToTradePayload.serializer(),
                     requireNotNull(envelope.payload),
                 )
-            assertEquals(cardIds, payload.counterOfferedMoneyCardIds)
+            assertEquals(cardIds, payload.moneyCardIds)
         }
     }
 

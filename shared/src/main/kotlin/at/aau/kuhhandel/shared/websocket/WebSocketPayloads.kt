@@ -75,21 +75,38 @@ data class SnapshotPayload(
 )
 
 /**
- * Payload used by [WebSocketType.ERROR] events
+ * Payload used by [WebSocketType.PLACE_BID] commands.
  */
 @Serializable
-data class ErrorPayload(
-    val message: String,
+data class PlaceBidPayload(
+    val amount: Int,
 )
 
 /**
- * Payload used by [WebSocketType.INITIATE_TRADE] commands.
- * Sent by the active (initiating) player to start a trade challenge against another player.
+ * Payload used by [WebSocketType.RESOLVE_AUCTION] commands.
  */
 @Serializable
-data class InitiateTradePayload(
+data class ResolveAuctionPayload(
+    val buyBack: Boolean,
+)
+
+/**
+ * Payload used by [WebSocketType.CHOOSE_TRADE] commands.
+ * Sent by the active player to start a trade challenge against another player.
+ */
+@Serializable
+data class ChooseTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
+    val moneyCardIds: Set<String>? = null,
+)
+
+/**
+ * Payload used by [WebSocketType.SUBMIT_TRADE_MONEY] commands.
+ * Sent by the trade initiator to submit a money offer.
+ */
+@Serializable
+data class SubmitTradeMoneyPayload(
     val moneyCardIds: Set<String>,
 )
 
@@ -99,22 +116,13 @@ data class InitiateTradePayload(
  */
 @Serializable
 data class RespondToTradePayload(
-    val respondingPlayerId: String,
-    val counterOfferedMoneyCardIds: Set<String> = emptySet(),
+    val moneyCardIds: Set<String>,
 )
 
 /**
- * Payload used by [WebSocketType.PLACE_BID] commands.
+ * Payload used by [WebSocketType.ERROR] events
  */
 @Serializable
-data class PlaceBidPayload(
-    val amount: Int,
-)
-
-/**
- * Payload used by [WebSocketType.AUCTION_BUY_BACK] commands.
- */
-@Serializable
-data class AuctionBuyBackPayload(
-    val buyBack: Boolean,
+data class ErrorPayload(
+    val message: String,
 )

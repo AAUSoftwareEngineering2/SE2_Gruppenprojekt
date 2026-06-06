@@ -45,7 +45,7 @@ data class GameUiState(
     val isAuctionActive: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
-                currentPhase == GamePhase.AUCTION_RESOLUTION
+                currentPhase == GamePhase.AUCTIONEER_DECISION
 
     val isMyTurn: Boolean
         get() =

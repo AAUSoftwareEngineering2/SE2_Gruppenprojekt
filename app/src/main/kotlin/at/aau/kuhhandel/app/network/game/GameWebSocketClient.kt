@@ -2,12 +2,12 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
-import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -250,10 +250,10 @@ class GameWebSocketClient(
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                AuctionBuyBackPayload.serializer(),
-                AuctionBuyBackPayload(buyBack = buyBack),
+                ResolveAuctionPayload.serializer(),
+                ResolveAuctionPayload(buyBack = buyBack),
             )
-        send(WebSocketEnvelope(WebSocketType.AUCTION_BUY_BACK, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
         return requestId
     }
 
@@ -266,14 +266,14 @@ class GameWebSocketClient(
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                InitiateTradePayload.serializer(),
-                InitiateTradePayload(
+                ChooseTradePayload.serializer(),
+                ChooseTradePayload(
                     challengedPlayerId = challengedPlayerId,
                     animalType = animalType,
                     moneyCardIds = moneyCardIds,
                 ),
             )
-        send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.CHOOSE_TRADE, requestId, payload))
         return requestId
     }
 
@@ -287,8 +287,7 @@ class GameWebSocketClient(
             WebSocketJson.json.encodeToJsonElement(
                 RespondToTradePayload.serializer(),
                 RespondToTradePayload(
-                    respondingPlayerId = respondingPlayerId,
-                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                    moneyCardIds = counterOfferedMoneyCardIds,
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))

@@ -11,6 +11,8 @@ data class TradeState(
     val targetId: String,
     // Animal type that is requested in the trade
     val requestedAnimalType: AnimalType,
+    // New field to replace requestedAnimalType
+    val animalCards: Set<AnimalCard> = emptySet(),
     // Initial money offer value, derived from the selected money cards.
     val offeredMoney: Int = 0,
     // Money cards selected by the initiating player.
@@ -23,6 +25,8 @@ data class TradeState(
     val isResolved: Boolean = false,
     // New fields to replace offeredMoney, offeredMoneyCardIds,
     // counterOfferedMoney, and counterOfferedMoneyCardIds
-    val offeredMoneyCards: Set<MoneyCard> = emptySet(),
+    val offeredMoneyCards: Set<MoneyCard>? = null,
     val counterOfferedMoneyCards: Set<MoneyCard>? = null,
+    // The ID of the player who received the traded cards in the end
+    val winnerId: String? = null,
 )

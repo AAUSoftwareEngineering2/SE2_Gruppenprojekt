@@ -5,18 +5,19 @@ import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameJoinedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
-import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -72,16 +73,16 @@ class GameWebSocketHandler(
 
                 when (envelope.type) {
                     WebSocketType.CREATE_GAME -> handleCreateGame(session, envelope)
-                    WebSocketType.START_GAME -> handleStartGame(session, envelope)
                     WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
                     WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
-                    WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
-                    WebSocketType.INITIATE_TRADE -> handleInitiateTrade(session, envelope)
-                    WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
-                    WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
-                    WebSocketType.AUCTION_BUY_BACK -> handleAuctionBuyBack(session, envelope)
-                    WebSocketType.FINISH_TRADE_REVEAL -> handleFinishTradeReveal(session, envelope)
                     WebSocketType.RECONNECT -> handleReconnect(session, envelope)
+                    WebSocketType.START_GAME -> handleStartGame(session, envelope)
+                    WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
+                    WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
+                    WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
+                    WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
+                    WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
+                    WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
                     else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
                 }
             } catch (e: GameException) {
@@ -174,21 +175,6 @@ class GameWebSocketHandler(
                     ),
             ),
         )
-    }
-
-    /**
-     * Processes [WebSocketType.START_GAME] commands.
-     */
-    private suspend fun handleStartGame(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val (gameId, actorId) = requireBoundPlayerSession(session.id)
-
-        val state = gameService.startGame(gameId, actorId)
-
-        sendStateUpdate(session, envelope.requestId, state, actorId)
-        broadcastStateUpdate(gameId, state, session)
     }
 
     /**
@@ -299,6 +285,21 @@ class GameWebSocketHandler(
     }
 
     /**
+     * Processes [WebSocketType.START_GAME] commands.
+     */
+    private suspend fun handleStartGame(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+
+        val state = gameService.startGame(gameId, actorId)
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
      * Processes [WebSocketType.CHOOSE_AUCTION] commands.
      */
     private suspend fun handleChooseAuction(
@@ -308,50 +309,6 @@ class GameWebSocketHandler(
         val (gameId, actorId) = requireBoundPlayerSession(session.id)
 
         val state = gameService.chooseAuction(gameId, actorId)
-
-        sendStateUpdate(session, envelope.requestId, state, actorId)
-        broadcastStateUpdate(gameId, state, session)
-    }
-
-    /**
-     * Processes [WebSocketType.INITIATE_TRADE] commands.
-     */
-    private suspend fun handleInitiateTrade(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val (gameId, actorId) = requireBoundPlayerSession(session.id)
-        val payload = decodePayload(envelope, InitiateTradePayload.serializer())
-
-        val state =
-            gameService.chooseTrade(
-                gameId,
-                actorId,
-                payload.challengedPlayerId,
-                payload.animalType,
-                payload.moneyCardIds,
-            )
-
-        sendStateUpdate(session, envelope.requestId, state, actorId)
-        broadcastStateUpdate(gameId, state, session)
-    }
-
-    /**
-     * Processes [WebSocketType.RESPOND_TO_TRADE] commands.
-     */
-    private suspend fun handleRespondToTrade(
-        session: WebSocketSession,
-        envelope: WebSocketEnvelope,
-    ) {
-        val (gameId, actorId) = requireBoundPlayerSession(session.id)
-        val payload = decodePayload(envelope, RespondToTradePayload.serializer())
-
-        val state =
-            gameService.respondToTrade(
-                gameId,
-                actorId,
-                payload.counterOfferedMoneyCardIds,
-            )
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
@@ -374,14 +331,14 @@ class GameWebSocketHandler(
     }
 
     /**
-     * Processes [WebSocketType.AUCTION_BUY_BACK] commands.
+     * Processes [WebSocketType.RESOLVE_AUCTION] commands.
      */
-    private suspend fun handleAuctionBuyBack(
+    private suspend fun handleResolveAuction(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
         val (gameId, actorId) = requireBoundPlayerSession(session.id)
-        val payload = decodePayload(envelope, AuctionBuyBackPayload.serializer())
+        val payload = decodePayload(envelope, ResolveAuctionPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
 
@@ -390,15 +347,64 @@ class GameWebSocketHandler(
     }
 
     /**
-     * Processes [WebSocketType.FINISH_TRADE_REVEAL] commands.
+     * Processes [WebSocketType.CHOOSE_TRADE] commands.
      */
-    private suspend fun handleFinishTradeReveal(
+    private suspend fun handleChooseTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
         val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, ChooseTradePayload.serializer())
 
-        val state = gameService.finishTradeReveal(gameId, actorId)
+        val state =
+            gameService.chooseTrade(
+                gameId,
+                actorId,
+                payload.challengedPlayerId,
+                payload.animalType,
+            )
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.SUBMIT_TRADE_MONEY] commands.
+     */
+    private suspend fun handleSubmitTradeMoney(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, SubmitTradeMoneyPayload.serializer())
+
+        val state =
+            gameService.submitTradeMoney(
+                gameId,
+                actorId,
+                payload.moneyCardIds,
+            )
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.RESPOND_TO_TRADE] commands.
+     */
+    private suspend fun handleRespondToTrade(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, RespondToTradePayload.serializer())
+
+        val state =
+            gameService.respondToTrade(
+                gameId,
+                actorId,
+                payload.moneyCardIds,
+            )
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
