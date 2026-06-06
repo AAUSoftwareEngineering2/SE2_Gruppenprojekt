@@ -172,7 +172,7 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `InitiateTradePayload round-trips and exposes its fields`() {
+    fun `ChooseTradePayload round-trips`() {
         val payload =
             ChooseTradePayload(
                 challengedPlayerId = "player-2",
@@ -193,7 +193,7 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `RespondToTradePayload round-trips and exposes its fields`() {
+    fun `RespondToTradePayload round-trips`() {
         val payload =
             RespondToTradePayload(
                 moneyCardIds = emptySet(),
@@ -209,7 +209,7 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `PlaceBidPayload round-trips and exposes its fields`() {
+    fun `PlaceBidPayload round-trips`() {
         val payload = PlaceBidPayload(amount = 100)
         assertEquals(100, payload.amount)
 
@@ -222,7 +222,7 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `ResolveAuctionPayload round-trips and exposes its fields`() {
+    fun `ResolveAuctionPayload round-trips`() {
         val payload = ResolveAuctionPayload(buyBack = true)
         assertEquals(true, payload.buyBack)
 
