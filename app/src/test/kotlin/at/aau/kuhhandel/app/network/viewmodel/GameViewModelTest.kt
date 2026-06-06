@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GameViewModelTest {
@@ -308,7 +309,7 @@ class GameViewModelTest {
                 )
 
             repoStateFlow.value = GameRepositoryState(isConnected = true, gameState = gameState)
-            advanceTimeBy(1)
+            advanceTimeBy(1.milliseconds)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
         }
     }
@@ -912,17 +913,17 @@ class GameViewModelTest {
                 )
 
             // No advanceUntilIdle() here as it might loop through the 250ms delays
-            advanceTimeBy(1) // Trigger initial emission
+            advanceTimeBy(1.milliseconds) // Trigger initial emission
 
             // Check initial timer value
             assertEquals(5, viewModel.uiState.value.auctionTimerSeconds)
 
             // Advance time and check again
-            advanceTimeBy(2000)
+            advanceTimeBy(2000.milliseconds)
             assertEquals(3, viewModel.uiState.value.auctionTimerSeconds)
 
             // Advance past end time
-            advanceTimeBy(3000)
+            advanceTimeBy(3000.milliseconds)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
         }
     }
@@ -954,16 +955,16 @@ class GameViewModelTest {
                     gameState = gameState,
                 )
 
-            advanceTimeBy(1)
+            advanceTimeBy(1.milliseconds)
 
             // UI should clamp the value to 5 seconds
             assertEquals(5, viewModel.uiState.value.auctionTimerSeconds)
 
             // Advance time and check local countdown
-            advanceTimeBy(1000)
+            advanceTimeBy(1000.milliseconds)
             assertEquals(4, viewModel.uiState.value.auctionTimerSeconds)
 
-            advanceTimeBy(4000)
+            advanceTimeBy(4000.milliseconds)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
         }
     }
