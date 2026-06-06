@@ -486,7 +486,8 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", biddingState)
 
-        val updatedState = session.closeAuctionAfterTimeout()
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
 
         // Assert: Auctioneer received the animal card for free
         val auctioneer = updatedState.players.find { it.id == "player-1" }!!
@@ -494,8 +495,6 @@ class GameSessionTest {
 
         // Assert: Transitions straight to AUCTION_RESULT
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-
-        // Assert: The timeout has been set
         assertValidTimeout(expectedDuration = 5000L, state = updatedState)
 
         // Assert: Verify that buyerId is assigned correctly to the auctioneer
@@ -514,7 +513,6 @@ class GameSessionTest {
                 auctioneerId = "player-1",
                 highestBid = 20,
                 highestBidderId = "player-2",
-                timerEndTime = System.currentTimeMillis() + 1000,
             )
         val biddingState =
             baselineState.copy(
@@ -523,20 +521,19 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", biddingState)
 
-        val updatedState = session.closeAuctionAfterTimeout()
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
 
         // Assert: Transitions to the AUCTIONEER_DECISION phase
         assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
-
-        // Assert: The timeout has been set
         assertValidTimeout(expectedDuration = 5000L, state = updatedState)
 
-        // Assert: The auction details remain
+        // Assert: The auction details remain intact
         val auction = updatedState.auctionState
         assertNotNull(auction)
         assertEquals(20, auction.highestBid)
         assertEquals("player-2", auction.highestBidderId)
-        assertNull(auction.buyerId) // No buyer assigned yet
+        assertNull(auction.buyerId)
 
         // Assert: The card has NOT been given away yet
         updatedState.players.forEach { player ->
@@ -553,7 +550,8 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", biddingState)
 
-        assertThrows<IllegalStateException> { session.closeAuctionAfterTimeout() }
+        // Assert: Internal structural engine assertion holds
+        assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
     }
 
     @Test
@@ -1373,6 +1371,183 @@ class GameSessionTest {
     }
 
     @Test
+    fun `makeDefaultPlayerChoice skips player turn when player choice phase expires`() {
+        // Setup: Active turn state with Player 1 frozen at the wheel
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                roundNumber = 5,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Advances loop to next seat and stays in player choice room with an automated clock
+        assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
+        assertEquals(1, updatedState.currentPlayerIndex)
+        assertEquals(6, updatedState.roundNumber)
+        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+    }
+
+    @Test
+    fun `makeDefaultAuctioneerDecision sells when auctioneer decision phase expires`() {
+        // Setup: Auctioneer is Player 1. Player 2 is high bidder with 20.
+        val targetCard = AnimalCard("cow-1", AnimalType.COW)
+        val auctionState =
+            AuctionState(
+                auctionCard = targetCard,
+                auctioneerId = "player-1",
+                highestBid = 20,
+                highestBidderId = "player-2",
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.AUCTIONEER_DECISION,
+                auctionState = auctionState,
+                players =
+                    baselineState.players.withPlayerAssets(
+                        "player-2",
+                        moneyValues = listOf(10, 10),
+                    ),
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Natively cascades to resolveAuction to force card sale to high bidder
+        assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
+        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertEquals("player-2", updatedState.auctionState?.buyerId)
+    }
+
+    @Test
+    fun `makeDefaultAuctioneerDecision throws IllegalStateException if auction state is missing`() {
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.AUCTIONEER_DECISION,
+                auctionState = null,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
+    }
+
+    @Test
+    fun `endAuctionSequence clears auction track block when auction result screen expires`() {
+        // Setup: Active auction result phase showing final auction outcomes
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_RESULT,
+                auctionState = AuctionState(AnimalCard("c1", AnimalType.COW), "player-1"),
+                currentPlayerIndex = 0,
+                roundNumber = 3,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Completely sweeps auction information and sets up next turn loop
+        assertNull(updatedState.auctionState)
+        assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
+        assertEquals(1, updatedState.currentPlayerIndex)
+        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+    }
+
+    @Test
+    fun `makeDefaultTradeOffer submits empty offer when trade offer phase expires`() {
+        // Setup: Active trade state where the initiator fails to submit cash choices
+        val activeTrade =
+            TradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("c1", AnimalType.COW)),
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_OFFER,
+                tradeState = activeTrade,
+                players =
+                    baselineState.players.withPlayerAssets(
+                        "player-1",
+                        moneyValues = listOf(10),
+                    ),
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Cascades to submitTradeMoney with an empty set and hits response room
+        assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
+        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+        assertNotNull(updatedState.tradeState?.offeredMoneyCards)
+        assertTrue(updatedState.tradeState!!.offeredMoneyCards!!.isEmpty())
+    }
+
+    @Test
+    fun `makeDefaultTradeOffer throws IllegalStateException if trade state is missing`() {
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_OFFER,
+                tradeState = null,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
+    }
+
+    @Test
+    fun `makeDefaultTradeResponse accepts blindly when trade response phase expires`() {
+        // Setup: Active trade state where target fails to execute a counter challenge
+        val activeTrade =
+            createTestTradeState(
+                initiatorId = "player-1",
+                targetId = "player-2",
+                animalCards =
+                    setOf(
+                        AnimalCard("c1", AnimalType.COW),
+                        AnimalCard("c2", AnimalType.COW),
+                    ),
+                offeredMoney = listOf(10),
+            )
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_RESPONSE,
+                tradeState = activeTrade,
+                players =
+                    baselineState.players
+                        .withPlayerAssets("player-1", moneyValues = emptyList())
+                        .withPlayerAssets("player-2", moneyValues = listOf(10)),
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Cascades to respondToTrade with empty set to trigger resolution outcome
+        assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
+        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertEquals("player-1", updatedState.tradeState?.winnerId)
+    }
+
+    @Test
+    fun `makeDefaultTradeResponse throws IllegalStateException if trade state is missing`() {
+        val brokenState =
+            baselineState.copy(
+                phase = GamePhase.TRADE_RESPONSE,
+                tradeState = null,
+            )
+        val session = GameSession.fromState("game-1", brokenState)
+
+        assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
+    }
+
+    @Test
     fun `endTradeSequence clears trade state and advances the turn loop on happy path`() {
         // Setup: Active trade result phase with a mock trade state attached
         val tradeState = createTestTradeState(initiatorId = "player-1", targetId = "player-2")
@@ -1385,8 +1560,8 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", activeState)
 
-        // Act: Close out the animation window
-        val updatedState = session.endTradeSequence()
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
 
         // Assert: The trade state tracking node has been completely cleared out
         assertNull(updatedState.tradeState)
@@ -1396,6 +1571,15 @@ class GameSessionTest {
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
         assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+    }
+
+    @Test
+    fun `handleTimeoutExpiration throws IllegalStateException when the phase is untimed`() {
+        val nonTimedState = baselineState.copy(phase = GamePhase.NOT_STARTED)
+        val session = GameSession.fromState("game-1", nonTimedState)
+
+        // Assert: Rejects processing ticks outside active round play loops
+        assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
     }
 
     @Test

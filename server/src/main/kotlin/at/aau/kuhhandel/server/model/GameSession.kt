@@ -211,12 +211,12 @@ class GameSession(
     }
 
     /**
-     * Concludes the bidding phase once the timeout ends.
+     * Concludes bidding and determines whether to show a final result or request a decision.
      */
-    fun closeAuctionAfterTimeout(): GameState {
+    private fun closeAuctionAfterTimeout(): GameState {
         val auctionState =
             checkNotNull(state.auctionState) {
-                "No auction state to close"
+                "Missing auction state in bidding phase"
             }
 
         // If no one placed a bid, the auctioneer gets the card for free.
@@ -540,9 +540,78 @@ class GameSession(
     }
 
     /**
+     * Transitions the game phase when a timer expires.
+     */
+    fun handleTimeoutExpiration(): GameState =
+        when (state.phase) {
+            GamePhase.PLAYER_CHOICE -> makeDefaultPlayerChoice()
+            GamePhase.AUCTION_BIDDING -> closeAuctionAfterTimeout()
+            GamePhase.AUCTIONEER_DECISION -> makeDefaultAuctioneerDecision()
+            GamePhase.AUCTION_RESULT -> endAuctionSequence()
+            GamePhase.TRADE_OFFER -> makeDefaultTradeOffer()
+            GamePhase.TRADE_RESPONSE -> makeDefaultTradeResponse()
+            GamePhase.TRADE_RESULT -> endTradeSequence()
+            GamePhase.NOT_STARTED, GamePhase.FINISHED -> throw IllegalStateException(
+                "Timeout handler triggered during an untimed phase: ${state.phase}",
+            )
+        }
+
+    /**
+     * Skip the player's turn.
+     */
+    private fun makeDefaultPlayerChoice(): GameState = advanceTurnAndCheckGameEnd()
+
+    /**
+     * Sells the face-up card to the highest bidder.
+     */
+    private fun makeDefaultAuctioneerDecision(): GameState {
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in resolution phase"
+            }
+
+        return resolveAuction(actorId = auctionState.auctioneerId, auctioneerBuysCard = false)
+    }
+
+    /**
+     * Clears auction information and advances the turn.
+     */
+    private fun endAuctionSequence(): GameState {
+        state = state.copy(auctionState = null)
+
+        state = advanceTurnAndCheckGameEnd()
+
+        return state
+    }
+
+    /**
+     * Submits an empty money selection.
+     */
+    private fun makeDefaultTradeOffer(): GameState {
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in offer phase"
+            }
+
+        return submitTradeMoney(tradeState.initiatorId, emptySet())
+    }
+
+    /**
+     * Makes an empty counteroffer.
+     */
+    private fun makeDefaultTradeResponse(): GameState {
+        val tradeState =
+            checkNotNull(state.tradeState) {
+                "Missing trade state in response phase"
+            }
+
+        return respondToTrade(tradeState.targetId, emptySet())
+    }
+
+    /**
      * Clears trade information and advances the turn.
      */
-    fun endTradeSequence(): GameState {
+    private fun endTradeSequence(): GameState {
         state = state.copy(tradeState = null)
 
         state = advanceTurnAndCheckGameEnd()

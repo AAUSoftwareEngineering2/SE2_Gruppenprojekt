@@ -315,7 +315,7 @@ class GameService(
                 room.mutex.withLock {
                     // Confirm the state has not been changed or updated while this routine was waiting
                     if (room.session.state.timerEnd == timerEnd) {
-                        val updatedState = room.session.closeAuctionAfterTimeout()
+                        val updatedState = room.session.handleTimeoutExpiration()
 
                         persistSafely(room.session)
 

@@ -299,7 +299,7 @@ class GameServiceTest {
         }
 
     @Test
-    fun test_resolveAuction_schedulesAutoClose_whenBluffRestartsAuction() =
+    fun test_schedulePhaseTimeout_schedulesNextTimeout_whenStateContainsActiveTimerEnd() =
         runTest {
             service =
                 GameService(
@@ -339,7 +339,7 @@ class GameServiceTest {
                 ),
             ).thenReturn(restartedGameState)
             whenever(gameSession.state).thenReturn(restartedGameState)
-            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(closedGameState)
+            whenever(gameSession.handleTimeoutExpiration()).thenReturn(closedGameState)
 
             val state =
                 service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
@@ -348,7 +348,7 @@ class GameServiceTest {
             advanceTimeBy(5200)
 
             assertEquals(restartedGameState, state)
-            verify(gameSession).closeAuctionAfterTimeout()
+            verify(gameSession).handleTimeoutExpiration()
             verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
         }
 
@@ -478,19 +478,17 @@ class GameServiceTest {
 
             whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
             whenever(gameSession.state).thenAnswer { activeGameState }
-            whenever(gameSession.closeAuctionAfterTimeout()).thenReturn(
-                gameStateToReturn.copy(
-                    timerEnd = null,
-                ),
+            whenever(gameSession.handleTimeoutExpiration()).thenReturn(
+                gameStateToReturn.copy(timerEnd = null),
             )
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Advance time to trigger the coroutine
+            // Advance virtual time to trigger the background coroutine channel
             advanceTimeBy(5200)
 
-            // We verify that an event is published, and specifically one for the auto-close.
-            verify(gameSession).closeAuctionAfterTimeout()
+            // Verify execution targets the universal endpoint handle
+            verify(gameSession).handleTimeoutExpiration()
             verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
         }
 
@@ -530,21 +528,21 @@ class GameServiceTest {
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Simulate a new bid coming in halfway through the countdown (at 3 seconds)
+            // Simulate progress by a mid-flight mutation
             advanceTimeBy(3000)
 
             val auctionState2 = auctionState1.copy(timerEndTime = updatedTimerEnd)
             currentMockedState =
                 state1.copy(
-                    timerEnd = updatedTimerEnd, // The timer has changed
+                    timerEnd = updatedTimerEnd,
                     auctionState = auctionState2,
                 )
 
             // Pass the remaining 2200ms of the first timer
             advanceTimeBy(2200)
 
-            // The first timeout job should skip execution because the timer end updated
-            verify(gameSession, never()).closeAuctionAfterTimeout()
+            // Verify that the initial job cancels and skips the timeout handler invocation
+            verify(gameSession, never()).handleTimeoutExpiration()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 
@@ -582,18 +580,18 @@ class GameServiceTest {
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Simulate closing the auction early
+            // Simulate clearing out the countdown early
             currentMockedState =
                 gameStateToReturn.copy(
                     phase = GamePhase.AUCTIONEER_DECISION,
-                    timerEnd = null, // The timer was cleared
+                    timerEnd = null,
                     auctionState = null,
                 )
 
             advanceTimeBy(5200)
 
-            // The background timer should abort since the timer end is now null
-            verify(gameSession, never()).closeAuctionAfterTimeout()
+            // Verify the scheduled worker returns early and skips executing timeouts
+            verify(gameSession, never()).handleTimeoutExpiration()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 
@@ -621,12 +619,13 @@ class GameServiceTest {
 
             service.chooseAuction(result.gameId, result.playerId)
 
-            // Remove the game from memory mid-flight
+            // Remove the game session from memory mid-flight
             service.removeGame(result.gameId)
 
             advanceTimeBy(5200)
 
-            verify(gameSession, never()).closeAuctionAfterTimeout()
+            // Verify game removal blocks timeout routing execution loops
+            verify(gameSession, never()).handleTimeoutExpiration()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 }
