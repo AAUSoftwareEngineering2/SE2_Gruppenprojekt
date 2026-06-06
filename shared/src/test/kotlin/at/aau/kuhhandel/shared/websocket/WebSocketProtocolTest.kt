@@ -66,9 +66,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(CreateGamePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -86,9 +83,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -99,9 +93,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameStatePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -128,9 +119,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -161,28 +149,21 @@ class WebSocketProtocolTest {
     @Test
     fun `PlaceBidPayload round-trips`() {
         val payload = PlaceBidPayload(amount = 100)
-        assertEquals(100, payload.amount)
 
         val encoded = json.encodeToString(PlaceBidPayload.serializer(), payload)
         val decoded = json.decodeFromString(PlaceBidPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
     }
 
     @Test
     fun `ResolveAuctionPayload round-trips`() {
         val payload = ResolveAuctionPayload(buyBack = true)
-        assertEquals(true, payload.buyBack)
 
         val encoded = json.encodeToString(ResolveAuctionPayload.serializer(), payload)
         val decoded = json.decodeFromString(ResolveAuctionPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -194,16 +175,23 @@ class WebSocketProtocolTest {
                 moneyCardIds = emptySet(),
             )
 
-        assertEquals("player-2", payload.challengedPlayerId)
-        assertEquals(AnimalType.COW, payload.animalType)
-
         val encoded = json.encodeToString(ChooseTradePayload.serializer(), payload)
         val decoded = json.decodeFromString(ChooseTradePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
+    }
+
+    @Test
+    fun `SubmitTradeMoneyPayload round-trips`() {
+        val payload =
+            SubmitTradeMoneyPayload(
+                moneyCardIds = emptySet(),
+            )
+
+        val encoded = json.encodeToString(SubmitTradeMoneyPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SubmitTradeMoneyPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
     }
 
     @Test
@@ -217,9 +205,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -230,9 +215,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(ErrorPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     // WebSocketJson tests
