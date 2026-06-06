@@ -5,19 +5,16 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,8 +46,8 @@ fun GameScreen(
     onBuyBack: (Boolean) -> Unit,
     onRespondToTrade: () -> Unit,
     onFinishTradeReveal: () -> Unit,
-    onInitiateTrade: (String, AnimalType) -> Unit,
     onSelectTargetPlayer: (String?) -> Unit,
+    onSelectTradeAnimal: (AnimalType) -> Unit,
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
     modifier: Modifier = Modifier,
@@ -69,37 +66,6 @@ fun GameScreen(
     }
 
     MainBackground(modifier = modifier)
-
-    // --- ANIMAL SELECTION DIALOG ---
-    if (uiState.selectedTargetPlayerId != null) {
-        AlertDialog(
-            onDismissRequest = { onSelectTargetPlayer(null) },
-            title = { Text("Pick animal to trade") },
-            text = {
-                Column {
-                    if (uiState.sharedAnimalsWithSelectedPlayer.isEmpty()) {
-                        Text("No shared animals found.")
-                    } else {
-                        uiState.sharedAnimalsWithSelectedPlayer.forEach { animal ->
-                            TextButton(
-                                onClick = {
-                                    onInitiateTrade(
-                                        uiState.selectedTargetPlayerId,
-                                        animal,
-                                    )
-                                },
-                            ) {
-                                Text(animal.name)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { onSelectTargetPlayer(null) }) { Text("Cancel") }
-            },
-        )
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // --- DECOR ---
@@ -130,6 +96,10 @@ fun GameScreen(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
                 onOpponentClick = onSelectTargetPlayer,
+                canSelectTradeTarget = uiState.canSelectTradeTarget,
+                selectedTargetPlayerId = uiState.selectedTargetPlayerId,
+                enabledTradeAnimalTypes = uiState.sharedAnimalsWithSelectedPlayer.toSet(),
+                onTradeAnimalClick = onSelectTradeAnimal,
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
@@ -349,8 +319,8 @@ fun GameScreenPreview() {
         onBuyBack = {},
         onRespondToTrade = {},
         onFinishTradeReveal = {},
-        onInitiateTrade = { _, _ -> },
         onSelectTargetPlayer = {},
+        onSelectTradeAnimal = {},
         onToggleMoneyCard = {},
         onToggleHandFanned = {},
     )

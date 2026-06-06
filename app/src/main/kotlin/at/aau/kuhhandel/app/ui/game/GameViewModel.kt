@@ -39,6 +39,9 @@ data class GameUiState(
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
+    val pendingTradeTargetPlayerId: String? = null,
+    val pendingTradeAnimalType: AnimalType? = null,
+    val canSelectTradeTarget: Boolean = false,
     val isHandFanned: Boolean = false,
 ) {
     /** Helper property to check if an auction is currently in progress. */
@@ -83,6 +86,8 @@ class GameViewModel(
 ) {
     private val selectedMoneyCardIds = MutableStateFlow<Set<String>>(emptySet())
     private val selectedTargetPlayerId = MutableStateFlow<String?>(null)
+    private val pendingTradeTargetPlayerId = MutableStateFlow<String?>(null)
+    private val pendingTradeAnimalType = MutableStateFlow<AnimalType?>(null)
     private val isHandFanned = MutableStateFlow(false)
 
     private val auctionTimerSeconds =
@@ -118,11 +123,25 @@ class GameViewModel(
             repository.state,
             auctionTimerSeconds,
             selectedMoneyCardIds,
-            selectedTargetPlayerId,
+            combine(
+                selectedTargetPlayerId,
+                pendingTradeTargetPlayerId,
+                pendingTradeAnimalType,
+            ) { targetId, pendingTargetId, pendingAnimalType ->
+                TradeSelectionState(targetId, pendingTargetId, pendingAnimalType)
+            },
             isHandFanned,
-        ) { repoState, timer, selectedIds, targetId, fanned ->
+        ) { repoState, timer, selectedIds, tradeSelection, fanned ->
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
+            val activePlayerId =
+                gameState
+                    ?.players
+                    ?.getOrNull(gameState.currentPlayerIndex)
+                    ?.id
+            val isMyTurn = activePlayerId == repoState.myPlayerId && repoState.myPlayerId != null
+            val canSelectTradeTarget = currentPhase == GamePhase.PLAYER_CHOICE && isMyTurn
+            val targetId = tradeSelection.activeTargetPlayerId.takeIf { canSelectTradeTarget }
 
             val sharedAnimals =
                 if (targetId != null &&
@@ -184,6 +203,9 @@ class GameViewModel(
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
+                pendingTradeTargetPlayerId = tradeSelection.pendingTargetPlayerId,
+                pendingTradeAnimalType = tradeSelection.pendingAnimalType,
+                canSelectTradeTarget = canSelectTradeTarget,
                 isHandFanned = fanned,
             )
         }.distinctUntilChanged()
@@ -290,7 +312,41 @@ class GameViewModel(
 
     /** Sets the target player for a potential trade. */
     fun selectTargetPlayer(playerId: String?) {
+        if (playerId == null) {
+            selectedTargetPlayerId.value = null
+            return
+        }
+
+        val repoState = repository.state.value
+        val gameState = repoState.gameState ?: return
+        val myPlayerId = repoState.myPlayerId ?: return
+        val activePlayerId = gameState.players.getOrNull(gameState.currentPlayerIndex)?.id
+
+        if (gameState.phase != GamePhase.PLAYER_CHOICE || activePlayerId != myPlayerId) {
+            return
+        }
+
+        if (playerId == myPlayerId || gameState.players.none { it.id == playerId }) {
+            return
+        }
+
+        pendingTradeTargetPlayerId.value = null
+        pendingTradeAnimalType.value = null
         selectedTargetPlayerId.value = playerId
+    }
+
+    /** Stores the selected trade animal locally without initiating a backend trade yet. */
+    fun selectTradeAnimal(animalType: AnimalType) {
+        val currentState = uiState.value
+        val targetPlayerId = currentState.selectedTargetPlayerId ?: return
+
+        if (animalType !in currentState.sharedAnimalsWithSelectedPlayer) {
+            return
+        }
+
+        pendingTradeTargetPlayerId.value = targetPlayerId
+        pendingTradeAnimalType.value = animalType
+        selectedTargetPlayerId.value = null
     }
 
     /** Signals that the trade reveal animation has finished. */
@@ -302,4 +358,10 @@ class GameViewModel(
             }
         }
     }
+
+    private data class TradeSelectionState(
+        val activeTargetPlayerId: String?,
+        val pendingTargetPlayerId: String?,
+        val pendingAnimalType: AnimalType?,
+    )
 }

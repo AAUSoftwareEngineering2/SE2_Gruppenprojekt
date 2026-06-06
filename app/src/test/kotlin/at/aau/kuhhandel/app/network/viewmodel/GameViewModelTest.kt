@@ -362,6 +362,155 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `selectTargetPlayer only opens picker during my player choice turn`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me = Player("me", "Me", animals = listOf(AnimalCard("1", AnimalType.COW)))
+            val other = Player("other", "Other", animals = listOf(AnimalCard("2", AnimalType.COW)))
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.canSelectTradeTarget)
+            assertEquals("other", viewModel.uiState.value.selectedTargetPlayerId)
+        }
+    }
+
+    @Test
+    fun `selectTargetPlayer ignores invalid phase and non-active player`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me = Player("me", "Me", animals = listOf(AnimalCard("1", AnimalType.COW)))
+            val other = Player("other", "Other", animals = listOf(AnimalCard("2", AnimalType.COW)))
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 1,
+                        ),
+                )
+            advanceUntilIdle()
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.selectedTargetPlayerId)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.AUCTION_BIDDING,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.selectedTargetPlayerId)
+        }
+    }
+
+    @Test
+    fun `selectTradeAnimal stores pending choice and does not initiate trade`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me = Player("me", "Me", animals = listOf(AnimalCard("1", AnimalType.COW)))
+            val other = Player("other", "Other", animals = listOf(AnimalCard("2", AnimalType.COW)))
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            viewModel.selectTradeAnimal(AnimalType.COW)
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.selectedTargetPlayerId)
+            assertEquals("other", viewModel.uiState.value.pendingTradeTargetPlayerId)
+            assertEquals(AnimalType.COW, viewModel.uiState.value.pendingTradeAnimalType)
+            coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any(), any()) }
+        }
+    }
+
+    @Test
+    fun `selectTradeAnimal ignores disabled animal options`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me = Player("me", "Me", animals = listOf(AnimalCard("1", AnimalType.COW)))
+            val other =
+                Player(
+                    "other",
+                    "Other",
+                    animals =
+                        listOf(
+                            AnimalCard("2", AnimalType.COW),
+                            AnimalCard("3", AnimalType.HORSE),
+                        ),
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            viewModel.selectTradeAnimal(AnimalType.HORSE)
+            advanceUntilIdle()
+
+            assertEquals("other", viewModel.uiState.value.selectedTargetPlayerId)
+            assertNull(viewModel.uiState.value.pendingTradeTargetPlayerId)
+            assertNull(viewModel.uiState.value.pendingTradeAnimalType)
+            coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any(), any()) }
+        }
+    }
+
+    @Test
     fun `respondToTrade initiator branch handles nulls`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -697,7 +846,12 @@ class GameViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     myPlayerId = "me",
-                    gameState = GameState(players = listOf(me, other)),
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
                 )
 
             viewModel.selectTargetPlayer("other")

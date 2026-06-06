@@ -162,8 +162,8 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onBuyBack = gameViewModel::buyBack,
                     onRespondToTrade = gameViewModel::respondToTrade,
                     onFinishTradeReveal = gameViewModel::finishTradeReveal,
-                    onInitiateTrade = gameViewModel::initiateTrade,
                     onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
+                    onSelectTradeAnimal = gameViewModel::selectTradeAnimal,
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,
                 )
