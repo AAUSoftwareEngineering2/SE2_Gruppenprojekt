@@ -547,7 +547,7 @@ class GameServiceTest {
         }
 
     @Test
-    fun test_schedulePhaseTimeout_abortsIfAuctionAlreadyClosed() =
+    fun test_schedulePhaseTimeout_abortsIfTimerEndIsCleared() =
         runTest {
             service =
                 GameService(

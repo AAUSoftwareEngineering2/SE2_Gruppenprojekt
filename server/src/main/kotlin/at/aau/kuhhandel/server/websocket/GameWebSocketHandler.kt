@@ -79,7 +79,7 @@ class GameWebSocketHandler(
                     WebSocketType.START_GAME -> handleStartGame(session, envelope)
                     WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
                     WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
-                    WebSocketType.RESOLVE_AUCTION -> handleAuctionBuyBack(session, envelope)
+                    WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
@@ -333,7 +333,7 @@ class GameWebSocketHandler(
     /**
      * Processes [WebSocketType.RESOLVE_AUCTION] commands.
      */
-    private suspend fun handleAuctionBuyBack(
+    private suspend fun handleResolveAuction(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {

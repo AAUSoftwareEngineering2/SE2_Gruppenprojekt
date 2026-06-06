@@ -842,7 +842,7 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `AUCTION_BUY_BACK sends and broadcasts GAME_STATE_UPDATED`() =
+    fun `RESOLVE_AUCTION sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
                 setOf(
@@ -887,7 +887,7 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
-    fun `AUCTION_BUY_BACK with no bound player session sends ERROR`() {
+    fun `RESOLVE_AUCTION with no bound player session sends ERROR`() {
         whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
 
         sendEnvelope(
@@ -905,7 +905,7 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `AUCTION_BUY_BACK with missing payload sends ERROR`() {
+    fun `RESOLVE_AUCTION with missing payload sends ERROR`() {
         sendEnvelope(
             session = session1,
             type = WebSocketType.RESOLVE_AUCTION,
@@ -916,7 +916,7 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `AUCTION_BUY_BACK with invalid payload sends ERROR`() {
+    fun `RESOLVE_AUCTION with invalid payload sends ERROR`() {
         sendEnvelope(
             session = session1,
             type = WebSocketType.RESOLVE_AUCTION,
