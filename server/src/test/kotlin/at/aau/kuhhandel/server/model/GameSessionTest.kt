@@ -269,6 +269,37 @@ class GameSessionTest {
     }
 
     @Test
+    fun `chooseAuction handles donkey bonus`() {
+        // Setup: Donkey is on top of the deck. All players get money.
+        val donkey = AnimalCard("donkey-1", AnimalType.DONKEY)
+        val testDeck =
+            AnimalDeck(
+                listOf(donkey) + List(3) { AnimalCard("donkey-${it + 2}", AnimalType.DONKEY) },
+            )
+        val playableState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                deck = testDeck,
+                currentPlayerIndex = 0,
+            )
+        val session = GameSession.fromState("game-1", playableState)
+
+        // Act: Draw the donkey card
+        val updatedState = session.chooseAuction("player-1")
+
+        // Assert: All players receive the money card bonus
+        updatedState.players.forEach { player ->
+            assertTrue(player.moneyCards.any { it.value == 50 && it.id.contains("donkey-1") })
+        }
+        assertNotNull(updatedState.lastEvent)
+        assertTrue(updatedState.lastEvent is GameEvent.MoneyBonus)
+        assertEquals(50, (updatedState.lastEvent as GameEvent.MoneyBonus).amount)
+
+        // Assert: The unified countdown timer is initialized on the state
+        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+    }
+
+    @Test
     fun `chooseAuction fails if actor is not in room`() {
         assertFailsWithMissingActor(baselineState.copy(phase = GamePhase.PLAYER_CHOICE)) {
             it.chooseAuction("nonexistent player")
@@ -343,6 +374,40 @@ class GameSessionTest {
     }
 
     @Test
+    fun `placeBid allows actor to bid more than available money as bluff`() {
+        val initialAuction =
+            AuctionState(
+                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                auctioneerId = "player-1",
+                highestBid = 0,
+                highestBidderId = null,
+            )
+
+        val smallBillValue = STARTING_MONEY_VALUES.first { it > 0 }
+        val illegalBidAmount = smallBillValue * 2
+
+        // Player setup
+        val poorPlayerState =
+            baselineState.copy(
+                phase = GamePhase.AUCTION_BIDDING,
+                auctionState = initialAuction,
+                players =
+                    baselineState.players
+                        .withPlayerAssets("player-1", moneyValues = listOf(10, 20))
+                        .withPlayerAssets("player-2", moneyValues = listOf(smallBillValue))
+                        .withPlayerAssets("player-3", moneyValues = listOf(100)),
+            )
+        val session = GameSession.fromState("game-1", poorPlayerState)
+
+        val updatedState = session.placeBid("player-2", amount = illegalBidAmount)
+
+        val auction = updatedState.auctionState
+        assertNotNull(auction)
+        assertEquals(illegalBidAmount, auction.highestBid)
+        assertEquals("player-2", auction.highestBidderId)
+    }
+
+    @Test
     fun `placeBid fails if actor is not in room`() {
         assertFailsWithMissingActor(baselineState.copy(phase = GamePhase.AUCTION_BIDDING)) {
             it.placeBid("nonexistent player", amount = 10)
@@ -380,40 +445,6 @@ class GameSessionTest {
         assertActionFailsWithReason(biddingState, GameErrorReason.OWN_AUCTION) {
             it.placeBid("player-1", amount = 10)
         }
-    }
-
-    @Test
-    fun `placeBid allows actor to bid more than available money as bluff`() {
-        val initialAuction =
-            AuctionState(
-                auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                auctioneerId = "player-1",
-                highestBid = 0,
-                highestBidderId = null,
-            )
-
-        val smallBillValue = STARTING_MONEY_VALUES.first { it > 0 }
-        val illegalBidAmount = smallBillValue * 2
-
-        // Player setup
-        val poorPlayerState =
-            baselineState.copy(
-                phase = GamePhase.AUCTION_BIDDING,
-                auctionState = initialAuction,
-                players =
-                    baselineState.players
-                        .withPlayerAssets("player-1", moneyValues = listOf(10, 20))
-                        .withPlayerAssets("player-2", moneyValues = listOf(smallBillValue))
-                        .withPlayerAssets("player-3", moneyValues = listOf(100)),
-            )
-        val session = GameSession.fromState("game-1", poorPlayerState)
-
-        val updatedState = session.placeBid("player-2", amount = illegalBidAmount)
-
-        val auction = updatedState.auctionState
-        assertNotNull(auction)
-        assertEquals(illegalBidAmount, auction.highestBid)
-        assertEquals("player-2", auction.highestBidderId)
     }
 
     @Test
@@ -1580,37 +1611,6 @@ class GameSessionTest {
 
         // Assert: Rejects processing ticks outside active round play loops
         assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
-    }
-
-    @Test
-    fun `chooseAuction handles donkey bonus`() {
-        // Setup: Donkey is on top of the deck. All players get money.
-        val donkey = AnimalCard("donkey-1", AnimalType.DONKEY)
-        val testDeck =
-            AnimalDeck(
-                listOf(donkey) + List(3) { AnimalCard("donkey-${it + 2}", AnimalType.DONKEY) },
-            )
-        val playableState =
-            baselineState.copy(
-                phase = GamePhase.PLAYER_CHOICE,
-                deck = testDeck,
-                currentPlayerIndex = 0,
-            )
-        val session = GameSession.fromState("game-1", playableState)
-
-        // Act: Draw the donkey card
-        val updatedState = session.chooseAuction("player-1")
-
-        // Assert: All players receive the money card bonus
-        updatedState.players.forEach { player ->
-            assertTrue(player.moneyCards.any { it.value == 50 && it.id.contains("donkey-1") })
-        }
-        assertNotNull(updatedState.lastEvent)
-        assertTrue(updatedState.lastEvent is GameEvent.MoneyBonus)
-        assertEquals(50, (updatedState.lastEvent as GameEvent.MoneyBonus).amount)
-
-        // Assert: The unified countdown timer is initialized on the state
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
     }
 
     @Test

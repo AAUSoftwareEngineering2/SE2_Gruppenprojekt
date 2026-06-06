@@ -28,36 +28,6 @@ class GameSession(
         private set
 
     /**
-     * Starts a game with a simple initial deck.
-     */
-    fun startGame(actorId: String): GameState {
-        ensureActorInRoom(actorId)
-        ensureHost(actorId)
-        ensurePhase(GamePhase.NOT_STARTED)
-        ensureEnoughPlayers()
-
-        val calculatedTimeout = System.currentTimeMillis() + 15_000L
-
-        state =
-            state.copy(
-                phase = GamePhase.PLAYER_CHOICE,
-                timerEnd = calculatedTimeout,
-                roundNumber = 1,
-                deck = createInitialDeck(),
-                players =
-                    state.players.shuffled().map { player ->
-                        player.copy(
-                            animals = emptyList(),
-                            moneyCards = createInitialMoney(player.id),
-                        )
-                    },
-                currentPlayerIndex = 0,
-            )
-
-        return state
-    }
-
-    /**
      * Adds a player to the game session.
      */
     fun addPlayer(
@@ -99,6 +69,36 @@ class GameSession(
             state.copy(
                 players = newPlayers,
                 hostPlayerId = newHostPlayerId,
+            )
+
+        return state
+    }
+
+    /**
+     * Starts a game with a simple initial deck.
+     */
+    fun startGame(actorId: String): GameState {
+        ensureActorInRoom(actorId)
+        ensureHost(actorId)
+        ensurePhase(GamePhase.NOT_STARTED)
+        ensureEnoughPlayers()
+
+        val calculatedTimeout = System.currentTimeMillis() + 15_000L
+
+        state =
+            state.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                timerEnd = calculatedTimeout,
+                roundNumber = 1,
+                deck = createInitialDeck(),
+                players =
+                    state.players.shuffled().map { player ->
+                        player.copy(
+                            animals = emptyList(),
+                            moneyCards = createInitialMoney(player.id),
+                        )
+                    },
+                currentPlayerIndex = 0,
             )
 
         return state
@@ -205,54 +205,6 @@ class GameSession(
                         highestBidderId = actorId,
                         timerEndTime = calculatedTimeout,
                     ),
-            )
-
-        return state
-    }
-
-    /**
-     * Concludes bidding and determines whether to show a final result or request a decision.
-     */
-    private fun closeAuctionBidding(): GameState {
-        val auctionState =
-            checkNotNull(state.auctionState) {
-                "Missing auction state in bidding phase"
-            }
-
-        // If no one placed a bid, the auctioneer gets the card for free.
-        if (auctionState.highestBidderId == null) {
-            val updatedPlayers =
-                addAnimalToPlayer(
-                    state.players,
-                    auctionState.auctioneerId,
-                    auctionState.auctionCard,
-                )
-
-            val calculatedTimeout = System.currentTimeMillis() + 5000L
-
-            state =
-                state.copy(
-                    phase = GamePhase.AUCTION_RESULT,
-                    timerEnd = calculatedTimeout,
-                    players = updatedPlayers,
-                    auctionState =
-                        auctionState.copy(
-                            timerEndTime = null,
-                            buyerId = auctionState.auctioneerId,
-                        ),
-                )
-
-            return state
-        }
-
-        // If a bid exists, proceed to the auctioneer decision phase
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
-
-        state =
-            state.copy(
-                phase = GamePhase.AUCTIONEER_DECISION,
-                timerEnd = calculatedTimeout,
-                auctionState = auctionState.copy(timerEndTime = null),
             )
 
         return state
@@ -540,6 +492,11 @@ class GameSession(
     }
 
     /**
+     * Checks if a player exists in the current game session.
+     */
+    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
+
+    /**
      * Transitions the game phase when a timer expires.
      */
     fun handleTimeoutExpiration(): GameState =
@@ -560,6 +517,54 @@ class GameSession(
      * Skip the player's turn.
      */
     private fun makeDefaultPlayerChoice(): GameState = advanceTurnAndCheckGameEnd()
+
+    /**
+     * Concludes bidding and determines whether to show a final result or request a decision.
+     */
+    private fun closeAuctionBidding(): GameState {
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in bidding phase"
+            }
+
+        // If no one placed a bid, the auctioneer gets the card for free.
+        if (auctionState.highestBidderId == null) {
+            val updatedPlayers =
+                addAnimalToPlayer(
+                    state.players,
+                    auctionState.auctioneerId,
+                    auctionState.auctionCard,
+                )
+
+            val calculatedTimeout = System.currentTimeMillis() + 5000L
+
+            state =
+                state.copy(
+                    phase = GamePhase.AUCTION_RESULT,
+                    timerEnd = calculatedTimeout,
+                    players = updatedPlayers,
+                    auctionState =
+                        auctionState.copy(
+                            timerEndTime = null,
+                            buyerId = auctionState.auctioneerId,
+                        ),
+                )
+
+            return state
+        }
+
+        // If a bid exists, proceed to the auctioneer decision phase
+        val calculatedTimeout = System.currentTimeMillis() + 5000L
+
+        state =
+            state.copy(
+                phase = GamePhase.AUCTIONEER_DECISION,
+                timerEnd = calculatedTimeout,
+                auctionState = auctionState.copy(timerEndTime = null),
+            )
+
+        return state
+    }
 
     /**
      * Sells the face-up card to the highest bidder.
@@ -618,11 +623,6 @@ class GameSession(
 
         return state
     }
-
-    /**
-     * Checks if a player exists in the current game session.
-     */
-    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
 
     /**
      * Shifts the active turn indicator to the next player.

@@ -101,16 +101,6 @@ class GameService(
     }
 
     /**
-     * Starts an existing game.
-     *
-     * Expects a valid [gameId].
-     */
-    suspend fun startGame(
-        gameId: String,
-        actorId: String,
-    ): GameState = executeAction(gameId) { session -> session.startGame(actorId) }
-
-    /**
      * Adds a player to a game.
      *
      * Fails with a client-facing error if the game does not exist.
@@ -178,6 +168,16 @@ class GameService(
             return room.session.state
         }
     }
+
+    /**
+     * Starts an existing game.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun startGame(
+        gameId: String,
+        actorId: String,
+    ): GameState = executeAction(gameId) { session -> session.startGame(actorId) }
 
     /**
      * Starts an auction.

@@ -111,27 +111,6 @@ class GameServiceTest {
     }
 
     @Test
-    fun test_startGame_delegatesWork() =
-        runTest {
-            val result = service.createGame("Player 1")
-            whenever(gameSession.startGame(result.playerId)).thenReturn(gameStateToReturn)
-
-            val state = service.startGame(result.gameId, result.playerId)
-
-            verify(gameSession).startGame(result.playerId)
-            assertEquals(gameStateToReturn, state)
-        }
-
-    @Test
-    fun test_startGame_throws_forInvalidGameId() =
-        runTest {
-            assertThrows<IllegalStateException> {
-                service.startGame("fake code", "player-1")
-            }
-            verify(gameSession, never()).startGame(any())
-        }
-
-    @Test
     fun test_removeGame_removesGameSession() =
         runTest {
             val result = service.createGame("Player 1")
@@ -239,6 +218,27 @@ class GameServiceTest {
         }
 
     @Test
+    fun test_startGame_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(gameSession.startGame(result.playerId)).thenReturn(gameStateToReturn)
+
+            val state = service.startGame(result.gameId, result.playerId)
+
+            verify(gameSession).startGame(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_startGame_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.startGame("fake code", "player-1")
+            }
+            verify(gameSession, never()).startGame(any())
+        }
+
+    @Test
     fun test_chooseAuction_delegatesWork() =
         runTest {
             val result = service.createGame("Player 1")
@@ -296,60 +296,6 @@ class GameServiceTest {
 
             verify(gameSession).resolveAuction(result.playerId, auctioneerBuysCard = false)
             assertEquals(gameStateToReturn, state)
-        }
-
-    @Test
-    fun test_schedulePhaseTimeout_schedulesNextTimeout_whenStateContainsActiveTimerEnd() =
-        runTest {
-            service =
-                GameService(
-                    eventPublisher = eventPublisher,
-                    gameSessionFactory = { _, _, _ -> gameSession },
-                    serviceScope = backgroundScope,
-                )
-
-            val result = service.createGame("Player 1")
-            val now = System.currentTimeMillis()
-            val targetTimerEnd = now + 5000L
-
-            val restartedAuctionState =
-                AuctionState(
-                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
-                    auctioneerId = result.playerId,
-                    timerEndTime = targetTimerEnd,
-                    excludedPlayerIds = setOf("player-2"),
-                )
-            val restartedGameState =
-                gameStateToReturn.copy(
-                    phase = GamePhase.AUCTION_BIDDING,
-                    timerEnd = targetTimerEnd,
-                    auctionState = restartedAuctionState,
-                )
-            val closedGameState =
-                restartedGameState.copy(
-                    phase = GamePhase.AUCTIONEER_DECISION,
-                    timerEnd = null,
-                    auctionState = restartedAuctionState.copy(timerEndTime = null),
-                )
-
-            whenever(
-                gameSession.resolveAuction(
-                    result.playerId,
-                    auctioneerBuysCard = false,
-                ),
-            ).thenReturn(restartedGameState)
-            whenever(gameSession.state).thenReturn(restartedGameState)
-            whenever(gameSession.handleTimeoutExpiration()).thenReturn(closedGameState)
-
-            val state =
-                service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
-
-            // Advance past the 5000ms delay + 100ms safety pad
-            advanceTimeBy(5200)
-
-            assertEquals(restartedGameState, state)
-            verify(gameSession).handleTimeoutExpiration()
-            verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
         }
 
     @Test
@@ -488,6 +434,60 @@ class GameServiceTest {
             advanceTimeBy(5200)
 
             // Verify execution targets the universal endpoint handle
+            verify(gameSession).handleTimeoutExpiration()
+            verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_schedulePhaseTimeout_schedulesNextTimeout_whenStateContainsActiveTimerEnd() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
+            val restartedAuctionState =
+                AuctionState(
+                    auctionCard = AnimalCard(id = "animal-card-1", AnimalType.COW),
+                    auctioneerId = result.playerId,
+                    timerEndTime = targetTimerEnd,
+                    excludedPlayerIds = setOf("player-2"),
+                )
+            val restartedGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                    auctionState = restartedAuctionState,
+                )
+            val closedGameState =
+                restartedGameState.copy(
+                    phase = GamePhase.AUCTIONEER_DECISION,
+                    timerEnd = null,
+                    auctionState = restartedAuctionState.copy(timerEndTime = null),
+                )
+
+            whenever(
+                gameSession.resolveAuction(
+                    result.playerId,
+                    auctioneerBuysCard = false,
+                ),
+            ).thenReturn(restartedGameState)
+            whenever(gameSession.state).thenReturn(restartedGameState)
+            whenever(gameSession.handleTimeoutExpiration()).thenReturn(closedGameState)
+
+            val state =
+                service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
+
+            // Advance past the 5000ms delay + 100ms safety pad
+            advanceTimeBy(5200)
+
+            assertEquals(restartedGameState, state)
             verify(gameSession).handleTimeoutExpiration()
             verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
         }
