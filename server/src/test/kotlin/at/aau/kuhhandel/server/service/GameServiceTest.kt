@@ -370,7 +370,6 @@ class GameServiceTest {
                     result.playerId,
                     "player-2",
                     AnimalType.COW,
-                    setOf(),
                 ),
             ).thenReturn(gameStateToReturn)
 
@@ -383,7 +382,7 @@ class GameServiceTest {
                     setOf(),
                 )
 
-            verify(gameSession).chooseTrade(result.playerId, "player-2", AnimalType.COW, setOf())
+            verify(gameSession).chooseTrade(result.playerId, "player-2", AnimalType.COW)
             assertEquals(gameStateToReturn, state)
         }
 
@@ -393,7 +392,7 @@ class GameServiceTest {
             assertThrows<IllegalStateException> {
                 service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW, setOf())
             }
-            verify(gameSession, never()).chooseTrade(any(), any(), any(), any())
+            verify(gameSession, never()).chooseTrade(any(), any(), any())
         }
 
     @Test

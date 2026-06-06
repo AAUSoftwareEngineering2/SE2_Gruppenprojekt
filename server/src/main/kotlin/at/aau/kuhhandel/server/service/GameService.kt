@@ -229,7 +229,6 @@ class GameService(
                 actorId,
                 targetId,
                 animalType,
-                offeredMoneyCardIds,
             )
         }
 

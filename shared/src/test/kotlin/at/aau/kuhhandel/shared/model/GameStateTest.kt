@@ -114,15 +114,16 @@ class GameStateTest {
         assertNotNull(tradeView)
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
-        assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
+        assertEquals(tradeState?.animalCards?.toList(), tradeView.animalCards)
         assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
         assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
         assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
         assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
+        assertEquals(tradeState?.winnerId, tradeView.winnerId)
     }
 
     @Test
-    fun test_createViewForPlayer_doesNotShowTradeData_forTradeObserverBeforeReveal() {
+    fun test_createViewForPlayer_doesNotShowTradeData_forTradeObserverBeforeResultPhase() {
         val view = baseState.createViewForPlayer("player-3")
 
         assertEquals(baseState.phase, view.phase)
@@ -141,11 +142,12 @@ class GameStateTest {
         assertNotNull(tradeView)
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
-        assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
+        assertEquals(tradeState?.animalCards?.toList(), tradeView.animalCards)
         assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
         assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
         assertNull(tradeView.visibleInitiatorCards)
         assertNull(tradeView.visibleTargetCards)
+        assertEquals(tradeState?.winnerId, tradeView.winnerId)
     }
 
     @Test
@@ -166,11 +168,12 @@ class GameStateTest {
         assertNotNull(tradeView)
         assertEquals(tradeState?.initiatorId, tradeView.initiatorId)
         assertEquals(tradeState?.targetId, tradeView.targetId)
-        assertEquals(tradeState?.requestedAnimalType, tradeView.requestedAnimalType)
+        assertEquals(tradeState?.animalCards?.toList(), tradeView.animalCards)
         assertEquals(tradeState?.offeredMoneyCards?.size, tradeView.initiatorCardCount)
         assertEquals(tradeState?.counterOfferedMoneyCards?.size, tradeView.targetCardCount)
         assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
         assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
+        assertEquals(tradeState?.winnerId, tradeView.winnerId)
     }
 
     @Test
