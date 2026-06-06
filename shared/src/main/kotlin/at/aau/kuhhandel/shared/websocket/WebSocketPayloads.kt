@@ -98,7 +98,7 @@ data class ResolveAuctionPayload(
 data class ChooseTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
-    val moneyCardIds: Set<String>,
+    val moneyCardIds: Set<String>? = null,
 )
 
 /**

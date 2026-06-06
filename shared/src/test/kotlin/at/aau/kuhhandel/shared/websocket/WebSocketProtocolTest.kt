@@ -172,7 +172,6 @@ class WebSocketProtocolTest {
             ChooseTradePayload(
                 challengedPlayerId = "player-2",
                 animalType = AnimalType.COW,
-                moneyCardIds = emptySet(),
             )
 
         val encoded = json.encodeToString(ChooseTradePayload.serializer(), payload)

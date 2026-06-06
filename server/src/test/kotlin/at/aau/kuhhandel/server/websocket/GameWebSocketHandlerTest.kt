@@ -961,7 +961,6 @@ class GameWebSocketHandlerTest {
                         ChooseTradePayload(
                             challengedPlayerId = "player-2",
                             animalType = AnimalType.COW,
-                            moneyCardIds = emptySet(),
                         ),
                     ),
             )
@@ -1006,7 +1005,6 @@ class GameWebSocketHandlerTest {
                     ChooseTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
-                        moneyCardIds = emptySet(),
                     ),
                 ),
         )
