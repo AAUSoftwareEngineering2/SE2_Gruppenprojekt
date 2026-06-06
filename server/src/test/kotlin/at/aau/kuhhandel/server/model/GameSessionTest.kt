@@ -468,7 +468,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `closeAuctionAfterTimeout handles the edge case if no one placed a bid`() {
+    fun `closeAuctionBidding handles the edge case if no one placed a bid`() {
         // Setup: Auctioneer is Player 1, face-up card is a COW, and no bids were placed
         val testCard = AnimalCard("cow-1", AnimalType.COW)
         val initialAuction =
@@ -504,7 +504,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `closeAuctionAfterTimeout functions correctly if a highest bidder exists`() {
+    fun `closeAuctionBidding functions correctly if a highest bidder exists`() {
         // Setup: Player 2 placed a winning bid of 20
         val testCard = AnimalCard("cow-1", AnimalType.COW)
         val initialAuction =
@@ -542,7 +542,7 @@ class GameSessionTest {
     }
 
     @Test
-    fun `closeAuctionAfterTimeout throws IllegalStateException if auction state is missing`() {
+    fun `closeAuctionBidding throws IllegalStateException if auction state is missing`() {
         val biddingState =
             baselineState.copy(
                 phase = GamePhase.AUCTION_BIDDING,

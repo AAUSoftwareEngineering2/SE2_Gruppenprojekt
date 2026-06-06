@@ -213,7 +213,7 @@ class GameSession(
     /**
      * Concludes bidding and determines whether to show a final result or request a decision.
      */
-    private fun closeAuctionAfterTimeout(): GameState {
+    private fun closeAuctionBidding(): GameState {
         val auctionState =
             checkNotNull(state.auctionState) {
                 "Missing auction state in bidding phase"
@@ -545,7 +545,7 @@ class GameSession(
     fun handleTimeoutExpiration(): GameState =
         when (state.phase) {
             GamePhase.PLAYER_CHOICE -> makeDefaultPlayerChoice()
-            GamePhase.AUCTION_BIDDING -> closeAuctionAfterTimeout()
+            GamePhase.AUCTION_BIDDING -> closeAuctionBidding()
             GamePhase.AUCTIONEER_DECISION -> makeDefaultAuctioneerDecision()
             GamePhase.AUCTION_RESULT -> endAuctionSequence()
             GamePhase.TRADE_OFFER -> makeDefaultTradeOffer()
