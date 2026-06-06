@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
@@ -188,7 +189,7 @@ class GameSessionTest {
         assertEquals(0, updatedState.currentPlayerIndex)
 
         // Confirm the timeout has been set
-        assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
 
         // Deck assertion (CARDS_PER_ANIMAL_TYPE * number of animal types)
         assertEquals(FULL_DECK_SIZE, updatedState.deck.cards.size)
@@ -257,7 +258,10 @@ class GameSessionTest {
         assertEquals(1, updatedState.deck.cards.size) // One card remaining
 
         // Confirm the timeout has been set
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_BIDDING_MS,
+            state = updatedState,
+        )
 
         // Auction state initialization assertions
         val auction = updatedState.auctionState
@@ -296,7 +300,10 @@ class GameSessionTest {
         assertEquals(50, (updatedState.lastEvent as GameEvent.MoneyBonus).amount)
 
         // Assert: The unified countdown timer is initialized on the state
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_BIDDING_MS,
+            state = updatedState,
+        )
     }
 
     @Test
@@ -370,7 +377,10 @@ class GameSessionTest {
         assertEquals("player-2", auction.highestBidderId)
 
         // Confirm the timeout has been set
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_BIDDING_MS,
+            state = updatedState,
+        )
     }
 
     @Test
@@ -526,7 +536,10 @@ class GameSessionTest {
 
         // Assert: Transitions straight to AUCTION_RESULT
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = updatedState,
+        )
 
         // Assert: Verify that buyerId is assigned correctly to the auctioneer
         val auction = updatedState.auctionState
@@ -557,7 +570,10 @@ class GameSessionTest {
 
         // Assert: Transitions to the AUCTIONEER_DECISION phase
         assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTIONEER_DECISION_MS,
+            state = updatedState,
+        )
 
         // Assert: The auction details remain intact
         val auction = updatedState.auctionState
@@ -623,7 +639,10 @@ class GameSessionTest {
 
         // Assert: Transitions to auction result phase
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = updatedState,
+        )
 
         // Assert: Buyer identity is logged in auction state
         val finalAuction = updatedState.auctionState
@@ -668,7 +687,10 @@ class GameSessionTest {
 
         // Assert: Transitions to auction result phase
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = updatedState,
+        )
 
         // Assert: Buyer identity is logged in auction state
         val finalAuction = updatedState.auctionState
@@ -800,7 +822,10 @@ class GameSessionTest {
 
         // Assert: Game loop rolls back to bidding room with fresh timer tracking
         assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_BIDDING_MS,
+            state = updatedState,
+        )
 
         // Assert: High bidder is penalized and excluded from subsequent restarts
         val restartedAuction = updatedState.auctionState
@@ -848,7 +873,7 @@ class GameSessionTest {
 
         // Assert: Phase transitions to trade offer and sets the countdown window
         assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
-        assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.TRADE_OFFER_MS, state = updatedState)
 
         // Assert: At-stake animal cards are extracted out of player inventories
         assertTrue(initiator.animals.isEmpty())
@@ -1032,7 +1057,10 @@ class GameSessionTest {
 
         // Assert: Phase transitions to response and registers the timeline window
         assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
-        assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.TRADE_RESPONSE_MS,
+            state = updatedState,
+        )
 
         // Assert: Money cards are stripped out of the player hand collection
         assertTrue(initiator.moneyCards.isEmpty())
@@ -1075,7 +1103,10 @@ class GameSessionTest {
 
         // Assert: Phase transitions to response and registers the timeline window
         assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
-        assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.TRADE_RESPONSE_MS,
+            state = updatedState,
+        )
 
         // Assert: Player hand configuration remains completely untouched
         assertEquals(1, initiator.moneyCards.size)
@@ -1202,7 +1233,7 @@ class GameSessionTest {
 
         // Assert: Phase transitions and registers the timeline window
         assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.TRADE_RESULT_MS, state = updatedState)
 
         // Assert: Trade state retains previous inputs and registers the server-calculated outcome
         val updatedTrade = updatedState.tradeState
@@ -1255,7 +1286,7 @@ class GameSessionTest {
 
         // Assert: Phase transitions and registers the timeline window
         assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.TRADE_RESULT_MS, state = updatedState)
 
         // Assert: Trade state tracks updated counter-offer metrics
         val updatedTrade = updatedState.tradeState
@@ -1419,7 +1450,7 @@ class GameSessionTest {
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
-        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
     }
 
     @Test
@@ -1450,7 +1481,10 @@ class GameSessionTest {
 
         // Assert: Natively cascades to resolveAuction to force card sale to high bidder
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = updatedState,
+        )
         assertEquals("player-2", updatedState.auctionState?.buyerId)
     }
 
@@ -1485,7 +1519,7 @@ class GameSessionTest {
         assertNull(updatedState.auctionState)
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
         assertEquals(1, updatedState.currentPlayerIndex)
-        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
     }
 
     @Test
@@ -1515,7 +1549,10 @@ class GameSessionTest {
 
         // Assert: Cascades to submitTradeMoney with an empty set and hits response room
         assertEquals(GamePhase.TRADE_RESPONSE, updatedState.phase)
-        assertValidTimeout(expectedDuration = 15000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.TRADE_RESPONSE_MS,
+            state = updatedState,
+        )
         assertNotNull(updatedState.tradeState?.offeredMoneyCards)
         assertTrue(updatedState.tradeState!!.offeredMoneyCards!!.isEmpty())
     }
@@ -1562,7 +1599,7 @@ class GameSessionTest {
 
         // Assert: Cascades to respondToTrade with empty set to trigger resolution outcome
         assertEquals(GamePhase.TRADE_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.TRADE_RESULT_MS, state = updatedState)
         assertEquals("player-1", updatedState.tradeState?.winnerId)
     }
 
@@ -1601,7 +1638,7 @@ class GameSessionTest {
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
-        assertValidTimeout(expectedDuration = 15_000L, state = updatedState)
+        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
     }
 
     @Test
@@ -1664,7 +1701,10 @@ class GameSessionTest {
 
         // Assert: Verify the game enters the result phase successfully
         assertEquals(GamePhase.AUCTION_RESULT, stateAfterResolution.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = stateAfterResolution)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = stateAfterResolution,
+        )
 
         // Act: Simulate the phase timer running down to zero
         val updatedState = session.handleTimeoutExpiration()
@@ -1711,7 +1751,10 @@ class GameSessionTest {
 
         // Assert: State shifts to auction result phase and locks in the buyer identity
         assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(expectedDuration = 5000L, state = updatedState)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
+            state = updatedState,
+        )
 
         val finalAuction = updatedState.auctionState
         assertNotNull(finalAuction)

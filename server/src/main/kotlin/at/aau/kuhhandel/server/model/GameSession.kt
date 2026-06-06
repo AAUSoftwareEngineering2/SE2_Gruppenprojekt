@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.TradeState
 
@@ -83,7 +84,7 @@ class GameSession(
         ensurePhase(GamePhase.NOT_STARTED)
         ensureEnoughPlayers()
 
-        val calculatedTimeout = System.currentTimeMillis() + 15_000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
 
         state =
             state.copy(
@@ -153,7 +154,7 @@ class GameSession(
             }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
 
         state =
             state.copy(
@@ -193,7 +194,7 @@ class GameSession(
         ensureBidNotTooLow(auctionState, amount)
         ensureBidNotTooHigh(amount)
 
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
 
         state =
             state.copy(
@@ -245,7 +246,8 @@ class GameSession(
         } else {
             // Bluff Check: If the winner cannot pay the auctioneer, they bluffed
             if (highestBidder.totalMoney() < auctionState.highestBid) {
-                val calculatedTimeout = System.currentTimeMillis() + 5000L
+                val calculatedTimeout =
+                    System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
 
                 state =
                     state.copy(
@@ -280,7 +282,7 @@ class GameSession(
         val updatedPlayers =
             addAnimalToPlayer(playersAfterPayment, receiver.id, auctionState.auctionCard)
 
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
 
         state =
             state.copy(
@@ -320,7 +322,7 @@ class GameSession(
         val initiatorAnimals = initiatorMatchingAnimals.take(animalsToMoveCount).toSet()
         val targetAnimals = targetMatchingAnimals.take(animalsToMoveCount).toSet()
 
-        val calculatedTimeout = System.currentTimeMillis() + 15_000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_OFFER_MS
 
         // Remove the animal cards from the players, transition
         // the phase, and store the trade information
@@ -377,7 +379,7 @@ class GameSession(
                 }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + 15_000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESPONSE_MS
 
         // Transition the phase and update the trade information
         state =
@@ -472,7 +474,7 @@ class GameSession(
                     )
                 }
 
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESULT_MS
 
         // Transition the phase and update the trade information
         state =
@@ -536,7 +538,7 @@ class GameSession(
                     auctionState.auctionCard,
                 )
 
-            val calculatedTimeout = System.currentTimeMillis() + 5000L
+            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
 
             state =
                 state.copy(
@@ -554,7 +556,7 @@ class GameSession(
         }
 
         // If a bid exists, proceed to the auctioneer decision phase
-        val calculatedTimeout = System.currentTimeMillis() + 5000L
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTIONEER_DECISION_MS
 
         state =
             state.copy(
@@ -645,7 +647,7 @@ class GameSession(
                     // leaderboard = ...
                 )
         } else {
-            val calculatedTimeout = System.currentTimeMillis() + 15_000L
+            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
 
             state =
                 state.copy(
