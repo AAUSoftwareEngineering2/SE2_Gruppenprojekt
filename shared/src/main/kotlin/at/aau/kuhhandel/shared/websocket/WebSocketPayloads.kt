@@ -87,7 +87,7 @@ data class ErrorPayload(
  * Sent by the active player to start a trade challenge against another player.
  */
 @Serializable
-data class InitiateTradePayload(
+data class ChooseTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
     val moneyCardIds: Set<String>,

@@ -174,7 +174,7 @@ class WebSocketProtocolTest {
     @Test
     fun `InitiateTradePayload round-trips and exposes its fields`() {
         val payload =
-            InitiateTradePayload(
+            ChooseTradePayload(
                 challengedPlayerId = "player-2",
                 animalType = AnimalType.COW,
                 moneyCardIds = emptySet(),
@@ -183,8 +183,8 @@ class WebSocketProtocolTest {
         assertEquals("player-2", payload.challengedPlayerId)
         assertEquals(AnimalType.COW, payload.animalType)
 
-        val encoded = json.encodeToString(InitiateTradePayload.serializer(), payload)
-        val decoded = json.decodeFromString(InitiateTradePayload.serializer(), encoded)
+        val encoded = json.encodeToString(ChooseTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(ChooseTradePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
         assertEquals(payload.hashCode(), decoded.hashCode())

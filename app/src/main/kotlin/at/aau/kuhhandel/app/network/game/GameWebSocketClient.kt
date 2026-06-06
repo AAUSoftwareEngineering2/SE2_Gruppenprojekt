@@ -3,8 +3,8 @@ package at.aau.kuhhandel.app.network.game
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
@@ -266,8 +266,8 @@ class GameWebSocketClient(
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                InitiateTradePayload.serializer(),
-                InitiateTradePayload(
+                ChooseTradePayload.serializer(),
+                ChooseTradePayload(
                     challengedPlayerId = challengedPlayerId,
                     animalType = animalType,
                     moneyCardIds = moneyCardIds,

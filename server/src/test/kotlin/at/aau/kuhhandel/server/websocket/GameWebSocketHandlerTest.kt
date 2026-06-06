@@ -12,12 +12,12 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameJoinedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
-import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
@@ -777,8 +777,8 @@ class GameWebSocketHandlerTest {
                 requestId = "req-1",
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
-                        InitiateTradePayload.serializer(),
-                        InitiateTradePayload(
+                        ChooseTradePayload.serializer(),
+                        ChooseTradePayload(
                             challengedPlayerId = "player-2",
                             animalType = AnimalType.COW,
                             moneyCardIds = emptySet(),
@@ -822,8 +822,8 @@ class GameWebSocketHandlerTest {
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
+                    ChooseTradePayload.serializer(),
+                    ChooseTradePayload(
                         challengedPlayerId = "player-2",
                         animalType = AnimalType.COW,
                         moneyCardIds = emptySet(),
