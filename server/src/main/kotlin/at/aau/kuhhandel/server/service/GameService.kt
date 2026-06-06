@@ -222,13 +222,29 @@ class GameService(
         actorId: String,
         targetId: String,
         animalType: AnimalType,
-        offeredMoneyCardIds: Set<String>,
     ): GameState =
         executeAction(gameId) { session ->
             session.chooseTrade(
                 actorId,
                 targetId,
                 animalType,
+            )
+        }
+
+    /**
+     * Submits the money cards offered by the trade initiator.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun submitTradeMoney(
+        gameId: String,
+        actorId: String,
+        offeredMoneyCardIds: Set<String>,
+    ): GameState =
+        executeAction(gameId) { session ->
+            session.submitTradeMoney(
+                actorId,
+                offeredMoneyCardIds,
             )
         }
 

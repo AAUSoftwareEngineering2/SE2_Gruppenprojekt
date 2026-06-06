@@ -379,7 +379,6 @@ class GameServiceTest {
                     result.playerId,
                     "player-2",
                     AnimalType.COW,
-                    setOf(),
                 )
 
             verify(gameSession).chooseTrade(result.playerId, "player-2", AnimalType.COW)
@@ -390,7 +389,38 @@ class GameServiceTest {
     fun test_chooseTrade_throws_forInvalidGameId() =
         runTest {
             assertThrows<IllegalStateException> {
-                service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW, setOf())
+                service.chooseTrade("fake code", "player-1", "player-2", AnimalType.COW)
+            }
+            verify(gameSession, never()).chooseTrade(any(), any(), any())
+        }
+
+    @Test
+    fun test_submitTradeMoney_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.submitTradeMoney(
+                    result.playerId,
+                    emptySet(),
+                ),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.submitTradeMoney(
+                    result.gameId,
+                    result.playerId,
+                    emptySet(),
+                )
+
+            verify(gameSession).submitTradeMoney(result.playerId, emptySet())
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_submitTradeMoney_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.submitTradeMoney("fake code", "player-1", emptySet())
             }
             verify(gameSession, never()).chooseTrade(any(), any(), any())
         }

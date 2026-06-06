@@ -23,6 +23,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -751,7 +752,7 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
-    fun `INITIATE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
+    fun `CHOOSE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
                 setOf(
@@ -767,7 +768,6 @@ class GameWebSocketHandlerTest {
                     "player-1",
                     "player-2",
                     AnimalType.COW,
-                    emptySet(),
                 ),
             ).thenReturn(gameState)
 
@@ -791,6 +791,112 @@ class GameWebSocketHandlerTest {
                 "player-1",
                 "player-2",
                 AnimalType.COW,
+            )
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
+        }
+
+    @Test
+    fun `CHOOSE_TRADE with no bound player session sends ERROR`() {
+        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.CHOOSE_TRADE,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    InitiateTradePayload.serializer(),
+                    InitiateTradePayload(
+                        challengedPlayerId = "player-2",
+                        animalType = AnimalType.COW,
+                        moneyCardIds = emptySet(),
+                    ),
+                ),
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
+    }
+
+    @Test
+    fun `CHOOSE_TRADE with missing payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.CHOOSE_TRADE,
+            requestId = "req-1",
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `CHOOSE_TRADE with invalid payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.CHOOSE_TRADE,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
+
+    @Test
+    fun `SUBMIT_TRADE_MONEY sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
+
+            val gameState = baseState.copy(phase = GamePhase.TRADE_OFFER)
+            whenever(
+                gameService.submitTradeMoney(
+                    "game-1",
+                    "player-1",
+                    emptySet(),
+                ),
+            ).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.SUBMIT_TRADE_MONEY,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        SubmitTradeMoneyPayload.serializer(),
+                        SubmitTradeMoneyPayload(
+                            moneyCardIds = emptySet(),
+                        ),
+                    ),
+            )
+
+            verify(gameService).submitTradeMoney(
+                "game-1",
+                "player-1",
                 emptySet(),
             )
 
@@ -814,19 +920,17 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
-    fun `INITIATE_TRADE with no bound player session sends ERROR`() {
+    fun `SUBMIT_TRADE_MONEY with no bound player session sends ERROR`() {
         whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
 
         sendEnvelope(
             session = session1,
-            type = WebSocketType.CHOOSE_TRADE,
+            type = WebSocketType.SUBMIT_TRADE_MONEY,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(
-                    InitiateTradePayload.serializer(),
-                    InitiateTradePayload(
-                        challengedPlayerId = "player-2",
-                        animalType = AnimalType.COW,
+                    SubmitTradeMoneyPayload.serializer(),
+                    SubmitTradeMoneyPayload(
                         moneyCardIds = emptySet(),
                     ),
                 ),
@@ -837,10 +941,10 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `INITIATE_TRADE with missing payload sends ERROR`() {
+    fun `SUBMIT_TRADE_MONEY with missing payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.CHOOSE_TRADE,
+            type = WebSocketType.SUBMIT_TRADE_MONEY,
             requestId = "req-1",
         )
 
@@ -848,10 +952,10 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `INITIATE_TRADE with invalid payload sends ERROR`() {
+    fun `SUBMIT_TRADE_MONEY with invalid payload sends ERROR`() {
         sendEnvelope(
             session = session1,
-            type = WebSocketType.CHOOSE_TRADE,
+            type = WebSocketType.SUBMIT_TRADE_MONEY,
             requestId = "req-1",
             payload =
                 WebSocketJson.json.encodeToJsonElement(

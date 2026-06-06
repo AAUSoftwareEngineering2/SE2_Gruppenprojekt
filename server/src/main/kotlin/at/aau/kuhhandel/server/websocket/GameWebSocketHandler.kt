@@ -17,6 +17,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -76,7 +77,8 @@ class GameWebSocketHandler(
                     WebSocketType.JOIN_GAME -> handleJoinGame(session, envelope)
                     WebSocketType.LEAVE_GAME -> handleLeaveGame(session, envelope)
                     WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
-                    WebSocketType.CHOOSE_TRADE -> handleInitiateTrade(session, envelope)
+                    WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
+                    WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
                     WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
                     WebSocketType.RESOLVE_AUCTION -> handleAuctionBuyBack(session, envelope)
@@ -315,7 +317,7 @@ class GameWebSocketHandler(
     /**
      * Processes [WebSocketType.CHOOSE_TRADE] commands.
      */
-    private suspend fun handleInitiateTrade(
+    private suspend fun handleChooseTrade(
         session: WebSocketSession,
         envelope: WebSocketEnvelope,
     ) {
@@ -328,6 +330,26 @@ class GameWebSocketHandler(
                 actorId,
                 payload.challengedPlayerId,
                 payload.animalType,
+            )
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.SUBMIT_TRADE_MONEY] commands.
+     */
+    private suspend fun handleSubmitTradeMoney(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, SubmitTradeMoneyPayload.serializer())
+
+        val state =
+            gameService.submitTradeMoney(
+                gameId,
+                actorId,
                 payload.moneyCardIds,
             )
 
