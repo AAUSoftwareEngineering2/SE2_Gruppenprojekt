@@ -771,7 +771,7 @@ class GameRepositoryTest {
                     RespondToTradePayload.serializer(),
                     requireNotNull(envelope.payload),
                 )
-            assertEquals(cardIds, payload.counterOfferedMoneyCardIds)
+            assertEquals(cardIds, payload.moneyCardIds)
         }
     }
 

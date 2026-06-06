@@ -403,7 +403,7 @@ class GameWebSocketHandler(
             gameService.respondToTrade(
                 gameId,
                 actorId,
-                payload.counterOfferedMoneyCardIds,
+                payload.moneyCardIds,
             )
 
         sendStateUpdate(session, envelope.requestId, state, actorId)

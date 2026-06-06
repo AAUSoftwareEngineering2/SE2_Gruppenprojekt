@@ -196,11 +196,8 @@ class WebSocketProtocolTest {
     fun `RespondToTradePayload round-trips and exposes its fields`() {
         val payload =
             RespondToTradePayload(
-                respondingPlayerId = "player-2",
-                counterOfferedMoneyCardIds = emptySet(),
+                moneyCardIds = emptySet(),
             )
-
-        assertEquals("player-2", payload.respondingPlayerId)
 
         val encoded = json.encodeToString(RespondToTradePayload.serializer(), payload)
         val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)

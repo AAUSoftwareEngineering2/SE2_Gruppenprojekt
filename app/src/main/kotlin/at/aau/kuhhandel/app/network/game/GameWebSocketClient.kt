@@ -287,8 +287,7 @@ class GameWebSocketClient(
             WebSocketJson.json.encodeToJsonElement(
                 RespondToTradePayload.serializer(),
                 RespondToTradePayload(
-                    respondingPlayerId = respondingPlayerId,
-                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                    moneyCardIds = counterOfferedMoneyCardIds,
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))

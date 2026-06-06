@@ -1169,8 +1169,7 @@ class GameWebSocketHandlerTest {
                     WebSocketJson.json.encodeToJsonElement(
                         RespondToTradePayload.serializer(),
                         RespondToTradePayload(
-                            respondingPlayerId = "player-1",
-                            counterOfferedMoneyCardIds = emptySet(),
+                            moneyCardIds = emptySet(),
                         ),
                     ),
             )
@@ -1208,8 +1207,7 @@ class GameWebSocketHandlerTest {
                 WebSocketJson.json.encodeToJsonElement(
                     RespondToTradePayload.serializer(),
                     RespondToTradePayload(
-                        respondingPlayerId = "player-2",
-                        counterOfferedMoneyCardIds = emptySet(),
+                        moneyCardIds = emptySet(),
                     ),
                 ),
         )

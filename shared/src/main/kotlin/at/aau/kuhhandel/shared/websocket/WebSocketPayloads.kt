@@ -108,8 +108,7 @@ data class SubmitTradeMoneyPayload(
  */
 @Serializable
 data class RespondToTradePayload(
-    val respondingPlayerId: String,
-    val counterOfferedMoneyCardIds: Set<String> = emptySet(),
+    val moneyCardIds: Set<String>,
 )
 
 /**
