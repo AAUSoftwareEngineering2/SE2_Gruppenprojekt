@@ -464,6 +464,7 @@ class GameViewModelTest {
             assertNull(viewModel.uiState.value.selectedTargetPlayerId)
             assertEquals("other", viewModel.uiState.value.pendingTradeTargetPlayerId)
             assertEquals(AnimalType.COW, viewModel.uiState.value.pendingTradeAnimalType)
+            assertTrue(viewModel.uiState.value.isTradeActive)
             coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any(), any()) }
         }
     }

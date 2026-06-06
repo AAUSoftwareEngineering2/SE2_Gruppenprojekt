@@ -29,6 +29,7 @@ import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
+import at.aau.kuhhandel.app.ui.components.TradingView
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -54,6 +55,7 @@ fun GameScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isAuctionActive = uiState.isAuctionActive
+    val isTradeActive = uiState.isTradeActive
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -143,13 +145,7 @@ fun GameScreen(
                     GamePhase.TRADE_OFFER,
                     GamePhase.TRADE_RESPONSE,
                     GamePhase.TRADE_RESULT,
-                    -> {
-                        TradePhaseContent(
-                            uiState = uiState,
-                            onRespondToTrade = onRespondToTrade,
-                            onFinishTradeReveal = onFinishTradeReveal,
-                        )
-                    }
+                    -> Unit
 
                     GamePhase.FINISHED -> {
                         Text(
@@ -229,6 +225,10 @@ fun GameScreen(
                     onBuyBack = onBuyBack,
                 )
             }
+        }
+
+        if (isTradeActive) {
+            TradingView()
         }
     }
 }
