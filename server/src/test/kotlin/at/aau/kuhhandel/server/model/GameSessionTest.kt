@@ -1638,12 +1638,7 @@ class GameSessionTest {
                 animals =
                     playersWithQuartets[0].animals +
                         (1..3).map { AnimalCard("${lastAnimalType.name}-$it", lastAnimalType) },
-                moneyCards =
-                    createDummyMoney(
-                        "player-1",
-                        listOf(50),
-                    ),
-                // Give auctioneer money to buy back
+                moneyCards = createDummyMoney("player-1", listOf(50)),
             )
         val finalPlayers = listOf(player1With3Cards) + playersWithQuartets.drop(1)
 
@@ -1652,7 +1647,7 @@ class GameSessionTest {
                 auctionCard = lastCard,
                 auctioneerId = "player-1",
                 highestBid = 10,
-                highestBidderId = "player-2", // Valid bidder exists
+                highestBidderId = "player-2",
             )
 
         val decisionState =
@@ -1665,9 +1660,19 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", decisionState)
 
         // Act: Auctioneer manually executes buy-back to claim the final quartet card
-        val updatedState = session.resolveAuction("player-1", auctioneerBuysCard = true)
+        val stateAfterResolution = session.resolveAuction("player-1", auctioneerBuysCard = true)
 
-        // TODO: Assert phase transitions to FINISHED here once handlePhaseTimeout() is implemented
+        // Assert: Verify the game enters the result phase successfully
+        assertEquals(GamePhase.AUCTION_RESULT, stateAfterResolution.phase)
+        assertValidTimeout(expectedDuration = 5000L, state = stateAfterResolution)
+
+        // Act: Simulate the phase timer running down to zero
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Game loop terminates cleanly and transitions directly to the end game screen
+        assertEquals(GamePhase.FINISHED, updatedState.phase)
+        assertNull(updatedState.timerEnd)
+        assertNull(updatedState.lastEvent)
     }
 
     @Test
