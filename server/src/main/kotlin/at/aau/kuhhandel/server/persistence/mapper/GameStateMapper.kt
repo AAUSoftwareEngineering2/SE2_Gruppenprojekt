@@ -289,7 +289,7 @@ object GameStateMapper {
         val hasSubmittedOffer =
             phase != GamePhase.TRADE_OFFER ||
                 challengerCards.isNotEmpty() ||
-                !entity.challengerOfferCardsJson.isNullOrBlank()
+                hasNonEmptyJsonArray(entity.challengerOfferCardsJson)
         val hasSubmittedCounter =
             phase == GamePhase.TRADE_RESULT ||
                 defenderCards.isNotEmpty() ||
