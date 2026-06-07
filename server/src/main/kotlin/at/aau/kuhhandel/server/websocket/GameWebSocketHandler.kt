@@ -256,11 +256,11 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
 
-        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
-
         if (!connectionRegistry.isValidToken(payload.playerId, payload.token)) {
             throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
         }
+
+        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
 
         val newToken = generateReconnectToken()
 

@@ -35,6 +35,8 @@ object GameStateMapper {
     private val json = Json { ignoreUnknownKeys = true }
     private val intListSerializer = ListSerializer(Int.serializer())
     private val stringListSerializer = ListSerializer(String.serializer())
+    private val animalCardListSerializer = ListSerializer(AnimalCard.serializer())
+    private val moneyCardListSerializer = ListSerializer(MoneyCard.serializer())
 
     fun toGameStatus(phase: GamePhase): GameStatus =
         when (phase) {
@@ -67,6 +69,12 @@ object GameStateMapper {
     fun encodeStringList(values: List<String>): String =
         json.encodeToString(stringListSerializer, values)
 
+    fun encodeAnimalCards(values: List<AnimalCard>): String =
+        json.encodeToString(animalCardListSerializer, values)
+
+    fun encodeMoneyCards(values: List<MoneyCard>): String =
+        json.encodeToString(moneyCardListSerializer, values)
+
     fun decodeStringList(payload: String?): List<String> =
         if (payload.isNullOrBlank()) {
             emptyList()
@@ -75,6 +83,16 @@ object GameStateMapper {
                 stringListSerializer,
                 payload,
             )
+        }
+
+    private fun decodeAnimalCards(payload: String?): List<AnimalCard>? =
+        payload?.takeIf { it.isNotBlank() }?.let {
+            json.decodeFromString(animalCardListSerializer, it)
+        }
+
+    private fun decodeMoneyCards(payload: String?): List<MoneyCard>? =
+        payload?.takeIf { it.isNotBlank() }?.let {
+            json.decodeFromString(moneyCardListSerializer, it)
         }
 
     fun toGameState(
@@ -93,8 +111,8 @@ object GameStateMapper {
             sortedPlayers.map { player ->
                 val playerKey = requireNotNull(player.id) { "GamePlayerEntity must be persisted" }
                 Player(
-                    id = player.user.passwordHash.ifBlank { player.user.username },
-                    name = player.user.username,
+                    id = player.persistedPlayerId(),
+                    name = player.persistedDisplayName(),
                     animals =
                         expandAnimals(
                             gameIdString,
@@ -110,12 +128,12 @@ object GameStateMapper {
                 )
             }
 
-        val activeUsername = game.activePlayer?.username
+        val activeUserId = game.activePlayer?.id
         val currentPlayerIndex =
-            if (activeUsername == null) {
+            if (activeUserId == null) {
                 -1
             } else {
-                domainPlayers.indexOfFirst { it.name == activeUsername }.let {
+                sortedPlayers.indexOfFirst { it.user.id == activeUserId }.let {
                     if (it ==
                         -1
                     ) {
@@ -148,12 +166,11 @@ object GameStateMapper {
                     domainPlayers,
                 )
             }
+        val phase = game.phase ?: toGamePhase(game.status, animalDeck, domainPlayers)
         val tradeDto =
             trade?.let { entity ->
-                toTradeState(gameIdString, entity, sortedPlayers)
+                toTradeState(gameIdString, phase, entity, sortedPlayers)
             }
-
-        val phase = toGamePhase(game.status, animalDeck, domainPlayers)
 
         val faceUpCard =
             game.faceUpAnimalType?.let { animalType ->
@@ -163,13 +180,14 @@ object GameStateMapper {
         return GameState(
             phase = phase,
             roundNumber = game.roundNumber,
+            timerEnd = game.timerEnd,
             deck = animalDeck,
             currentFaceUpCard = faceUpCard,
             currentPlayerIndex = currentPlayerIndex,
             players = domainPlayers,
             auctionState = auctionDto,
             tradeState = tradeDto,
-            hostPlayerId = domainPlayers.firstOrNull()?.id,
+            hostPlayerId = game.hostPlayerId ?: domainPlayers.firstOrNull()?.id,
         )
     }
 
@@ -226,9 +244,10 @@ object GameStateMapper {
         domainPlayers: List<Player>,
     ): AuctionState {
         val auctioneerId =
-            entity.game.activePlayer?.let { active ->
-                players.firstOrNull { it.user.username == active.username }?.user?.passwordHash
-            } ?: domainPlayers.firstOrNull()?.id ?: ""
+            entity.auctioneerPlayerId
+                ?: entity.game.activePlayer?.let { active ->
+                    players.firstOrNull { it.user.id == active.id }?.persistedPlayerId()
+                } ?: domainPlayers.firstOrNull()?.id ?: ""
         val highestBidderId =
             entity.highestBidder?.let { bidder -> findPlayerIdForPlayer(bidder, players) }
 
@@ -238,11 +257,14 @@ object GameStateMapper {
             highestBid = entity.highestBid,
             highestBidderId = highestBidderId,
             timerEndTime = entity.timerEndTime,
+            excludedPlayerIds = decodeStringList(entity.passedPlayersJson).toSet(),
+            buyerId = entity.buyerPlayerId,
         )
     }
 
     private fun toTradeState(
         gameId: String,
+        phase: GamePhase,
         entity: TradeStateEntity,
         players: List<GamePlayerEntity>,
     ): TradeState {
@@ -252,28 +274,41 @@ object GameStateMapper {
         val defenderEntityId = requireNotNull(entity.defender.id)
         val challengerOfferValues = decodeIntList(entity.challengerOfferJson)
         val defenderOfferValues = decodeIntList(entity.defenderOfferJson)
+        val animalCards = decodeAnimalCards(entity.animalCardsJson).orEmpty().toSet()
 
-        // Reconstruct card IDs using the same formula as expandMoney so they match the
-        // player's restored inventory.
         val challengerMoneyIds =
             expandMoneyIds(gameId, challengerEntityId, challengerOfferValues)
         val defenderMoneyIds =
             expandMoneyIds(gameId, defenderEntityId, defenderOfferValues)
+        val challengerCards =
+            decodeMoneyCards(entity.challengerOfferCardsJson)
+                ?: expandMoneyCards(challengerMoneyIds, challengerOfferValues)
+        val defenderCards =
+            decodeMoneyCards(entity.defenderOfferCardsJson)
+                ?: expandMoneyCards(defenderMoneyIds, defenderOfferValues)
+        val hasSubmittedOffer =
+            phase != GamePhase.TRADE_OFFER ||
+                challengerCards.isNotEmpty() ||
+                !entity.challengerOfferCardsJson.isNullOrBlank()
+        val hasSubmittedCounter =
+            phase == GamePhase.TRADE_RESULT ||
+                defenderCards.isNotEmpty() ||
+                hasNonEmptyJsonArray(entity.defenderOfferCardsJson)
 
         return TradeState(
             initiatorId = challengerId,
             targetId = defenderId,
             requestedAnimalType = entity.animalType,
-            offeredMoney = challengerOfferValues.sum(),
-            offeredMoneyCardIds = challengerMoneyIds.toSet(),
+            animalCards = animalCards,
+            offeredMoney = challengerCards.sumOf { it.value },
+            offeredMoneyCardIds = challengerCards.mapTo(mutableSetOf()) { it.id },
             counterOfferedMoney =
-                if (defenderOfferValues.isEmpty()) {
-                    null
-                } else {
-                    defenderOfferValues.sum()
-                },
-            counterOfferedMoneyCardIds = defenderMoneyIds.toSet(),
-            isResolved = false,
+                if (hasSubmittedCounter) defenderCards.sumOf { it.value } else null,
+            counterOfferedMoneyCardIds = defenderCards.mapTo(mutableSetOf()) { it.id },
+            isResolved = entity.isResolved == true,
+            offeredMoneyCards = if (hasSubmittedOffer) challengerCards.toSet() else null,
+            counterOfferedMoneyCards = if (hasSubmittedCounter) defenderCards.toSet() else null,
+            winnerId = entity.winnerPlayerId,
         )
     }
 
@@ -297,13 +332,24 @@ object GameStateMapper {
         }
     }
 
+    private fun expandMoneyCards(
+        ids: List<String>,
+        values: List<Int>,
+    ): List<MoneyCard> =
+        values.mapIndexed { index, value ->
+            MoneyCard(id = ids[index], value = value)
+        }
+
+    private fun hasNonEmptyJsonArray(payload: String?): Boolean =
+        !payload.isNullOrBlank() && payload != "[]"
+
     private fun findPlayerIdForPlayer(
         player: GamePlayerEntity,
         all: List<GamePlayerEntity>,
-    ): String? = all.firstOrNull { it.id == player.id }?.user?.passwordHash
+    ): String? = all.firstOrNull { it.id == player.id }?.persistedPlayerId()
 
-    private fun findUsernameForPlayer(
-        player: GamePlayerEntity,
-        all: List<GamePlayerEntity>,
-    ): String? = all.firstOrNull { it.id == player.id }?.user?.username
+    private fun GamePlayerEntity.persistedPlayerId(): String =
+        playerId ?: user.passwordHash.ifBlank { user.username }
+
+    private fun GamePlayerEntity.persistedDisplayName(): String = displayName ?: user.username
 }

@@ -181,6 +181,34 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        fun `loadGameState restores exact auction phase and top-level timer`() {
+            val timerDeadline = 1_700_000_000_000L
+            val state =
+                initialLobbyState().copy(
+                    phase = GamePhase.AUCTIONEER_DECISION,
+                    timerEnd = timerDeadline,
+                    players =
+                        listOf(
+                            Player(id = "player-1", name = "player-1"),
+                            Player(id = "player-2", name = "player-2"),
+                        ),
+                    currentPlayerIndex = 0,
+                    auctionState =
+                        AuctionState(
+                            auctionCard = AnimalCard(id = "card-1", type = AnimalType.HORSE),
+                            auctioneerId = "player-1",
+                            highestBid = 200,
+                            highestBidderId = "player-2",
+                        ),
+                )
+            service.saveGameState("12345", state)
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            assertEquals(GamePhase.AUCTIONEER_DECISION, loaded.phase)
+            assertEquals(timerDeadline, loaded.timerEnd)
+        }
+
+        @Test
         fun `face up card is persisted and restored on reload`() {
             val state =
                 initialLobbyState().copy(
@@ -268,6 +296,62 @@ class GamePersistenceServiceTest
                 loaded.tradeState?.counterOfferedMoneyCardIds,
             )
             assertEquals(false, loaded.tradeState?.isResolved)
+        }
+
+        @Test
+        fun `loadGameState restores in-flight trade escrow cards`() {
+            val timerDeadline = 1_700_000_000_000L
+            val offeredCards =
+                setOf(
+                    MoneyCard(id = "offer-10", value = 10),
+                    MoneyCard(id = "offer-50", value = 50),
+                )
+            val animalCards =
+                setOf(
+                    AnimalCard(id = "cow-1", type = AnimalType.COW),
+                    AnimalCard(id = "cow-2", type = AnimalType.COW),
+                )
+            val state =
+                initialLobbyState().copy(
+                    phase = GamePhase.TRADE_RESPONSE,
+                    timerEnd = timerDeadline,
+                    players =
+                        listOf(
+                            Player(id = "player-1", name = "player-1", moneyCards = emptyList()),
+                            Player(
+                                id = "player-2",
+                                name = "player-2",
+                                moneyCards = listOf(MoneyCard(id = "counter-20", value = 20)),
+                            ),
+                        ),
+                    currentPlayerIndex = 0,
+                    tradeState =
+                        TradeState(
+                            initiatorId = "player-1",
+                            targetId = "player-2",
+                            requestedAnimalType = AnimalType.COW,
+                            animalCards = animalCards,
+                            offeredMoney = 60,
+                            offeredMoneyCardIds = offeredCards.mapTo(mutableSetOf()) { it.id },
+                            offeredMoneyCards = offeredCards,
+                        ),
+                )
+            service.saveGameState("12345", state)
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            val loadedTrade = assertNotNull(loaded.tradeState)
+            assertEquals(GamePhase.TRADE_RESPONSE, loaded.phase)
+            assertEquals(timerDeadline, loaded.timerEnd)
+            assertEquals(animalCards, loadedTrade.animalCards)
+            assertEquals(offeredCards, loadedTrade.offeredMoneyCards)
+            assertEquals(
+                offeredCards.mapTo(mutableSetOf()) {
+                    it.id
+                },
+                loadedTrade.offeredMoneyCardIds,
+            )
+            assertEquals(60, loadedTrade.offeredMoney)
+            assertEquals(emptyList(), loaded.players.first { it.id == "player-1" }.moneyCards)
         }
 
         @Test
@@ -426,6 +510,25 @@ class GamePersistenceServiceTest
 
             val loaded = assertNotNull(service.loadGameState("12345"))
             assertEquals(listOf("carol", "alice", "bob"), loaded.players.map { it.name })
+        }
+
+        @Test
+        fun `saveGameState keeps players with the same display name as separate identities`() {
+            val firstAlex = Player(id = "player-1", name = "Alex")
+            val secondAlex = Player(id = "player-2", name = "Alex")
+
+            service.saveGameState(
+                "12345",
+                GameState(
+                    phase = GamePhase.NOT_STARTED,
+                    hostPlayerId = firstAlex.id,
+                    players = listOf(firstAlex, secondAlex),
+                ),
+            )
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            assertEquals(listOf("player-1", "player-2"), loaded.players.map { it.id })
+            assertEquals(listOf("Alex", "Alex"), loaded.players.map { it.name })
         }
 
         private fun initialLobbyState(): GameState =

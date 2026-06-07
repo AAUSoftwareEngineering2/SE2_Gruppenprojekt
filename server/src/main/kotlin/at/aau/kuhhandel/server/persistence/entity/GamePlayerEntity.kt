@@ -26,6 +26,10 @@ class GamePlayerEntity(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     var user: UserEntity,
+    @Column(name = "player_id", length = 64)
+    var playerId: String? = null,
+    @Column(name = "display_name", length = 128)
+    var displayName: String? = null,
     @Column(name = "seat_order", nullable = false)
     var seatOrder: Int,
     @Id

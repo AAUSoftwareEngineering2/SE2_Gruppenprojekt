@@ -618,15 +618,7 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RECONNECT with invalid reconnection token sends ERROR`() =
         runTest(testDispatcher.scheduler) {
-            val returnedState =
-                GameState(
-                    players = listOf(Player("player-1", "Player 1")),
-                    hostPlayerId = "player-1",
-                )
-
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getStateForReconnection("game-1", "player-1"))
-                .thenReturn(returnedState)
             whenever(connectionRegistry.isValidToken("player-1", "invalid-token")).thenReturn(false)
 
             sendEnvelope(
@@ -641,6 +633,7 @@ class GameWebSocketHandlerTest {
             )
 
             assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_RECONNECTION_TOKEN.name)
+            verify(gameService, never()).getStateForReconnection(any(), any())
         }
 
     @Test

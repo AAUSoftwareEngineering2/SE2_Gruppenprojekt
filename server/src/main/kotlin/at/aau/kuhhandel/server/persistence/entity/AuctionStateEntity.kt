@@ -29,6 +29,8 @@ class AuctionStateEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "current_animal", nullable = false, length = 16)
     var currentAnimal: AnimalType,
+    @Column(name = "auctioneer_player_id", length = 64)
+    var auctioneerPlayerId: String? = null,
     @Column(name = "highest_bid", nullable = false)
     var highestBid: Int = 0,
     @OneToOne(fetch = FetchType.LAZY)
@@ -40,6 +42,8 @@ class AuctionStateEntity(
     var timerEndTime: Long? = null,
     @Column(name = "is_closed", nullable = false)
     var isClosed: Boolean = false,
+    @Column(name = "buyer_player_id", length = 64)
+    var buyerPlayerId: String? = null,
     @Id
     @Column(name = "game_id")
     var gameId: Long? = null,
