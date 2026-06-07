@@ -3,13 +3,11 @@ package at.aau.kuhhandel.server.persistence
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
 
 abstract class PostgresDataJpaTest {
     companion object {
-        @Container
         @JvmStatic
-        val postgres: PostgreSQLContainer<Nothing> =
+        private val postgres: PostgreSQLContainer<Nothing> =
             PostgreSQLContainer<Nothing>("postgres:16-alpine").apply {
                 withDatabaseName("kuhhandel_test")
                 withUsername("kuhhandel")
@@ -19,6 +17,8 @@ abstract class PostgresDataJpaTest {
         @DynamicPropertySource
         @JvmStatic
         fun postgresProperties(registry: DynamicPropertyRegistry) {
+            startPostgres()
+
             registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
@@ -26,6 +26,13 @@ abstract class PostgresDataJpaTest {
             registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
             registry.add("spring.jpa.properties.hibernate.dialect") {
                 "org.hibernate.dialect.PostgreSQLDialect"
+            }
+        }
+
+        @Synchronized
+        private fun startPostgres() {
+            if (!postgres.isRunning) {
+                postgres.start()
             }
         }
     }
