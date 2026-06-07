@@ -158,6 +158,18 @@ class GamePersistenceService(
                 gamePlayerRepository.delete(stale)
             }
 
+        // Seat order is reassigned positionally on every save (e.g. after startGame shuffles the
+        // player list). Because (game_id, seat_order) is unique, reassigning seats in place can hit a
+        // transient duplicate during flush: Hibernate runs inserts/updates before deletes, so a row
+        // can be moved onto a seat another row has not vacated yet. Park the continuing players on
+        // temporary, out-of-range negative seats and flush first, so the final assignment below can
+        // never collide with an old seat value (negatives never overlap the final 0..n-1 range).
+        val continuing = existing.filter { it.user.username in incomingNames }
+        if (continuing.isNotEmpty()) {
+            continuing.forEachIndexed { index, entity -> entity.seatOrder = -(index + 1) }
+            gamePlayerRepository.flush()
+        }
+
         return players
             .mapIndexed { index, player ->
                 val playerEntity = existingByName[player.name]

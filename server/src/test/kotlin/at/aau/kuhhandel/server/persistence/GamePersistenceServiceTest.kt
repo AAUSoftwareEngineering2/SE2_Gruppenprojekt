@@ -400,6 +400,34 @@ class GamePersistenceServiceTest
             assertNull(userRepository.findByUsername("non-existing-user"))
         }
 
+        @Test
+        fun `saveGameState persists a reordered player list without seat-order collision`() {
+            val alice = Player(id = "p-alice", name = "alice")
+            val bob = Player(id = "p-bob", name = "bob")
+            val carol = Player(id = "p-carol", name = "carol")
+
+            // Lobby join order is persisted as seats 0, 1, 2.
+            service.saveGameState(
+                "12345",
+                GameState(phase = GamePhase.NOT_STARTED, players = listOf(alice, bob, carol)),
+            )
+
+            // startGame shuffles the player list; persisting the rotated order permutes seat_order.
+            // A full rotation leaves every target seat occupied, so the in-place reassignment used to
+            // violate uk_game_players_seat during flush.
+            service.saveGameState(
+                "12345",
+                GameState(
+                    phase = GamePhase.PLAYER_CHOICE,
+                    currentPlayerIndex = 0,
+                    players = listOf(carol, alice, bob),
+                ),
+            )
+
+            val loaded = assertNotNull(service.loadGameState("12345"))
+            assertEquals(listOf("carol", "alice", "bob"), loaded.players.map { it.name })
+        }
+
         private fun initialLobbyState(): GameState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
