@@ -18,6 +18,7 @@ import at.aau.kuhhandel.server.persistence.repository.PlayerMoneyRepository
 import at.aau.kuhhandel.server.persistence.repository.TradeStateRepository
 import at.aau.kuhhandel.server.persistence.repository.UserRepository
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -100,6 +101,12 @@ class GamePersistenceService(
         return result
     }
 
+    @Transactional(readOnly = true)
+    fun existsGame(gameId: String): Boolean {
+        val gameKey = gameId.toLongOrNull() ?: return false
+        return gameRepository.existsById(gameKey)
+    }
+
     @Transactional
     fun deleteGame(gameId: String) {
         logger.info("[DB DELETE] Deleting game $gameId from database")
@@ -128,12 +135,18 @@ class GamePersistenceService(
                 GameEntity(
                     id = gameKey,
                     status = GameStateMapper.toGameStatus(state.phase),
+                    phase = state.phase,
+                    timerEnd = state.timerEnd,
+                    hostPlayerId = state.hostPlayerId,
                     roundNumber = state.roundNumber,
                     faceUpAnimalType = state.currentFaceUpCard?.type,
                 ),
             )
         } else {
             existing.status = GameStateMapper.toGameStatus(state.phase)
+            existing.phase = state.phase
+            existing.timerEnd = state.timerEnd
+            existing.hostPlayerId = state.hostPlayerId
             existing.roundNumber = state.roundNumber
             existing.faceUpAnimalType = state.currentFaceUpCard?.type
             existing
@@ -145,13 +158,12 @@ class GamePersistenceService(
         players: List<Player>,
     ): Map<String, GamePlayerEntity> {
         val existing = gamePlayerRepository.findByGameOrderBySeatOrderAsc(game)
-        // username stores the display name; passwordHash stores the UUID player id
-        val existingByName = existing.associateBy { it.user.username }
-        val incomingNames = players.map { it.name }.toSet()
+        val existingByPlayerId = existing.associateBy { it.persistedPlayerId() }
+        val incomingPlayerIds = players.map { it.id }.toSet()
 
         // Drop players no longer in the game, including their inventories.
         existing
-            .filter { it.user.username !in incomingNames }
+            .filter { it.persistedPlayerId() !in incomingPlayerIds }
             .forEach { stale ->
                 playerMoneyRepository.deleteByPlayer(stale)
                 playerAnimalRepository.deleteByPlayer(stale)
@@ -164,13 +176,15 @@ class GamePersistenceService(
         // can be moved onto a seat another row has not vacated yet. Park the continuing players on
         // temporary, out-of-range negative seats and flush first, so the final assignment below can
         // never collide with an old seat value (negatives never overlap the final 0..n-1 range).
-        val continuing = existing.filter { it.user.username in incomingNames }
-        val desiredSeatByName =
+        val continuing = existing.filter { it.persistedPlayerId() in incomingPlayerIds }
+        val desiredSeatByPlayerId =
             players.withIndex().associate { (index, player) ->
-                player.name to index
+                player.id to index
             }
         val needsSeatReorder =
-            continuing.any { entity -> desiredSeatByName[entity.user.username] != entity.seatOrder }
+            continuing.any { entity ->
+                desiredSeatByPlayerId[entity.persistedPlayerId()] != entity.seatOrder
+            }
         if (needsSeatReorder) {
             continuing.forEachIndexed { index, entity -> entity.seatOrder = -(index + 1) }
             gamePlayerRepository.flush()
@@ -178,18 +192,23 @@ class GamePersistenceService(
 
         return players
             .mapIndexed { index, player ->
-                val playerEntity = existingByName[player.name]
-                val user = upsertUser(player.name, player.id)
+                val playerEntity = existingByPlayerId[player.id]
+                val user = upsertUser(player.id)
                 val saved =
                     if (playerEntity == null) {
                         gamePlayerRepository.save(
                             GamePlayerEntity(
                                 game = game,
                                 user = user,
+                                playerId = player.id,
+                                displayName = player.name,
                                 seatOrder = index,
                             ),
                         )
                     } else {
+                        playerEntity.user = user
+                        playerEntity.playerId = player.id
+                        playerEntity.displayName = player.name
                         playerEntity.seatOrder = index
                         playerEntity
                     }
@@ -197,17 +216,12 @@ class GamePersistenceService(
             }.toMap()
     }
 
-    // username = player display name; playerId stored in passwordHash for later reconstruction
-    private fun upsertUser(
-        name: String,
-        playerId: String,
-    ): UserEntity {
-        val existing = userRepository.findByUsername(name)
+    private fun upsertUser(playerId: String): UserEntity {
+        val existing = userRepository.findByUsername(playerId)
         return if (existing != null) {
-            existing.passwordHash = playerId
             userRepository.save(existing)
         } else {
-            userRepository.save(UserEntity(username = name, passwordHash = playerId))
+            userRepository.save(UserEntity(username = playerId, passwordHash = ""))
         }
     }
 
@@ -271,7 +285,7 @@ class GamePersistenceService(
             return
         }
 
-        val passedJson = GameStateMapper.encodeStringList(emptyList())
+        val passedJson = GameStateMapper.encodeStringList(auction.excludedPlayerIds.toList())
         val highestBidder =
             auction.highestBidderId?.let { bidderId -> playerEntities[bidderId] }
 
@@ -280,18 +294,22 @@ class GamePersistenceService(
                 AuctionStateEntity(
                     game = game,
                     currentAnimal = auction.auctionCard.type,
+                    auctioneerPlayerId = auction.auctioneerId,
                     highestBid = auction.highestBid,
                     highestBidder = highestBidder,
                     passedPlayersJson = passedJson,
                     timerEndTime = auction.timerEndTime,
+                    buyerPlayerId = auction.buyerId,
                 ),
             )
         } else {
             existing.currentAnimal = auction.auctionCard.type
+            existing.auctioneerPlayerId = auction.auctioneerId
             existing.highestBid = auction.highestBid
             existing.highestBidder = highestBidder
             existing.passedPlayersJson = passedJson
             existing.timerEndTime = auction.timerEndTime
+            existing.buyerPlayerId = auction.buyerId
             auctionStateRepository.save(existing)
         }
     }
@@ -316,20 +334,22 @@ class GamePersistenceService(
             playerEntities[trade.targetId]
                 ?: error("Trade defender ${trade.targetId} not persisted")
 
-        val challengerValues =
-            state.players
-                .firstOrNull { it.id == trade.initiatorId }
-                ?.moneyCards
-                ?.filter { it.id in trade.offeredMoneyCardIds }
-                ?.map { it.value }
-                ?: emptyList()
-        val defenderValues =
-            state.players
-                .firstOrNull { it.id == trade.targetId }
-                ?.moneyCards
-                ?.filter { it.id in trade.counterOfferedMoneyCardIds }
-                ?.map { it.value }
-                ?: emptyList()
+        val challengerCards =
+            resolveMoneyCards(
+                state = state,
+                playerId = trade.initiatorId,
+                cardIds = trade.offeredMoneyCardIds,
+                selectedCards = trade.offeredMoneyCards,
+            )
+        val defenderCards =
+            resolveMoneyCards(
+                state = state,
+                playerId = trade.targetId,
+                cardIds = trade.counterOfferedMoneyCardIds,
+                selectedCards = trade.counterOfferedMoneyCards,
+            )
+        val challengerValues = challengerCards.map { it.value }
+        val defenderValues = defenderCards.map { it.value }
 
         if (existing == null) {
             tradeStateRepository.save(
@@ -340,6 +360,11 @@ class GamePersistenceService(
                     animalType = trade.requestedAnimalType,
                     challengerOfferJson = GameStateMapper.encodeIntList(challengerValues),
                     defenderOfferJson = GameStateMapper.encodeIntList(defenderValues),
+                    animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList()),
+                    challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards),
+                    defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards),
+                    winnerPlayerId = trade.winnerId,
+                    isResolved = trade.isResolved,
                 ),
             )
         } else {
@@ -348,7 +373,28 @@ class GamePersistenceService(
             existing.animalType = trade.requestedAnimalType
             existing.challengerOfferJson = GameStateMapper.encodeIntList(challengerValues)
             existing.defenderOfferJson = GameStateMapper.encodeIntList(defenderValues)
+            existing.animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList())
+            existing.challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards)
+            existing.defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards)
+            existing.winnerPlayerId = trade.winnerId
+            existing.isResolved = trade.isResolved
             tradeStateRepository.save(existing)
         }
     }
+
+    private fun resolveMoneyCards(
+        state: GameState,
+        playerId: String,
+        cardIds: Set<String>,
+        selectedCards: Set<MoneyCard>?,
+    ): List<MoneyCard> =
+        selectedCards?.toList()
+            ?: state.players
+                .firstOrNull { it.id == playerId }
+                ?.moneyCards
+                ?.filter { it.id in cardIds }
+            ?: emptyList()
+
+    private fun GamePlayerEntity.persistedPlayerId(): String =
+        playerId ?: user.passwordHash.ifBlank { user.username }
 }
