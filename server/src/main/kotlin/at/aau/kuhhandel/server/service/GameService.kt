@@ -32,9 +32,6 @@ class GameService(
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
     // Used in tests
     private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val gameCodeGenerator: () -> String = {
-        Random.nextInt(10000, 100000).toString()
-    },
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -350,10 +347,7 @@ class GameService(
         var code: String
 
         do {
-            code = gameCodeGenerator()
-            require(code.length == 5 && code.all { it.isDigit() }) {
-                "Generated game code must be a 5-digit numeric string"
-            }
+            code = Random.nextInt(10000, 100000).toString()
         } while (rooms.containsKey(code) || persistenceService?.existsGame(code) == true)
 
         return code

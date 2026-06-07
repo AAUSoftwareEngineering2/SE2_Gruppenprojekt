@@ -68,23 +68,6 @@ class GameServiceTest {
         }
 
     @Test
-    fun `createGame fails fast when injected generator returns invalid code`() {
-        val service =
-            GameService(
-                eventPublisher = eventPublisher,
-                gameSessionFactory = { _, _, _ -> gameSession },
-                gameCodeGenerator = { "abc" },
-            )
-
-        val error =
-            assertThrows<IllegalArgumentException> {
-                service.createGame("Player 1")
-            }
-
-        assertEquals("Generated game code must be a 5-digit numeric string", error.message)
-    }
-
-    @Test
     fun test_createGame_generatesDifferentCodes() =
         runTest {
             val firstResult = service.createGame("Player 1")

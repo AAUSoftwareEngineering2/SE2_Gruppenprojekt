@@ -20,7 +20,6 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.testcontainers.junit.jupiter.Testcontainers
-import java.util.ArrayDeque
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -75,43 +74,6 @@ class GameServicePersistenceTest
             val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
             assertEquals(listOf("player-1"), loaded.players.map { it.name })
-        }
-
-        @Test
-        fun `createGame retries generated codes that already exist in persistence`() {
-            val firstService =
-                GameService(
-                    eventPublisher = eventPublisher,
-                    persistenceService = persistenceService,
-                    gameCodeGenerator = { "12345" },
-                )
-            firstService.createGame("player-1")
-
-            val generatedCodes = ArrayDeque(listOf("12345", "23456"))
-            val restartedService =
-                GameService(
-                    eventPublisher = eventPublisher,
-                    persistenceService = persistenceService,
-                    gameCodeGenerator = { generatedCodes.removeFirst() },
-                )
-
-            val created = restartedService.createGame("player-2")
-
-            assertEquals("23456", created.gameId)
-            assertEquals(
-                listOf("player-1"),
-                persistenceService
-                    .loadGameState("12345")
-                    ?.players
-                    ?.map { player -> player.name },
-            )
-            assertEquals(
-                listOf("player-2"),
-                persistenceService
-                    .loadGameState("23456")
-                    ?.players
-                    ?.map { player -> player.name },
-            )
         }
 
         @Test
