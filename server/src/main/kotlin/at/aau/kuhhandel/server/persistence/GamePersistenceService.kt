@@ -165,7 +165,13 @@ class GamePersistenceService(
         // temporary, out-of-range negative seats and flush first, so the final assignment below can
         // never collide with an old seat value (negatives never overlap the final 0..n-1 range).
         val continuing = existing.filter { it.user.username in incomingNames }
-        if (continuing.isNotEmpty()) {
+        val desiredSeatByName =
+            players.withIndex().associate { (index, player) ->
+                player.name to index
+            }
+        val needsSeatReorder =
+            continuing.any { entity -> desiredSeatByName[entity.user.username] != entity.seatOrder }
+        if (needsSeatReorder) {
             continuing.forEachIndexed { index, entity -> entity.seatOrder = -(index + 1) }
             gamePlayerRepository.flush()
         }
