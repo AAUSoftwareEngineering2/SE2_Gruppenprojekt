@@ -351,6 +351,9 @@ class GameService(
 
         do {
             code = gameCodeGenerator()
+            require(code.length == 5 && code.all { it.isDigit() }) {
+                "Generated game code must be a 5-digit numeric string"
+            }
         } while (rooms.containsKey(code) || persistenceService?.existsGame(code) == true)
 
         return code

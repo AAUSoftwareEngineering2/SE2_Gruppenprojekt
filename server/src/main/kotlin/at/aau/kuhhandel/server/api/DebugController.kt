@@ -29,7 +29,8 @@ class DebugController(
             persistenceService.loadGameState("00000") // harmless probe; returns null if not found
             mapOf("status" to "OK", "message" to "Database connection is working")
         } catch (e: Exception) {
-            logger.warn("Debug persistence check failed", e)
+            logger.warn("Debug persistence check failed: {}", e.javaClass.simpleName)
+            logger.debug("Debug persistence check failed", e)
             mapOf("status" to "ERROR", "message" to "Database connection check failed")
         }
     }
