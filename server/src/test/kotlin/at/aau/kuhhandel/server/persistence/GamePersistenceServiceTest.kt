@@ -22,18 +22,25 @@ import at.aau.kuhhandel.shared.model.TradeState
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
+import org.testcontainers.junit.jupiter.Testcontainers
+import javax.sql.DataSource
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @DataJpaTest
 @ActiveProfiles("test")
 @Import(GamePersistenceService::class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers(disabledWithoutDocker = true)
 class GamePersistenceServiceTest
     @Autowired
     constructor(
+        private val dataSource: DataSource,
         private val service: GamePersistenceService,
         private val gameRepository: GameRepository,
         private val userRepository: UserRepository,
@@ -43,7 +50,14 @@ class GamePersistenceServiceTest
         private val playerAnimalRepository: PlayerAnimalRepository,
         private val auctionStateRepository: AuctionStateRepository,
         private val tradeStateRepository: TradeStateRepository,
-    ) {
+    ) : PostgresDataJpaTest() {
+        @Test
+        fun `persistence slice runs against postgres`() {
+            dataSource.connection.use { connection ->
+                assertTrue(connection.metaData.url.startsWith("jdbc:postgresql:"))
+            }
+        }
+
         @Test
         fun `loadGameState returns null for unknown game`() {
             assertNull(service.loadGameState("12345"))

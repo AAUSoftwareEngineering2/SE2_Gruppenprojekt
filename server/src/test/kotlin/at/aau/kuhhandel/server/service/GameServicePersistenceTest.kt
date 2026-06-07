@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import at.aau.kuhhandel.server.persistence.PostgresDataJpaTest
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
@@ -14,9 +15,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
+import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.ArrayDeque
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -30,11 +33,13 @@ import kotlin.test.assertNull
 @DataJpaTest
 @ActiveProfiles("test")
 @Import(GamePersistenceService::class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers(disabledWithoutDocker = true)
 class GameServicePersistenceTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
-    ) {
+    ) : PostgresDataJpaTest() {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
         @Test
@@ -137,7 +142,7 @@ class GameServicePersistenceTest
                     GameService(
                         eventPublisher = eventPublisher,
                         persistenceService = persistenceService,
-                        serviceScope = this,
+                        serviceScope = backgroundScope,
                     )
 
                 val reloaded = assertNotNull(service.getGame("34567"))
