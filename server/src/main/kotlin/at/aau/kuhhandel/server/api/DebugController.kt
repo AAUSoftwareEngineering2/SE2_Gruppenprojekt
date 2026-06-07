@@ -1,13 +1,22 @@
 package at.aau.kuhhandel.server.api
 
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
+@ConditionalOnProperty(
+    prefix = "kuhhandel.debug.persistence",
+    name = ["enabled"],
+    havingValue = "true",
+)
 class DebugController(
     private val persistenceService: GamePersistenceService? = null,
 ) {
+    private val logger = LoggerFactory.getLogger(DebugController::class.java)
+
     @GetMapping("/debug/persistence")
     fun checkPersistence(): Map<String, Any> {
         if (persistenceService == null) {
@@ -20,7 +29,8 @@ class DebugController(
             persistenceService.loadGameState("00000") // harmless probe; returns null if not found
             mapOf("status" to "OK", "message" to "Database connection is working")
         } catch (e: Exception) {
-            mapOf("status" to "ERROR", "message" to (e.message ?: e.javaClass.simpleName))
+            logger.warn("Debug persistence check failed", e)
+            mapOf("status" to "ERROR", "message" to "Database connection check failed")
         }
     }
 }

@@ -78,6 +78,8 @@ spec:
               value: "8080"
             - name: SPRING_PROFILES_ACTIVE
               value: production
+            - name: KUHHANDEL_WEBSOCKET_ALLOWED_ORIGINS
+              value: "https://k3s-api.se-aau.com,https://api.se-aau.com"
             - name: JAVA_TOOL_OPTIONS
               # java begrenzt auf 256mb heap.
               value: "-Xmx256m -XX:+UseSerialGC"
