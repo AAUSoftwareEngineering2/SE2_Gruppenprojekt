@@ -21,3 +21,9 @@ server:
     # WebSocket sessions are long-lived; we do not want Tomcat to drop them after the default
     # 100 HTTP keep-alive requests (the limit is meant for plain HTTP, not upgraded connections).
     max-keep-alive-requests: -1
+
+kuhhandel:
+  websocket:
+    allowed-origins:
+      - http://localhost:8080
+      - http://localhost:3000

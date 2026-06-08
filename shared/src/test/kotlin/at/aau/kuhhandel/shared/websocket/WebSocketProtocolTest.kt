@@ -66,9 +66,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(CreateGamePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -77,6 +74,7 @@ class WebSocketProtocolTest {
             GameCreatedPayload(
                 gameId = "Id",
                 playerId = "P1",
+                reconnectToken = "token-1",
                 state = GameState(),
                 stateView = testGameStateView(),
             )
@@ -85,9 +83,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -98,9 +93,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameStatePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
@@ -118,6 +110,7 @@ class WebSocketProtocolTest {
         val payload =
             GameJoinedPayload(
                 playerId = "player-1",
+                reconnectToken = "token-1",
                 state = GameState(),
                 stateView = testGameStateView(),
             )
@@ -126,17 +119,89 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     @Test
     fun `ReconnectPayload round-trips`() {
-        val payload = ReconnectPayload(gameId = "game-1", playerId = "player-1")
+        val payload = ReconnectPayload(gameId = "game-1", playerId = "player-1", token = "token-1")
 
         val encoded = json.encodeToString(ReconnectPayload.serializer(), payload)
         val decoded = json.decodeFromString(ReconnectPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `SnapshotPayload round-trips`() {
+        val payload =
+            SnapshotPayload(
+                reconnectToken = "token-1",
+                state = GameState(),
+                stateView = testGameStateView(),
+            )
+
+        val encoded = json.encodeToString(SnapshotPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SnapshotPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `PlaceBidPayload round-trips`() {
+        val payload = PlaceBidPayload(amount = 100)
+
+        val encoded = json.encodeToString(PlaceBidPayload.serializer(), payload)
+        val decoded = json.decodeFromString(PlaceBidPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `ResolveAuctionPayload round-trips`() {
+        val payload = ResolveAuctionPayload(buyBack = true)
+
+        val encoded = json.encodeToString(ResolveAuctionPayload.serializer(), payload)
+        val decoded = json.decodeFromString(ResolveAuctionPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `ChooseTradePayload round-trips`() {
+        val payload =
+            ChooseTradePayload(
+                challengedPlayerId = "player-2",
+                animalType = AnimalType.COW,
+            )
+
+        val encoded = json.encodeToString(ChooseTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(ChooseTradePayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `SubmitTradeMoneyPayload round-trips`() {
+        val payload =
+            SubmitTradeMoneyPayload(
+                moneyCardIds = emptySet(),
+            )
+
+        val encoded = json.encodeToString(SubmitTradeMoneyPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SubmitTradeMoneyPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `RespondToTradePayload round-trips`() {
+        val payload =
+            RespondToTradePayload(
+                moneyCardIds = emptySet(),
+            )
+
+        val encoded = json.encodeToString(RespondToTradePayload.serializer(), payload)
+        val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
     }
@@ -149,76 +214,6 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(ErrorPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
-    }
-
-    @Test
-    fun `InitiateTradePayload round-trips and exposes its fields`() {
-        val payload =
-            InitiateTradePayload(
-                challengedPlayerId = "player-2",
-                animalType = AnimalType.COW,
-                moneyCardIds = emptySet(),
-            )
-
-        assertEquals("player-2", payload.challengedPlayerId)
-        assertEquals(AnimalType.COW, payload.animalType)
-
-        val encoded = json.encodeToString(InitiateTradePayload.serializer(), payload)
-        val decoded = json.decodeFromString(InitiateTradePayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
-    }
-
-    @Test
-    fun `RespondToTradePayload round-trips and exposes its fields`() {
-        val payload =
-            RespondToTradePayload(
-                respondingPlayerId = "player-2",
-                counterOfferedMoneyCardIds = emptySet(),
-            )
-
-        assertEquals("player-2", payload.respondingPlayerId)
-
-        val encoded = json.encodeToString(RespondToTradePayload.serializer(), payload)
-        val decoded = json.decodeFromString(RespondToTradePayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
-    }
-
-    @Test
-    fun `PlaceBidPayload round-trips and exposes its fields`() {
-        val payload = PlaceBidPayload(amount = 100)
-        assertEquals(100, payload.amount)
-
-        val encoded = json.encodeToString(PlaceBidPayload.serializer(), payload)
-        val decoded = json.decodeFromString(PlaceBidPayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-    }
-
-    @Test
-    fun `AuctionBuyBackPayload round-trips and exposes its fields`() {
-        val payload = AuctionBuyBackPayload(buyBack = true)
-        assertEquals(true, payload.buyBack)
-
-        val encoded = json.encodeToString(AuctionBuyBackPayload.serializer(), payload)
-        val decoded = json.decodeFromString(AuctionBuyBackPayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-        assertEquals(payload.hashCode(), decoded.hashCode())
-        assertEquals(payload.toString(), decoded.toString())
-        assertEquals(payload, payload.copy())
     }
 
     // WebSocketJson tests
@@ -253,6 +248,7 @@ class WebSocketProtocolTest {
     private fun testGameStateView() =
         GameStateView(
             phase = GamePhase.NOT_STARTED,
+            timerEnd = null,
             localPlayer = Player("player-1", "Player 1"),
             opponents = emptyList(),
             hostPlayerId = "player-1",

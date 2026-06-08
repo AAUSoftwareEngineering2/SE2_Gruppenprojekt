@@ -298,7 +298,7 @@ class GameWebSocketClientTest {
             val requestId = client.buyBack(true)
             val sent = connection.session.onlySentEnvelope()
 
-            assertEquals(WebSocketType.AUCTION_BUY_BACK, sent.type)
+            assertEquals(WebSocketType.RESOLVE_AUCTION, sent.type)
             assertEquals(requestId, sent.requestId)
             assertNotNull(sent.payload)
 
@@ -314,7 +314,7 @@ class GameWebSocketClientTest {
             val requestId = client.initiateTrade("player-456", AnimalType.COW, emptySet())
             val sent = connection.session.onlySentEnvelope()
 
-            assertEquals(WebSocketType.INITIATE_TRADE, sent.type)
+            assertEquals(WebSocketType.CHOOSE_TRADE, sent.type)
             assertEquals(requestId, sent.requestId)
             assertNotNull(sent.payload)
 
@@ -359,7 +359,7 @@ class GameWebSocketClientTest {
     fun `reconnect sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
-            client.reconnect("g1", "p1")
+            client.reconnect("g1", "p1", "t1")
             assertEquals(WebSocketType.RECONNECT, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }

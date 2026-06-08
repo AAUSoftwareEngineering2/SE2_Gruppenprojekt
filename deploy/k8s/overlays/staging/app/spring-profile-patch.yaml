@@ -14,3 +14,5 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: staging
+            - name: KUHHANDEL_WEBSOCKET_ALLOWED_ORIGINS
+              value: "https://staging-k3s-api.se-aau.com,https://staging-api.se-aau.com"

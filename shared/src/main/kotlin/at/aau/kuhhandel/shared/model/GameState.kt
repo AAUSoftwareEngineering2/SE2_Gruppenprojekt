@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GameState(
     val phase: GamePhase = GamePhase.NOT_STARTED,
+    val timerEnd: Long? = null,
     val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
     val currentFaceUpCard: AnimalCard? = null,
@@ -39,17 +40,17 @@ data class GameState(
 
         val tradeStateView =
             this.tradeState?.let { tradeState ->
-                val isRevealPhase = this.phase == GamePhase.TRADE_REVEAL
+                val isResultPhase = this.phase == GamePhase.TRADE_RESULT
 
                 val initiatorCards =
-                    if (isRevealPhase || playerId == tradeState.initiatorId) {
+                    if (isResultPhase || playerId == tradeState.initiatorId) {
                         tradeState.offeredMoneyCards
                     } else {
                         null
                     }
 
                 val targetCards =
-                    if (isRevealPhase) {
+                    if (isResultPhase) {
                         tradeState.counterOfferedMoneyCards
                     } else {
                         null
@@ -58,16 +59,18 @@ data class GameState(
                 TradeStateView(
                     initiatorId = tradeState.initiatorId,
                     targetId = tradeState.targetId,
-                    requestedAnimalType = tradeState.requestedAnimalType,
-                    initiatorCardCount = tradeState.offeredMoneyCards.size,
-                    targetCardCount = targetCards?.size,
+                    animalCards = tradeState.animalCards.toList(),
+                    initiatorCardCount = tradeState.offeredMoneyCards?.size,
+                    targetCardCount = tradeState.counterOfferedMoneyCards?.size,
                     visibleInitiatorCards = initiatorCards?.toList(),
                     visibleTargetCards = targetCards?.toList(),
+                    winnerId = tradeState.winnerId,
                 )
             }
 
         return GameStateView(
             phase = this.phase,
+            timerEnd = this.timerEnd,
             localPlayer = localPlayer,
             opponents = opponents,
             hostPlayerId = checkNotNull(this.hostPlayerId) { "Game state has no host" },
@@ -105,6 +108,7 @@ data class GameState(
         ): GameState =
             GameState(
                 phase = GamePhase.NOT_STARTED,
+                timerEnd = null,
                 roundNumber = 0,
                 deck = AnimalDeck(),
                 currentFaceUpCard = null,
