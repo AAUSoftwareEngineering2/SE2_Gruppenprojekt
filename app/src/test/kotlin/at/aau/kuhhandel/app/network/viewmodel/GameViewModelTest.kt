@@ -134,7 +134,16 @@ class GameViewModelTest {
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.canRevealCard)
 
-            // Case 3: Disconnected + PLAYER_TURN -> False
+            // Case 4: Connected + AUCTION_RESULT -> False
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = GameState(phase = GamePhase.AUCTION_RESULT),
+                )
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.canRevealCard)
+
+            // Case 5: Disconnected + PLAYER_TURN -> False
             repoStateFlow.value =
                 GameRepositoryState(
                     isConnected = false,
@@ -811,6 +820,35 @@ class GameViewModelTest {
 
             advanceTimeBy(4000)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
+        }
+    }
+
+    @Test
+    fun `isAuctionActive includes result phase`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            // Bidding phase
+            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_BIDDING))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+
+            // Decision phase
+            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTIONEER_DECISION))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+
+            // Result phase
+            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_RESULT))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+
+            // Choice phase (False)
+            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.PLAYER_CHOICE))
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isAuctionActive)
         }
     }
 

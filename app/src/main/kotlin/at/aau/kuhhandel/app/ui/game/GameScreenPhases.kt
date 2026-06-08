@@ -64,6 +64,7 @@ fun AuctionPhaseContent(
         AuctionView(
             auction = auctionState,
             timerSeconds = uiState.auctionTimerSeconds,
+            phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING,
             players = gameState?.players ?: emptyList(),
             myPlayerId = uiState.myPlayerId,
             footerContent = {

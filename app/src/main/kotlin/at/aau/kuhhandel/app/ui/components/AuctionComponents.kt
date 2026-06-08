@@ -50,6 +50,7 @@ import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
+import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
@@ -213,11 +214,19 @@ fun AuctionView(
     modifier: Modifier = Modifier,
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    phase: GamePhase = GamePhase.AUCTION_BIDDING,
     players: List<Player> = emptyList(),
     myPlayerId: String? = null,
     footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
+
+    val isResultPhase = phase == GamePhase.AUCTION_RESULT
+    val buyerId = auction.buyerId
+    val highestBidderId = auction.highestBidderId
+    val buyerName = if (isResultPhase) {
+        players.find { it.id == buyerId }?.name ?: "Unknown"
+    } else ""
 
     // "Pop" animation whenever a new bid is placed
     val bidScale = remember { Animatable(1f) }
@@ -306,17 +315,20 @@ fun AuctionView(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (auction.highestBidderId == null && timerSeconds == null) {
-                    val auctioneerName =
-                        players.find { it.id == auction.auctioneerId }?.name ?: "The auctioneer"
+                if (isResultPhase) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             "Auction Closed",
                             style = MaterialTheme.typography.labelMedium,
                             color = DarkPurple.copy(alpha = 0.6f),
                         )
+                        val resultText = when {
+                            highestBidderId == null -> "$buyerName got the\n${auction.auctionCard.type.name} for free!"
+                            buyerId == auction.auctioneerId -> "$buyerName bought back\nfor ${auction.highestBid}€!"
+                            else -> "$buyerName won the\n${auction.auctionCard.type.name} for ${auction.highestBid}€!"
+                        }
                         Text(
-                            "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
+                            resultText,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = DefaultPurple,
@@ -329,9 +341,7 @@ fun AuctionView(
                         modifier = Modifier.scale(bidScale.value),
                     ) {
                         Text(
-                            if (auction.highestBidderId !=
-                                null
-                            ) {
+                            if (highestBidderId != null) {
                                 "${auction.highestBid}€"
                             } else {
                                 "0€"
@@ -342,14 +352,14 @@ fun AuctionView(
                                 ),
                             fontWeight = FontWeight.ExtraBold,
                             color =
-                                if (auction.highestBidderId != null) {
+                                if (highestBidderId != null) {
                                     DefaultPurple
                                 } else {
                                     DarkPurple
                                 },
                         )
 
-                        auction.highestBidderId?.let { bidderId ->
+                        highestBidderId?.let { bidderId ->
                             val bidderName =
                                 if (bidderId == myPlayerId) {
                                     "You"
