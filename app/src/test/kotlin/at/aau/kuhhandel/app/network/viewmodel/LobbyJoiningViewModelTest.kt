@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -52,9 +53,12 @@ class LobbyJoiningViewModelTest {
         runTest {
             val uiState = viewModel.uiState.value
             assertEquals("", uiState.lobbyCode)
+            assertEquals("", uiState.playerName)
+            assertNull(uiState.playerNameError)
             assertFalse(uiState.isLoading)
             assertNull(uiState.errorMessage)
             assertFalse(uiState.isJoined)
+            assertFalse(uiState.canSubmit)
         }
     }
 
@@ -96,6 +100,23 @@ class LobbyJoiningViewModelTest {
     }
 
     @Test
+    fun `onPlayerNameChanged accepts valid name and rejects too-long input`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onPlayerNameChanged("Felix01")
+            advanceUntilIdle()
+            assertEquals("Felix01", viewModel.uiState.value.playerName)
+
+            viewModel.onPlayerNameChanged("Felix0123") // 9 chars — ignored
+            advanceUntilIdle()
+            assertEquals("Felix01", viewModel.uiState.value.playerName)
+        }
+    }
+
+    @Test
     fun `joinLobby sets error if code is too short`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -103,21 +124,41 @@ class LobbyJoiningViewModelTest {
             }
 
             viewModel.onLobbyCodeChanged("123")
+            viewModel.onPlayerNameChanged("Felix01")
             viewModel.joinLobby()
             advanceUntilIdle()
 
             assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)
+            coVerify(exactly = 0) { mockRepository.joinGame(any(), any()) }
         }
     }
 
     @Test
-    fun `joinLobby calls repository if code is 5 digits`() {
+    fun `joinLobby sets player name error if name invalid`() {
         runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
             viewModel.onLobbyCodeChanged("12345")
+            // No name provided
             viewModel.joinLobby()
             advanceUntilIdle()
 
-            coVerify { mockRepository.joinGame("12345") }
+            assertNotNull(viewModel.uiState.value.playerNameError)
+            coVerify(exactly = 0) { mockRepository.joinGame(any(), any()) }
+        }
+    }
+
+    @Test
+    fun `joinLobby calls repository with code and player name`() {
+        runTest {
+            viewModel.onLobbyCodeChanged("12345")
+            viewModel.onPlayerNameChanged("Felix01")
+            viewModel.joinLobby()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.joinGame("12345", "Felix01") }
         }
     }
 
@@ -145,6 +186,7 @@ class LobbyJoiningViewModelTest {
 
             // Trigger local error
             viewModel.onLobbyCodeChanged("1")
+            viewModel.onPlayerNameChanged("Felix01")
             viewModel.joinLobby()
             advanceUntilIdle()
             assertEquals("Code must have 5 digits", viewModel.uiState.value.errorMessage)

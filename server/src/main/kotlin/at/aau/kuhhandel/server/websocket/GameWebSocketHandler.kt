@@ -5,6 +5,7 @@ import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.PlayerNameRules
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -146,8 +147,7 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
 
         val payload = decodePayload(envelope, CreateGamePayload.serializer())
-        // For now, uses a temporary player name if no name is provided; will be changed in the future
-        val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
+        val playerName = resolvePlayerName(payload.playerName, session)
 
         val result = gameService.createGame(playerName)
         val gameId = result.gameId
@@ -188,8 +188,7 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
-        // For now, uses a temporary player name if no name is provided; will be changed in the future
-        val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
+        val playerName = resolvePlayerName(payload.playerName, session)
 
         val result = gameService.joinGame(gameId, playerName)
 
@@ -568,4 +567,18 @@ class GameWebSocketHandler(
      * Generates a cryptographically secure token used to authenticate a player during reconnection.
      */
     private fun generateReconnectToken(): String = UUID.randomUUID().toString()
+
+    private fun resolvePlayerName(
+        rawName: String?,
+        session: WebSocketSession,
+    ): String {
+        val trimmed = rawName?.trim()
+        if (trimmed.isNullOrEmpty()) {
+            return "Player ${session.id.takeLast(4)}"
+        }
+        if (!PlayerNameRules.isValid(trimmed)) {
+            throw GameException(GameErrorReason.INVALID_PLAYER_NAME)
+        }
+        return trimmed
+    }
 }
