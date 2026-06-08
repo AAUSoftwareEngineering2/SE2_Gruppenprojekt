@@ -4,20 +4,19 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,16 +46,16 @@ fun GameScreen(
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
-    onRespondToTrade: () -> Unit,
-    onFinishTradeReveal: () -> Unit,
-    onInitiateTrade: (String, AnimalType) -> Unit,
-    onSelectTargetPlayer: (String?) -> Unit,
+    tradeActions: TradeActions,
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
+    onCollapseHand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isAuctionActive = uiState.isAuctionActive
+    val isTradeActive = uiState.isTradeActive
+    val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -70,38 +69,17 @@ fun GameScreen(
 
     MainBackground(modifier = modifier)
 
-    // --- ANIMAL SELECTION DIALOG ---
-    if (uiState.selectedTargetPlayerId != null) {
-        AlertDialog(
-            onDismissRequest = { onSelectTargetPlayer(null) },
-            title = { Text("Pick animal to trade") },
-            text = {
-                Column {
-                    if (uiState.sharedAnimalsWithSelectedPlayer.isEmpty()) {
-                        Text("No shared animals found.")
-                    } else {
-                        uiState.sharedAnimalsWithSelectedPlayer.forEach { animal ->
-                            TextButton(
-                                onClick = {
-                                    onInitiateTrade(
-                                        uiState.selectedTargetPlayerId,
-                                        animal,
-                                    )
-                                },
-                            ) {
-                                Text(animal.name)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { onSelectTargetPlayer(null) }) { Text("Cancel") }
-            },
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    enabled = uiState.isHandFanned && !isTradeActive,
+                    interactionSource = gameBackgroundInteractionSource,
+                    indication = null,
+                    onClick = onCollapseHand,
+                ),
+    ) {
         // --- DECOR ---
         Image(
             painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
@@ -129,7 +107,11 @@ fun GameScreen(
             OpponentList(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
-                onOpponentClick = onSelectTargetPlayer,
+                onOpponentClick = tradeActions.selectTargetPlayer,
+                canSelectTradeTarget = uiState.canSelectTradeTarget,
+                selectedTargetPlayerId = uiState.selectedTargetPlayerId,
+                enabledTradeAnimalTypes = uiState.sharedAnimalsWithSelectedPlayer.toSet(),
+                onTradeAnimalClick = tradeActions.selectAnimal,
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
@@ -173,13 +155,7 @@ fun GameScreen(
                     GamePhase.TRADE_OFFER,
                     GamePhase.TRADE_RESPONSE,
                     GamePhase.TRADE_RESULT,
-                    -> {
-                        TradePhaseContent(
-                            uiState = uiState,
-                            onRespondToTrade = onRespondToTrade,
-                            onFinishTradeReveal = onFinishTradeReveal,
-                        )
-                    }
+                    -> Unit
 
                     GamePhase.FINISHED -> {
                         Text(
@@ -214,7 +190,7 @@ fun GameScreen(
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
-        if (myPlayer != null) {
+        if (myPlayer != null && !isTradeActive) {
             val handTranslationY by animateDpAsState(
                 targetValue = if (isAuctionActive) 115.dp else 0.dp,
                 animationSpec = spring(stiffness = 200f),
@@ -260,6 +236,12 @@ fun GameScreen(
                 )
             }
         }
+
+        TradeOverlay(
+            uiState = uiState,
+            actions = tradeActions,
+            onToggleMoneyCard = onToggleMoneyCard,
+        )
     }
 }
 
@@ -347,11 +329,19 @@ fun GameScreenPreview() {
         onRevealCard = {},
         onPlaceBid = {},
         onBuyBack = {},
-        onRespondToTrade = {},
-        onFinishTradeReveal = {},
-        onInitiateTrade = { _, _ -> },
-        onSelectTargetPlayer = {},
+        tradeActions =
+            TradeActions(
+                selectTargetPlayer = {},
+                selectAnimal = {},
+                submitOffer = {},
+                chooseCounterOffer = {},
+                takeOffer = {},
+                submitCounterOffer = {},
+                toggleHandFanned = {},
+                collapseHand = {},
+            ),
         onToggleMoneyCard = {},
         onToggleHandFanned = {},
+        onCollapseHand = {},
     )
 }

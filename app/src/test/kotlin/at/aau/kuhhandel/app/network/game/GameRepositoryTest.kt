@@ -67,7 +67,7 @@ class GameRepositoryTest {
             targetPlayerId: String,
             animalType: AnimalType = AnimalType.COW,
         ) {
-            repository.initiateTrade(targetPlayerId, animalType, setOf())
+            repository.initiateTrade(targetPlayerId, animalType)
         }
 
         fun clearError() {
@@ -301,6 +301,18 @@ class GameRepositoryTest {
 
             harness.repository.respondToTrade(setOf("m2"))
             assertEquals(WebSocketType.RESPOND_TO_TRADE, harness.sentTypes().last())
+        }
+    }
+
+    @Test
+    fun `submitTradeMoney sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame()
+
+            harness.repository.submitTradeMoney(setOf("m1"))
+
+            assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, harness.sentTypes().last())
         }
     }
 
@@ -551,13 +563,12 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `respondToTrade returns early if myPlayerId is null`() {
+    fun `respondToTrade does not require local player id`() {
         runBlocking {
             val harness = createHarness()
             harness.createGame() // Connects but myPlayerId is still null
             harness.repository.respondToTrade()
-            // Verify NO RESPOND_TO_TRADE was sent
-            assertFalse(harness.sentTypes().contains(WebSocketType.RESPOND_TO_TRADE))
+            assertTrue(harness.sentTypes().contains(WebSocketType.RESPOND_TO_TRADE))
         }
     }
 

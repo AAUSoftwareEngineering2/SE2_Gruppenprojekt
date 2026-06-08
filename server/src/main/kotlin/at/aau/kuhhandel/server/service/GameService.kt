@@ -32,9 +32,6 @@ class GameService(
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
     // Used in tests
     private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val gameCodeGenerator: () -> String = {
-        Random.nextInt(10000, 100000).toString()
-    },
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -350,7 +347,7 @@ class GameService(
         var code: String
 
         do {
-            code = gameCodeGenerator()
+            code = Random.nextInt(10000, 100000).toString()
         } while (rooms.containsKey(code) || persistenceService?.existsGame(code) == true)
 
         return code

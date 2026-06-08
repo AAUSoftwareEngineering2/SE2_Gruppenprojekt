@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -179,8 +180,16 @@ class GameWebSocketClientTest {
                 client.initiateTrade(
                     "p2",
                     AnimalType.COW,
-                    emptySet(),
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `submitTradeMoney without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> {
+                client.submitTradeMoney(setOf("m1"))
             }
         }
     }
@@ -203,10 +212,7 @@ class GameWebSocketClientTest {
     fun `respondToTrade without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> {
-                client.respondToTrade(
-                    respondingPlayerId = "p1",
-                    counterOfferedMoneyCardIds = setOf(),
-                )
+                client.respondToTrade(emptySet())
             }
         }
     }
@@ -311,12 +317,34 @@ class GameWebSocketClientTest {
         runBlocking {
             val connection = connectClient()
 
-            val requestId = client.initiateTrade("player-456", AnimalType.COW, emptySet())
+            val requestId = client.initiateTrade("player-456", AnimalType.COW)
             val sent = connection.session.onlySentEnvelope()
 
             assertEquals(WebSocketType.CHOOSE_TRADE, sent.type)
             assertEquals(requestId, sent.requestId)
             assertNotNull(sent.payload)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `submitTradeMoney sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            val cardIds = setOf("m1", "m2")
+
+            val requestId = client.submitTradeMoney(cardIds)
+            val sent = connection.session.onlySentEnvelope()
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SubmitTradeMoneyPayload.serializer(),
+                    assertNotNull(sent.payload),
+                )
+
+            assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertEquals(cardIds, payload.moneyCardIds)
 
             connection.disconnect()
         }
@@ -346,10 +374,7 @@ class GameWebSocketClientTest {
     fun `respondToTrade sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
-            client.respondToTrade(
-                respondingPlayerId = "p1",
-                counterOfferedMoneyCardIds = setOf("m2"),
-            )
+            client.respondToTrade(setOf("m2"))
             assertEquals(WebSocketType.RESPOND_TO_TRADE, connection.session.onlySentEnvelope().type)
             connection.disconnect()
         }

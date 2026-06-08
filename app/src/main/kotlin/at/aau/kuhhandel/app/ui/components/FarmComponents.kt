@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,11 +15,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -28,8 +31,11 @@ import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Displays a summary of an opponent's farm, including their name and money card count. */
 @Composable
@@ -39,13 +45,17 @@ fun OtherFarm(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showName: Boolean = true,
+    canClick: Boolean = true,
+    showTradeAnimalPicker: Boolean = false,
+    enabledTradeAnimalTypes: Set<AnimalType> = emptySet(),
+    onTradeAnimalClick: (AnimalType) -> Unit = {},
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier =
             modifier
                 .padding(4.dp)
-                .clickable { onClick() },
+                .clickable(enabled = canClick) { onClick() },
     ) {
         // Hide name during auctions to match mockup layout
         // Using alpha instead of conditional visibility to prevent layout shifts
@@ -117,6 +127,12 @@ fun OtherFarm(
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
+            if (showTradeAnimalPicker) {
+                TradeAnimalRadialPicker(
+                    enabledAnimalTypes = enabledTradeAnimalTypes,
+                    onAnimalClick = onTradeAnimalClick,
+                )
+            }
         }
     }
 }
@@ -129,6 +145,10 @@ fun OpponentList(
     onOpponentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isAuctionActive: Boolean = false,
+    canSelectTradeTarget: Boolean = true,
+    selectedTargetPlayerId: String? = null,
+    enabledTradeAnimalTypes: Set<AnimalType> = emptySet(),
+    onTradeAnimalClick: (AnimalType) -> Unit = {},
 ) {
     val opponents = players.filter { it.id != myId }
     Column(
@@ -148,10 +168,60 @@ fun OpponentList(
                         farmColor = color,
                         onClick = { onOpponentClick(player.id) },
                         showName = !isAuctionActive,
+                        canClick = canSelectTradeTarget,
+                        showTradeAnimalPicker =
+                            canSelectTradeTarget && selectedTargetPlayerId == player.id,
+                        enabledTradeAnimalTypes = enabledTradeAnimalTypes,
+                        onTradeAnimalClick = onTradeAnimalClick,
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BoxScope.TradeAnimalRadialPicker(
+    enabledAnimalTypes: Set<AnimalType>,
+    onAnimalClick: (AnimalType) -> Unit,
+) {
+    val disabledColorFilter =
+        remember {
+            ColorFilter.colorMatrix(
+                ColorMatrix().apply {
+                    setToSaturation(0f)
+                },
+            )
+        }
+    val iconSize = 38.dp
+    val radius = 104.dp
+
+    AnimalType.entries.forEachIndexed { index, animalType ->
+        val isEnabled = animalType in enabledAnimalTypes
+        val angleRadians =
+            Math.toRadians(
+                -90.0 + (360.0 / AnimalType.entries.size) * index,
+            )
+        val xOffset = (cos(angleRadians) * radius.value).toFloat().dp
+        val yOffset = (sin(angleRadians) * radius.value).toFloat().dp
+
+        Image(
+            painter = painterResource(id = getAnimalDrawable(animalType, AnimalStyle.CHIP)),
+            contentDescription = "${animalType.name} trade option",
+            colorFilter = if (isEnabled) null else disabledColorFilter,
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .offset(x = xOffset, y = yOffset)
+                    .size(iconSize)
+                    .then(
+                        if (isEnabled) {
+                            Modifier.clickable { onAnimalClick(animalType) }
+                        } else {
+                            Modifier
+                        },
+                    ),
+        )
     }
 }
 
