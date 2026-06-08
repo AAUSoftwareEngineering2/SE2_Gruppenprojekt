@@ -8,7 +8,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -21,8 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,7 +37,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private const val DEFAULT_TABLE_SCALE = 3.4f
-private const val DEFAULT_ANIMATION_DURATION_MS = 1200
+private const val DEFAULT_ANIMATION_DURATION_MS = 2000
 private const val TABLE_TRAVEL_ANGLE_DEGREES = 150.0
 private val DEFAULT_TABLE_OFFSET_X = 220.dp
 private val DEFAULT_TABLE_OFFSET_Y = (250).dp
@@ -55,6 +56,8 @@ fun TradingView(
     tableOffsetY: Dp = DEFAULT_TABLE_OFFSET_Y,
     travelDistance: Dp = DEFAULT_TABLE_TRAVEL_DISTANCE,
     animationDurationMillis: Int = DEFAULT_ANIMATION_DURATION_MS,
+    onBackgroundClick: () -> Unit = {},
+    content: @Composable BoxScope.() -> Unit = {},
 ) {
     val visibilityState =
         remember {
@@ -73,27 +76,25 @@ fun TradingView(
         )
     val exitOffset = IntOffset(x = -entryOffset.x, y = -entryOffset.y)
     val blocksInput = visibilityState.currentState || visibilityState.targetState
-    val inputBlockingModifier =
-        if (blocksInput) {
-            Modifier.pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        event.changes.forEach { it.consume() }
-                    }
-                }
-            }
-        } else {
-            Modifier
-        }
+    val backgroundInteractionSource = remember { MutableInteractionSource() }
 
     Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .then(inputBlockingModifier),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
+        if (blocksInput) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = backgroundInteractionSource,
+                            indication = null,
+                            onClick = onBackgroundClick,
+                        ),
+            )
+        }
+
         AnimatedVisibility(
             visibleState = visibilityState,
             enter =
@@ -115,15 +116,19 @@ fun TradingView(
                     targetOffset = { exitOffset },
                 ),
         ) {
-            Image(
-                painter = painterResource(R.drawable.ig_table),
-                contentDescription = null,
-                modifier =
-                    Modifier
-                        .size(width = 520.dp, height = 469.dp)
-                        .offset(x = tableOffsetX, y = tableOffsetY)
-                        .scale(tableScale),
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    painter = painterResource(R.drawable.ig_table),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .align(Alignment.Center)
+                            .size(width = 520.dp, height = 469.dp)
+                            .offset(x = tableOffsetX, y = tableOffsetY)
+                            .scale(tableScale),
+                )
+                content()
+            }
         }
     }
 }

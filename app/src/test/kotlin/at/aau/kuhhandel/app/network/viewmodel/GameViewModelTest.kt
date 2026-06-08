@@ -435,7 +435,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `selectTradeAnimal stores pending choice and does not initiate trade`() {
+    fun `selectTradeAnimal stores pending choice and initiates trade`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -465,7 +465,7 @@ class GameViewModelTest {
             assertEquals("other", viewModel.uiState.value.pendingTradeTargetPlayerId)
             assertEquals(AnimalType.COW, viewModel.uiState.value.pendingTradeAnimalType)
             assertTrue(viewModel.uiState.value.isTradeActive)
-            coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any(), any()) }
+            coVerify { mockRepository.initiateTrade("other", AnimalType.COW) }
         }
     }
 
@@ -508,36 +508,7 @@ class GameViewModelTest {
             assertEquals("other", viewModel.uiState.value.selectedTargetPlayerId)
             assertNull(viewModel.uiState.value.pendingTradeTargetPlayerId)
             assertNull(viewModel.uiState.value.pendingTradeAnimalType)
-            coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any(), any()) }
-        }
-    }
-
-    @Test
-    fun `respondToTrade initiator branch handles nulls`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-
-            // Both initiatorId and myPlayerId are the same string
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "same",
-                    gameState =
-                        GameState(
-                            tradeState =
-                                at.aau.kuhhandel.shared.model.TradeState(
-                                    initiatorId = "same",
-                                    targetId = "target",
-                                    requestedAnimalType = AnimalType.COW,
-                                ),
-                        ),
-                )
-            advanceUntilIdle()
-            viewModel.respondToTrade()
-            advanceUntilIdle()
-            // Should go to initiator branch (commented out)
-            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
+            coVerify(exactly = 0) { mockRepository.initiateTrade(any(), any()) }
         }
     }
 
@@ -647,56 +618,18 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `respondToTrade calls repository with selected money and clears selection`() {
+    fun `submitTradeOffer sends selected money and clears selection`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            // Setup: We are NOT the initiator, so we are responding
             repoStateFlow.value =
                 GameRepositoryState(
                     myPlayerId = "me",
                     gameState =
                         GameState(
-                            tradeState =
-                                at.aau.kuhhandel.shared.model.TradeState(
-                                    initiatorId = "other",
-                                    targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
-                                ),
-                        ),
-                )
-            advanceUntilIdle()
-
-            viewModel.toggleMoneyCardSelection("m1")
-            viewModel.toggleMoneyCardSelection("m2")
-            advanceUntilIdle()
-
-            viewModel.respondToTrade()
-            advanceUntilIdle()
-
-            coVerify { mockRepository.respondToTrade(setOf("m1", "m2")) }
-            assertTrue(
-                viewModel.uiState.value.selectedMoneyCardIds
-                    .isEmpty(),
-            )
-        }
-    }
-
-    @Test
-    fun `respondToTrade does not call repository when I am the initiator`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-
-            // Setup: We ARE the initiator
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "me",
-                    gameState =
-                        GameState(
+                            phase = GamePhase.TRADE_OFFER,
                             tradeState =
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
@@ -708,11 +641,13 @@ class GameViewModelTest {
             advanceUntilIdle()
 
             viewModel.toggleMoneyCardSelection("m1")
-            viewModel.respondToTrade()
+            viewModel.toggleMoneyCardSelection("m2")
             advanceUntilIdle()
 
-            // Should not call respondToTrade (since we're the initiator and the offerTrade call is currently commented out in ViewModel)
-            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
+            viewModel.submitTradeOffer()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitTradeMoney(setOf("m1", "m2")) }
             assertTrue(
                 viewModel.uiState.value.selectedMoneyCardIds
                     .isEmpty(),
@@ -721,58 +656,118 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `respondToTrade handles null gameState or tradeState gracefully`() {
+    fun `submitTradeOffer requires at least one selected card`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            // Case 1: GameState is null
-            repoStateFlow.value = GameRepositoryState(gameState = null)
-            advanceUntilIdle()
-            viewModel.respondToTrade()
-            advanceUntilIdle()
-            // In ViewModel: if (uiState.value.gameState?.tradeState?.initiatorId == uiState.value.myPlayerId)
-            // if gameState is null, the condition is null == myPlayerId (false if myPlayerId is set, true if both are null)
-            // Wait, uiState.value.myPlayerId is also null initially. So null == null is TRUE.
-            // If it's TRUE, it currently does nothing (initiator branch is commented out).
-
-            coVerify(exactly = 0) { mockRepository.respondToTrade(any()) }
-
-            // Case 2: TradeState is null
             repoStateFlow.value =
-                GameRepositoryState(myPlayerId = "me", gameState = GameState(tradeState = null))
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.TRADE_OFFER,
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "me",
+                                    targetId = "other",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
             advanceUntilIdle()
-            viewModel.respondToTrade()
+
+            viewModel.submitTradeOffer()
             advanceUntilIdle()
-            // uiState.value.gameState?.tradeState?.initiatorId is null.
-            // myPlayerId is "me".
-            // null == "me" is FALSE.
-            // So it calls repository.respondToTrade
-            coVerify(exactly = 1) { mockRepository.respondToTrade(any()) }
+
+            coVerify(exactly = 0) { mockRepository.submitTradeMoney(any()) }
         }
     }
 
     @Test
-    fun `initiateTrade calls repository with target and selected money`() {
+    fun `takeTradeOffer sends empty response`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
             }
 
-            viewModel.toggleMoneyCardSelection("m1")
-            viewModel.selectTargetPlayer("p2")
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.TRADE_RESPONSE,
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "other",
+                                    targetId = "me",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
             advanceUntilIdle()
+
+            viewModel.takeTradeOffer()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.respondToTrade(emptySet()) }
+        }
+    }
+
+    @Test
+    fun `counter offer opens hand and submits selected money`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.TRADE_RESPONSE,
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "other",
+                                    targetId = "me",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.chooseCounterOffer()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isCounterOfferSelected)
+            assertTrue(viewModel.uiState.value.isTradeHandFanned)
+
+            viewModel.toggleMoneyCardSelection("m1")
+            viewModel.submitCounterOffer()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.respondToTrade(setOf("m1")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `initiateTrade calls repository without money selection`() {
+        runTest {
+            viewModel.toggleMoneyCardSelection("m1")
 
             viewModel.initiateTrade("p2", AnimalType.COW)
             advanceUntilIdle()
 
-            coVerify { mockRepository.initiateTrade("p2", AnimalType.COW, setOf("m1")) }
+            coVerify { mockRepository.initiateTrade("p2", AnimalType.COW) }
             assertTrue(
                 viewModel.uiState.value.selectedMoneyCardIds
                     .isEmpty(),
             )
-            assertNull(viewModel.uiState.value.selectedTargetPlayerId)
         }
     }
 
@@ -878,11 +873,12 @@ class GameViewModelTest {
     @Test
     fun `initiateTrade calls repository and handles error`() {
         runTest {
-            coEvery { mockRepository.initiateTrade("player-2", AnimalType.COW, any()) } throws
+            coEvery { mockRepository.initiateTrade("player-2", AnimalType.COW) } throws
                 RuntimeException("Network error")
             viewModel.initiateTrade("player-2", AnimalType.COW)
             advanceUntilIdle()
-            coVerify { mockRepository.initiateTrade("player-2", AnimalType.COW, any()) }
+            coVerify { mockRepository.initiateTrade("player-2", AnimalType.COW) }
+            assertFalse(viewModel.uiState.value.isTradeActionSubmitting)
         }
     }
 

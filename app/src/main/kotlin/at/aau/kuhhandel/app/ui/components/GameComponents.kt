@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -148,7 +150,6 @@ fun MoneyStackButton(
         Image(
             painter = painterResource(id = getHiddenMoneyStackDrawable(count)),
             contentDescription = "Money Stack",
-            modifier = Modifier.size(width = 90.dp, height = 110.dp),
         )
         // Always show count as requested - styled for high readability
         Text(
@@ -165,6 +166,52 @@ fun MoneyStackButton(
             color = DarkPurple,
             fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.offset(y = (-5).dp),
+        )
+    }
+}
+
+/** A submitted trade offer shown as a hidden stack on the trading table. */
+@Composable
+fun TableCards(
+    count: Int,
+    modifier: Modifier = Modifier,
+    isCounterOffer: Boolean = false,
+) {
+    if (count <= 0) return
+
+    Box(
+        modifier = modifier.size(width = 137.dp, height = 77.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter =
+                painterResource(
+                    id =
+                        getHiddenMoneyTableDrawable(
+                            count = count,
+                            isCounterOffer = isCounterOffer,
+                        ),
+                ),
+            contentDescription =
+                if (isCounterOffer) {
+                    "Counter offer: $count hidden money cards"
+                } else {
+                    "Offer: $count hidden money cards"
+                },
+        )
+        Text(
+            text = count.toString(),
+            style =
+                MaterialTheme.typography.headlineSmall.copy(
+                    shadow =
+                        Shadow(
+                            color = PureWhite,
+                            offset = Offset.Zero,
+                            blurRadius = 8f,
+                        ),
+                ),
+            color = DarkPurple,
+            fontWeight = FontWeight.ExtraBold,
         )
     }
 }
@@ -216,8 +263,23 @@ fun MoneyHand(
     onToggleFanned: () -> Unit,
     isTradePhase: Boolean = false,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(
+                    if (isFanned) {
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = {},
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
         contentAlignment = Alignment.BottomCenter,
     ) {
         if (cards.isNotEmpty()) {
@@ -246,8 +308,7 @@ fun MoneyHand(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
-                                .clickable { onToggleFanned() },
+                                .padding(start = 16.dp, end = 16.dp, bottom = 20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -270,7 +331,11 @@ fun MoneyHand(
 
                         // Simple "Close" hint
                         Text(
-                            if (isTradePhase) "Select cards to trade" else "Tap anywhere to close",
+                            if (isTradePhase) {
+                                "Select cards to trade"
+                            } else {
+                                "Tap outside to close"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = DarkPurple.copy(alpha = 0.6f),
                         )
@@ -298,6 +363,18 @@ fun MoneyHandPreview() {
             isFanned = true,
             onToggleFanned = {},
             selectedCardIds = setOf("3"),
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TableCardsPreview() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TableCards(count = 4)
+        TableCards(
+            count = 12,
+            isCounterOffer = true,
         )
     }
 }
