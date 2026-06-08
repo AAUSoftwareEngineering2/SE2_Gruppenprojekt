@@ -348,7 +348,7 @@ class GameService(
 
         do {
             code = Random.nextInt(10000, 100000).toString()
-        } while (rooms.containsKey(code))
+        } while (rooms.containsKey(code) || persistenceService?.existsGame(code) == true)
 
         return code
     }

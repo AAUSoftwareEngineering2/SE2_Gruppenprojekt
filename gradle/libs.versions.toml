@@ -24,6 +24,7 @@ compileSdk = "36"
 minSdk = "24"
 targetSdk = "36"
 mockitoKotlin = "6.3.0"
+testcontainers = "1.21.4"
 
 [libraries]
 # AndroidX
@@ -78,6 +79,9 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-boot-data-jpa-test = { module = "org.springframework.boot:spring-boot-data-jpa-test" }
 postgresql = { module = "org.postgresql:postgresql" }
 h2 = { module = "com.h2database:h2" }
+testcontainers-junit-jupiter = { group = "org.testcontainers", name = "junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version.ref = "testcontainers" }
+testcontainers-core = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 
 [plugins]

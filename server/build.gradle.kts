@@ -39,6 +39,13 @@ dependencies {
     testImplementation(libs.spring.boot.data.jpa.test)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.mockk)
+    testImplementation(libs.testcontainers.core) {
+        version {
+            strictly(libs.versions.testcontainers.get())
+        }
+    }
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
     testRuntimeOnly(libs.h2)
 }
 

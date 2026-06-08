@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.socket.config.annotation.EnableWebSocket
@@ -13,14 +14,24 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
  */
 @Configuration
 @EnableWebSocket
+@EnableConfigurationProperties(WebSocketProperties::class)
 class WebSocketConfig(
     private val gameWebSocketHandler: GameWebSocketHandler,
+    private val properties: WebSocketProperties,
 ) : WebSocketConfigurer {
     override fun registerWebSocketHandlers(registry: WebSocketHandlerRegistry) {
+        val allowedOrigins =
+            properties.allowedOrigins
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toTypedArray()
+        require(allowedOrigins.isNotEmpty()) {
+            "kuhhandel.websocket.allowed-origins must contain at least one origin"
+        }
+
         registry
             .addHandler(gameWebSocketHandler, WebSocketRoutes.GAME)
-            // Temporary development setting; should be restricted when origins are finalized
-            .setAllowedOrigins("*")
+            .setAllowedOrigins(*allowedOrigins)
     }
 
     // Cloudflare free tier closes idle WebSockets after ~100s. We send our own pings every 25s
