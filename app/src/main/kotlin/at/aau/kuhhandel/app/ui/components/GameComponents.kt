@@ -254,7 +254,7 @@ fun MoneyCardView(
 
 /** An animated hand of money cards that can fan out. */
 @Composable
-fun MoneyHand(
+fun o(
     modifier: Modifier = Modifier,
     cards: List<MoneyCard>,
     selectedCardIds: Set<String> = emptySet(),
@@ -329,21 +329,39 @@ fun MoneyHand(
                             }
                         }
 
-                        // Simple "Close" hint
-                        Text(
-                            if (isTradePhase) {
-                                "Select cards to trade"
-                            } else {
-                                "Tap outside to close"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = DarkPurple.copy(alpha = 0.6f),
-                        )
+                        if (!isTradePhase) {
+                            Text(
+                                text = "Tap outside to close",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DarkPurple.copy(alpha = 0.6f),
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun MoneyHand(
+    modifier: Modifier = Modifier,
+    cards: List<MoneyCard>,
+    selectedCardIds: Set<String> = emptySet(),
+    onCardClick: (MoneyCard) -> Unit = {},
+    isFanned: Boolean,
+    onToggleFanned: () -> Unit,
+    isTradePhase: Boolean = false,
+) {
+    o(
+        modifier = modifier,
+        cards = cards,
+        selectedCardIds = selectedCardIds,
+        onCardClick = onCardClick,
+        isFanned = isFanned,
+        onToggleFanned = onToggleFanned,
+        isTradePhase = isTradePhase,
+    )
 }
 
 @Preview(showBackground = true)

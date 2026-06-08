@@ -4,6 +4,7 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -107,11 +108,30 @@ data class GameUiState(
                     ?: trade.counterOfferedMoneyCardIds.size.takeIf { it > 0 }
             }
 
+    val tradeResultOfferCards: List<MoneyCard>
+        get() = resultCards(gameState?.tradeState?.offeredMoneyCards)
+
+    val tradeResultCounterOfferCards: List<MoneyCard>
+        get() = resultCards(gameState?.tradeState?.counterOfferedMoneyCards)
+
+    val tradeResultOfferTotal: Int
+        get() = tradeResultOfferCards.sumOf { it.value }
+
+    val tradeResultCounterOfferTotal: Int
+        get() = tradeResultCounterOfferCards.sumOf { it.value }
+
     val activePlayerName: String
         get() =
             gameState?.let {
                 it.players.getOrNull(it.currentPlayerIndex)?.name
             } ?: "Unknown"
+
+    private fun resultCards(cards: Set<MoneyCard>?): List<MoneyCard> =
+        if (currentPhase == GamePhase.TRADE_RESULT) {
+            cards.orEmpty().sortedWith(compareBy<MoneyCard> { it.value }.thenBy { it.id })
+        } else {
+            emptyList()
+        }
 }
 
 /**
