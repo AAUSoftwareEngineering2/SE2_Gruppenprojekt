@@ -53,7 +53,8 @@ data class GameUiState(
     val isAuctionActive: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
-                currentPhase == GamePhase.AUCTIONEER_DECISION
+                currentPhase == GamePhase.AUCTIONEER_DECISION ||
+                currentPhase == GamePhase.AUCTION_RESULT
 
     /** Shows the trading overlay for a local selection or an active server trade phase. */
     val isTradeActive: Boolean

@@ -50,6 +50,7 @@ import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
+import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
@@ -213,11 +214,15 @@ fun AuctionView(
     modifier: Modifier = Modifier,
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    phase: GamePhase = GamePhase.AUCTION_BIDDING,
     players: List<Player> = emptyList(),
     myPlayerId: String? = null,
     footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
+
+    val isResultPhase = phase == GamePhase.AUCTION_RESULT
+    val titleText = if (isResultPhase) "AUCTION RESULT" else "LIVE AUCTION"
 
     // "Pop" animation whenever a new bid is placed
     val bidScale = remember { Animatable(1f) }
@@ -268,7 +273,7 @@ fun AuctionView(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    "LIVE AUCTION",
+                    titleText,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
                     color = DarkPurple.copy(alpha = 0.7f),
@@ -306,63 +311,43 @@ fun AuctionView(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (auction.highestBidderId == null && timerSeconds == null) {
-                    val auctioneerName =
-                        players.find { it.id == auction.auctioneerId }?.name ?: "The auctioneer"
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "Auction Closed",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = DarkPurple.copy(alpha = 0.6f),
-                        )
-                        Text(
-                            "$auctioneerName got the\n${auction.auctionCard.type.name} for free!",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = DefaultPurple,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                    }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.scale(bidScale.value),
-                    ) {
-                        Text(
-                            if (auction.highestBidderId !=
-                                null
-                            ) {
-                                "${auction.highestBid}€"
+                val highestBidderId = auction.highestBidderId
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.scale(bidScale.value),
+                ) {
+                    Text(
+                        if (highestBidderId != null) {
+                            "${auction.highestBid}€"
+                        } else {
+                            "0€"
+                        },
+                        style =
+                            MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 86.sp,
+                            ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color =
+                            if (highestBidderId != null) {
+                                DefaultPurple
                             } else {
-                                "0€"
+                                DarkPurple
                             },
-                            style =
-                                MaterialTheme.typography.displayMedium.copy(
-                                    fontSize = 86.sp,
-                                ),
-                            fontWeight = FontWeight.ExtraBold,
-                            color =
-                                if (auction.highestBidderId != null) {
-                                    DefaultPurple
-                                } else {
-                                    DarkPurple
-                                },
-                        )
+                    )
 
-                        auction.highestBidderId?.let { bidderId ->
-                            val bidderName =
-                                if (bidderId == myPlayerId) {
-                                    "You"
-                                } else {
-                                    players.find { it.id == bidderId }?.name ?: bidderId
-                                }
-                            Text(
-                                "from $bidderName",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = DarkPurple.copy(alpha = 0.62f),
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
+                    highestBidderId?.let { bidderId ->
+                        val bidderName =
+                            if (bidderId == myPlayerId) {
+                                "You"
+                            } else {
+                                players.find { it.id == bidderId }?.name ?: bidderId
+                            }
+                        Text(
+                            "from $bidderName",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = DarkPurple.copy(alpha = 0.62f),
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
 
@@ -371,7 +356,15 @@ fun AuctionView(
                     color = DarkPurple.copy(alpha = 0.12f),
                 )
 
-                footerContent()
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(110.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    footerContent()
+                }
             }
         }
     }
