@@ -831,22 +831,26 @@ class GameViewModelTest {
             }
 
             // Bidding phase
-            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_BIDDING))
+            repoStateFlow.value =
+                GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_BIDDING))
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isAuctionActive)
 
             // Decision phase
-            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTIONEER_DECISION))
+            repoStateFlow.value =
+                GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTIONEER_DECISION))
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isAuctionActive)
 
             // Result phase
-            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_RESULT))
+            repoStateFlow.value =
+                GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_RESULT))
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isAuctionActive)
 
             // Choice phase (False)
-            repoStateFlow.value = GameRepositoryState(gameState = GameState(phase = GamePhase.PLAYER_CHOICE))
+            repoStateFlow.value =
+                GameRepositoryState(gameState = GameState(phase = GamePhase.PLAYER_CHOICE))
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.isAuctionActive)
         }

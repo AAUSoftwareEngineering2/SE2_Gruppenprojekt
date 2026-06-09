@@ -222,11 +222,7 @@ fun AuctionView(
     if (auction == null) return
 
     val isResultPhase = phase == GamePhase.AUCTION_RESULT
-    val buyerId = auction.buyerId
-    val highestBidderId = auction.highestBidderId
-    val buyerName = if (isResultPhase) {
-        players.find { it.id == buyerId }?.name ?: "Unknown"
-    } else ""
+    val titleText = if (isResultPhase) "AUCTION RESULT" else "LIVE AUCTION"
 
     // "Pop" animation whenever a new bid is placed
     val bidScale = remember { Animatable(1f) }
@@ -277,7 +273,7 @@ fun AuctionView(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    "LIVE AUCTION",
+                    titleText,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
                     color = DarkPurple.copy(alpha = 0.7f),
@@ -315,64 +311,43 @@ fun AuctionView(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (isResultPhase) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "Auction Closed",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = DarkPurple.copy(alpha = 0.6f),
-                        )
-                        val resultText = when {
-                            highestBidderId == null -> "$buyerName got the\n${auction.auctionCard.type.name} for free!"
-                            buyerId == auction.auctioneerId -> "$buyerName bought back\nfor ${auction.highestBid}€!"
-                            else -> "$buyerName won the\n${auction.auctionCard.type.name} for ${auction.highestBid}€!"
-                        }
-                        Text(
-                            resultText,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = DefaultPurple,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                    }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.scale(bidScale.value),
-                    ) {
-                        Text(
+                val highestBidderId = auction.highestBidderId
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.scale(bidScale.value),
+                ) {
+                    Text(
+                        if (highestBidderId != null) {
+                            "${auction.highestBid}€"
+                        } else {
+                            "0€"
+                        },
+                        style =
+                            MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 86.sp,
+                            ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color =
                             if (highestBidderId != null) {
-                                "${auction.highestBid}€"
+                                DefaultPurple
                             } else {
-                                "0€"
+                                DarkPurple
                             },
-                            style =
-                                MaterialTheme.typography.displayMedium.copy(
-                                    fontSize = 86.sp,
-                                ),
-                            fontWeight = FontWeight.ExtraBold,
-                            color =
-                                if (highestBidderId != null) {
-                                    DefaultPurple
-                                } else {
-                                    DarkPurple
-                                },
-                        )
+                    )
 
-                        highestBidderId?.let { bidderId ->
-                            val bidderName =
-                                if (bidderId == myPlayerId) {
-                                    "You"
-                                } else {
-                                    players.find { it.id == bidderId }?.name ?: bidderId
-                                }
-                            Text(
-                                "from $bidderName",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = DarkPurple.copy(alpha = 0.62f),
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
+                    highestBidderId?.let { bidderId ->
+                        val bidderName =
+                            if (bidderId == myPlayerId) {
+                                "You"
+                            } else {
+                                players.find { it.id == bidderId }?.name ?: bidderId
+                            }
+                        Text(
+                            "from $bidderName",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = DarkPurple.copy(alpha = 0.62f),
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
 
@@ -381,7 +356,15 @@ fun AuctionView(
                     color = DarkPurple.copy(alpha = 0.12f),
                 )
 
-                footerContent()
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(110.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    footerContent()
+                }
             }
         }
     }
