@@ -1,5 +1,11 @@
 package at.aau.kuhhandel.app.ui.game
 
+import androidx.compose.animation.core.EaseInCubic
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -23,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyCardView
@@ -45,9 +52,47 @@ private val TRADE_RESULT_OFFER_OFFSET_X = 85.dp
 private val TRADE_RESULT_OFFER_OFFSET_Y = 75.dp
 private val TRADE_RESULT_COUNTER_OFFSET_X = (-45).dp
 private val TRADE_RESULT_COUNTER_OFFSET_Y = (-235).dp
+private val TRADE_CARD_TRAVEL_X = 1819.dp
+private val TRADE_CARD_TRAVEL_Y = 1050.dp
 private const val TRADE_RESULT_CARDS_SCALE = 0.6f
-private const val TRADE_RESULT_REVEAL_DELAY_MS = 1_000L
-private const val TRADE_RESULT_TOTAL_DELAY_MS = 3_000L
+private const val TRADE_CARD_TRAVEL_DURATION_MS = 2_000
+private const val TRADE_RESULT_GRID_DURATION_MS = 1_000L
+private const val TRADE_RESULT_TOTAL_DURATION_MS = 5_000L
+private const val TRADE_RESULT_COUNT_UP_DURATION_MS = 500
+private const val TRADE_EXIT_RETENTION_MS = 2_000L
+
+private enum class TradeResultStage {
+    STACKS,
+    GRIDS,
+    TOTALS,
+}
+
+private enum class TradeCardDirection {
+    TOP_LEFT,
+    BOTTOM_RIGHT,
+}
+
+private data class TradeCardPresentation(
+    val offerCount: Int?,
+    val counterOfferCount: Int?,
+    val offerCards: List<MoneyCard>,
+    val counterOfferCards: List<MoneyCard>,
+    val offerTotal: Int,
+    val counterOfferTotal: Int,
+)
+
+private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
+    gameState?.tradeState ?: return null
+
+    return TradeCardPresentation(
+        offerCount = tradeOfferCardCount,
+        counterOfferCount = tradeCounterOfferCardCount,
+        offerCards = tradeResultOfferCards,
+        counterOfferCards = tradeResultCounterOfferCards,
+        offerTotal = tradeResultOfferTotal,
+        counterOfferTotal = tradeResultCounterOfferTotal,
+    )
+}
 
 data class TradeActions(
     val selectTargetPlayer: (String?) -> Unit,
@@ -67,88 +112,190 @@ fun TradeOverlay(
     onToggleMoneyCard: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    TradingView(
-        visible = uiState.isTradeActive,
-        modifier = modifier,
-        onBackgroundClick = actions.collapseHand,
-    ) {
-        TradeTableCards(uiState = uiState)
-        TradeOverlayControls(
-            uiState = uiState,
-            actions = actions,
-            onToggleMoneyCard = onToggleMoneyCard,
-        )
-    }
-}
+    val currentPresentation = uiState.tradeCardPresentation()
+    var retainedPresentation by remember { mutableStateOf(currentPresentation) }
+    var resultStage by remember { mutableStateOf(TradeResultStage.STACKS) }
 
-@Composable
-private fun BoxScope.TradeTableCards(uiState: GameUiState) {
-    if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
-        var showResult by
-            remember(uiState.gameState?.tradeState) {
-                mutableStateOf(false)
+    LaunchedEffect(currentPresentation) {
+        if (currentPresentation != null) {
+            retainedPresentation = currentPresentation
+        }
+    }
+    LaunchedEffect(uiState.isTradeActive) {
+        if (!uiState.isTradeActive) {
+            delay(TRADE_EXIT_RETENTION_MS)
+            retainedPresentation = null
+        }
+    }
+    LaunchedEffect(uiState.currentPhase, uiState.gameState?.tradeState) {
+        if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
+            resultStage = TradeResultStage.STACKS
+            delay(TRADE_CARD_TRAVEL_DURATION_MS.toLong())
+            resultStage = TradeResultStage.GRIDS
+            delay(TRADE_RESULT_GRID_DURATION_MS)
+            resultStage = TradeResultStage.TOTALS
+            delay(TRADE_RESULT_TOTAL_DURATION_MS)
+            resultStage = TradeResultStage.STACKS
+        }
+    }
+
+    val presentation =
+        currentPresentation
+            ?: retainedPresentation.takeIf { !uiState.isTradeActive }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        TradingView(
+            visible = uiState.isTradeActive,
+            onBackgroundClick = actions.collapseHand,
+        ) {
+            if (uiState.currentPhase == GamePhase.TRADE_RESULT &&
+                resultStage != TradeResultStage.STACKS
+            ) {
+                TradeResultCards(
+                    presentation = currentPresentation,
+                    showTotals = resultStage == TradeResultStage.TOTALS,
+                )
             }
-
-        LaunchedEffect(uiState.gameState?.tradeState) {
-            delay(TRADE_RESULT_REVEAL_DELAY_MS)
-            showResult = true
+            TradeOverlayControls(
+                uiState = uiState,
+                actions = actions,
+                onToggleMoneyCard = onToggleMoneyCard,
+            )
         }
 
-        if (showResult) {
-            TradeResultCards(uiState = uiState)
+        TradeTableCards(
+            presentation = presentation,
+            isTradeActive = uiState.isTradeActive,
+            showStacks =
+                uiState.currentPhase != GamePhase.TRADE_RESULT ||
+                    resultStage == TradeResultStage.STACKS ||
+                    !uiState.isTradeActive,
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.TradeTableCards(
+    presentation: TradeCardPresentation?,
+    isTradeActive: Boolean,
+    showStacks: Boolean,
+) {
+    presentation ?: return
+
+    TravelingTableCards(
+        count = presentation.offerCount,
+        isCounterOffer = false,
+        isTradeActive = isTradeActive,
+        showStack = showStacks,
+        entryDirection = TradeCardDirection.BOTTOM_RIGHT,
+        exitDirection = TradeCardDirection.TOP_LEFT,
+        restingOffsetX = TRADE_OFFER_CARDS_OFFSET_X,
+        restingOffsetY = TRADE_CARDS_OFFSET_Y,
+    )
+    TravelingTableCards(
+        count = presentation.counterOfferCount,
+        isCounterOffer = true,
+        isTradeActive = isTradeActive,
+        showStack = showStacks,
+        entryDirection = TradeCardDirection.TOP_LEFT,
+        exitDirection = TradeCardDirection.BOTTOM_RIGHT,
+        restingOffsetX = TRADE_COUNTER_CARDS_OFFSET_X,
+        restingOffsetY = TRADE_COUNTER_CARDS_OFFSET_Y,
+    )
+}
+
+@Composable
+private fun BoxScope.TravelingTableCards(
+    count: Int?,
+    isCounterOffer: Boolean,
+    isTradeActive: Boolean,
+    showStack: Boolean,
+    entryDirection: TradeCardDirection,
+    exitDirection: TradeCardDirection,
+    restingOffsetX: Dp,
+    restingOffsetY: Dp,
+) {
+    if (count == null || count <= 0) return
+
+    var hasArrived by remember(count, entryDirection) { mutableStateOf(false) }
+    LaunchedEffect(count, entryDirection) {
+        hasArrived = true
+    }
+
+    val entryX =
+        if (entryDirection == TradeCardDirection.BOTTOM_RIGHT) {
+            TRADE_CARD_TRAVEL_X
         } else {
-            HiddenTradeTableCards(uiState = uiState)
+            -TRADE_CARD_TRAVEL_X
         }
-        return
-    }
+    val entryY =
+        if (entryDirection == TradeCardDirection.BOTTOM_RIGHT) {
+            TRADE_CARD_TRAVEL_Y
+        } else {
+            -TRADE_CARD_TRAVEL_Y
+        }
+    val exitX =
+        if (exitDirection == TradeCardDirection.BOTTOM_RIGHT) {
+            TRADE_CARD_TRAVEL_X
+        } else {
+            -TRADE_CARD_TRAVEL_X
+        }
+    val exitY =
+        if (exitDirection == TradeCardDirection.BOTTOM_RIGHT) {
+            TRADE_CARD_TRAVEL_Y
+        } else {
+            -TRADE_CARD_TRAVEL_Y
+        }
+    val targetX =
+        when {
+            !isTradeActive -> exitX
+            hasArrived -> 0.dp
+            else -> entryX
+        }
+    val targetY =
+        when {
+            !isTradeActive -> exitY
+            hasArrived -> 0.dp
+            else -> entryY
+        }
+    val easing = if (isTradeActive) EaseOutCubic else EaseInCubic
+    val animatedX by
+        animateDpAsState(
+            targetValue = targetX,
+            animationSpec = tween(TRADE_CARD_TRAVEL_DURATION_MS, easing = easing),
+            label = "tradeCardX",
+        )
+    val animatedY by
+        animateDpAsState(
+            targetValue = targetY,
+            animationSpec = tween(TRADE_CARD_TRAVEL_DURATION_MS, easing = easing),
+            label = "tradeCardY",
+        )
 
-    HiddenTradeTableCards(uiState = uiState)
+    TableCards(
+        count = count,
+        isCounterOffer = isCounterOffer,
+        modifier =
+            Modifier
+                .align(Alignment.Center)
+                .scale(TRADE_CARDS_SCALE)
+                .offset(
+                    x = restingOffsetX + animatedX,
+                    y = restingOffsetY + animatedY,
+                ).alpha(if (showStack) 1f else 0f),
+    )
 }
 
 @Composable
-private fun BoxScope.HiddenTradeTableCards(uiState: GameUiState) {
-    uiState.tradeOfferCardCount?.let { count ->
-        TableCards(
-            count = count,
-            modifier =
-                Modifier
-                    .align(Alignment.Center)
-                    .scale(TRADE_CARDS_SCALE)
-                    .offset(
-                        x = TRADE_OFFER_CARDS_OFFSET_X,
-                        y = TRADE_CARDS_OFFSET_Y,
-                    ),
-        )
-    }
-
-    uiState.tradeCounterOfferCardCount?.let { count ->
-        TableCards(
-            count = count,
-            isCounterOffer = true,
-            modifier =
-                Modifier
-                    .align(Alignment.Center)
-                    .scale(TRADE_CARDS_SCALE)
-                    .offset(
-                        x = TRADE_COUNTER_CARDS_OFFSET_X,
-                        y = TRADE_COUNTER_CARDS_OFFSET_Y,
-                    ),
-        )
-    }
-}
-
-@Composable
-private fun BoxScope.TradeResultCards(uiState: GameUiState) {
-    var showTotals by remember(uiState.gameState?.tradeState) { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.gameState?.tradeState) {
-        delay(TRADE_RESULT_TOTAL_DELAY_MS)
-        showTotals = true
-    }
+private fun BoxScope.TradeResultCards(
+    presentation: TradeCardPresentation?,
+    showTotals: Boolean,
+) {
+    presentation ?: return
 
     TradeResultOffer(
-        cards = uiState.tradeResultOfferCards,
-        total = uiState.tradeResultOfferTotal,
+        cards = presentation.offerCards,
+        total = presentation.offerTotal,
         showTotal = showTotals,
         modifier =
             Modifier
@@ -160,8 +307,8 @@ private fun BoxScope.TradeResultCards(uiState: GameUiState) {
                 ),
     )
     TradeResultOffer(
-        cards = uiState.tradeResultCounterOfferCards,
-        total = uiState.tradeResultCounterOfferTotal,
+        cards = presentation.counterOfferCards,
+        total = presentation.counterOfferTotal,
         showTotal = showTotals,
         modifier =
             Modifier
@@ -181,6 +328,17 @@ private fun TradeResultOffer(
     showTotal: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val displayedTotal by
+        animateIntAsState(
+            targetValue = if (showTotal) total else 0,
+            animationSpec =
+                tween(
+                    durationMillis = TRADE_RESULT_COUNT_UP_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                ),
+            label = "tradeResultTotal",
+        )
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -206,7 +364,7 @@ private fun TradeResultOffer(
             }
         }
         Text(
-            text = total.toString(),
+            text = displayedTotal.toString(),
             style = MaterialTheme.typography.displayLarge,
             modifier = Modifier.alpha(if (showTotal) 1f else 0f),
         )

@@ -105,34 +105,18 @@ fun DeckView(
             )
 
             if (canClick) {
-                Text(
-                    text = "tap to start an auction!",
-                    modifier = Modifier.offset(y = 40.dp),
-                    style =
-                        MaterialTheme.typography.labelLarge.copy(
-                            shadow =
-                                Shadow(
-                                    color = DarkPurple.copy(alpha = 0.8f),
-                                    offset = Offset(2f, 2f),
-                                    blurRadius = 4f,
-                                ),
-                        ),
-                    color = PureWhite,
-                    fontWeight = FontWeight.Black,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_plus),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .offset(x = (-20).dp, y = (-20).dp)
+                            .size(32.dp),
+                    alpha = 0.8f,
                 )
             }
         }
-
-        Image(
-            painter = painterResource(id = R.drawable.ic_plus),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .offset(x = (-20).dp, y = (-20).dp)
-                    .size(32.dp),
-            alpha = 0.8f,
-        )
     }
 }
 
