@@ -389,7 +389,6 @@ class GameViewModel(
     fun submitTradeOffer() {
         val state = uiState.value
         if (!state.showsTradeOfferHand ||
-            selectedMoneyCardIds.value.isEmpty() ||
             isTradeActionSubmitting.value
         ) {
             return
@@ -440,7 +439,6 @@ class GameViewModel(
     fun submitCounterOffer() {
         val state = uiState.value
         if (!state.showsTradeCounterHand ||
-            selectedMoneyCardIds.value.isEmpty() ||
             isTradeActionSubmitting.value
         ) {
             return

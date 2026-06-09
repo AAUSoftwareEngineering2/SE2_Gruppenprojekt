@@ -710,9 +710,7 @@ private fun BoxScope.TradeMoneySelection(
         )
         Button(
             onClick = onConfirm,
-            enabled =
-                uiState.selectedMoneyCardIds.isNotEmpty() &&
-                    !uiState.isTradeActionSubmitting,
+            enabled = !uiState.isTradeActionSubmitting,
         ) {
             Text("$buttonLabel (${uiState.selectedMoneyCardIds.size})")
         }

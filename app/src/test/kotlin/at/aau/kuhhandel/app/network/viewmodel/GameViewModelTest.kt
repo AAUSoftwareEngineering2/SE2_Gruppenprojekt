@@ -665,7 +665,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `submitTradeOffer requires at least one selected card`() {
+    fun `submitTradeOffer sends an empty offer`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -690,7 +690,7 @@ class GameViewModelTest {
             viewModel.submitTradeOffer()
             advanceUntilIdle()
 
-            coVerify(exactly = 0) { mockRepository.submitTradeMoney(any()) }
+            coVerify { mockRepository.submitTradeMoney(emptySet()) }
         }
     }
 
@@ -761,6 +761,38 @@ class GameViewModelTest {
                 viewModel.uiState.value.selectedMoneyCardIds
                     .isEmpty(),
             )
+        }
+    }
+
+    @Test
+    fun `counter offer can submit no money cards`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.TRADE_RESPONSE,
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "other",
+                                    targetId = "me",
+                                    requestedAnimalType = AnimalType.COW,
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.chooseCounterOffer()
+            advanceUntilIdle()
+            viewModel.submitCounterOffer()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.respondToTrade(emptySet()) }
         }
     }
 
