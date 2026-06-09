@@ -37,7 +37,6 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 
 @Composable
@@ -263,4 +262,123 @@ fun GameScreen(
     }
 }
 
-
+@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
+@Composable
+fun GameScreenPreview() {
+    val players =
+        listOf(
+            Player(
+                "1",
+                "Player 1",
+                moneyCards =
+                    List(6) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("a$it", 10)
+                    },
+                animals =
+                    listOf(
+                        AnimalCard(
+                            "a1",
+                            AnimalType.COW,
+                        ),
+                        AnimalCard(
+                            "a2",
+                            AnimalType.COW,
+                        ),
+                    ),
+            ),
+            Player(
+                "2",
+                "Player 2",
+                moneyCards =
+                    List(3) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("b$it", 10)
+                    },
+                animals =
+                    listOf(
+                        AnimalCard("b1", AnimalType.PIG),
+                        AnimalCard("b2", AnimalType.PIG),
+                        AnimalCard("b3", AnimalType.PIG),
+                    ),
+            ),
+            Player(
+                "3",
+                "Player 3",
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("c$it", 10)
+                    },
+                animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
+            ),
+            Player(
+                "4",
+                "Player 4",
+                moneyCards =
+                    List(12) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("d$it", 10)
+                    },
+                animals =
+                    listOf(
+                        AnimalCard("d1", AnimalType.HORSE),
+                        AnimalCard("d2", AnimalType.HORSE),
+                        AnimalCard("d3", AnimalType.HORSE),
+                        AnimalCard("d4", AnimalType.HORSE),
+                    ),
+            ),
+            Player(
+                "5",
+                "Me",
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("m$it", 50)
+                    },
+                animals =
+                    listOf(
+                        AnimalCard("m1", AnimalType.DONKEY),
+                        AnimalCard("m2", AnimalType.DONKEY),
+                        AnimalCard("m3", AnimalType.GOAT),
+                    ),
+            ),
+        )
+    val gameState =
+        GameState(
+            phase = GamePhase.PLAYER_CHOICE,
+            players = players,
+            currentPlayerIndex = 4,
+        )
+    val uiState =
+        GameUiState(
+            gameState = gameState,
+            myPlayerId = "5",
+            currentPhase = GamePhase.PLAYER_CHOICE,
+            deckCountText = "5",
+            activeCardLabel = "No card revealed",
+            isConnected = true,
+            canRevealCard = true,
+            canStartGame = false,
+            auctionTimerSeconds = null,
+            errorMessage = null,
+            myMoneyCards = players[4].moneyCards,
+            selectedMoneyCardIds = emptySet(),
+            sharedAnimalsWithSelectedPlayer = emptyList(),
+            selectedTargetPlayerId = null,
+            isHandFanned = false,
+        )
+    GameScreen(
+        uiState = uiState,
+        onStartGame = {},
+        onRevealCard = {},
+        onPlaceBid = {},
+        onBuyBack = {},
+        onRespondToTrade = {},
+        onFinishTradeReveal = {},
+        onInitiateTrade = { _, _ -> },
+        onSelectTargetPlayer = {},
+        onToggleMoneyCard = {},
+        onToggleHandFanned = {},
+    )
+}
