@@ -193,8 +193,8 @@ private fun BoxScope.TradeAnimalRadialPicker(
                 },
             )
         }
-    val iconSize = 38.dp
-    val radius = 104.dp
+    val iconSize = 50.dp
+    val radius = 98.dp
 
     AnimalType.entries.forEachIndexed { index, animalType ->
         val isEnabled = animalType in enabledAnimalTypes
