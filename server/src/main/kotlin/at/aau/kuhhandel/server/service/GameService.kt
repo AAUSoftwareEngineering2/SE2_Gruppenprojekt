@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
@@ -8,95 +9,73 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
  * Core domain orchestration layer for the server.
+ *
+ * The database holds the authoritative game state. Every mutation goes through
+ * [GamePersistenceService.mutateGameState] (row lock, load, apply [GameSession], save), so the
+ * service keeps no game state in memory and multiple pods can work on the same games.
+ *
+ * Phase timeouts are handled by [sweepExpiredTimeouts], called periodically from the
+ * [at.aau.kuhhandel.server.cluster.TimeoutSweeper]. In-memory timer coroutines would die with
+ * their pod.
  */
 @Service
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
-    private val persistenceService: GamePersistenceService? = null,
+    private val persistenceService: GamePersistenceService,
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
-    // Used in tests
-    private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val clusterNotifier: ClusterUpdateNotifier? = null,
+    private val gameCodeGenerator: () -> String = {
+        Random.nextInt(GAME_CODE_MIN, GAME_CODE_BOUND).toString()
+    },
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // Stores all active game sessions by their 5-digit game id
-    private val rooms: ConcurrentHashMap<String, SyncGameRoom> = ConcurrentHashMap()
-
     /**
-     * Creates a new game with a unique 5-digit game id.
+     * Creates a new game with a unique 5-digit game id and persists the lobby snapshot.
+     * A code collision with another pod fails on the primary key and is retried.
      */
     fun createGame(hostPlayerName: String): RoomActionResult {
-        val gameId: String
         val playerId = generatePlayerId()
-        val session: GameSession
 
-        synchronized(rooms) {
-            gameId = generateGameCode()
-            session = gameSessionFactory(gameId, playerId, hostPlayerName)
-            rooms[gameId] = SyncGameRoom(session)
+        repeat(CREATE_GAME_MAX_ATTEMPTS) {
+            val gameId = generateGameCode()
+            val session = gameSessionFactory(gameId, playerId, hostPlayerName)
+
+            try {
+                persistenceService.saveGameState(gameId, session.state)
+                return RoomActionResult(gameId, playerId, session.state)
+            } catch (e: DataIntegrityViolationException) {
+                logger.info("Game code $gameId collided on insert, retrying", e)
+            }
         }
-
-        persistSafely(session)
-        return RoomActionResult(gameId, playerId, session.state)
+        error("Could not allocate a unique game code after $CREATE_GAME_MAX_ATTEMPTS attempts")
     }
 
     /**
-     * Returns a game session by its game id. Falls back to a persisted snapshot when no live
-     * in-memory session exists, allowing reconnects after the original WebSocket closed.
+     * Returns the game as a [GameSession] around the persisted state, or null when it does
+     * not exist.
      */
     fun getGame(gameId: String): GameSession? {
-        rooms[gameId]?.session?.let { return it }
-        val loadedState = persistenceService?.loadGameState(gameId) ?: return null
-        val hostPlayer =
-            loadedState.players.firstOrNull { it.id == loadedState.hostPlayerId }
-                ?: loadedState.players.firstOrNull()
-        val session =
-            GameSession(
-                gameId = gameId,
-                hostPlayerId = hostPlayer?.id ?: "host",
-                hostPlayerName = hostPlayer?.name ?: "host",
-                initialState = loadedState,
-            )
-        rooms[gameId] = SyncGameRoom(session)
-        // Restart the auction watcher when reviving an in-flight auction from disk — the
-        // in-memory coroutine that originally guarded it is gone with the previous server life.
-        if (loadedState.timerEnd != null) {
-            schedulePhaseTimeout(gameId)
-        }
-        return session
+        val state = persistenceService.loadGameState(gameId) ?: return null
+        return GameSession.fromState(gameId, state)
     }
 
     /**
-     * Removes the in-memory game session. The persisted snapshot is left intact so a reconnect can
-     * reload it via [getGame]. Use [purgeGame] to wipe persistence as well.
-     */
-    fun removeGame(gameId: String) {
-        val room = rooms.remove(gameId)
-        room?.timerJob?.cancel()
-    }
-
-    /**
-     * Removes both the in-memory session and the persisted snapshot for [gameId].
+     * Removes both the persisted snapshot and everything attached to [gameId].
      */
     fun purgeGame(gameId: String) {
-        removeGame(gameId)
-        runCatching { persistenceService?.deleteGame(gameId) }
+        runCatching { persistenceService.deleteGame(gameId) }
             .onFailure { logger.warn("Failed to purge persisted game $gameId", it) }
     }
 
@@ -109,39 +88,24 @@ class GameService(
         gameId: String,
         playerName: String,
     ): RoomActionResult {
-        val room =
-            rooms[gameId]
-                ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
-
         val playerId = generatePlayerId()
-
-        room.mutex.withLock {
-            val updatedState = room.session.addPlayer(playerId, playerName)
-            persistSafely(room.session)
-            return RoomActionResult(gameId, playerId, updatedState)
-        }
+        val newState =
+            executeAction(gameId) { session -> session.addPlayer(playerId, playerName) }
+        return RoomActionResult(gameId, playerId, newState)
     }
 
     /**
-     * Removes a player from a game.
-     *
-     * Expects a valid [gameId].
+     * Removes a player from a game. Deletes the game entirely once the last player left.
      */
     suspend fun leaveGame(
         gameId: String,
         playerId: String,
     ): GameState {
-        val room = fetchGameRoom(gameId)
-
-        room.mutex.withLock {
-            val updatedState = room.session.removePlayer(playerId)
-            if (updatedState.players.isEmpty()) {
-                purgeGame(gameId)
-            } else {
-                persistSafely(room.session)
-            }
-            return updatedState
+        val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
+        if (newState.players.isEmpty()) {
+            withContext(Dispatchers.IO) { purgeGame(gameId) }
         }
+        return newState
     }
 
     /**
@@ -154,20 +118,56 @@ class GameService(
         gameId: String,
         playerId: String,
     ): GameState {
-        getGame(gameId)
-
-        val room =
-            rooms[gameId]
+        val state =
+            withContext(Dispatchers.IO) { persistenceService.loadGameState(gameId) }
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
-        room.mutex.withLock {
-            if (!room.session.hasPlayer(playerId)) {
-                throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
-            }
+        if (state.players.none { it.id == playerId }) {
+            throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
+        }
 
-            return room.session.state
+        return state
+    }
+
+    /**
+     * Persists the reconnect token (hashed) for later validation.
+     */
+    suspend fun storeReconnectToken(
+        gameId: String,
+        playerId: String,
+        token: String,
+    ) {
+        val stored =
+            withContext(Dispatchers.IO) {
+                persistenceService.storeReconnectToken(gameId, playerId, token)
+            }
+        if (!stored) {
+            logger.warn("Could not store reconnect token for player $playerId in game $gameId")
         }
     }
+
+    /**
+     * Hash of the player's current reconnect token. Changes whenever the player reconnects.
+     */
+    suspend fun reconnectTokenFingerprint(
+        gameId: String,
+        playerId: String,
+    ): String? =
+        withContext(Dispatchers.IO) {
+            persistenceService.reconnectTokenFingerprint(gameId, playerId)
+        }
+
+    /**
+     * Validates a reconnect token against the database.
+     */
+    suspend fun isReconnectTokenValid(
+        gameId: String,
+        playerId: String,
+        token: String,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            persistenceService.isReconnectTokenValid(gameId, playerId, token)
+        }
 
     /**
      * Starts an existing game.
@@ -267,118 +267,80 @@ class GameService(
         }
 
     /**
-     * Centralized helper that handles room fetching, mutex locking, state persistence,
-     * and automatic timer updates for all game modifications.
+     * Advances every game whose phase timer expired and returns their ids. Safe to run on all
+     * pods at once: the advance re-checks the deadline under the row lock, so only the first
+     * pod actually advances a game.
      */
-    private suspend inline fun executeAction(
-        gameId: String,
-        crossinline action: (GameSession) -> GameState,
-    ): GameState {
-        val room = fetchGameRoom(gameId)
+    fun sweepExpiredTimeouts(now: Long = System.currentTimeMillis()): List<String> {
+        val dueGameIds = persistenceService.findGameIdsWithExpiredTimers(now)
+        val advancedGames = mutableListOf<String>()
 
-        room.mutex.withLock {
-            val newState = action(room.session)
-            persistSafely(room.session)
-
-            // Update the background job
-            schedulePhaseTimeout(gameId)
-
-            return newState
-        }
-    }
-
-    /**
-     * Schedules a background check to automatically advance
-     * the game state when the current phase's timer expires.
-     */
-    private fun schedulePhaseTimeout(gameId: String) {
-        val room = rooms[gameId] ?: return
-
-        // Defensively cancel the previous timer coroutine job for this room to prevent leaks
-        room.timerJob?.cancel()
-        room.timerJob = null
-
-        val timerEnd = room.session.state.timerEnd ?: return
-
-        // Launch a fresh job tracking the current timeout window
-        room.timerJob =
-            serviceScope.launch {
-                val now = System.currentTimeMillis()
-                val delayDuration = timerEnd - now
-
-                // Wait out the timer duration, plus a 100ms safety pad to avoid clock race conditions
-                if (delayDuration > 0) {
-                    delay(delayDuration + 100)
-                }
-
-                // Acquire the game session's mutex lock to safely advance the game
-                room.mutex.withLock {
-                    // Confirm the state has not been changed or updated while this routine was waiting
-                    if (room.session.state.timerEnd == timerEnd) {
-                        val updatedState = room.session.handleTimeoutExpiration()
-
-                        persistSafely(room.session)
-
-                        eventPublisher.publishEvent(GameStateChangedEvent(gameId, updatedState))
-
-                        // If the next state also sets a timeout, recursively spin up the next handler
-                        if (updatedState.timerEnd != null) {
-                            schedulePhaseTimeout(gameId)
-                        }
+        dueGameIds.forEach { gameId ->
+            runCatching {
+                var advancedState: GameState? = null
+                persistenceService.mutateGameState(gameId) { current ->
+                    val timerEnd = current.timerEnd
+                    if (timerEnd != null && timerEnd <= now) {
+                        GameSession
+                            .fromState(gameId, current)
+                            .handleTimeoutExpiration()
+                            .also { advancedState = it }
+                    } else {
+                        // Another pod advanced this game between query and lock, leave as is.
+                        current
                     }
                 }
-            }
+                advancedState?.let { newState ->
+                    advancedGames += gameId
+                    eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
+                    clusterNotifier?.gameUpdated(gameId)
+                }
+            }.onFailure { logger.warn("Timeout sweep failed for game $gameId", it) }
+        }
+
+        return advancedGames
     }
 
     /**
-     * Best-effort persistence — failures are logged but never propagated so that in-memory game
-     * play continues to work if the database is briefly unavailable.
+     * Centralized helper for all game mutations: runs the action inside a row-locked
+     * transaction and notifies the peer pods afterwards.
      */
-    private fun persistSafely(session: GameSession) {
-        val service = persistenceService ?: return
-        runCatching { service.saveGameState(session.gameId, session.state) }
-            .onFailure { logger.warn("Failed to persist game ${session.gameId}", it) }
+    private suspend fun executeAction(
+        gameId: String,
+        action: (GameSession) -> GameState,
+    ): GameState {
+        val newState =
+            withContext(Dispatchers.IO) {
+                persistenceService.mutateGameState(gameId) { current ->
+                    action(GameSession.fromState(gameId, current))
+                }
+            } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
+        clusterNotifier?.gameUpdated(gameId)
+        return newState
     }
 
     /**
-     * Generates a unique 5-digit game code.
+     * Generates a 5-digit game code that is not taken in the database.
      */
     private fun generateGameCode(): String {
         var code: String
 
         do {
-            code = Random.nextInt(10000, 100000).toString()
-        } while (rooms.containsKey(code) || persistenceService?.existsGame(code) == true)
+            code = gameCodeGenerator()
+        } while (persistenceService.existsGame(code))
 
         return code
     }
 
     /**
      * Generates a unique player identifier.
-     *
-     * The map [at.aau.kuhhandel.server.websocket.ConnectionRegistry.reconnectTokens] relies
-     * on the global uniqueness of player IDs to map them directly to reconnection tokens
-     * without requiring composite keys that include game IDs.
      */
     private fun generatePlayerId(): String = UUID.randomUUID().toString()
 
-    /**
-     * Asserts that a game session exists in the active room map.
-     *
-     * @throws IllegalStateException If the game service is out of sync with the caller.
-     */
-    private fun fetchGameRoom(gameId: String): SyncGameRoom =
-        checkNotNull(rooms[gameId]) {
-            "Game registry does not contain game session $gameId"
-        }
+    companion object {
+        private const val GAME_CODE_MIN = 10000
+        private const val GAME_CODE_BOUND = 100000
+        private const val CREATE_GAME_MAX_ATTEMPTS = 5
+    }
 }
-
-/**
- * Wrapper coupling a running [GameSession] with its atomic
- * execution [Mutex] and background timeout task.
- */
-private class SyncGameRoom(
-    val session: GameSession,
-    val mutex: Mutex = Mutex(),
-    var timerJob: Job? = null,
-)

@@ -24,9 +24,11 @@ import at.aau.kuhhandel.shared.websocket.WebSocketType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -45,6 +47,8 @@ class GameWebSocketHandler(
     private val connectionRegistry: ConnectionRegistry,
     // Used in tests
     handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
+    @Value("\${kuhhandel.websocket.disconnect-grace-ms:30000}")
+    private val disconnectGraceMs: Long = 30_000L,
 ) : TextWebSocketHandler() {
     private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
     private val handlerScope = CoroutineScope(handlerContext)
@@ -103,6 +107,10 @@ class GameWebSocketHandler(
 
     /**
      * Cleans up or disconnects an existing active socket connection.
+     *
+     * The player is only removed after a grace period, so a pod replacement or short network
+     * drop does not kick them out of the game. If the persisted token changed during the grace
+     * period the player has already reconnected (maybe on another pod) and stays in.
      */
     override fun afterConnectionClosed(
         session: WebSocketSession,
@@ -115,6 +123,24 @@ class GameWebSocketHandler(
         if (playerSession != null) {
             handlerScope.launch {
                 try {
+                    val fingerprintAtClose =
+                        gameService.reconnectTokenFingerprint(
+                            playerSession.gameId,
+                            playerSession.playerId,
+                        )
+
+                    delay(disconnectGraceMs)
+
+                    val fingerprintNow =
+                        gameService.reconnectTokenFingerprint(
+                            playerSession.gameId,
+                            playerSession.playerId,
+                        )
+                    if (fingerprintNow == null || fingerprintNow != fingerprintAtClose) {
+                        // Game gone or player already reconnected, nothing to do.
+                        return@launch
+                    }
+
                     val state = gameService.leaveGame(playerSession.gameId, playerSession.playerId)
                     broadcastStateUpdate(playerSession.gameId, state)
                 } catch (e: GameException) {
@@ -154,8 +180,9 @@ class GameWebSocketHandler(
         val playerId = result.playerId
 
         val token = generateReconnectToken()
+        gameService.storeReconnectToken(gameId, playerId, token)
 
-        connectionRegistry.bindPlayerSession(session.id, gameId, playerId, token)
+        connectionRegistry.bindPlayerSession(session.id, gameId, playerId)
 
         send(
             session,
@@ -198,8 +225,9 @@ class GameWebSocketHandler(
         val state = result.gameState
 
         val token = generateReconnectToken()
+        gameService.storeReconnectToken(joinedGameId, playerId, token)
 
-        connectionRegistry.bindPlayerSession(session.id, joinedGameId, playerId, token)
+        connectionRegistry.bindPlayerSession(session.id, joinedGameId, playerId)
 
         send(
             session,
@@ -256,15 +284,18 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
 
+        // Intentional order (#278): resolve the reconnect target first so failures stay specific
+        // (GAME_NOT_FOUND / PLAYER_NOT_IN_GAME), then validate the token against the database.
         val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
 
-        if (!connectionRegistry.isValidToken(payload.playerId, payload.token)) {
+        if (!gameService.isReconnectTokenValid(payload.gameId, payload.playerId, payload.token)) {
             throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
         }
 
         val newToken = generateReconnectToken()
+        gameService.storeReconnectToken(payload.gameId, payload.playerId, newToken)
 
-        connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId, newToken)
+        connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId)
 
         send(
             session,

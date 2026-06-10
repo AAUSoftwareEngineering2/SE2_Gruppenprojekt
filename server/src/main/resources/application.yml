@@ -27,3 +27,13 @@ kuhhandel:
     allowed-origins:
       - http://localhost:8080
       - http://localhost:3000
+  cluster:
+    # Multi-pod coordination, configured via env (relaxed binding):
+    #   KUHHANDEL_CLUSTER_PEERSERVICE  headless service DNS (k8s)
+    #   KUHHANDEL_CLUSTER_PEERS        static URLs for local testing
+    #   KUHHANDEL_CLUSTER_SECRET       shared secret, required once peers are set
+    # Without peers the server runs single-pod and /internal/cluster rejects everything.
+    peer-port: 8080
+    timeout-sweeper:
+      interval-ms: 1000
+      initial-delay-ms: 5000

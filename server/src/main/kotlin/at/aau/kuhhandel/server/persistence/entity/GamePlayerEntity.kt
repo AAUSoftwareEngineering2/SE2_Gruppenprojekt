@@ -32,6 +32,9 @@ class GamePlayerEntity(
     var displayName: String? = null,
     @Column(name = "seat_order", nullable = false)
     var seatOrder: Int,
+    // SHA-256 hex of the current reconnect token, stored here so any pod can validate it.
+    @Column(name = "reconnect_token_hash", length = 64)
+    var reconnectTokenHash: String? = null,
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

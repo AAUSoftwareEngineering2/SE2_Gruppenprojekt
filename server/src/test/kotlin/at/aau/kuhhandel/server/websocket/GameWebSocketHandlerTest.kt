@@ -28,6 +28,7 @@ import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
@@ -293,9 +294,13 @@ class GameWebSocketHandlerTest {
 
             whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(setOf(session2))
 
+            // Fingerprint unchanged across the grace period, so the player really left.
+            whenever(gameService.reconnectTokenFingerprint("game-1", "player-1"))
+                .thenReturn("fingerprint-1")
             whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
 
             handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
+            advanceUntilIdle()
 
             verify(gameService).leaveGame("game-1", "player-1")
             verify(connectionRegistry).unbind("session-1")
@@ -306,6 +311,21 @@ class GameWebSocketHandlerTest {
             val payload2 = decodePayload(response2, GameStatePayload.serializer())
             assertEquals(returnedState, payload2.state)
             assertEquals(returnedState.createViewForPlayer("player-2"), payload2.stateView)
+        }
+
+    @Test
+    fun `afterConnectionClosed keeps the player when they reconnected during the grace period`() =
+        runTest(testDispatcher.scheduler) {
+            // Token rotated during the grace period, so the player reconnected somewhere
+            // and must stay in the game.
+            whenever(gameService.reconnectTokenFingerprint("game-1", "player-1"))
+                .thenReturn("fingerprint-1", "fingerprint-2")
+
+            handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
+            advanceUntilIdle()
+
+            verify(connectionRegistry).unbind("session-1")
+            verify(gameService, never()).leaveGame(any(), any())
         }
 
     @Test
@@ -350,12 +370,8 @@ class GameWebSocketHandlerTest {
             assertEquals("game-1", payload.gameId)
             assertEquals(createdSession.state, payload.state)
             assertEquals(createdSession.state.createViewForPlayer("player-1"), payload.stateView)
-            verify(connectionRegistry).bindPlayerSession(
-                "session-1",
-                "game-1",
-                "player-1",
-                payload.reconnectToken,
-            )
+            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
+            verify(gameService).storeReconnectToken("game-1", "player-1", payload.reconnectToken)
         }
 
     @Test
@@ -373,7 +389,7 @@ class GameWebSocketHandlerTest {
 
         verifyNoInteractions(gameService)
         verify(connectionRegistry).playerSessionFor("session-1")
-        verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any(), any())
+        verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any())
 
         assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_ALREADY_BOUND.name)
     }
@@ -424,12 +440,8 @@ class GameWebSocketHandlerTest {
             assertEquals("player-1", payload1.playerId)
             assertEquals(state, payload1.state)
             assertEquals(state.createViewForPlayer("player-1"), payload1.stateView)
-            verify(connectionRegistry).bindPlayerSession(
-                "session-1",
-                "game-1",
-                "player-1",
-                payload1.reconnectToken,
-            )
+            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
+            verify(gameService).storeReconnectToken("game-1", "player-1", payload1.reconnectToken)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -543,7 +555,8 @@ class GameWebSocketHandlerTest {
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
             whenever(gameService.getStateForReconnection("game-1", "player-1"))
                 .thenReturn(returnedState)
-            whenever(connectionRegistry.isValidToken("player-1", "token-1")).thenReturn(true)
+            whenever(gameService.isReconnectTokenValid("game-1", "player-1", "token-1"))
+                .thenReturn(true)
 
             sendEnvelope(
                 session = session1,
@@ -564,12 +577,8 @@ class GameWebSocketHandlerTest {
 
             assertEquals(returnedState, payload.state)
             assertEquals(returnedState.createViewForPlayer("player-1"), payload.stateView)
-            verify(connectionRegistry).bindPlayerSession(
-                "session-1",
-                "game-1",
-                "player-1",
-                payload.reconnectToken,
-            )
+            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
+            verify(gameService).storeReconnectToken("game-1", "player-1", payload.reconnectToken)
         }
 
     @Test
@@ -627,7 +636,8 @@ class GameWebSocketHandlerTest {
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
             whenever(gameService.getStateForReconnection("game-1", "player-1"))
                 .thenReturn(returnedState)
-            whenever(connectionRegistry.isValidToken("player-1", "invalid-token")).thenReturn(false)
+            whenever(gameService.isReconnectTokenValid("game-1", "player-1", "invalid-token"))
+                .thenReturn(false)
 
             sendEnvelope(
                 session = session1,

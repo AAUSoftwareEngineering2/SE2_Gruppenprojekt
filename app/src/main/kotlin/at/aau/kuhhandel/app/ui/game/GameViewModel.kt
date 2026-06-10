@@ -33,6 +33,7 @@ data class GameUiState(
     val deckCountText: String = "0",
     val activeCardLabel: String = "No card revealed",
     val isConnected: Boolean = false,
+    val isReconnecting: Boolean = false,
     val canRevealCard: Boolean = false,
     val canStartGame: Boolean = false,
     val auctionTimerSeconds: Int? = null,
@@ -276,6 +277,7 @@ class GameViewModel(
                         "${card.type.name} (#${card.id})"
                     } ?: "No card revealed",
                 isConnected = repoState.isConnected,
+                isReconnecting = repoState.isReconnecting,
                 canRevealCard =
                     (
                         repoState.isConnected &&

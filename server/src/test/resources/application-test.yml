@@ -1,6 +1,14 @@
 spring:
   jpa:
+    hibernate:
+      # Fresh schema per test context. The main profile's `update` is meant for long-lived
+      # databases; on the throwaway test DBs it only risks broken ALTER paths.
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
+        # The embedded test database is H2; the Postgres/Testcontainers base class overrides
+        # this back to PostgreSQLDialect via @DynamicPropertySource. Without the override the
+        # main profile's PostgreSQLDialect would emit DDL/locking SQL that H2 cannot parse.
+        dialect: org.hibernate.dialect.H2Dialect
         format_sql: false
