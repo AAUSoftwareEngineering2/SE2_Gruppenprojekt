@@ -9,6 +9,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -261,7 +262,6 @@ class GameWebSocketClient(
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        moneyCardIds: Set<String>,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -270,18 +270,26 @@ class GameWebSocketClient(
                 ChooseTradePayload(
                     challengedPlayerId = challengedPlayerId,
                     animalType = animalType,
-                    moneyCardIds = moneyCardIds,
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.CHOOSE_TRADE, requestId, payload))
         return requestId
     }
 
-    /** Counters a trade offer with own money cards. */
-    suspend fun respondToTrade(
-        respondingPlayerId: String,
-        counterOfferedMoneyCardIds: Set<String> = emptySet(),
-    ): String {
+    /** Submits the initiator's selected money cards. */
+    suspend fun submitTradeMoney(moneyCardIds: Set<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SubmitTradeMoneyPayload.serializer(),
+                SubmitTradeMoneyPayload(moneyCardIds = moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.SUBMIT_TRADE_MONEY, requestId, payload))
+        return requestId
+    }
+
+    /** Accepts a trade offer or counters it with selected money cards. */
+    suspend fun respondToTrade(counterOfferedMoneyCardIds: Set<String> = emptySet()): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(

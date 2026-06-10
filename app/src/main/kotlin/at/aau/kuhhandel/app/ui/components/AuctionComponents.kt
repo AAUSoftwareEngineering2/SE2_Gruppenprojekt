@@ -67,8 +67,8 @@ fun PieTimer(
     modifier: Modifier = Modifier,
     totalDurationMillis: Long = DEFAULT_AUCTION_TIMER_MILLIS,
     fillColor: Color = DefaultPurple,
-    trackColor: Color = DarkPurple.copy(alpha = 0.12f),
-    borderColor: Color = DarkPurple.copy(alpha = 0.22f),
+    trackColor: Color = LightPurple,
+    borderColor: Color = LightPurple,
     showRemainingSeconds: Boolean = true,
 ) {
     val boundedTotalDurationMillis = totalDurationMillis.coerceAtLeast(1L)

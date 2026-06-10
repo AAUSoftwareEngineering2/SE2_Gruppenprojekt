@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
-import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -141,44 +140,6 @@ fun AuctionPhaseContent(
                 }
             },
         )
-    }
-}
-
-@Composable
-fun TradePhaseContent(
-    uiState: GameUiState,
-    onRespondToTrade: () -> Unit,
-    onFinishTradeReveal: () -> Unit,
-) {
-    val trade = uiState.gameState?.tradeState
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TradeView(
-            trade = trade,
-            onAccept = onRespondToTrade,
-            onCounter = onRespondToTrade,
-            myId = uiState.myPlayerId,
-        )
-
-        if (trade?.initiatorId == uiState.myPlayerId &&
-            (trade?.offeredMoneyCardIds?.size ?: 0) == 0
-        ) {
-            Button(
-                onClick = onRespondToTrade,
-                modifier = Modifier.padding(top = 8.dp),
-                enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
-            ) {
-                Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
-            }
-        }
-
-        if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
-            Button(
-                onClick = onFinishTradeReveal,
-                modifier = Modifier.padding(top = 16.dp),
-            ) {
-                Text("CONTINUE")
-            }
-        }
     }
 }
 
