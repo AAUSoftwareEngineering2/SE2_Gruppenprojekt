@@ -257,6 +257,10 @@ class WebSocketProtocolTest {
             deckSize = 5,
             auctionState = null,
             tradeState = null,
+            spyingTargetId = null,
+            spyingTargetCards = null,
+            localPlayerSpiedOn = false,
+            spiedOnOpponentIds = emptyList(),
             lastEvent = null,
         )
 }

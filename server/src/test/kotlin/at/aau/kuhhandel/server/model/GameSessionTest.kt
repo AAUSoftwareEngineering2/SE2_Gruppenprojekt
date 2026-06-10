@@ -963,7 +963,7 @@ class GameSessionTest {
                 currentPlayerIndex = 0,
             )
 
-        assertActionFailsWithReason(playableState, GameErrorReason.UNKNOWN_TRADE_TARGET) {
+        assertActionFailsWithReason(playableState, GameErrorReason.UNKNOWN_TARGET) {
             it.chooseTrade("player-1", "fake-target-id", AnimalType.COW)
         }
     }
