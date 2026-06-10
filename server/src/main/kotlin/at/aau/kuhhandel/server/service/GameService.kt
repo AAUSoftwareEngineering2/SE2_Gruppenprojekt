@@ -209,8 +209,11 @@ class GameService(
         gameId: String,
         actorId: String,
         auctioneerBuysCard: Boolean,
+        paymentMoneyCardIds: Set<String> = emptySet(),
     ): GameState =
-        executeAction(gameId) { session -> session.resolveAuction(actorId, auctioneerBuysCard) }
+        executeAction(gameId) { session ->
+            session.resolveAuction(actorId, auctioneerBuysCard, paymentMoneyCardIds)
+        }
 
     /**
      * Starts a trade against an opponent.

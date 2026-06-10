@@ -12,6 +12,7 @@ import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -59,8 +60,11 @@ class GameRepositoryTest {
             repository.placeBid(amount)
         }
 
-        suspend fun buyBack(buyBack: Boolean) {
-            repository.buyBack(buyBack)
+        suspend fun buyBack(
+            buyBack: Boolean,
+            moneyCardIds: Set<String> = emptySet(),
+        ) {
+            repository.buyBack(buyBack, moneyCardIds)
         }
 
         suspend fun initiateTrade(
@@ -338,8 +342,15 @@ class GameRepositoryTest {
     fun `buyBack sends request`() {
         runBlocking {
             val harness = createHarness()
-            harness.buyBack(true)
-            assertEquals(WebSocketType.RESOLVE_AUCTION, harness.sentEnvelope().type)
+            harness.buyBack(true, setOf("money-1"))
+            val envelope = harness.sentEnvelope()
+            assertEquals(WebSocketType.RESOLVE_AUCTION, envelope.type)
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    ResolveAuctionPayload.serializer(),
+                    requireNotNull(envelope.payload),
+                )
+            assertEquals(setOf("money-1"), payload.moneyCardIds)
         }
     }
 

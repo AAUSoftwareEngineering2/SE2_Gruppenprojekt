@@ -289,13 +289,23 @@ class GameServiceTest {
                 gameSession.resolveAuction(
                     result.playerId,
                     auctioneerBuysCard = false,
+                    paymentMoneyCardIds = setOf("money-1"),
                 ),
             ).thenReturn(gameStateToReturn)
 
             val state =
-                service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
+                service.resolveAuction(
+                    result.gameId,
+                    result.playerId,
+                    auctioneerBuysCard = false,
+                    paymentMoneyCardIds = setOf("money-1"),
+                )
 
-            verify(gameSession).resolveAuction(result.playerId, auctioneerBuysCard = false)
+            verify(gameSession).resolveAuction(
+                result.playerId,
+                auctioneerBuysCard = false,
+                paymentMoneyCardIds = setOf("money-1"),
+            )
             assertEquals(gameStateToReturn, state)
         }
 
@@ -305,7 +315,7 @@ class GameServiceTest {
             assertThrows<IllegalStateException> {
                 service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
             }
-            verify(gameSession, never()).resolveAuction(any(), any())
+            verify(gameSession, never()).resolveAuction(any(), any(), any())
         }
 
     @Test
@@ -477,6 +487,7 @@ class GameServiceTest {
                 gameSession.resolveAuction(
                     result.playerId,
                     auctioneerBuysCard = false,
+                    paymentMoneyCardIds = emptySet(),
                 ),
             ).thenReturn(restartedGameState)
             whenever(gameSession.state).thenReturn(restartedGameState)

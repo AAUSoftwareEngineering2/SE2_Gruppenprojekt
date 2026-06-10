@@ -175,6 +175,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onRevealCard = gameViewModel::revealCard,
                     onPlaceBid = gameViewModel::placeBid,
                     onBuyBack = gameViewModel::buyBack,
+                    onSubmitAuctionPayment = gameViewModel::submitAuctionPayment,
                     tradeActions = tradeActions,
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,

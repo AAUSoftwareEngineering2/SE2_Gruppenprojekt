@@ -852,7 +852,14 @@ class GameWebSocketHandlerTest {
             )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
-            whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
+            whenever(
+                gameService.resolveAuction(
+                    "game-1",
+                    "player-1",
+                    true,
+                    setOf("money-1"),
+                ),
+            ).thenReturn(gameState)
 
             sendEnvelope(
                 session = session1,
@@ -861,11 +868,19 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         ResolveAuctionPayload.serializer(),
-                        ResolveAuctionPayload(buyBack = true),
+                        ResolveAuctionPayload(
+                            buyBack = true,
+                            moneyCardIds = setOf("money-1"),
+                        ),
                     ),
             )
 
-            verify(gameService).resolveAuction("game-1", "player-1", true)
+            verify(gameService).resolveAuction(
+                "game-1",
+                "player-1",
+                true,
+                setOf("money-1"),
+            )
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)

@@ -340,7 +340,13 @@ class GameWebSocketHandler(
         val (gameId, actorId) = requireBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ResolveAuctionPayload.serializer())
 
-        val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
+        val state =
+            gameService.resolveAuction(
+                gameId,
+                actorId,
+                payload.buyBack,
+                payload.moneyCardIds,
+            )
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)

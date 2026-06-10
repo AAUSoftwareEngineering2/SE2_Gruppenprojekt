@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -301,12 +302,18 @@ class GameWebSocketClientTest {
         runBlocking {
             val connection = connectClient()
 
-            val requestId = client.buyBack(true)
+            val requestId = client.buyBack(true, setOf("money-1"))
             val sent = connection.session.onlySentEnvelope()
 
             assertEquals(WebSocketType.RESOLVE_AUCTION, sent.type)
             assertEquals(requestId, sent.requestId)
-            assertNotNull(sent.payload)
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    ResolveAuctionPayload.serializer(),
+                    assertNotNull(sent.payload),
+                )
+            assertEquals(true, payload.buyBack)
+            assertEquals(setOf("money-1"), payload.moneyCardIds)
 
             connection.disconnect()
         }

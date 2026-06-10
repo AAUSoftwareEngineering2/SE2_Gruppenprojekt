@@ -52,6 +52,7 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
 
@@ -258,6 +259,12 @@ fun AuctionView(
             auction.timerEndTime?.let { timerEndTime ->
                 PieTimer(
                     timerEndTimeMillis = timerEndTime,
+                    totalDurationMillis =
+                        if (phase == GamePhase.AUCTION_PAYMENT) {
+                            PhaseDurations.AUCTION_PAYMENT_MS
+                        } else {
+                            DEFAULT_AUCTION_TIMER_MILLIS
+                        },
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)

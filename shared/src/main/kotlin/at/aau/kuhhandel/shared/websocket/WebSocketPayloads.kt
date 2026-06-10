@@ -88,6 +88,7 @@ data class PlaceBidPayload(
 @Serializable
 data class ResolveAuctionPayload(
     val buyBack: Boolean,
+    val moneyCardIds: Set<String> = emptySet(),
 )
 
 /**

@@ -246,13 +246,19 @@ class GameWebSocketClient(
         return requestId
     }
 
-    /** Decides whether the auctioneer buys back the animal. */
-    suspend fun buyBack(buyBack: Boolean): String {
+    /** Resolves an auction decision or submits the payer's selected money cards. */
+    suspend fun buyBack(
+        buyBack: Boolean,
+        moneyCardIds: Set<String> = emptySet(),
+    ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 ResolveAuctionPayload.serializer(),
-                ResolveAuctionPayload(buyBack = buyBack),
+                ResolveAuctionPayload(
+                    buyBack = buyBack,
+                    moneyCardIds = moneyCardIds,
+                ),
             )
         send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
         return requestId

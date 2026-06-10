@@ -24,6 +24,10 @@ class GameStateMapperTest {
             PersistedStatus.AUCTION,
             GameStateMapper.toGameStatus(GamePhase.AUCTIONEER_DECISION),
         )
+        kotlin.test.assertEquals(
+            PersistedStatus.AUCTION,
+            GameStateMapper.toGameStatus(GamePhase.AUCTION_PAYMENT),
+        )
     }
 
     @Test

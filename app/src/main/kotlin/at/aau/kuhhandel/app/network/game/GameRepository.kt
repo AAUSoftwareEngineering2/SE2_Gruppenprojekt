@@ -87,11 +87,14 @@ class GameRepository(
         client.placeBid(amount)
     }
 
-    /** Sends the auctioneer's choice to either buy back the animal or sell it. */
-    suspend fun buyBack(buyBack: Boolean) {
+    /** Sends an auction decision or the payer's selected money cards. */
+    suspend fun buyBack(
+        buyBack: Boolean,
+        moneyCardIds: Set<String> = emptySet(),
+    ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.buyBack(buyBack)
+        client.buyBack(buyBack, moneyCardIds)
     }
 
     /** Initiates a trade challenge against another player. */
