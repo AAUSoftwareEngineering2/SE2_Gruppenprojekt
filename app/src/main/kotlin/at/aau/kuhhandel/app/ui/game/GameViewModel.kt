@@ -48,6 +48,7 @@ data class GameUiState(
     val isTradeHandFanned: Boolean = false,
     val isCounterOfferSelected: Boolean = false,
     val isTradeActionSubmitting: Boolean = false,
+    val results: List<at.aau.kuhhandel.shared.utils.PlayerResult> = emptyList(),
 ) {
     /** Helper property to check if an auction is currently in progress. */
     val isAuctionActive: Boolean
@@ -309,6 +310,11 @@ class GameViewModel(
                 isTradeHandFanned = tradeLocalState.isHandFanned,
                 isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
                 isTradeActionSubmitting = tradeLocalState.isSubmitting,
+                results =
+                    gameState?.players?.let {
+                        at.aau.kuhhandel.shared.utils.ScoreCalculator
+                            .getLeaderboard(it)
+                    } ?: emptyList(),
             )
         }.distinctUntilChanged()
             .stateIn(

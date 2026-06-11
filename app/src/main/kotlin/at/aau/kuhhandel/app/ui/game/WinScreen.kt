@@ -53,9 +53,9 @@ fun WinScreen(
     onHome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val leaderboard = uiState.leaderboard
-    val winner = leaderboard.firstOrNull()
-    val runnerUps = leaderboard.drop(1)
+    val results = uiState.results
+    val winner = results.firstOrNull()
+    val runnerUps = results.drop(1)
 
     MenuBackground(modifier = modifier) {
         Column(
@@ -133,7 +133,7 @@ fun WinScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                     ) {
-                        runnerUps.forEachIndexed { index, result ->
+                        runnerUps.forEachIndexed { index: Int, result: PlayerResult ->
                             Box(modifier = Modifier.fillMaxWidth(0.47f)) {
                                 RunnerUpCard(rank = index + 2, result = result)
                             }
@@ -301,8 +301,8 @@ fun WinScreenPreview() {
             Player("4", "Player Four", animals = generateQuartets(listOf(AnimalType.CAT))),
             Player("5", "Player Five", animals = generateQuartets(listOf(AnimalType.GOOSE))),
         )
-    val leaderboard = ScoreCalculator.getLeaderboard(samplePlayers)
-    val uiState = GameUiState(leaderboard = leaderboard)
+    val results = ScoreCalculator.getLeaderboard(samplePlayers)
+    val uiState = GameUiState(results = results)
 
     AndroidAppTheme {
         WinScreen(uiState = uiState, onHome = {})

@@ -19,6 +19,7 @@ import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.game.TradeActions
+import at.aau.kuhhandel.app.ui.game.WinScreen
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
