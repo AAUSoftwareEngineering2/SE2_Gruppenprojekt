@@ -172,6 +172,8 @@ class GameSession(
                         highestBidderId = null,
                         timerEndTime = calculatedTimeout,
                     ),
+                activeSpies = emptySet(),
+                spiedThisTurn = emptySet(),
             )
 
         return state
@@ -347,6 +349,8 @@ class GameSession(
                             offeredMoneyCards = null,
                             counterOfferedMoneyCards = null,
                         ),
+                    activeSpies = emptySet(),
+                    spiedThisTurn = emptySet(),
                 )
 
         return state
@@ -539,7 +543,6 @@ class GameSession(
      */
     fun catchSpy(actorId: String): GameState {
         requireActorInRoom(actorId)
-        ensurePhase(GamePhase.PLAYER_CHOICE)
         ensureNotSpying(actorId)
         val validSpies = requireValidSpies(actorId, System.currentTimeMillis())
 
