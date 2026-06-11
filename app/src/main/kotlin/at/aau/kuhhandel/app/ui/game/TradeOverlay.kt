@@ -210,7 +210,7 @@ fun TradeOverlay(
                 presentation.winnerId -> playTradeWonSound()
                 presentation.initiatorId,
                 presentation.targetId,
-            -> playTradeLostSound()
+                -> playTradeLostSound()
             }
         }
     }
