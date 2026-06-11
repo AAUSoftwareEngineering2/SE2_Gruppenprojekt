@@ -7,6 +7,8 @@ import at.aau.kuhhandel.app.R
 
 internal fun shouldPlayMenuMusic(isGameStarted: Boolean): Boolean = !isGameStarted
 
+private const val MENU_MUSIC_VOLUME = 0.55f
+
 private var activeMenuMediaPlayer: MediaPlayer? = null
 
 internal fun registerActiveMenuMediaPlayer(mediaPlayer: MediaPlayer) {
@@ -43,16 +45,19 @@ internal fun MediaPlayer.managePlayback(isGameStarted: Boolean) {
 }
 
 internal fun createMenuMediaPlayer(context: Context): MediaPlayer =
-    MediaPlayer.create(
-        context,
-        R.raw.mainmenu,
-        AudioAttributes
-            .Builder()
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build(),
-        0,
-    )
+    MediaPlayer
+        .create(
+            context,
+            R.raw.mainmenu,
+            AudioAttributes
+                .Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build(),
+            0,
+        ).apply {
+            setVolume(MENU_MUSIC_VOLUME, MENU_MUSIC_VOLUME)
+        }
 
 internal fun releaseMediaPlayer(mediaPlayer: MediaPlayer) {
     mediaPlayer.release()

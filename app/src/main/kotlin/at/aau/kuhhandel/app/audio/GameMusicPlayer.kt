@@ -13,8 +13,8 @@ import kotlinx.coroutines.delay
 
 private const val NORMAL_GAME_MUSIC_SPEED = 1.0f
 private const val AUCTION_GAME_MUSIC_SPEED = 1.2f
-private const val GAME_MUSIC_START_DELAY_MS = 2_000L
-private const val GAME_MUSIC_LOOP_VOLUME = 0.65f
+private const val GAME_MUSIC_START_DELAY_BUFFER_MS = 250L
+private const val GAME_MUSIC_LOOP_VOLUME = 0.35f
 
 @Composable
 fun GameMusicPlayer(
@@ -39,7 +39,7 @@ fun GameMusicPlayer(
             loopPlayer.seekTo(0)
             startPlayer.seekTo(0)
             startPlayer.start()
-            delay(GAME_MUSIC_START_DELAY_MS)
+            delay(startPlayer.duration + GAME_MUSIC_START_DELAY_BUFFER_MS)
             if (!loopPlayer.isPlaying) {
                 loopPlayer.start()
             }
