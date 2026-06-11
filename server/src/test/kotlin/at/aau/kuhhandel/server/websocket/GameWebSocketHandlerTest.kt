@@ -61,7 +61,7 @@ class GameWebSocketHandlerTest {
             players =
                 listOf(
                     Player("player-1", "Player1"),
-                    Player("player-2", "Player 2"),
+                    Player("player-2", "Player2"),
                 ),
             hostPlayerId = "player-1",
         )
@@ -175,7 +175,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -287,7 +287,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -440,45 +440,6 @@ class GameWebSocketHandlerTest {
             assertEquals(state, payload2.state)
             assertEquals(state.createViewForPlayer("player-2"), payload2.stateView)
         }
-
-    @Test
-    fun `CREATE_GAME with invalid player name sends INVALID_PLAYER_NAME error`() {
-        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.CREATE_GAME,
-            requestId = "req-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    CreateGamePayload.serializer(),
-                    CreateGamePayload("has space"),
-                ),
-        )
-
-        verifyNoInteractions(gameService)
-        verify(connectionRegistry, never()).bindPlayerSession(any(), any(), any(), any())
-        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PLAYER_NAME.name)
-    }
-
-    @Test
-    fun `JOIN_GAME with too long player name sends INVALID_PLAYER_NAME error`() {
-        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-
-        sendEnvelope(
-            session = session1,
-            type = WebSocketType.JOIN_GAME,
-            requestId = "req-1",
-            payload =
-                WebSocketJson.json.encodeToJsonElement(
-                    JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "TooLong99"),
-                ),
-        )
-
-        verifyNoInteractions(gameService)
-        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PLAYER_NAME.name)
-    }
 
     @Test
     fun `JOIN_GAME with bound player session sends ERROR`() {

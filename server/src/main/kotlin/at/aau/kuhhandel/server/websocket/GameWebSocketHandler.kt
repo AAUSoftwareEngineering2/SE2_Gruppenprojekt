@@ -5,7 +5,6 @@ import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.PlayerNameRules
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -147,9 +146,8 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
 
         val payload = decodePayload(envelope, CreateGamePayload.serializer())
-        val playerName = resolvePlayerName(payload.playerName)
 
-        val result = gameService.createGame(playerName)
+        val result = gameService.createGame(payload.playerName)
         val gameId = result.gameId
         val playerId = result.playerId
 
@@ -188,9 +186,8 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
-        val playerName = resolvePlayerName(payload.playerName)
 
-        val result = gameService.joinGame(gameId, playerName)
+        val result = gameService.joinGame(gameId, payload.playerName)
 
         val joinedGameId = result.gameId
         val playerId = result.playerId
@@ -567,12 +564,4 @@ class GameWebSocketHandler(
      * Generates a cryptographically secure token used to authenticate a player during reconnection.
      */
     private fun generateReconnectToken(): String = UUID.randomUUID().toString()
-
-    private fun resolvePlayerName(rawName: String): String {
-        val trimmed = rawName.trim()
-        if (!PlayerNameRules.isValid(trimmed)) {
-            throw GameException(GameErrorReason.INVALID_PLAYER_NAME)
-        }
-        return trimmed
-    }
 }

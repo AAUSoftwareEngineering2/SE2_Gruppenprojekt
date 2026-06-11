@@ -42,7 +42,7 @@ class GameServiceTest {
     private lateinit var service: GameService
     private val gameStateToReturn =
         GameState(
-            players = listOf(Player("player-1", "Player 1")),
+            players = listOf(Player("player-1", "Player1")),
             hostPlayerId = "explicit string for testing",
         )
 
@@ -62,7 +62,7 @@ class GameServiceTest {
             // Use the default constructor which runs a real GameSession
             val service = GameService(eventPublisher)
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
 
             assertEquals(5, result.gameId.length)
             assertEquals(GamePhase.NOT_STARTED, result.gameState.phase)
@@ -71,8 +71,8 @@ class GameServiceTest {
     @Test
     fun test_createGame_generatesDifferentCodes() =
         runTest {
-            val firstResult = service.createGame("Player 1")
-            val secondResult = service.createGame("Player 1")
+            val firstResult = service.createGame("Player1")
+            val secondResult = service.createGame("Player1")
 
             assertNotEquals(firstResult.gameId, secondResult.gameId)
         }
@@ -83,11 +83,21 @@ class GameServiceTest {
             // Use the default constructor which runs a real GameSession
             val service = GameService(eventPublisher)
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
 
             assertEquals(1, result.gameState.players.size)
             assertEquals(result.playerId, result.gameState.players[0].id)
-            assertEquals("Player 1", result.gameState.players[0].name)
+            assertEquals("Player1", result.gameState.players[0].name)
+        }
+
+    @Test
+    fun test_createGame_throws_forInvalidPlayerName() =
+        runTest {
+            val exception =
+                assertThrows<GameException> {
+                    service.createGame("name with spaces")
+                }
+            assertEquals(GameErrorReason.INVALID_PLAYER_NAME, exception.reason)
         }
 
     @Test
@@ -96,7 +106,7 @@ class GameServiceTest {
             // Use the default constructor which runs a real GameSession
             val service = GameService(eventPublisher)
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
 
             val loadedSession = service.getGame(result.gameId)
 
@@ -114,7 +124,7 @@ class GameServiceTest {
     @Test
     fun test_removeGame_removesGameSession() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val gameId = result.gameId
 
             assertNotNull(service.getGame(gameId))
@@ -127,12 +137,12 @@ class GameServiceTest {
     @Test
     fun test_joinGame_delegatesWork() =
         runTest {
-            val createResult = service.createGame("Player 1")
-            whenever(gameSession.addPlayer(any(), eq("Player 2"))).thenReturn(gameStateToReturn)
+            val createResult = service.createGame("Player1")
+            whenever(gameSession.addPlayer(any(), eq("Player2"))).thenReturn(gameStateToReturn)
 
-            val joinResult = service.joinGame(createResult.gameId, "Player 2")
+            val joinResult = service.joinGame(createResult.gameId, "Player2")
 
-            verify(gameSession).addPlayer(any(), eq("Player 2"))
+            verify(gameSession).addPlayer(any(), eq("Player2"))
             assertNotNull(joinResult)
             assertEquals(gameStateToReturn, joinResult.gameState)
         }
@@ -149,9 +159,21 @@ class GameServiceTest {
         }
 
     @Test
+    fun text_joinGame_throws_forInvalidPlayerName() =
+        runTest {
+            val result = service.createGame("Player1")
+
+            val exception =
+                assertThrows<GameException> {
+                    service.joinGame(result.gameId, "VeryLongName")
+                }
+            assertEquals(GameErrorReason.INVALID_PLAYER_NAME, exception.reason)
+        }
+
+    @Test
     fun test_leaveGame_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.removePlayer(result.playerId)).thenReturn(gameStateToReturn)
 
             val state = service.leaveGame(result.gameId, result.playerId)
@@ -163,7 +185,7 @@ class GameServiceTest {
     @Test
     fun test_leaveGame_removesGameWhenEmpty() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val returnedState = gameStateToReturn.copy(players = emptyList())
             whenever(gameSession.removePlayer(result.playerId)).thenReturn(returnedState)
 
@@ -186,7 +208,7 @@ class GameServiceTest {
     @Test
     fun test_getStateForReconnection_returnsState() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.hasPlayer(result.playerId)).thenReturn(true)
 
             val state = service.getStateForReconnection(result.gameId, result.playerId)
@@ -208,7 +230,7 @@ class GameServiceTest {
     @Test
     fun test_getStateForReconnection_throws_forInvalidPlayerId() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.hasPlayer("player-2")).thenReturn(false)
 
             val exception =
@@ -221,7 +243,7 @@ class GameServiceTest {
     @Test
     fun test_startGame_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.startGame(result.playerId)).thenReturn(gameStateToReturn)
 
             val state = service.startGame(result.gameId, result.playerId)
@@ -242,7 +264,7 @@ class GameServiceTest {
     @Test
     fun test_chooseAuction_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.chooseAuction(result.playerId)).thenReturn(gameStateToReturn)
 
             val state = service.chooseAuction(result.gameId, result.playerId)
@@ -263,7 +285,7 @@ class GameServiceTest {
     @Test
     fun test_placeBid_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(gameSession.placeBid(result.playerId, 10)).thenReturn(gameStateToReturn)
 
             val state = service.placeBid(result.gameId, result.playerId, 10)
@@ -284,7 +306,7 @@ class GameServiceTest {
     @Test
     fun test_resolveAuction_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(
                 gameSession.resolveAuction(
                     result.playerId,
@@ -311,7 +333,7 @@ class GameServiceTest {
     @Test
     fun test_chooseTrade_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(
                 gameSession.chooseTrade(
                     result.playerId,
@@ -344,7 +366,7 @@ class GameServiceTest {
     @Test
     fun test_submitTradeMoney_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(
                 gameSession.submitTradeMoney(
                     result.playerId,
@@ -375,7 +397,7 @@ class GameServiceTest {
     @Test
     fun test_respondToTrade_delegatesWork() =
         runTest {
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             whenever(
                 gameSession.respondToTrade(result.playerId, setOf()),
             ).thenReturn(gameStateToReturn)
@@ -406,7 +428,7 @@ class GameServiceTest {
                     serviceScope = backgroundScope,
                 )
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
             val targetTimerEnd = now + 5000L
 
@@ -449,7 +471,7 @@ class GameServiceTest {
                     serviceScope = backgroundScope,
                 )
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
             val targetTimerEnd = now + 5000L
 
@@ -503,7 +525,7 @@ class GameServiceTest {
                     serviceScope = backgroundScope,
                 )
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
             val initialTimerEnd = now + 5000L
             val updatedTimerEnd = now + 10000L
@@ -557,7 +579,7 @@ class GameServiceTest {
                     serviceScope = backgroundScope,
                 )
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
             val targetTimerEnd = now + 5000L
 
@@ -606,7 +628,7 @@ class GameServiceTest {
                     serviceScope = backgroundScope,
                 )
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
             val targetTimerEnd = now + 5000L
 

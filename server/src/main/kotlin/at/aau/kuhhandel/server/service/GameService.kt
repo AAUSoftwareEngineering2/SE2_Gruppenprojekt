@@ -8,6 +8,7 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.PlayerNameRules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,14 +42,15 @@ class GameService(
     /**
      * Creates a new game with a unique 5-digit game id.
      */
-    fun createGame(hostPlayerName: String): RoomActionResult {
+    fun createGame(rawHostPlayerName: String): RoomActionResult {
         val gameId: String
         val playerId = generatePlayerId()
+        val playerName = resolvePlayerName(rawHostPlayerName)
         val session: GameSession
 
         synchronized(rooms) {
             gameId = generateGameCode()
-            session = gameSessionFactory(gameId, playerId, hostPlayerName)
+            session = gameSessionFactory(gameId, playerId, playerName)
             rooms[gameId] = SyncGameRoom(session)
         }
 
@@ -107,13 +109,14 @@ class GameService(
      */
     suspend fun joinGame(
         gameId: String,
-        playerName: String,
+        rawPlayerName: String,
     ): RoomActionResult {
         val room =
             rooms[gameId]
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
         val playerId = generatePlayerId()
+        val playerName = resolvePlayerName(rawPlayerName)
 
         room.mutex.withLock {
             val updatedState = room.session.addPlayer(playerId, playerName)
@@ -338,6 +341,17 @@ class GameService(
         val service = persistenceService ?: return
         runCatching { service.saveGameState(session.gameId, session.state) }
             .onFailure { logger.warn("Failed to persist game ${session.gameId}", it) }
+    }
+
+    /**
+     * Resolves a raw player name, throwing an exception if the name is invalid.
+     */
+    private fun resolvePlayerName(rawName: String): String {
+        val trimmed = rawName.trim()
+        if (!PlayerNameRules.isValid(trimmed)) {
+            throw GameException(GameErrorReason.INVALID_PLAYER_NAME)
+        }
+        return trimmed
     }
 
     /**
