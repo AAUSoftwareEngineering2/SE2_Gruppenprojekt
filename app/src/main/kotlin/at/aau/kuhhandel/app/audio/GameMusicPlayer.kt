@@ -15,7 +15,7 @@ import kotlin.coroutines.resume
 
 private const val NORMAL_GAME_MUSIC_SPEED = 1.0f
 private const val AUCTION_GAME_MUSIC_SPEED = 1.2f
-private const val GAME_MUSIC_START_COMPLETION_BUFFER_MS = 500L
+private const val GAME_MUSIC_START_COMPLETION_BUFFER_MS = 2_500L
 private const val GAME_MUSIC_LOOP_VOLUME = 0.35f
 
 @Composable

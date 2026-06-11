@@ -91,6 +91,7 @@ fun GameScreen(
         ) {
             playGavelSound()
         }
+
         previousPhase = uiState.currentPhase
     }
 

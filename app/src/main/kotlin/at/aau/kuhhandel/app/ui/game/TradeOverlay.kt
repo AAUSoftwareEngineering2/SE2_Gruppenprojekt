@@ -38,6 +38,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberMediaSoundEffect
 import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyCardView
@@ -79,6 +81,7 @@ private const val TRADE_RESULT_COUNT_UP_DURATION_MS = 500
 private const val TRADE_RESULT_TOTAL_POP_DURATION_MS = 100
 private const val TRADE_RESULT_TOTAL_SETTLE_DURATION_MS = 120
 private const val TRADE_RESULT_TOTAL_POP_SCALE = 1.1f
+private const val TRADE_RESULT_TABLE_SOUND_DELAY_MS = 6_000L
 private const val TRADE_EXIT_RETENTION_MS = 2_000L
 
 private enum class TradeResultStage {
@@ -155,16 +158,30 @@ fun TradeOverlay(
     val currentPresentation = uiState.tradeCardPresentation()
     var retainedPresentation by remember { mutableStateOf(currentPresentation) }
     var resultStage by remember { mutableStateOf(TradeResultStage.STACKS) }
+    var previousTradePresentation by remember { mutableStateOf<TradeCardPresentation?>(null) }
+    val playTradeStartedSound = rememberMediaSoundEffect(R.raw.trade_started)
+    val playTradeWonSound = rememberMediaSoundEffect(R.raw.trade_won)
+    val playTradeLostSound = rememberMediaSoundEffect(R.raw.trade_lost)
 
     LaunchedEffect(currentPresentation) {
         if (currentPresentation != null) {
             retainedPresentation = currentPresentation
         }
     }
+    LaunchedEffect(currentPresentation, uiState.currentPhase) {
+        if (previousTradePresentation == null &&
+            currentPresentation != null &&
+            uiState.currentPhase == GamePhase.TRADE_OFFER
+        ) {
+            playTradeStartedSound()
+        }
+        previousTradePresentation = currentPresentation
+    }
     LaunchedEffect(uiState.isTradeActive) {
         if (!uiState.isTradeActive) {
             delay(TRADE_EXIT_RETENTION_MS)
             retainedPresentation = null
+            previousTradePresentation = null
         }
     }
     LaunchedEffect(uiState.currentPhase, uiState.gameState?.tradeState) {
@@ -176,6 +193,33 @@ fun TradeOverlay(
             resultStage = TradeResultStage.TOTALS
             delay(TRADE_RESULT_TOTAL_DURATION_MS)
             resultStage = TradeResultStage.STACKS
+        }
+    }
+    LaunchedEffect(
+        uiState.currentPhase,
+        resultStage,
+        currentPresentation?.winnerId,
+        uiState.myPlayerId,
+    ) {
+        val presentation = currentPresentation
+        if (uiState.currentPhase == GamePhase.TRADE_RESULT &&
+            resultStage == TradeResultStage.TOTALS &&
+            presentation?.winnerId != null
+        ) {
+            when (uiState.myPlayerId) {
+                presentation.winnerId -> playTradeWonSound()
+                presentation.initiatorId,
+                presentation.targetId,
+            -> playTradeLostSound()
+            }
+        }
+    }
+    LaunchedEffect(uiState.currentPhase, resultStage) {
+        if (uiState.currentPhase == GamePhase.TRADE_RESULT &&
+            resultStage == TradeResultStage.TOTALS
+        ) {
+            delay(TRADE_RESULT_TABLE_SOUND_DELAY_MS)
+            playTradeStartedSound()
         }
     }
 
