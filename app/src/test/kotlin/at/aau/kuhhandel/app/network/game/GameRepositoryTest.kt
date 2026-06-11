@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.app.network.game
 
+import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
@@ -10,10 +11,15 @@ import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
+import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,6 +38,7 @@ class GameRepositoryTest {
     private class Harness(
         val repository: GameRepository,
         val session: FakeWebSocketSession,
+        val tokenStorage: TokenStorage,
     ) {
         val state: GameRepositoryState
             get() = repository.state.value
@@ -60,7 +67,7 @@ class GameRepositoryTest {
             targetPlayerId: String,
             animalType: AnimalType = AnimalType.COW,
         ) {
-            repository.initiateTrade(targetPlayerId, animalType, setOf())
+            repository.initiateTrade(targetPlayerId, animalType)
         }
 
         fun clearError() {
@@ -90,8 +97,12 @@ class GameRepositoryTest {
     ): Harness {
         val scope = CoroutineScope(Dispatchers.Unconfined + Job())
         scopes += scope
-        val repository = GameRepository(GameWebSocketClient(openSession = openSession), scope)
-        return Harness(repository, session)
+
+        val tokenStorageMock: TokenStorage = mockk(relaxed = true)
+
+        val repository =
+            GameRepository(GameWebSocketClient(openSession = openSession), scope, tokenStorageMock)
+        return Harness(repository, session, tokenStorageMock)
     }
 
     private suspend fun flushRepository() {
@@ -151,7 +162,12 @@ class GameRepositoryTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     GameCreatedPayload.serializer(),
-                    GameCreatedPayload(gameId = gameId, playerId = "me", state = state),
+                    GameCreatedPayload(
+                        gameId = gameId,
+                        playerId = "me",
+                        reconnectToken = "test-token",
+                        state = state,
+                    ),
                 ),
         )
 
@@ -289,6 +305,18 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `submitTradeMoney sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame()
+
+            harness.repository.submitTradeMoney(setOf("m1"))
+
+            assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, harness.sentTypes().last())
+        }
+    }
+
+    @Test
     fun `leaveGame sends request and disconnects`() {
         runBlocking {
             val harness = createHarness()
@@ -311,7 +339,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             harness.buyBack(true)
-            assertEquals(WebSocketType.AUCTION_BUY_BACK, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.RESOLVE_AUCTION, harness.sentEnvelope().type)
         }
     }
 
@@ -329,7 +357,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             harness.initiateTrade("p2")
-            assertEquals(WebSocketType.INITIATE_TRADE, harness.sentEnvelope().type)
+            assertEquals(WebSocketType.CHOOSE_TRADE, harness.sentEnvelope().type)
         }
     }
 
@@ -349,7 +377,47 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `GAME_JOINED updates state`() {
+    fun `GAME_CREATED updates state and saves session details to token storage`() {
+        runBlocking {
+            val harness = createHarness()
+            val state = sampleState()
+
+            harness.repository.createGame("me")
+
+            val envelope =
+                WebSocketEnvelope(
+                    type = WebSocketType.GAME_CREATED,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            GameCreatedPayload.serializer(),
+                            GameCreatedPayload(
+                                gameId = "g1",
+                                playerId = "me",
+                                reconnectToken = "test-token",
+                                state = state,
+                            ),
+                        ),
+                )
+
+            harness.session.deliverEnvelope(envelope)
+            flushRepository()
+
+            assertEquals("g1", harness.state.gameId)
+            assertEquals("me", harness.state.myPlayerId)
+            assertEquals(state, harness.state.gameState)
+
+            verify(exactly = 1) {
+                harness.tokenStorage.saveSession(
+                    gameId = "g1",
+                    playerId = "me",
+                    token = "test-token",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `GAME_JOINED updates state and saves session details to token storage`() {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
@@ -363,7 +431,12 @@ class GameRepositoryTest {
                     payload =
                         WebSocketJson.json.encodeToJsonElement(
                             GameCreatedPayload.serializer(),
-                            GameCreatedPayload(gameId = "g1", playerId = "me", state = state),
+                            GameCreatedPayload(
+                                gameId = "g1",
+                                playerId = "me",
+                                reconnectToken = "test-token",
+                                state = state,
+                            ),
                         ),
                 )
 
@@ -372,6 +445,14 @@ class GameRepositoryTest {
 
             assertEquals("g1", harness.state.gameId)
             assertEquals(state, harness.state.gameState)
+
+            verify(exactly = 1) {
+                harness.tokenStorage.saveSession(
+                    gameId = "g1",
+                    playerId = "me",
+                    token = "test-token",
+                )
+            }
         }
     }
 
@@ -392,6 +473,7 @@ class GameRepositoryTest {
                                 .serializer(),
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
                                 playerId = "player-7da6",
+                                reconnectToken = "test-token",
                                 state = state,
                             ),
                         ),
@@ -403,6 +485,38 @@ class GameRepositoryTest {
             assertEquals("g1", harness.state.gameId)
             assertEquals("player-7da6", harness.state.myPlayerId)
             assertEquals(state, harness.state.gameState)
+        }
+    }
+
+    @Test
+    fun `SNAPSHOT updates state and saves reconnect token`() {
+        runBlocking {
+            val harness = createHarness()
+            val state = sampleState()
+
+            harness.repository.createGame("me")
+
+            val envelope =
+                WebSocketEnvelope(
+                    type = WebSocketType.SNAPSHOT,
+                    payload =
+                        WebSocketJson.json.encodeToJsonElement(
+                            SnapshotPayload.serializer(),
+                            SnapshotPayload(
+                                reconnectToken = "new-token",
+                                state = state,
+                            ),
+                        ),
+                )
+
+            harness.session.deliverEnvelope(envelope)
+            flushRepository()
+
+            assertEquals(state, harness.state.gameState)
+
+            verify(exactly = 1) {
+                harness.tokenStorage.saveReconnectToken("new-token")
+            }
         }
     }
 
@@ -449,13 +563,12 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `respondToTrade returns early if myPlayerId is null`() {
+    fun `respondToTrade does not require local player id`() {
         runBlocking {
             val harness = createHarness()
             harness.createGame() // Connects but myPlayerId is still null
             harness.repository.respondToTrade()
-            // Verify NO RESPOND_TO_TRADE was sent
-            assertFalse(harness.sentTypes().contains(WebSocketType.RESPOND_TO_TRADE))
+            assertTrue(harness.sentTypes().contains(WebSocketType.RESPOND_TO_TRADE))
         }
     }
 
@@ -510,10 +623,12 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `ensureConnected triggers re-join if gameId is present`() {
+    fun `ensureConnected triggers reconnect if gameId is present`() {
         runBlocking {
             val session = FakeWebSocketSession()
             val harness = createHarness(session = session)
+
+            every { harness.tokenStorage.getReconnectToken() } returns "test-token"
 
             // Manually set gameId to simulate previous state
             harness.receiveGameCreated("g1", sampleState())
@@ -527,6 +642,17 @@ class GameRepositoryTest {
 
             // Should have sent RECONNECT for g1 after connection
             assertTrue(harness.sentTypes().contains(WebSocketType.RECONNECT))
+
+            verify { harness.tokenStorage.getReconnectToken() }
+
+            val sentReconnectEnvelope =
+                session.sentEnvelopes().first { it.type == WebSocketType.RECONNECT }
+            val reconnectPayload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    ReconnectPayload.serializer(),
+                    sentReconnectEnvelope.payload!!,
+                )
+            assertEquals("test-token", reconnectPayload.token)
         }
     }
 
@@ -613,6 +739,8 @@ class GameRepositoryTest {
             // If awaitInitialConnection fails, it calls cancelCollector.
             // If we call disconnect just before it fails...
 
+            val tokenStorageMock: TokenStorage = mockk(relaxed = true)
+
             val session = FakeWebSocketSession()
             val repository =
                 GameRepository(
@@ -622,6 +750,7 @@ class GameRepositoryTest {
                         },
                     ),
                     CoroutineScope(Dispatchers.Unconfined),
+                    tokenStorageMock,
                 )
 
             // Start connecting but don't finish
@@ -653,7 +782,7 @@ class GameRepositoryTest {
                     RespondToTradePayload.serializer(),
                     requireNotNull(envelope.payload),
                 )
-            assertEquals(cardIds, payload.counterOfferedMoneyCardIds)
+            assertEquals(cardIds, payload.moneyCardIds)
         }
     }
 

@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -15,10 +16,12 @@ import androidx.navigation.toRoute
 import at.aau.kuhhandel.app.audio.ButtonClickSoundProvider
 import at.aau.kuhhandel.app.audio.GameMusicPlayer
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
+import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
+import at.aau.kuhhandel.app.ui.game.TradeActions
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
@@ -28,17 +31,21 @@ import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
 import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.shared.enums.GamePhase
+import kotlinx.coroutines.launch
 
 /** Root Composable that defines the navigation graph and handles screen transitions. */
 @Composable
 fun KuhhandelApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val tokenStorage = remember(context) { TokenStorage(context) }
     val repository =
         remember(scope) {
             GameRepository(
                 client = GameWebSocketClient(),
                 scope = scope,
+                tokenStorage = tokenStorage,
             )
         }
 
@@ -54,13 +61,12 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
     // Handle Game State transitions via Navigation
     LaunchedEffect(isGameStarted) {
-        if (!isGameStarted) {
-            return@LaunchedEffect
-        }
-
-        navController.navigate(Screen.Game) {
-            // Pop up to Main to clear the backstack when game starts
-            popUpTo(Screen.Main) { inclusive = false }
+        if (isGameStarted) {
+            navController.navigate(Screen.Game) {
+                // Pop up to Main to clear the backstack when game starts
+                popUpTo(Screen.Main) { inclusive = false }
+                launchSingleTop = true
+            }
         }
     }
 
@@ -138,8 +144,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             onStartGame = lobbyViewModel::startGame,
                             onDismissError = lobbyViewModel::clearError,
                             onBack = {
-                                repository.disconnect()
-                                navController.popBackStack(Screen.Main, inclusive = false)
+                                scope.launch {
+                                    repository.leaveGame()
+                                    navController.popBackStack(Screen.Main, inclusive = false)
+                                }
                             },
                         )
                     }
@@ -156,6 +164,19 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                                 GameViewModel(repository, scope)
                             }
                         val gameUiState by gameViewModel.uiState.collectAsState()
+                        val tradeActions =
+                            remember(gameViewModel) {
+                                TradeActions(
+                                    selectTargetPlayer = gameViewModel::selectTargetPlayer,
+                                    selectAnimal = gameViewModel::selectTradeAnimal,
+                                    submitOffer = gameViewModel::submitTradeOffer,
+                                    chooseCounterOffer = gameViewModel::chooseCounterOffer,
+                                    takeOffer = gameViewModel::takeTradeOffer,
+                                    submitCounterOffer = gameViewModel::submitCounterOffer,
+                                    toggleHandFanned = gameViewModel::toggleTradeHandFanned,
+                                    collapseHand = gameViewModel::collapseTradeHand,
+                                )
+                            }
 
                         GameScreen(
                             uiState = gameUiState,
@@ -163,11 +184,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             onRevealCard = gameViewModel::revealCard,
                             onPlaceBid = gameViewModel::placeBid,
                             onBuyBack = gameViewModel::buyBack,
-                            onRespondToTrade = gameViewModel::respondToTrade,
-                            onFinishTradeReveal = gameViewModel::finishTradeReveal,
-                            onInitiateTrade = gameViewModel::initiateTrade,
-                            onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
+                            tradeActions = tradeActions,
                             onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
+                            onToggleHandFanned = gameViewModel::toggleHandFanned,
+                            onCollapseHand = gameViewModel::collapseHand,
                         )
                     }
                 }

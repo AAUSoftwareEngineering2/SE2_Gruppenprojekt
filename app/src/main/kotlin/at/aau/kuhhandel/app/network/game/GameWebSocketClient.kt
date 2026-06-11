@@ -2,13 +2,14 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.network.ApiConfig
 import at.aau.kuhhandel.app.network.NetworkClientFactory
-import at.aau.kuhhandel.shared.websocket.AuctionBuyBackPayload
+import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-import at.aau.kuhhandel.shared.websocket.InitiateTradePayload
 import at.aau.kuhhandel.shared.websocket.JoinGamePayload
 import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketRoutes
@@ -200,12 +201,13 @@ class GameWebSocketClient(
     suspend fun reconnect(
         gameId: String,
         playerId: String,
+        token: String,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 ReconnectPayload.serializer(),
-                ReconnectPayload(gameId = gameId, playerId = playerId),
+                ReconnectPayload(gameId = gameId, playerId = playerId, token = token),
             )
         send(WebSocketEnvelope(WebSocketType.RECONNECT, requestId, payload))
         return requestId
@@ -249,10 +251,10 @@ class GameWebSocketClient(
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                AuctionBuyBackPayload.serializer(),
-                AuctionBuyBackPayload(buyBack = buyBack),
+                ResolveAuctionPayload.serializer(),
+                ResolveAuctionPayload(buyBack = buyBack),
             )
-        send(WebSocketEnvelope(WebSocketType.AUCTION_BUY_BACK, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
         return requestId
     }
 
@@ -260,34 +262,40 @@ class GameWebSocketClient(
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        moneyCardIds: Set<String>,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
-                InitiateTradePayload.serializer(),
-                InitiateTradePayload(
+                ChooseTradePayload.serializer(),
+                ChooseTradePayload(
                     challengedPlayerId = challengedPlayerId,
                     animalType = animalType,
-                    moneyCardIds = moneyCardIds,
                 ),
             )
-        send(WebSocketEnvelope(WebSocketType.INITIATE_TRADE, requestId, payload))
+        send(WebSocketEnvelope(WebSocketType.CHOOSE_TRADE, requestId, payload))
         return requestId
     }
 
-    /** Counters a trade offer with own money cards. */
-    suspend fun respondToTrade(
-        respondingPlayerId: String,
-        counterOfferedMoneyCardIds: Set<String> = emptySet(),
-    ): String {
+    /** Submits the initiator's selected money cards. */
+    suspend fun submitTradeMoney(moneyCardIds: Set<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SubmitTradeMoneyPayload.serializer(),
+                SubmitTradeMoneyPayload(moneyCardIds = moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.SUBMIT_TRADE_MONEY, requestId, payload))
+        return requestId
+    }
+
+    /** Accepts a trade offer or counters it with selected money cards. */
+    suspend fun respondToTrade(counterOfferedMoneyCardIds: Set<String> = emptySet()): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 RespondToTradePayload.serializer(),
                 RespondToTradePayload(
-                    respondingPlayerId = respondingPlayerId,
-                    counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
+                    moneyCardIds = counterOfferedMoneyCardIds,
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))

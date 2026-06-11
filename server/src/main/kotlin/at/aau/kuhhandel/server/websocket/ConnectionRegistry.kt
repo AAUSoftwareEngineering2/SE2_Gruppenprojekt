@@ -9,70 +9,72 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class ConnectionRegistry {
-    private val gameBySessionId = ConcurrentHashMap<String, String>()
-    private val playerBySessionId = ConcurrentHashMap<String, String>()
-    private val sessionsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
-    private val sessionBySessionId = ConcurrentHashMap<String, WebSocketSession>()
+    private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
+
+    // TODO: Implement an eviction strategy to prune stale entries
+    private val reconnectTokens = ConcurrentHashMap<String, String>()
+    private val connectionIdsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
+    private val connections = ConcurrentHashMap<String, WebSocketSession>()
 
     /**
      * Registers a new raw network socket under its ID.
      */
-    fun bindSession(session: WebSocketSession) {
-        sessionBySessionId[session.id] = session
+    fun bindConnection(session: WebSocketSession) {
+        connections[session.id] = session
     }
 
     /**
-     * Binds a registered connection instance to a running game instance.
+     * Binds a game ID, player ID, and reconnection token to a WebSocket session ID.
      */
-    fun bindGame(
+    fun bindPlayerSession(
         sessionId: String,
         gameId: String,
-    ) {
-        val existing = gameBySessionId.putIfAbsent(sessionId, gameId)
-        if (existing != null) return
-
-        sessionsByGameId.computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }.add(sessionId)
-    }
-
-    /**
-     * Binds a registered connection instance to a player identity.
-     */
-    fun bindPlayer(
-        sessionId: String,
         playerId: String,
+        token: String,
     ) {
-        playerBySessionId.putIfAbsent(sessionId, playerId)
+        playerSessions[sessionId] = PlayerSession(gameId, playerId)
+        reconnectTokens[playerId] = token
+
+        connectionIdsByGameId
+            .computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }
+            .add(sessionId)
     }
 
-    fun sessionFor(sessionId: String): WebSocketSession? = sessionBySessionId[sessionId]
-
-    fun gameIdFor(sessionId: String): String? = gameBySessionId[sessionId]
-
-    fun playerIdFor(sessionId: String): String? = playerBySessionId[sessionId]
-
-    fun sessionIdsFor(gameId: String): Set<String> = sessionsByGameId[gameId]?.toSet().orEmpty()
-
-    fun sessionsFor(gameId: String): Set<WebSocketSession> =
-        sessionIdsFor(gameId).mapNotNull { sessionBySessionId[it] }.toSet()
+    fun connectionFor(sessionId: String): WebSocketSession? = connections[sessionId]
 
     /**
-     * Snapshot of every currently bound session. Used by WebSocketHeartbeat to ping every live
-     * connection without iterating per-game.
+     * Retrieves the PlayerSession associated with a WebSocket session ID.
      */
-    fun allSessions(): Collection<WebSocketSession> = sessionBySessionId.values.toList()
+    fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
+
+    fun isValidToken(
+        playerId: String,
+        token: String,
+    ): Boolean = reconnectTokens[playerId] == token
+
+    fun connectionIdsFor(gameId: String): Set<String> =
+        connectionIdsByGameId[gameId]?.toSet().orEmpty()
+
+    fun connectionsFor(gameId: String): Set<WebSocketSession> =
+        connectionIdsFor(gameId).mapNotNull { connections[it] }.toSet()
+
+    /**
+     * Snapshot of every currently bound WebSocket session. Used by WebSocketHeartbeat to ping
+     * every live connection without iterating per-game.
+     */
+    fun allConnections(): Collection<WebSocketSession> = connections.values.toList()
 
     /**
      * Unbinds a connection instance, removing all data associated with it.
      */
     fun unbind(sessionId: String) {
-        val gameId = gameBySessionId.remove(sessionId)
-        playerBySessionId.remove(sessionId)
-        sessionBySessionId.remove(sessionId)
+        val boundSession = playerSessions.remove(sessionId)
+        connections.remove(sessionId)
 
-        if (gameId != null) {
-            sessionsByGameId[gameId]?.remove(sessionId)
-            if (sessionsByGameId[gameId].isNullOrEmpty()) {
-                sessionsByGameId.remove(gameId)
+        if (boundSession != null) {
+            connectionIdsByGameId[boundSession.gameId]?.remove(sessionId)
+            if (connectionIdsByGameId[boundSession.gameId].isNullOrEmpty()) {
+                connectionIdsByGameId.remove(boundSession.gameId)
             }
         }
     }

@@ -17,6 +17,12 @@ Engineering II course at Alpen-Adria-Universität Klagenfurt.
 * `:shared` - Common data models, enums (e.g., `AnimalType`, `GamePhase`), and logic used by both
   client and server
 
+## Test Notes
+
+Server persistence tests use Testcontainers with PostgreSQL. They are skipped on machines without
+Docker, so a local green `:server:test` without Docker does not include the PostgreSQL persistence
+slice. GitHub Actions runners provide Docker and execute those tests before CI/deploy images pass.
+
 ---
 
 ### Kuhhandel Gameplay Flowchart

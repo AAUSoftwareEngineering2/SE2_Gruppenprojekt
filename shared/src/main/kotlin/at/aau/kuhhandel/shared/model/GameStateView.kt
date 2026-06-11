@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GameStateView(
     val phase: GamePhase,
+    val timerEnd: Long?,
     val localPlayer: Player,
     val opponents: List<Opponent>,
     val hostPlayerId: String,
