@@ -10,10 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import at.aau.kuhhandel.app.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 private const val NORMAL_GAME_MUSIC_SPEED = 1.0f
 private const val AUCTION_GAME_MUSIC_SPEED = 1.2f
-private const val GAME_MUSIC_START_DELAY_BUFFER_MS = 250L
+private const val GAME_MUSIC_START_COMPLETION_BUFFER_MS = 500L
 private const val GAME_MUSIC_LOOP_VOLUME = 0.35f
 
 @Composable
@@ -39,7 +41,8 @@ fun GameMusicPlayer(
             loopPlayer.seekTo(0)
             startPlayer.seekTo(0)
             startPlayer.start()
-            delay(startPlayer.duration + GAME_MUSIC_START_DELAY_BUFFER_MS)
+            startPlayer.awaitCompletion()
+            delay(GAME_MUSIC_START_COMPLETION_BUFFER_MS)
             if (!loopPlayer.isPlaying) {
                 loopPlayer.start()
             }
@@ -86,6 +89,20 @@ private fun createGameLoopMediaPlayer(context: Context): MediaPlayer =
 
 private fun MediaPlayer.setPlaybackSpeed(speed: Float) {
     playbackParams = playbackParams.setSpeed(speed)
+}
+
+private suspend fun MediaPlayer.awaitCompletion() {
+    suspendCancellableCoroutine { continuation ->
+        setOnCompletionListener { completedPlayer ->
+            completedPlayer.setOnCompletionListener(null)
+            if (continuation.isActive) {
+                continuation.resume(Unit)
+            }
+        }
+        continuation.invokeOnCancellation {
+            setOnCompletionListener(null)
+        }
+    }
 }
 
 private val gameMusicAudioAttributes: AudioAttributes =

@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -61,6 +63,7 @@ fun GameScreen(
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
     val playGavelSound = rememberSoundEffect(R.raw.gavel)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
+    var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -78,12 +81,17 @@ fun GameScreen(
         }
     }
 
-    LaunchedEffect(uiState.currentPhase, uiState.auctionTimerSeconds) {
-        if (uiState.currentPhase == GamePhase.AUCTION_BIDDING &&
-            uiState.auctionTimerSeconds == 0
+    LaunchedEffect(uiState.currentPhase) {
+        if (previousPhase == GamePhase.AUCTION_BIDDING &&
+            uiState.currentPhase in
+            listOf(
+                GamePhase.AUCTIONEER_DECISION,
+                GamePhase.AUCTION_RESULT,
+            )
         ) {
             playGavelSound()
         }
+        previousPhase = uiState.currentPhase
     }
 
     MainBackground(modifier = modifier)
