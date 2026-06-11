@@ -18,7 +18,7 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
-import at.aau.kuhhandel.app.ui.game.WinScreen
+import at.aau.kuhhandel.app.ui.game.TradeActions
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
@@ -53,12 +53,12 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
     // Handle Game State transitions via Navigation
-    LaunchedEffect(currentPhase) {
-        if (currentPhase != null && currentPhase != GamePhase.NOT_STARTED) {
-            val destination = if (currentPhase == GamePhase.FINISHED) Screen.Win else Screen.Game
-            navController.navigate(destination) {
-                // Pop up to Main to clear the backstack when game starts or ends
+    LaunchedEffect(isGameStarted) {
+        if (isGameStarted) {
+            navController.navigate(Screen.Game) {
+                // Pop up to Main to clear the backstack when game starts
                 popUpTo(Screen.Main) { inclusive = false }
+                launchSingleTop = true
             }
         }
     }
@@ -155,6 +155,19 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                         GameViewModel(repository, scope)
                     }
                 val gameUiState by gameViewModel.uiState.collectAsState()
+                val tradeActions =
+                    remember(gameViewModel) {
+                        TradeActions(
+                            selectTargetPlayer = gameViewModel::selectTargetPlayer,
+                            selectAnimal = gameViewModel::selectTradeAnimal,
+                            submitOffer = gameViewModel::submitTradeOffer,
+                            chooseCounterOffer = gameViewModel::chooseCounterOffer,
+                            takeOffer = gameViewModel::takeTradeOffer,
+                            submitCounterOffer = gameViewModel::submitCounterOffer,
+                            toggleHandFanned = gameViewModel::toggleTradeHandFanned,
+                            collapseHand = gameViewModel::collapseTradeHand,
+                        )
+                    }
 
                 GameScreen(
                     uiState = gameUiState,
@@ -162,12 +175,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onRevealCard = gameViewModel::revealCard,
                     onPlaceBid = gameViewModel::placeBid,
                     onBuyBack = gameViewModel::buyBack,
-                    onRespondToTrade = gameViewModel::respondToTrade,
-                    onFinishTradeReveal = gameViewModel::finishTradeReveal,
-                    onInitiateTrade = gameViewModel::initiateTrade,
-                    onSelectTargetPlayer = gameViewModel::selectTargetPlayer,
+                    tradeActions = tradeActions,
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,
+                    onCollapseHand = gameViewModel::collapseHand,
                 )
             }
 

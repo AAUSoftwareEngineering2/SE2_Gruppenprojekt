@@ -98,11 +98,17 @@ class GameRepository(
     suspend fun initiateTrade(
         challengedPlayerId: String,
         animalType: at.aau.kuhhandel.shared.enums.AnimalType,
-        moneyCardIds: Set<String>,
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.initiateTrade(challengedPlayerId, animalType, moneyCardIds)
+        client.initiateTrade(challengedPlayerId, animalType)
+    }
+
+    /** Submits the initiator's selected money cards. */
+    suspend fun submitTradeMoney(moneyCardIds: Set<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.submitTradeMoney(moneyCardIds)
     }
 
     /** Disconnects from the current game and resets local state. */
@@ -115,9 +121,8 @@ class GameRepository(
     /** Sends a counter-offer in response to a trade challenge. */
     suspend fun respondToTrade(counterOfferedMoneyCardIds: Set<String> = emptySet()) {
         ensureConnected()
-        val myId = _state.value.myPlayerId ?: return
         _state.update { it.copy(errorMessage = null) }
-        client.respondToTrade(myId, counterOfferedMoneyCardIds)
+        client.respondToTrade(counterOfferedMoneyCardIds)
     }
 
     /** Informs the server that the trade reveal animation is complete. */
