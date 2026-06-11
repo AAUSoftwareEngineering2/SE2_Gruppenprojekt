@@ -147,7 +147,7 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
 
         val payload = decodePayload(envelope, CreateGamePayload.serializer())
-        val playerName = resolvePlayerName(payload.playerName, session)
+        val playerName = resolvePlayerName(payload.playerName)
 
         val result = gameService.createGame(playerName)
         val gameId = result.gameId
@@ -188,7 +188,7 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
-        val playerName = resolvePlayerName(payload.playerName, session)
+        val playerName = resolvePlayerName(payload.playerName)
 
         val result = gameService.joinGame(gameId, playerName)
 
@@ -568,14 +568,8 @@ class GameWebSocketHandler(
      */
     private fun generateReconnectToken(): String = UUID.randomUUID().toString()
 
-    private fun resolvePlayerName(
-        rawName: String?,
-        session: WebSocketSession,
-    ): String {
-        val trimmed = rawName?.trim()
-        if (trimmed.isNullOrEmpty()) {
-            return "Player ${session.id.takeLast(4)}"
-        }
+    private fun resolvePlayerName(rawName: String): String {
+        val trimmed = rawName.trim()
         if (!PlayerNameRules.isValid(trimmed)) {
             throw GameException(GameErrorReason.INVALID_PLAYER_NAME)
         }

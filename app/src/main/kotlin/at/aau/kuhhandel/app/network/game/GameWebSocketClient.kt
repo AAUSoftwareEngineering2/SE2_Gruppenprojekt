@@ -171,7 +171,7 @@ class GameWebSocketClient(
     }
 
     /** Sends CREATE_GAME. Returns the requestId so the caller can match the server reply well. */
-    suspend fun createGame(playerName: String? = null): String {
+    suspend fun createGame(playerName: String): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
@@ -185,7 +185,7 @@ class GameWebSocketClient(
     /** Joins an existing game lobby. */
     suspend fun joinGame(
         gameId: String,
-        playerName: String? = null,
+        playerName: String,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
