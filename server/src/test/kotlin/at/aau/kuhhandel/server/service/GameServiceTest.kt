@@ -29,6 +29,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.milliseconds
 
 class GameServiceTest {
     private companion object {
@@ -431,7 +432,7 @@ class GameServiceTest {
             service.chooseAuction(result.gameId, result.playerId)
 
             // Advance virtual time to trigger the background coroutine channel
-            advanceTimeBy(5200)
+            advanceTimeBy(5200.milliseconds)
 
             // Verify execution targets the universal endpoint handle
             verify(gameSession).handleTimeoutExpiration()
@@ -485,7 +486,7 @@ class GameServiceTest {
                 service.resolveAuction(result.gameId, result.playerId, auctioneerBuysCard = false)
 
             // Advance past the 5000ms delay + 100ms safety pad
-            advanceTimeBy(5200)
+            advanceTimeBy(5200.milliseconds)
 
             assertEquals(restartedGameState, state)
             verify(gameSession).handleTimeoutExpiration()
@@ -529,7 +530,7 @@ class GameServiceTest {
             service.chooseAuction(result.gameId, result.playerId)
 
             // Simulate progress by a mid-flight mutation
-            advanceTimeBy(3000)
+            advanceTimeBy(3000.milliseconds)
 
             val auctionState2 = auctionState1.copy(timerEndTime = updatedTimerEnd)
             currentMockedState =
@@ -539,7 +540,7 @@ class GameServiceTest {
                 )
 
             // Pass the remaining 2200ms of the first timer
-            advanceTimeBy(2200)
+            advanceTimeBy(2200.milliseconds)
 
             // Verify that the initial job cancels and skips the timeout handler invocation
             verify(gameSession, never()).handleTimeoutExpiration()
@@ -588,7 +589,7 @@ class GameServiceTest {
                     auctionState = null,
                 )
 
-            advanceTimeBy(5200)
+            advanceTimeBy(5200.milliseconds)
 
             // Verify the scheduled worker returns early and skips executing timeouts
             verify(gameSession, never()).handleTimeoutExpiration()
@@ -622,7 +623,7 @@ class GameServiceTest {
             // Remove the game session from memory mid-flight
             service.removeGame(result.gameId)
 
-            advanceTimeBy(5200)
+            advanceTimeBy(5200.milliseconds)
 
             // Verify game removal blocks timeout routing execution loops
             verify(gameSession, never()).handleTimeoutExpiration()

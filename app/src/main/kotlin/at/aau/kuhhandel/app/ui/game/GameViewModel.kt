@@ -4,12 +4,14 @@ import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -39,13 +41,28 @@ data class GameUiState(
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
+    val pendingTradeTargetPlayerId: String? = null,
+    val pendingTradeAnimalType: AnimalType? = null,
+    val canSelectTradeTarget: Boolean = false,
     val isHandFanned: Boolean = false,
+    val isTradeHandFanned: Boolean = false,
+    val isCounterOfferSelected: Boolean = false,
+    val isTradeActionSubmitting: Boolean = false,
 ) {
     /** Helper property to check if an auction is currently in progress. */
     val isAuctionActive: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
-                currentPhase == GamePhase.AUCTIONEER_DECISION
+                currentPhase == GamePhase.AUCTIONEER_DECISION ||
+                currentPhase == GamePhase.AUCTION_RESULT
+
+    /** Shows the trading overlay for a local selection or an active server trade phase. */
+    val isTradeActive: Boolean
+        get() =
+            pendingTradeAnimalType != null ||
+                currentPhase == GamePhase.TRADE_OFFER ||
+                currentPhase == GamePhase.TRADE_RESPONSE ||
+                currentPhase == GamePhase.TRADE_RESULT
 
     val isMyTurn: Boolean
         get() =
@@ -57,11 +74,65 @@ data class GameUiState(
         get() =
             gameState?.auctionState?.auctioneerId == myPlayerId
 
+    val isTradeInitiator: Boolean
+        get() = gameState?.tradeState?.initiatorId == myPlayerId
+
+    val isTradeTarget: Boolean
+        get() = gameState?.tradeState?.targetId == myPlayerId
+
+    val showsTradeOfferHand: Boolean
+        get() = currentPhase == GamePhase.TRADE_OFFER && isTradeInitiator
+
+    val showsTradeResponseDecision: Boolean
+        get() =
+            currentPhase == GamePhase.TRADE_RESPONSE &&
+                isTradeTarget &&
+                !isCounterOfferSelected
+
+    val showsTradeCounterHand: Boolean
+        get() =
+            currentPhase == GamePhase.TRADE_RESPONSE &&
+                isTradeTarget &&
+                isCounterOfferSelected
+
+    val tradeOfferCardCount: Int?
+        get() =
+            gameState?.tradeState?.let { trade ->
+                trade.offeredMoneyCards?.size
+                    ?: trade.offeredMoneyCardIds.size.takeIf { it > 0 }
+            }
+
+    val tradeCounterOfferCardCount: Int?
+        get() =
+            gameState?.tradeState?.let { trade ->
+                trade.counterOfferedMoneyCards?.size
+                    ?: trade.counterOfferedMoneyCardIds.size.takeIf { it > 0 }
+            }
+
+    val tradeResultOfferCards: List<MoneyCard>
+        get() = resultCards(gameState?.tradeState?.offeredMoneyCards)
+
+    val tradeResultCounterOfferCards: List<MoneyCard>
+        get() = resultCards(gameState?.tradeState?.counterOfferedMoneyCards)
+
+    val tradeResultOfferTotal: Int
+        get() = tradeResultOfferCards.sumOf { it.value }
+
+    val tradeResultCounterOfferTotal: Int
+        get() = tradeResultCounterOfferCards.sumOf { it.value }
+
     val activePlayerName: String
         get() =
             gameState?.let {
                 it.players.getOrNull(it.currentPlayerIndex)?.name
             } ?: "Unknown"
+
+    private fun resultCards(cards: Set<MoneyCard>?): List<MoneyCard> =
+        if (currentPhase == GamePhase.TRADE_RESULT) {
+            cards.orEmpty().sortedWith(compareBy<MoneyCard> { it.value }.thenBy { it.id })
+        } else {
+            emptyList()
+        }
 }
 
 /**
@@ -83,7 +154,27 @@ class GameViewModel(
 ) {
     private val selectedMoneyCardIds = MutableStateFlow<Set<String>>(emptySet())
     private val selectedTargetPlayerId = MutableStateFlow<String?>(null)
+    private val pendingTradeTargetPlayerId = MutableStateFlow<String?>(null)
+    private val pendingTradeAnimalType = MutableStateFlow<AnimalType?>(null)
     private val isHandFanned = MutableStateFlow(false)
+    private val isTradeHandFanned = MutableStateFlow(false)
+    private val isCounterOfferSelected = MutableStateFlow(false)
+    private val isTradeActionSubmitting = MutableStateFlow(false)
+
+    init {
+        scope.launch {
+            repository.state
+                .map { repoState ->
+                    TradeServerState(
+                        phase = repoState.gameState?.phase,
+                        myPlayerId = repoState.myPlayerId,
+                        initiatorId = repoState.gameState?.tradeState?.initiatorId,
+                        errorMessage = repoState.errorMessage,
+                    )
+                }.distinctUntilChanged()
+                .collect(::synchronizeTradeUi)
+        }
+    }
 
     private val auctionTimerSeconds =
         repository.state
@@ -118,11 +209,38 @@ class GameViewModel(
             repository.state,
             auctionTimerSeconds,
             selectedMoneyCardIds,
-            selectedTargetPlayerId,
+            combine(
+                combine(
+                    selectedTargetPlayerId,
+                    pendingTradeTargetPlayerId,
+                    pendingTradeAnimalType,
+                ) { targetId, pendingTargetId, pendingAnimalType ->
+                    TradeSelectionState(targetId, pendingTargetId, pendingAnimalType)
+                },
+                isTradeHandFanned,
+                isCounterOfferSelected,
+                isTradeActionSubmitting,
+            ) { selection, tradeHandFanned, counterOfferSelected, submitting ->
+                TradeLocalState(
+                    selection = selection,
+                    isHandFanned = tradeHandFanned,
+                    isCounterOfferSelected = counterOfferSelected,
+                    isSubmitting = submitting,
+                )
+            },
             isHandFanned,
-        ) { repoState, timer, selectedIds, targetId, fanned ->
+        ) { repoState, timer, selectedIds, tradeLocalState, fanned ->
             val gameState = repoState.gameState
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
+            val activePlayerId =
+                gameState
+                    ?.players
+                    ?.getOrNull(gameState.currentPlayerIndex)
+                    ?.id
+            val isMyTurn = activePlayerId == repoState.myPlayerId && repoState.myPlayerId != null
+            val canSelectTradeTarget = currentPhase == GamePhase.PLAYER_CHOICE && isMyTurn
+            val tradeSelection = tradeLocalState.selection
+            val targetId = tradeSelection.activeTargetPlayerId.takeIf { canSelectTradeTarget }
 
             val sharedAnimals =
                 if (targetId != null &&
@@ -184,7 +302,13 @@ class GameViewModel(
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
+                pendingTradeTargetPlayerId = tradeSelection.pendingTargetPlayerId,
+                pendingTradeAnimalType = tradeSelection.pendingAnimalType,
+                canSelectTradeTarget = canSelectTradeTarget,
                 isHandFanned = fanned,
+                isTradeHandFanned = tradeLocalState.isHandFanned,
+                isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
+                isTradeActionSubmitting = tradeLocalState.isSubmitting,
             )
         }.distinctUntilChanged()
             .stateIn(
@@ -205,6 +329,21 @@ class GameViewModel(
         isHandFanned.update { !it }
     }
 
+    /** Collapses the normal game money hand when the player taps outside it. */
+    fun collapseHand() {
+        isHandFanned.value = false
+    }
+
+    /** Toggles the trade-specific money hand independently of the normal game hand. */
+    fun toggleTradeHandFanned() {
+        isTradeHandFanned.update { !it }
+    }
+
+    /** Collapses the trade money hand when the player taps elsewhere on the table. */
+    fun collapseTradeHand() {
+        isTradeHandFanned.value = false
+    }
+
     /** Deselects all currently selected money cards. */
     fun clearSelection() {
         selectedMoneyCardIds.value = emptySet()
@@ -223,9 +362,6 @@ class GameViewModel(
             repository.revealCard()
         }
     }
-
-    // --- CONTRACT EXPANSION ---
-    // The following actions need to be added to the shared WebSocketType and implemented in GameWebSocketClient/Server
 
     /** Places a bid during an active auction phase. */
     fun placeBid(amount: Int) {
@@ -249,22 +385,72 @@ class GameViewModel(
         }
     }
 
-    /** Submits a counter-offer for an ongoing trade challenge. */
-    fun respondToTrade() {
+    /** Submits the initiator's selected money cards. */
+    fun submitTradeOffer() {
+        val state = uiState.value
+        if (!state.showsTradeOfferHand ||
+            isTradeActionSubmitting.value
+        ) {
+            return
+        }
+
+        isTradeActionSubmitting.value = true
         scope.launch {
             try {
-                if (uiState.value.gameState
-                        ?.tradeState
-                        ?.initiatorId ==
-                    uiState.value.myPlayerId
-                ) {
-                    // If I'm the initiator, use offerTrade logic
-//                    repository.offerTrade(selectedMoneyCardIds.value.toList())
-                } else {
-                    repository.respondToTrade(selectedMoneyCardIds.value.toSet())
-                }
+                repository.submitTradeMoney(selectedMoneyCardIds.value)
                 clearSelection()
             } catch (_: Exception) {
+                isTradeActionSubmitting.value = false
+            }
+        }
+    }
+
+    /** Reveals the challenged player's money hand for a counter-offer. */
+    fun chooseCounterOffer() {
+        val state = uiState.value
+        if (!state.showsTradeResponseDecision || isTradeActionSubmitting.value) {
+            return
+        }
+
+        clearSelection()
+        isCounterOfferSelected.value = true
+        isTradeHandFanned.value = true
+    }
+
+    /** Accepts the initiator's money and gives up the animals without countering. */
+    fun takeTradeOffer() {
+        val state = uiState.value
+        if (!state.showsTradeResponseDecision || isTradeActionSubmitting.value) {
+            return
+        }
+
+        isTradeActionSubmitting.value = true
+        scope.launch {
+            try {
+                repository.respondToTrade(emptySet())
+                clearSelection()
+            } catch (_: Exception) {
+                isTradeActionSubmitting.value = false
+            }
+        }
+    }
+
+    /** Submits the challenged player's selected counter-offer cards. */
+    fun submitCounterOffer() {
+        val state = uiState.value
+        if (!state.showsTradeCounterHand ||
+            isTradeActionSubmitting.value
+        ) {
+            return
+        }
+
+        isTradeActionSubmitting.value = true
+        scope.launch {
+            try {
+                repository.respondToTrade(selectedMoneyCardIds.value)
+                clearSelection()
+            } catch (_: Exception) {
+                isTradeActionSubmitting.value = false
             }
         }
     }
@@ -274,23 +460,62 @@ class GameViewModel(
         targetPlayerId: String,
         animalType: AnimalType,
     ) {
+        if (isTradeActionSubmitting.value) {
+            return
+        }
+
+        isTradeActionSubmitting.value = true
         scope.launch {
             try {
-                repository.initiateTrade(
-                    targetPlayerId,
-                    animalType,
-                    selectedMoneyCardIds.value.toSet(),
-                )
+                repository.initiateTrade(targetPlayerId, animalType)
                 clearSelection()
                 selectedTargetPlayerId.value = null
             } catch (_: Exception) {
+                pendingTradeTargetPlayerId.value = null
+                pendingTradeAnimalType.value = null
+                isTradeActionSubmitting.value = false
             }
         }
     }
 
     /** Sets the target player for a potential trade. */
     fun selectTargetPlayer(playerId: String?) {
+        if (playerId == null) {
+            selectedTargetPlayerId.value = null
+            return
+        }
+
+        val repoState = repository.state.value
+        val gameState = repoState.gameState ?: return
+        val myPlayerId = repoState.myPlayerId ?: return
+        val activePlayerId = gameState.players.getOrNull(gameState.currentPlayerIndex)?.id
+
+        if (gameState.phase != GamePhase.PLAYER_CHOICE || activePlayerId != myPlayerId) {
+            return
+        }
+
+        if (playerId == myPlayerId || gameState.players.none { it.id == playerId }) {
+            return
+        }
+
+        pendingTradeTargetPlayerId.value = null
+        pendingTradeAnimalType.value = null
         selectedTargetPlayerId.value = playerId
+    }
+
+    /** Stores the selected trade animal locally without initiating a backend trade yet. */
+    fun selectTradeAnimal(animalType: AnimalType) {
+        val currentState = uiState.value
+        val targetPlayerId = currentState.selectedTargetPlayerId ?: return
+
+        if (animalType !in currentState.sharedAnimalsWithSelectedPlayer) {
+            return
+        }
+
+        pendingTradeTargetPlayerId.value = targetPlayerId
+        pendingTradeAnimalType.value = animalType
+        selectedTargetPlayerId.value = null
+        initiateTrade(targetPlayerId, animalType)
     }
 
     /** Signals that the trade reveal animation has finished. */
@@ -299,6 +524,63 @@ class GameViewModel(
             try {
                 repository.finishTradeReveal()
             } catch (_: Exception) {
+            }
+        }
+    }
+
+    private data class TradeSelectionState(
+        val activeTargetPlayerId: String?,
+        val pendingTargetPlayerId: String?,
+        val pendingAnimalType: AnimalType?,
+    )
+
+    private data class TradeLocalState(
+        val selection: TradeSelectionState,
+        val isHandFanned: Boolean,
+        val isCounterOfferSelected: Boolean,
+        val isSubmitting: Boolean,
+    )
+
+    private data class TradeServerState(
+        val phase: GamePhase?,
+        val myPlayerId: String?,
+        val initiatorId: String?,
+        val errorMessage: String?,
+    )
+
+    private fun synchronizeTradeUi(serverState: TradeServerState) {
+        when (serverState.phase) {
+            GamePhase.TRADE_OFFER -> {
+                pendingTradeTargetPlayerId.value = null
+                pendingTradeAnimalType.value = null
+                clearSelection()
+                isTradeHandFanned.value = serverState.initiatorId == serverState.myPlayerId
+                isCounterOfferSelected.value = false
+                isTradeActionSubmitting.value = false
+            }
+
+            GamePhase.TRADE_RESPONSE -> {
+                clearSelection()
+                isTradeHandFanned.value = false
+                isCounterOfferSelected.value = false
+                isTradeActionSubmitting.value = false
+            }
+
+            GamePhase.TRADE_RESULT -> {
+                clearSelection()
+                isTradeHandFanned.value = false
+                isCounterOfferSelected.value = false
+                isTradeActionSubmitting.value = false
+            }
+
+            else -> {
+                if (serverState.errorMessage != null) {
+                    pendingTradeTargetPlayerId.value = null
+                    pendingTradeAnimalType.value = null
+                    isTradeActionSubmitting.value = false
+                }
+                isTradeHandFanned.value = false
+                isCounterOfferSelected.value = false
             }
         }
     }

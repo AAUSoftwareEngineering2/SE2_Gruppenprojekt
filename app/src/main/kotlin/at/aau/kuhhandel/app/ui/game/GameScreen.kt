@@ -4,20 +4,19 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,7 +36,6 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 
 @Composable
@@ -47,16 +45,16 @@ fun GameScreen(
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
-    onRespondToTrade: () -> Unit,
-    onFinishTradeReveal: () -> Unit,
-    onInitiateTrade: (String, AnimalType) -> Unit,
-    onSelectTargetPlayer: (String?) -> Unit,
+    tradeActions: TradeActions,
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
+    onCollapseHand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isAuctionActive = uiState.isAuctionActive
+    val isTradeActive = uiState.isTradeActive
+    val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -70,38 +68,17 @@ fun GameScreen(
 
     MainBackground(modifier = modifier)
 
-    // --- ANIMAL SELECTION DIALOG ---
-    if (uiState.selectedTargetPlayerId != null) {
-        AlertDialog(
-            onDismissRequest = { onSelectTargetPlayer(null) },
-            title = { Text("Pick animal to trade") },
-            text = {
-                Column {
-                    if (uiState.sharedAnimalsWithSelectedPlayer.isEmpty()) {
-                        Text("No shared animals found.")
-                    } else {
-                        uiState.sharedAnimalsWithSelectedPlayer.forEach { animal ->
-                            TextButton(
-                                onClick = {
-                                    onInitiateTrade(
-                                        uiState.selectedTargetPlayerId,
-                                        animal,
-                                    )
-                                },
-                            ) {
-                                Text(animal.name)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { onSelectTargetPlayer(null) }) { Text("Cancel") }
-            },
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    enabled = uiState.isHandFanned && !isTradeActive,
+                    interactionSource = gameBackgroundInteractionSource,
+                    indication = null,
+                    onClick = onCollapseHand,
+                ),
+    ) {
         // --- DECOR ---
         Image(
             painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
@@ -129,7 +106,11 @@ fun GameScreen(
             OpponentList(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
-                onOpponentClick = onSelectTargetPlayer,
+                onOpponentClick = tradeActions.selectTargetPlayer,
+                canSelectTradeTarget = uiState.canSelectTradeTarget,
+                selectedTargetPlayerId = uiState.selectedTargetPlayerId,
+                enabledTradeAnimalTypes = uiState.sharedAnimalsWithSelectedPlayer.toSet(),
+                onTradeAnimalClick = tradeActions.selectAnimal,
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
@@ -173,13 +154,7 @@ fun GameScreen(
                     GamePhase.TRADE_OFFER,
                     GamePhase.TRADE_RESPONSE,
                     GamePhase.TRADE_RESULT,
-                    -> {
-                        TradePhaseContent(
-                            uiState = uiState,
-                            onRespondToTrade = onRespondToTrade,
-                            onFinishTradeReveal = onFinishTradeReveal,
-                        )
-                    }
+                    -> Unit
 
                     GamePhase.FINISHED -> {
                         Text(
@@ -214,7 +189,7 @@ fun GameScreen(
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
         val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
-        if (myPlayer != null) {
+        if (myPlayer != null && !isTradeActive) {
             val handTranslationY by animateDpAsState(
                 targetValue = if (isAuctionActive) 115.dp else 0.dp,
                 animationSpec = spring(stiffness = 200f),
@@ -260,6 +235,12 @@ fun GameScreen(
                 )
             }
         }
+
+        TradeOverlay(
+            uiState = uiState,
+            actions = tradeActions,
+            onToggleMoneyCard = onToggleMoneyCard,
+        )
     }
 }
 
@@ -271,7 +252,11 @@ fun GameScreenPreview() {
             Player(
                 "1",
                 "Player 1",
-                moneyCards = List(6) { MoneyCard("a$it", 10) },
+                moneyCards =
+                    List(6) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("a$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard(
@@ -287,7 +272,11 @@ fun GameScreenPreview() {
             Player(
                 "2",
                 "Player 2",
-                moneyCards = List(3) { MoneyCard("b$it", 10) },
+                moneyCards =
+                    List(3) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("b$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard("b1", AnimalType.PIG),
@@ -298,13 +287,21 @@ fun GameScreenPreview() {
             Player(
                 "3",
                 "Player 3",
-                moneyCards = List(5) { MoneyCard("c$it", 10) },
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("c$it", 10)
+                    },
                 animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
             ),
             Player(
                 "4",
                 "Player 4",
-                moneyCards = List(12) { MoneyCard("d$it", 10) },
+                moneyCards =
+                    List(12) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("d$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard("d1", AnimalType.HORSE),
@@ -316,7 +313,11 @@ fun GameScreenPreview() {
             Player(
                 "5",
                 "Me",
-                moneyCards = List(5) { MoneyCard("m$it", 50) },
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("m$it", 50)
+                    },
                 animals =
                     listOf(
                         AnimalCard("m1", AnimalType.DONKEY),
@@ -337,8 +338,16 @@ fun GameScreenPreview() {
             myPlayerId = "5",
             currentPhase = GamePhase.PLAYER_CHOICE,
             deckCountText = "5",
+            activeCardLabel = "No card revealed",
+            isConnected = true,
             canRevealCard = true,
+            canStartGame = false,
+            auctionTimerSeconds = null,
+            errorMessage = null,
             myMoneyCards = players[4].moneyCards,
+            selectedMoneyCardIds = emptySet(),
+            sharedAnimalsWithSelectedPlayer = emptyList(),
+            selectedTargetPlayerId = null,
             isHandFanned = false,
         )
     GameScreen(
@@ -347,11 +356,19 @@ fun GameScreenPreview() {
         onRevealCard = {},
         onPlaceBid = {},
         onBuyBack = {},
-        onRespondToTrade = {},
-        onFinishTradeReveal = {},
-        onInitiateTrade = { _, _ -> },
-        onSelectTargetPlayer = {},
+        tradeActions =
+            TradeActions(
+                selectTargetPlayer = {},
+                selectAnimal = {},
+                submitOffer = {},
+                chooseCounterOffer = {},
+                takeOffer = {},
+                submitCounterOffer = {},
+                toggleHandFanned = {},
+                collapseHand = {},
+            ),
         onToggleMoneyCard = {},
         onToggleHandFanned = {},
+        onCollapseHand = {},
     )
 }

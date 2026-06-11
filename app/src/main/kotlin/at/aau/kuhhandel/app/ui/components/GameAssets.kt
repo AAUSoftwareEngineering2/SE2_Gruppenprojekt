@@ -80,3 +80,35 @@ fun getHiddenMoneyDiagonalDrawable(count: Int): Int =
         7 -> R.drawable.ig_money_hidden_diagonal_7
         else -> R.drawable.ig_money_hidden_diagonal_7
     }
+
+/** Maps a submitted trade card count to its table stack drawable. */
+fun getHiddenMoneyTableDrawable(
+    count: Int,
+    isCounterOffer: Boolean = false,
+): Int {
+    val visibleCardCount = count.coerceIn(1, 7)
+
+    return if (isCounterOffer) {
+        when (visibleCardCount) {
+            1 -> R.drawable.ig_money_hidden_table_counter_1
+            2 -> R.drawable.ig_money_hidden_table_counter_2
+            3 -> R.drawable.ig_money_hidden_table_counter_3
+            4 -> R.drawable.ig_money_hidden_table_counter_4
+            5 -> R.drawable.ig_money_hidden_table_counter_5
+            6 -> R.drawable.ig_money_hidden_table_counter_6
+            7 -> R.drawable.ig_money_hidden_table_counter_7
+            else -> R.drawable.ig_money_hidden_table_counter_7
+        }
+    } else {
+        when (visibleCardCount) {
+            1 -> R.drawable.ig_money_hidden_table_1
+            2 -> R.drawable.ig_money_hidden_table_2
+            3 -> R.drawable.ig_money_hidden_table_3
+            4 -> R.drawable.ig_money_hidden_table_4
+            5 -> R.drawable.ig_money_hidden_table_5
+            6 -> R.drawable.ig_money_hidden_table_6
+            7 -> R.drawable.ig_money_hidden_table_7
+            else -> R.drawable.ig_money_hidden_table_7
+        }
+    }
+}

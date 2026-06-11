@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
-import at.aau.kuhhandel.app.ui.components.TradeView
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -64,11 +63,13 @@ fun AuctionPhaseContent(
         AuctionView(
             auction = auctionState,
             timerSeconds = uiState.auctionTimerSeconds,
+            phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING,
             players = gameState?.players ?: emptyList(),
             myPlayerId = uiState.myPlayerId,
             footerContent = {
+                val phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING
                 if (!uiState.isAuctioneer &&
-                    (gameState?.phase == GamePhase.AUCTION_BIDDING)
+                    (phase == GamePhase.AUCTION_BIDDING)
                 ) {
                     AuctionControls(
                         onBid = onPlaceBid,
@@ -78,12 +79,34 @@ fun AuctionPhaseContent(
                                 uiState.myPlayerId,
                             ) == true,
                     )
-                } else if (gameState?.phase == GamePhase.AUCTIONEER_DECISION) {
+                } else if (phase == GamePhase.AUCTIONEER_DECISION ||
+                    phase == GamePhase.AUCTION_RESULT
+                ) {
                     val highestBidderId = auctionState?.highestBidderId
+                    val buyerId = auctionState?.buyerId
+                    val auctioneerId = auctionState?.auctioneerId
+                    val buyerName =
+                        if (buyerId != null) {
+                            gameState.players.find { it.id == buyerId }?.name ?: "Unknown"
+                        } else {
+                            ""
+                        }
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        if (uiState.isAuctioneer) {
+                        if (phase == GamePhase.AUCTION_RESULT) {
+                            val resultText =
+                                when {
+                                    highestBidderId == null -> "$buyerName got the animal for free!"
+                                    buyerId == auctioneerId -> "$buyerName bought back!"
+                                    else -> "$buyerName won the auction!"
+                                }
+                            GameStatusText(
+                                text = resultText,
+                                color = DarkPurple,
+                            )
+                        } else if (uiState.isAuctioneer) {
                             val statusText =
                                 if (highestBidderId == null) {
                                     "Auction Closed. No one bid!"
@@ -117,44 +140,6 @@ fun AuctionPhaseContent(
                 }
             },
         )
-    }
-}
-
-@Composable
-fun TradePhaseContent(
-    uiState: GameUiState,
-    onRespondToTrade: () -> Unit,
-    onFinishTradeReveal: () -> Unit,
-) {
-    val trade = uiState.gameState?.tradeState
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TradeView(
-            trade = trade,
-            onAccept = onRespondToTrade,
-            onCounter = onRespondToTrade,
-            myId = uiState.myPlayerId,
-        )
-
-        if (trade?.initiatorId == uiState.myPlayerId &&
-            (trade?.offeredMoneyCardIds?.size ?: 0) == 0
-        ) {
-            Button(
-                onClick = onRespondToTrade,
-                modifier = Modifier.padding(top = 8.dp),
-                enabled = uiState.selectedMoneyCardIds.isNotEmpty(),
-            ) {
-                Text("Send Offer (${uiState.selectedMoneyCardIds.size})")
-            }
-        }
-
-        if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
-            Button(
-                onClick = onFinishTradeReveal,
-                modifier = Modifier.padding(top = 16.dp),
-            ) {
-                Text("CONTINUE")
-            }
-        }
     }
 }
 
