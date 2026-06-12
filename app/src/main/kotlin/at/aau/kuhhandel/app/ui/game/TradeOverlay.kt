@@ -76,12 +76,11 @@ private const val TRADE_ANIMAL_HEADSHOT_SCALE = 4f
 private const val TRADE_RESULT_CARDS_SCALE = 0.6f
 private const val TRADE_CARD_TRAVEL_DURATION_MS = 2_000
 private const val TRADE_RESULT_GRID_DURATION_MS = 1_000L
-private const val TRADE_RESULT_TOTAL_DURATION_MS = 5_000L
 private const val TRADE_RESULT_COUNT_UP_DURATION_MS = 500
 private const val TRADE_RESULT_TOTAL_POP_DURATION_MS = 100
 private const val TRADE_RESULT_TOTAL_SETTLE_DURATION_MS = 120
 private const val TRADE_RESULT_TOTAL_POP_SCALE = 1.1f
-private const val TRADE_RESULT_TABLE_SOUND_DELAY_MS = 6_000L
+private const val TRADE_CARD_PLACE_SOUND_DELAY_MS = 600L
 private const val TRADE_EXIT_RETENTION_MS = 2_000L
 
 private enum class TradeResultStage {
@@ -159,9 +158,13 @@ fun TradeOverlay(
     var retainedPresentation by remember { mutableStateOf(currentPresentation) }
     var resultStage by remember { mutableStateOf(TradeResultStage.STACKS) }
     var previousTradePresentation by remember { mutableStateOf<TradeCardPresentation?>(null) }
+    var previousOfferCount by remember { mutableStateOf<Int?>(null) }
+    var previousCounterOfferCount by remember { mutableStateOf<Int?>(null) }
+    var wasTradeActive by remember { mutableStateOf(uiState.isTradeActive) }
     val playTradeStartedSound = rememberMediaSoundEffect(R.raw.trade_started)
     val playTradeWonSound = rememberMediaSoundEffect(R.raw.trade_won)
     val playTradeLostSound = rememberMediaSoundEffect(R.raw.trade_lost)
+    val playPlaceCardOnTableSound = rememberMediaSoundEffect(R.raw.place_card_on_table)
 
     LaunchedEffect(currentPresentation) {
         if (currentPresentation != null) {
@@ -177,12 +180,37 @@ fun TradeOverlay(
         }
         previousTradePresentation = currentPresentation
     }
+    LaunchedEffect(currentPresentation?.offerCount, currentPresentation?.counterOfferCount) {
+        val offerCount = currentPresentation?.offerCount
+        val counterOfferCount = currentPresentation?.counterOfferCount
+        val offerCardsWerePlaced =
+            offerCount != null &&
+                offerCount > 0 &&
+                offerCount != previousOfferCount
+        val counterOfferCardsWerePlaced =
+            counterOfferCount != null &&
+                counterOfferCount > 0 &&
+                counterOfferCount != previousCounterOfferCount
+
+        if (offerCardsWerePlaced || counterOfferCardsWerePlaced) {
+            delay(TRADE_CARD_PLACE_SOUND_DELAY_MS)
+            playPlaceCardOnTableSound()
+        }
+
+        previousOfferCount = offerCount
+        previousCounterOfferCount = counterOfferCount
+    }
     LaunchedEffect(uiState.isTradeActive) {
         if (!uiState.isTradeActive) {
+            if (wasTradeActive) {
+                playTradeStartedSound()
+            }
+            resultStage = TradeResultStage.STACKS
             delay(TRADE_EXIT_RETENTION_MS)
             retainedPresentation = null
             previousTradePresentation = null
         }
+        wasTradeActive = uiState.isTradeActive
     }
     LaunchedEffect(uiState.currentPhase, uiState.gameState?.tradeState) {
         if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
@@ -191,8 +219,6 @@ fun TradeOverlay(
             resultStage = TradeResultStage.GRIDS
             delay(TRADE_RESULT_GRID_DURATION_MS)
             resultStage = TradeResultStage.TOTALS
-            delay(TRADE_RESULT_TOTAL_DURATION_MS)
-            resultStage = TradeResultStage.STACKS
         }
     }
     LaunchedEffect(
@@ -214,15 +240,6 @@ fun TradeOverlay(
             }
         }
     }
-    LaunchedEffect(uiState.currentPhase, resultStage) {
-        if (uiState.currentPhase == GamePhase.TRADE_RESULT &&
-            resultStage == TradeResultStage.TOTALS
-        ) {
-            delay(TRADE_RESULT_TABLE_SOUND_DELAY_MS)
-            playTradeStartedSound()
-        }
-    }
-
     val presentation =
         currentPresentation
             ?: retainedPresentation.takeIf { !uiState.isTradeActive }

@@ -62,6 +62,7 @@ fun GameScreen(
     val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
     val playGavelSound = rememberSoundEffect(R.raw.gavel)
+    val playPickFarmSound = rememberSoundEffect(R.raw.pick_farm)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
 
@@ -135,11 +136,17 @@ fun GameScreen(
             OpponentList(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
-                onOpponentClick = tradeActions.selectTargetPlayer,
+                onOpponentClick = { playerId ->
+                    playPickFarmSound()
+                    tradeActions.selectTargetPlayer(playerId)
+                },
                 canSelectTradeTarget = uiState.canSelectTradeTarget,
                 selectedTargetPlayerId = uiState.selectedTargetPlayerId,
                 enabledTradeAnimalTypes = uiState.sharedAnimalsWithSelectedPlayer.toSet(),
-                onTradeAnimalClick = tradeActions.selectAnimal,
+                onTradeAnimalClick = { animalType ->
+                    playPickFarmSound()
+                    tradeActions.selectAnimal(animalType)
+                },
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
