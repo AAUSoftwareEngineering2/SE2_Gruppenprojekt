@@ -14,6 +14,8 @@ import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.model.TradeState
+import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -2075,6 +2077,121 @@ class GameSessionTest {
         val gameSession = GameSession.fromState("game-1", baselineState)
 
         assertFalse(gameSession.hasPlayer("player-4"))
+    }
+
+    @Test
+    fun `getEarliestSpyExpiration returns the lowest timestamp among active spies`() {
+        val now = System.currentTimeMillis()
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = now + 5000L,
+                    revealedCards = emptySet(),
+                ),
+                SpyAction(
+                    spyId = "player-3",
+                    targetId = "player-1",
+                    expiresAt = now + 2000L,
+                    revealedCards = emptySet(),
+                ),
+                SpyAction(
+                    spyId = "player-5",
+                    targetId = "player-1",
+                    expiresAt = now + 8000L,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val stateWithSpies = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", stateWithSpies)
+
+        assertEquals(now + 2000L, gameSession.getEarliestSpyExpiration())
+    }
+
+    @Test
+    fun `getEarliestSpyExpiration returns null when there are no active spies`() {
+        val stateWithoutSpies = baselineState.copy(activeSpies = emptySet())
+        val gameSession = GameSession.fromState("game-1", stateWithoutSpies)
+
+        assertNull(gameSession.getEarliestSpyExpiration())
+    }
+
+    @Test
+    fun `hasActiveSpies returns true when there is at least one active spy`() {
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = System.currentTimeMillis() + 5000L,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val stateWithSpies = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", stateWithSpies)
+
+        assertTrue(gameSession.hasActiveSpies())
+    }
+
+    @Test
+    fun `hasActiveSpies returns false when there are no active spies`() {
+        val stateWithoutSpies = baselineState.copy(activeSpies = emptySet())
+        val gameSession = GameSession.fromState("game-1", stateWithoutSpies)
+
+        assertFalse(gameSession.hasActiveSpies())
+    }
+
+    @Test
+    fun `clearExpiredSpies purges expired spy actions`() {
+        val pastTime = System.currentTimeMillis() - 5000L
+        val futureTime = System.currentTimeMillis() + 10000L
+
+        val expiredSpy =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = pastTime,
+                revealedCards = emptySet(),
+            )
+        val validSpy =
+            SpyAction(
+                spyId = "player-3",
+                targetId = "player-1",
+                expiresAt = futureTime,
+                revealedCards = emptySet(),
+            )
+
+        val initialGameState = baselineState.copy(activeSpies = setOf(expiredSpy, validSpy))
+        val gameSession = GameSession.fromState("game-1", initialGameState)
+
+        val resultState = gameSession.clearExpiredSpies()
+
+        assertNotSame(initialGameState, resultState)
+        assertEquals(1, resultState.activeSpies.size)
+        assertTrue(resultState.activeSpies.contains(validSpy))
+        assertFalse(resultState.activeSpies.contains(expiredSpy))
+    }
+
+    @Test
+    fun `clearExpiredSpies does not mutate the state reference when no spies have expired`() {
+        val futureTime = System.currentTimeMillis() + 10000L
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = futureTime,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val initialGameState = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", initialGameState)
+
+        val resultState = gameSession.clearExpiredSpies()
+
+        assertSame(initialGameState, resultState)
+        assertEquals(1, gameSession.state.activeSpies.size)
     }
 
     private fun assertValidTimeout(

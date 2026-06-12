@@ -711,6 +711,33 @@ class GameSession(
     }
 
     /**
+     * Finds the absolute earliest expiration deadline among all active spies.
+     * Returns null if no players are actively spying.
+     */
+    fun getEarliestSpyExpiration(): Long? = state.activeSpies.minOfOrNull { it.expiresAt }
+
+    /**
+     * Checks if there are any active spy actions tracked in the session.
+     */
+    fun hasActiveSpies(): Boolean = state.activeSpies.isNotEmpty()
+
+    /**
+     * Clears out any spy actions that have crossed their expiration deadline.
+     * Returns true if the state was mutated, and false otherwise.
+     */
+    fun clearExpiredSpies(): GameState {
+        val now = System.currentTimeMillis()
+        val (expired, valid) = state.activeSpies.partition { it.expiresAt <= now }
+
+        // Exit early if no changes are needed
+        if (expired.isNotEmpty()) {
+            state = state.copy(activeSpies = valid.toSet())
+        }
+
+        return state
+    }
+
+    /**
      * Shifts the active turn indicator to the next player.
      *
      * Transitions the game to [GamePhase.FINISHED] if all animal quartets
