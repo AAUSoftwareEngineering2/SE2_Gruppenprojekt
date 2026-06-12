@@ -17,6 +17,7 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -83,6 +84,8 @@ class GameWebSocketHandler(
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
+                    WebSocketType.SPY -> handleSpy(session, envelope)
+                    WebSocketType.CATCH_SPY -> handleCatchSpy(session, envelope)
                     else -> throw GameException(GameErrorReason.UNSUPPORTED_MESSAGE_TYPE)
                 }
             } catch (e: GameException) {
@@ -405,6 +408,37 @@ class GameWebSocketHandler(
                 actorId,
                 payload.moneyCardIds,
             )
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.SPY] commands.
+     */
+    private suspend fun handleSpy(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, SpyPayload.serializer())
+
+        val state = gameService.spy(gameId, actorId, payload.targetPlayerId)
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.CATCH_SPY] commands.
+     */
+    private suspend fun handleCatchSpy(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+
+        val state = gameService.catchSpy(gameId, actorId)
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
