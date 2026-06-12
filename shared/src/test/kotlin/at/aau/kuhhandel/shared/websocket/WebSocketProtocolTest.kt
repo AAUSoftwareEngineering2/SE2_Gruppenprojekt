@@ -207,6 +207,16 @@ class WebSocketProtocolTest {
     }
 
     @Test
+    fun `SpyPayload round-trips`() {
+        val payload = SpyPayload(targetPlayerId = "player-1")
+
+        val encoded = json.encodeToString(SpyPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SpyPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
     fun `ErrorPayload round-trips`() {
         val payload = ErrorPayload(message = "Something went wrong")
 
