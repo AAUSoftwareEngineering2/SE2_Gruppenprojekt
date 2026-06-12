@@ -379,7 +379,7 @@ fun AuctionControls(
     currentBid: Int,
     isExcluded: Boolean = false,
 ) {
-    val playBidHigherSound = rememberSoundEffect(R.raw.bid_higher)
+    val playBidHigherSound = rememberSoundEffect(R.raw.auction_bid_higher)
 
     if (isExcluded) {
         Column(

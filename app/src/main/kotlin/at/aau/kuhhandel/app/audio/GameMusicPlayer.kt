@@ -70,7 +70,7 @@ fun GameMusicPlayer(
 private fun createGameStartMediaPlayer(context: Context): MediaPlayer =
     MediaPlayer.create(
         context,
-        R.raw.game_start_sound,
+        R.raw.game_start,
         gameMusicAudioAttributes,
         0,
     )
@@ -79,7 +79,7 @@ private fun createGameLoopMediaPlayer(context: Context): MediaPlayer =
     MediaPlayer
         .create(
             context,
-            R.raw.mainmenu_loop,
+            R.raw.music_game_loop,
             gameMusicAudioAttributes,
             0,
         ).apply {

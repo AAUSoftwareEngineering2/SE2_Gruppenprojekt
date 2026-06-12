@@ -48,7 +48,7 @@ internal fun createMenuMediaPlayer(context: Context): MediaPlayer =
     MediaPlayer
         .create(
             context,
-            R.raw.mainmenu,
+            R.raw.music_menu,
             AudioAttributes
                 .Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)

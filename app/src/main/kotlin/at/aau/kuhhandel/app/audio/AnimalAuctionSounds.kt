@@ -6,16 +6,16 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 
 @Composable
 fun rememberAnimalAuctionSound(): (AnimalType) -> Unit {
-    val playChicken = rememberMediaSoundEffect(R.raw.chicken)
-    val playGoose = rememberMediaSoundEffect(R.raw.goose)
-    val playCat = rememberMediaSoundEffect(R.raw.cat)
-    val playDog = rememberMediaSoundEffect(R.raw.dog)
-    val playSheep = rememberMediaSoundEffect(R.raw.sheep)
-    val playGoat = rememberMediaSoundEffect(R.raw.goat)
-    val playMoneyAfterDonkeyReveal = rememberMediaSoundEffect(R.raw.money_after_donkey_reveal)
-    val playPig = rememberMediaSoundEffect(R.raw.pig)
-    val playCow = rememberMediaSoundEffect(R.raw.cow)
-    val playHorse = rememberMediaSoundEffect(R.raw.horse)
+    val playChicken = rememberMediaSoundEffect(R.raw.animal_chicken)
+    val playGoose = rememberMediaSoundEffect(R.raw.animal_goose)
+    val playCat = rememberMediaSoundEffect(R.raw.animal_cat)
+    val playDog = rememberMediaSoundEffect(R.raw.animal_dog)
+    val playSheep = rememberMediaSoundEffect(R.raw.animal_sheep)
+    val playGoat = rememberMediaSoundEffect(R.raw.animal_goat)
+    val playMoneyAfterDonkeyReveal = rememberMediaSoundEffect(R.raw.trade_donkey_money)
+    val playPig = rememberMediaSoundEffect(R.raw.animal_pig)
+    val playCow = rememberMediaSoundEffect(R.raw.animal_cow)
+    val playHorse = rememberMediaSoundEffect(R.raw.animal_horse)
 
     return { animalType ->
         when (animalType) {

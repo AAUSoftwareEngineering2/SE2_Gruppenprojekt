@@ -161,10 +161,10 @@ fun TradeOverlay(
     var previousOfferCount by remember { mutableStateOf<Int?>(null) }
     var previousCounterOfferCount by remember { mutableStateOf<Int?>(null) }
     var wasTradeActive by remember { mutableStateOf(uiState.isTradeActive) }
-    val playTradeStartedSound = rememberMediaSoundEffect(R.raw.trade_started)
+    val playTradeStartedSound = rememberMediaSoundEffect(R.raw.trade_table_move)
     val playTradeWonSound = rememberMediaSoundEffect(R.raw.trade_won)
     val playTradeLostSound = rememberMediaSoundEffect(R.raw.trade_lost)
-    val playPlaceCardOnTableSound = rememberMediaSoundEffect(R.raw.place_card_on_table)
+    val playPlaceCardOnTableSound = rememberMediaSoundEffect(R.raw.trade_place_cards)
 
     LaunchedEffect(currentPresentation) {
         if (currentPresentation != null) {

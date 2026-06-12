@@ -61,8 +61,8 @@ fun GameScreen(
     val isTradeActive = uiState.isTradeActive
     val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
-    val playGavelSound = rememberSoundEffect(R.raw.gavel)
-    val playPickFarmSound = rememberSoundEffect(R.raw.pick_farm)
+    val playGavelSound = rememberSoundEffect(R.raw.auction_gavel)
+    val playPickFarmSound = rememberSoundEffect(R.raw.trade_pick_farm)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
 

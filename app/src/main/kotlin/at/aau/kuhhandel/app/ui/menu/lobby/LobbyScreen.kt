@@ -47,8 +47,8 @@ fun LobbyScreen(
     onBack: () -> Unit,
 ) {
     val playClickSound = LocalButtonClickSound.current
-    val playPlayerJoinedSound = rememberSoundEffect(R.raw.player_joined)
-    val playPlayerLeftSound = rememberSoundEffect(R.raw.player_left)
+    val playPlayerJoinedSound = rememberSoundEffect(R.raw.lobby_player_joined)
+    val playPlayerLeftSound = rememberSoundEffect(R.raw.lobby_player_left)
     var previousPlayerCount by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(uiState.players.size) {

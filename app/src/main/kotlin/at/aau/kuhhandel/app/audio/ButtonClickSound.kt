@@ -18,7 +18,7 @@ val LocalButtonClickSound = staticCompositionLocalOf<() -> Unit> { {} }
 
 @Composable
 fun ButtonClickSoundProvider(content: @Composable () -> Unit) {
-    val playButtonClickSound = rememberSoundEffect(R.raw.button_click)
+    val playButtonClickSound = rememberSoundEffect(R.raw.ui_button_click)
 
     CompositionLocalProvider(
         LocalButtonClickSound provides playButtonClickSound,

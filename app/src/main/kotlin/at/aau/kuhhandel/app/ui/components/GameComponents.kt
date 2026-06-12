@@ -213,7 +213,7 @@ fun MoneyCardView(
     modifier: Modifier = Modifier,
     isClickable: Boolean = true,
 ) {
-    val playPickMoneyCardSound = rememberSoundEffect(R.raw.pick_money_card)
+    val playPickMoneyCardSound = rememberSoundEffect(R.raw.card_pick_money)
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.1f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
@@ -262,8 +262,8 @@ fun o(
     isTradePhase: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val playFanOutSound = rememberSoundEffect(R.raw.fan_out_card)
-    val playFanInSound = rememberSoundEffect(R.raw.fan_in_card)
+    val playFanOutSound = rememberSoundEffect(R.raw.card_fan_out)
+    val playFanInSound = rememberSoundEffect(R.raw.card_fan_in)
     var previousIsFanned by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(isFanned) {
