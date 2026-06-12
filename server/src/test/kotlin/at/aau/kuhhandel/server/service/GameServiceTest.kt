@@ -126,6 +126,40 @@ class GameServiceTest {
         }
 
     @Test
+    fun test_removeGame_cancelsPhaseTimerJob() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player 1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
+            val activeGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                )
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
+            whenever(gameSession.state).thenReturn(activeGameState)
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            // Remove the game session from memory mid-flight
+            service.removeGame(result.gameId)
+
+            advanceTimeBy(5200.milliseconds)
+
+            // Verify game removal blocks timeout routing execution loops
+            verify(gameSession, never()).handleTimeoutExpiration()
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
     fun test_removeGame_cancelsSpyTimerJob() =
         runTest {
             service =
@@ -182,7 +216,7 @@ class GameServiceTest {
         runTest {
             val exception =
                 assertThrows<GameException> {
-                    service.getStateForReconnection("fake code", "player-1")
+                    service.joinGame("fake code", "player-1")
                 }
             assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
             verify(gameSession, never()).addPlayer(any(), any())
@@ -693,40 +727,6 @@ class GameServiceTest {
             advanceTimeBy(5200.milliseconds)
 
             // Verify the scheduled worker returns early and skips executing timeouts
-            verify(gameSession, never()).handleTimeoutExpiration()
-            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
-        }
-
-    @Test
-    fun test_schedulePhaseTimeout_returnsEarlyIfSessionRemoved() =
-        runTest {
-            service =
-                GameService(
-                    eventPublisher = eventPublisher,
-                    gameSessionFactory = { _, _, _ -> gameSession },
-                    serviceScope = backgroundScope,
-                )
-
-            val result = service.createGame("Player 1")
-            val now = System.currentTimeMillis()
-            val targetTimerEnd = now + 5000L
-
-            val activeGameState =
-                gameStateToReturn.copy(
-                    phase = GamePhase.AUCTION_BIDDING,
-                    timerEnd = targetTimerEnd,
-                )
-            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
-            whenever(gameSession.state).thenReturn(activeGameState)
-
-            service.chooseAuction(result.gameId, result.playerId)
-
-            // Remove the game session from memory mid-flight
-            service.removeGame(result.gameId)
-
-            advanceTimeBy(5200.milliseconds)
-
-            // Verify game removal blocks timeout routing execution loops
             verify(gameSession, never()).handleTimeoutExpiration()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
