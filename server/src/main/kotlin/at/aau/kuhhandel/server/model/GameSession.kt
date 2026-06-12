@@ -578,11 +578,6 @@ class GameSession(
     }
 
     /**
-     * Checks if a player exists in the current game session.
-     */
-    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
-
-    /**
      * Transitions the game phase when a timer expires.
      */
     fun handleTimeoutExpiration(): GameState =
@@ -709,6 +704,11 @@ class GameSession(
 
         return state
     }
+
+    /**
+     * Checks if a player exists in the current game session.
+     */
+    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
 
     /**
      * Finds the absolute earliest expiration deadline among all active spies.
