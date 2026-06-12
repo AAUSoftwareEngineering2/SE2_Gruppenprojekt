@@ -827,11 +827,13 @@ class GameSession(
     }
 
     private fun ensureEnoughPlayers() {
-        if (state.players.size < 3) throw GameException(GameErrorReason.NOT_ENOUGH_PLAYERS)
+        if (state.players.size < MIN_PLAYERS) {
+            throw GameException(GameErrorReason.NOT_ENOUGH_PLAYERS)
+        }
     }
 
     private fun ensureRoomNotFull() {
-        if (state.players.size >= 5) throw GameException(GameErrorReason.ROOM_FULL)
+        if (state.players.size >= MAX_PLAYERS) throw GameException(GameErrorReason.ROOM_FULL)
     }
 
     private fun ensurePlayerNotInRoom(playerId: String) {
@@ -1114,6 +1116,9 @@ class GameSession(
     }
 
     companion object {
+        const val MIN_PLAYERS = 3
+        const val MAX_PLAYERS = 5
+
         const val CARDS_PER_ANIMAL_TYPE = 4
         const val INITIAL_ZERO_MONEY_CARDS = 2
         const val INITIAL_TEN_MONEY_CARDS = 4
