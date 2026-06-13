@@ -39,7 +39,7 @@ class ClusterSyncController(
         @RequestHeader(ClusterUpdateNotifier.SECRET_HEADER, required = false) secret: String?,
         @RequestHeader(ClusterUpdateNotifier.ORIGIN_HEADER, required = false) origin: String?,
         @RequestBody notification: GameUpdatedNotification,
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Unit> {
         if (!isAuthorized(secret)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
         }

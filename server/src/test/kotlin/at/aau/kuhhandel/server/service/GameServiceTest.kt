@@ -278,18 +278,18 @@ class GameServiceTest
                 service.joinGame("11111", "Player 3")
                 service.startGame("11111", created.playerId)
 
-                val expired = persistenceService.loadGameState("11111")
-                assertNotNull(expired?.timerEnd)
+                val expired = assertNotNull(persistenceService.loadGameState("11111"))
+                val deadline = assertNotNull(expired.timerEnd)
 
                 // Sweep with a "now" after the deadline.
-                val advanced = service.sweepExpiredTimeouts(now = expired?.timerEnd!! + 1)
+                val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
 
                 assertEquals(listOf("11111"), advanced)
                 verify(exactly = 1) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
 
                 // Second sweep at the same instant must be a no-op (the new deadline is in
                 // the future).
-                val secondSweep = service.sweepExpiredTimeouts(now = expired.timerEnd!! + 1)
+                val secondSweep = service.sweepExpiredTimeouts(now = deadline + 1)
                 assertEquals(emptyList(), secondSweep)
             }
 

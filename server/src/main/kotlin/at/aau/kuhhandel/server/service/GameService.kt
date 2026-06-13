@@ -9,6 +9,7 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -38,6 +39,8 @@ class GameService(
     private val gameCodeGenerator: () -> String = {
         Random.nextInt(GAME_CODE_MIN, GAME_CODE_BOUND).toString()
     },
+    // Injectable so tests can pin it; defaults to IO for the blocking JDBC work off the caller.
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -103,7 +106,7 @@ class GameService(
     ): GameState {
         val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
         if (newState.players.isEmpty()) {
-            withContext(Dispatchers.IO) { purgeGame(gameId) }
+            withContext(ioDispatcher) { purgeGame(gameId) }
         }
         return newState
     }
@@ -119,7 +122,7 @@ class GameService(
         playerId: String,
     ): GameState {
         val state =
-            withContext(Dispatchers.IO) { persistenceService.loadGameState(gameId) }
+            withContext(ioDispatcher) { persistenceService.loadGameState(gameId) }
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
         if (state.players.none { it.id == playerId }) {
@@ -138,7 +141,7 @@ class GameService(
         token: String,
     ) {
         val stored =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 persistenceService.storeReconnectToken(gameId, playerId, token)
             }
         if (!stored) {
@@ -153,7 +156,7 @@ class GameService(
         gameId: String,
         playerId: String,
     ): String? =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             persistenceService.reconnectTokenFingerprint(gameId, playerId)
         }
 
@@ -165,7 +168,7 @@ class GameService(
         playerId: String,
         token: String,
     ): Boolean =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             persistenceService.isReconnectTokenValid(gameId, playerId, token)
         }
 
@@ -310,7 +313,7 @@ class GameService(
         action: (GameSession) -> GameState,
     ): GameState {
         val newState =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 persistenceService.mutateGameState(gameId) { current ->
                     action(GameSession.fromState(gameId, current))
                 }
