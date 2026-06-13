@@ -44,7 +44,8 @@ fun GameScreen(
     onStartGame: () -> Unit,
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
-    onBuyBack: (Boolean) -> Unit,
+    onResolveAuction: (Boolean) -> Unit,
+    onSubmitAuctionPayment: () -> Unit,
     tradeActions: TradeActions,
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
@@ -175,7 +176,11 @@ fun GameScreen(
             isHandFanned = uiState.isHandFanned,
             onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
-            onCardClick = { onToggleMoneyCard(it.id) },
+            onCardClick = {
+                if (!isAuctionActive || uiState.canSelectAuctionPaymentCards) {
+                    onToggleMoneyCard(it.id)
+                }
+            },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -204,7 +209,11 @@ fun GameScreen(
             MoneyHand(
                 cards = myPlayer.moneyCards,
                 selectedCardIds = uiState.selectedMoneyCardIds,
-                onCardClick = { onToggleMoneyCard(it.id) },
+                onCardClick = {
+                    if (!isAuctionActive || uiState.canSelectAuctionPaymentCards) {
+                        onToggleMoneyCard(it.id)
+                    }
+                },
                 isFanned = uiState.isHandFanned,
                 onToggleFanned = onToggleHandFanned,
                 isTradePhase =
@@ -231,7 +240,8 @@ fun GameScreen(
                 AuctionPhaseContent(
                     uiState = uiState,
                     onPlaceBid = onPlaceBid,
-                    onBuyBack = onBuyBack,
+                    onResolveAuction = onResolveAuction,
+                    onSubmitAuctionPayment = onSubmitAuctionPayment,
                 )
             }
         }
@@ -355,7 +365,8 @@ fun GameScreenPreview() {
         onStartGame = {},
         onRevealCard = {},
         onPlaceBid = {},
-        onBuyBack = {},
+        onResolveAuction = {},
+        onSubmitAuctionPayment = {},
         tradeActions =
             TradeActions(
                 selectTargetPlayer = {},

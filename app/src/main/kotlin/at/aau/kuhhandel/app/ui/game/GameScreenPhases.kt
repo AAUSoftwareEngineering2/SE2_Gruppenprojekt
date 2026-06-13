@@ -50,7 +50,8 @@ fun ChoicePhaseContent(
 fun AuctionPhaseContent(
     uiState: GameUiState,
     onPlaceBid: (Int) -> Unit,
-    onBuyBack: (Boolean) -> Unit,
+    onResolveAuction: (Boolean) -> Unit,
+    onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gameState = uiState.gameState
@@ -80,6 +81,7 @@ fun AuctionPhaseContent(
                             ) == true,
                     )
                 } else if (phase == GamePhase.AUCTIONEER_DECISION ||
+                    phase == GamePhase.AUCTION_PAYMENT ||
                     phase == GamePhase.AUCTION_RESULT
                 ) {
                     val highestBidderId = auctionState?.highestBidderId
@@ -106,6 +108,30 @@ fun AuctionPhaseContent(
                                 text = resultText,
                                 color = DarkPurple,
                             )
+                        } else if (phase == GamePhase.AUCTION_PAYMENT) {
+                            if (uiState.isAuctionPayer) {
+                                GameStatusText(
+                                    text = "Select money cards to pay ${auctionState?.highestBid}.",
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                    color = DarkPurple,
+                                )
+                                Button(
+                                    onClick = onSubmitAuctionPayment,
+                                    enabled = uiState.canSubmitAuctionPayment,
+                                ) {
+                                    Text("Pay (${uiState.selectedMoneyTotal})")
+                                }
+                            } else {
+                                val payerName =
+                                    gameState
+                                        ?.players
+                                        ?.find { it.id == buyerId }
+                                        ?.name ?: "buyer"
+                                GameStatusText(
+                                    text = "Waiting for $payerName to pay...",
+                                    color = DarkPurple,
+                                )
+                            }
                         } else if (uiState.isAuctioneer) {
                             val statusText =
                                 if (highestBidderId == null) {
@@ -119,13 +145,24 @@ fun AuctionPhaseContent(
                                 color = DarkPurple,
                             )
                             if (highestBidderId == null) {
-                                Button(onClick = { onBuyBack(true) }) {
+                                Button(onClick = { onResolveAuction(true) }) {
                                     Text("CONTINUE")
                                 }
                             } else {
+                                if (!uiState.canAuctioneerAffordBuyBack) {
+                                    Text(
+                                        text = "You do not have enough money to buy back.",
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                    )
+                                }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { onBuyBack(true) }) { Text("Buy Back") }
-                                    Button(onClick = { onBuyBack(false) }) {
+                                    Button(
+                                        onClick = { onResolveAuction(true) },
+                                        enabled = uiState.canAuctioneerAffordBuyBack,
+                                    ) {
+                                        Text("Buy Back")
+                                    }
+                                    Button(onClick = { onResolveAuction(false) }) {
                                         Text("Let Winner Buy")
                                     }
                                 }

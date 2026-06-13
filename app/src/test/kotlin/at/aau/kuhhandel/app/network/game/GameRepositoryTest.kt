@@ -12,8 +12,10 @@ import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
+import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -59,8 +61,8 @@ class GameRepositoryTest {
             repository.placeBid(amount)
         }
 
-        suspend fun buyBack(buyBack: Boolean) {
-            repository.buyBack(buyBack)
+        suspend fun resolveAuction(buyBack: Boolean) {
+            repository.resolveAuction(buyBack)
         }
 
         suspend fun initiateTrade(
@@ -335,11 +337,34 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `buyBack sends request`() {
+    fun `resolveAuction sends request`() {
         runBlocking {
             val harness = createHarness()
-            harness.buyBack(true)
-            assertEquals(WebSocketType.RESOLVE_AUCTION, harness.sentEnvelope().type)
+            harness.resolveAuction(true)
+            val envelope = harness.sentEnvelope()
+            assertEquals(WebSocketType.RESOLVE_AUCTION, envelope.type)
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    ResolveAuctionPayload.serializer(),
+                    requireNotNull(envelope.payload),
+                )
+            assertTrue(payload.buyBack)
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment sends selected cards`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.repository.submitAuctionPayment(setOf("money-1"))
+            val envelope = harness.sentEnvelope()
+            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, envelope.type)
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SubmitAuctionPaymentPayload.serializer(),
+                    requireNotNull(envelope.payload),
+                )
+            assertEquals(setOf("money-1"), payload.moneyCardIds)
         }
     }
 

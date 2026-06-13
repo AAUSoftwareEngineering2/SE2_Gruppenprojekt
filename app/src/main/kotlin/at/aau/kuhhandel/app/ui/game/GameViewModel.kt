@@ -5,6 +5,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.PhaseDurations
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -55,6 +56,7 @@ data class GameUiState(
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
                 currentPhase == GamePhase.AUCTIONEER_DECISION ||
+                currentPhase == GamePhase.AUCTION_PAYMENT ||
                 currentPhase == GamePhase.AUCTION_RESULT
 
     /** Shows the trading overlay for a local selection or an active server trade phase. */
@@ -74,6 +76,31 @@ data class GameUiState(
     val isAuctioneer: Boolean
         get() =
             gameState?.auctionState?.auctioneerId == myPlayerId
+
+    val isAuctionPayer: Boolean
+        get() =
+            currentPhase == GamePhase.AUCTION_PAYMENT &&
+                gameState?.auctionState?.buyerId == myPlayerId
+
+    val selectedMoneyTotal: Int
+        get() =
+            myMoneyCards
+                .filter { it.id in selectedMoneyCardIds }
+                .sumOf { it.value }
+
+    val canAuctioneerAffordBuyBack: Boolean
+        get() {
+            val bid = gameState?.auctionState?.highestBid ?: return false
+            return isAuctioneer && myMoneyCards.sumOf { it.value } >= bid
+        }
+
+    val canSelectAuctionPaymentCards: Boolean
+        get() = isAuctionPayer
+
+    val canSubmitAuctionPayment: Boolean
+        get() =
+            canSelectAuctionPaymentCards &&
+                selectedMoneyTotal >= (gameState?.auctionState?.highestBid ?: Int.MAX_VALUE)
 
     val isTradeInitiator: Boolean
         get() = gameState?.tradeState?.initiatorId == myPlayerId
@@ -175,21 +202,44 @@ class GameViewModel(
                 }.distinctUntilChanged()
                 .collect(::synchronizeTradeUi)
         }
+        scope.launch {
+            repository.state
+                .map { it.gameState?.phase }
+                .distinctUntilChanged()
+                .collect { phase ->
+                    if (phase == GamePhase.AUCTIONEER_DECISION ||
+                        phase == GamePhase.AUCTION_PAYMENT ||
+                        phase == GamePhase.AUCTION_RESULT
+                    ) {
+                        clearSelection()
+                    }
+                }
+        }
     }
 
     private val auctionTimerSeconds =
         repository.state
-            .map { it.gameState?.auctionState?.timerEndTime }
-            .distinctUntilChanged()
-            .flatMapLatest { endTime ->
+            .map { repoState ->
+                repoState.gameState?.let { gameState ->
+                    gameState.phase to gameState.auctionState?.timerEndTime
+                }
+            }.distinctUntilChanged()
+            .flatMapLatest { timerState ->
+                val (phase, endTime) = timerState ?: return@flatMapLatest flowOf<Int?>(null)
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
                 flow<Int?> {
-                    // Calculate initial remaining seconds once, clamped to [0, 5]
+                    val maxSeconds =
+                        if (phase == GamePhase.AUCTION_PAYMENT) {
+                            (PhaseDurations.AUCTION_PAYMENT_MS / 1000L).toInt()
+                        } else {
+                            (PhaseDurations.AUCTION_BIDDING_MS / 1000L).toInt()
+                        }
+                    // Calculate initial remaining seconds once, clamped to the phase duration
                     // to handle server/client clock desync.
                     var remaining =
                         ((endTime - timeProvider.currentTimeMillis()) / 1000)
                             .toInt()
-                            .coerceIn(0, 5)
+                            .coerceIn(0, maxSeconds)
 
                     while (remaining >= 0) {
                         emit(remaining)
@@ -376,11 +426,33 @@ class GameViewModel(
         }
     }
 
-    /** Performs the buy-back action for the auctioneer. */
-    fun buyBack(buyBack: Boolean) {
+    /** Submits the auctioneer's buy-back or sell decision. */
+    fun resolveAuction(buyBack: Boolean) {
+        val state = uiState.value
+        if (!state.isAuctioneer ||
+            state.currentPhase != GamePhase.AUCTIONEER_DECISION ||
+            (buyBack && !state.canAuctioneerAffordBuyBack)
+        ) {
+            return
+        }
         scope.launch {
             try {
-                repository.buyBack(buyBack)
+                repository.resolveAuction(buyBack)
+            } catch (_: Exception) {
+                // Error handled by repository
+            }
+        }
+    }
+
+    /** Submits the selected cards for whichever player must pay. */
+    fun submitAuctionPayment() {
+        val state = uiState.value
+        if (!state.isAuctionPayer || !state.canSubmitAuctionPayment) return
+
+        scope.launch {
+            try {
+                repository.submitAuctionPayment(selectedMoneyCardIds.value)
+                clearSelection()
             } catch (_: Exception) {
                 // Error handled by repository
             }

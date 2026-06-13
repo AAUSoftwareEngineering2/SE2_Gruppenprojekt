@@ -23,6 +23,7 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -877,7 +878,13 @@ class GameWebSocketHandlerTest {
             )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
-            whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
+            whenever(
+                gameService.resolveAuction(
+                    "game-1",
+                    "player-1",
+                    true,
+                ),
+            ).thenReturn(gameState)
 
             sendEnvelope(
                 session = session1,
@@ -890,7 +897,11 @@ class GameWebSocketHandlerTest {
                     ),
             )
 
-            verify(gameService).resolveAuction("game-1", "player-1", true)
+            verify(gameService).resolveAuction(
+                "game-1",
+                "player-1",
+                true,
+            )
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -955,6 +966,47 @@ class GameWebSocketHandlerTest {
 
         assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
     }
+
+    @Test
+    fun `SUBMIT_AUCTION_PAYMENT sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(session1, session2),
+            )
+            val gameState = baseState.copy(phase = GamePhase.AUCTION_RESULT)
+            whenever(
+                gameService.submitAuctionPayment(
+                    "game-1",
+                    "player-1",
+                    setOf("money-1"),
+                ),
+            ).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.SUBMIT_AUCTION_PAYMENT,
+                requestId = "req-payment",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        SubmitAuctionPaymentPayload.serializer(),
+                        SubmitAuctionPaymentPayload(setOf("money-1")),
+                    ),
+            )
+
+            verify(gameService).submitAuctionPayment(
+                "game-1",
+                "player-1",
+                setOf("money-1"),
+            )
+            assertEquals(
+                WebSocketType.GAME_STATE_UPDATED,
+                captureResponse(session1).type,
+            )
+            assertEquals(
+                WebSocketType.GAME_STATE_UPDATED,
+                captureResponse(session2).type,
+            )
+        }
 
     @Test
     fun `CHOOSE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =

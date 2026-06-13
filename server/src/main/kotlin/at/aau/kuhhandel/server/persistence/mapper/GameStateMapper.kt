@@ -42,6 +42,7 @@ object GameStateMapper {
         when (phase) {
             GamePhase.AUCTION_BIDDING,
             GamePhase.AUCTIONEER_DECISION,
+            GamePhase.AUCTION_PAYMENT,
             GamePhase.AUCTION_RESULT,
             -> GameStatus.AUCTION
 

@@ -237,6 +237,7 @@ class GameServiceTest
                     { service.chooseAuction("99999", "p") },
                     { service.placeBid("99999", "p", 10) },
                     { service.resolveAuction("99999", "p", auctioneerBuysCard = false) },
+                    { service.submitAuctionPayment("99999", "p", emptySet()) },
                     { service.chooseTrade("99999", "p", "q", AnimalType.COW) },
                     { service.submitTradeMoney("99999", "p", emptySet()) },
                     { service.respondToTrade("99999", "p", emptySet()) },
