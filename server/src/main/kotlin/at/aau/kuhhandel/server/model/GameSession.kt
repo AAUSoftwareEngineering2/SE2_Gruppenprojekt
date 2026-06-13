@@ -225,6 +225,8 @@ class GameSession(
                 "Missing auction state in resolution phase"
             }
 
+        ensureAuctioneer(auctionState, actorId)
+
         val highestBidderId =
             checkNotNull(auctionState.highestBidderId) {
                 "Missing highest bidder in auction resolution"
@@ -233,8 +235,6 @@ class GameSession(
             checkNotNull(state.players.find { it.id == highestBidderId }) {
                 "Highest bidder $highestBidderId not found among players"
             }
-
-        ensureAuctioneer(auctionState, actorId)
 
         val buyer =
             if (auctioneerBuysCard) {
