@@ -3,6 +3,7 @@ package at.aau.kuhhandel.server.config
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import org.springframework.boot.DefaultApplicationArguments
 import java.sql.Connection
@@ -11,6 +12,7 @@ import kotlin.test.assertFailsWith
 
 class DatabaseConnectionVerifierTest {
     private val applicationArguments = DefaultApplicationArguments()
+    private val postgresUrl = "jdbc:postgresql://localhost:5432/kuhhandel"
 
     @Test
     fun `run validates and closes connection when database connection is healthy`() {
@@ -19,12 +21,12 @@ class DatabaseConnectionVerifierTest {
 
         val verifier =
             DatabaseConnectionVerifier(
-                datasourceUrl = "jdbc:testdb:healthy",
+                datasourceUrl = postgresUrl,
                 datasourceUsername = "user",
                 datasourcePassword = "secret",
                 connectionFactory =
                     JdbcConnectionFactory { url, username, password ->
-                        assertEquals("jdbc:testdb:healthy", url)
+                        assertEquals(postgresUrl, url)
                         assertEquals("user", username)
                         assertEquals("secret", password)
                         connection
@@ -44,7 +46,7 @@ class DatabaseConnectionVerifierTest {
 
         val verifier =
             DatabaseConnectionVerifier(
-                datasourceUrl = "jdbc:testdb:invalid",
+                datasourceUrl = postgresUrl,
                 datasourceUsername = "user",
                 datasourcePassword = "secret",
                 connectionFactory =
@@ -62,5 +64,27 @@ class DatabaseConnectionVerifierTest {
         )
         verify(connection).isValid(2)
         verify(connection).close()
+    }
+
+    @Test
+    fun `run refuses to start on a non-Postgres datasource and never opens a connection`() {
+        val connectionFactory = mock(JdbcConnectionFactory::class.java)
+
+        val verifier =
+            DatabaseConnectionVerifier(
+                datasourceUrl = "jdbc:h2:mem:accidental",
+                datasourceUsername = "sa",
+                datasourcePassword = "",
+                connectionFactory = connectionFactory,
+            )
+
+        val exception =
+            assertFailsWith<IllegalArgumentException> {
+                verifier.run(applicationArguments)
+            }
+
+        assertEquals(true, exception.message?.contains("PostgreSQL"))
+        // Fails fast before touching the database.
+        verifyNoInteractions(connectionFactory)
     }
 }

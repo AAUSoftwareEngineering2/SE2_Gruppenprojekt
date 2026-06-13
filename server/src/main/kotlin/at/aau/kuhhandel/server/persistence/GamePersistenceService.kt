@@ -23,6 +23,7 @@ import at.aau.kuhhandel.shared.model.Player
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.security.MessageDigest
 
 /**
  * Persists the prototype's minimal game state and reloads it for reconnect / restart scenarios.
@@ -106,6 +107,86 @@ class GamePersistenceService(
         val gameKey = gameId.toLongOrNull() ?: return false
         return gameRepository.existsById(gameKey)
     }
+
+    /**
+     * Runs [mutate] on the current persisted state inside one transaction that holds the game's
+     * row lock (lock, load, mutate, save). Concurrent mutations from other pods wait on the lock,
+     * which prevents lost updates.
+     *
+     * Returns the saved state, or null when the game does not exist. Exceptions from [mutate]
+     * roll the transaction back.
+     */
+    @Transactional
+    fun mutateGameState(
+        gameId: String,
+        mutate: (GameState) -> GameState,
+    ): GameState? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        gameRepository.findWithLockById(gameKey) ?: return null
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        saveGameState(gameId, next)
+        return next
+    }
+
+    /**
+     * Game ids whose phase timer expired (timer_end <= now).
+     */
+    @Transactional(readOnly = true)
+    fun findGameIdsWithExpiredTimers(now: Long): List<String> =
+        gameRepository.findIdsWithExpiredTimer(now).map { it.toString() }
+
+    /**
+     * Stores the SHA-256 hash of [token] on the player's row. Returns false when the game or
+     * player is unknown.
+     */
+    @Transactional
+    fun storeReconnectToken(
+        gameId: String,
+        playerId: String,
+        token: String,
+    ): Boolean {
+        val gameKey = gameId.toLongOrNull() ?: return false
+        val player = gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId) ?: return false
+        player.reconnectTokenHash = hashToken(token)
+        gamePlayerRepository.save(player)
+        return true
+    }
+
+    /**
+     * The stored token hash for a player, or null when unknown. Every reconnect rotates the
+     * token, so a changed hash means the player already reconnected somewhere.
+     */
+    @Transactional(readOnly = true)
+    fun reconnectTokenFingerprint(
+        gameId: String,
+        playerId: String,
+    ): String? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        return gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId)?.reconnectTokenHash
+    }
+
+    /**
+     * Validates a reconnect token against the persisted hash.
+     */
+    @Transactional(readOnly = true)
+    fun isReconnectTokenValid(
+        gameId: String,
+        playerId: String,
+        token: String,
+    ): Boolean {
+        val gameKey = gameId.toLongOrNull() ?: return false
+        val stored =
+            gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId)?.reconnectTokenHash
+                ?: return false
+        return MessageDigest.isEqual(stored.toByteArray(), hashToken(token).toByteArray())
+    }
+
+    private fun hashToken(token: String): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(token.toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
     @Transactional
     fun deleteGame(gameId: String) {

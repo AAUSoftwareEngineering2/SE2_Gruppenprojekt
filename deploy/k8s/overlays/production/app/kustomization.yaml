@@ -14,17 +14,10 @@ images:
   - name: ghcr.io/aausoftwareengineering2/kuhhandel-server
     newTag: production
 
-# Bis DB-State fertig. -> count: 2
+# Backend ist stateless (Spielzustand liegt komplett in der DB), daher 3 Pods.
+# Die topologySpreadConstraints verteilen sie auf die drei K3s-Nodes.
 replicas:
   - name: kuhhandel-server
-    count: 1
+    count: 3
 
-# für DB, wenn richtig eingebuden -> löschen
-patches:
-  - target:
-      kind: PodDisruptionBudget
-      name: kuhhandel-server
-    patch: |-
-      - op: replace
-        path: /spec/minAvailable
-        value: 0
+# Der temporäre Single-Pod-PDB-Patch (minAvailable: 0) ist raus, das Basis-PDB gilt wieder.

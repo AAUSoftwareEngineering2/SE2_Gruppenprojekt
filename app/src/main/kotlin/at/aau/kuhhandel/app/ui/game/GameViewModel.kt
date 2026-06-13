@@ -33,6 +33,7 @@ data class GameUiState(
     val deckCountText: String = "0",
     val activeCardLabel: String = "No card revealed",
     val isConnected: Boolean = false,
+    val isReconnecting: Boolean = false,
     val canRevealCard: Boolean = false,
     val canStartGame: Boolean = false,
     val auctionTimerSeconds: Int? = null,
@@ -53,7 +54,8 @@ data class GameUiState(
     val isAuctionActive: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
-                currentPhase == GamePhase.AUCTIONEER_DECISION
+                currentPhase == GamePhase.AUCTIONEER_DECISION ||
+                currentPhase == GamePhase.AUCTION_RESULT
 
     /** Shows the trading overlay for a local selection or an active server trade phase. */
     val isTradeActive: Boolean
@@ -275,6 +277,7 @@ class GameViewModel(
                         "${card.type.name} (#${card.id})"
                     } ?: "No card revealed",
                 isConnected = repoState.isConnected,
+                isReconnecting = repoState.isReconnecting,
                 canRevealCard =
                     (
                         repoState.isConnected &&
@@ -388,7 +391,6 @@ class GameViewModel(
     fun submitTradeOffer() {
         val state = uiState.value
         if (!state.showsTradeOfferHand ||
-            selectedMoneyCardIds.value.isEmpty() ||
             isTradeActionSubmitting.value
         ) {
             return
@@ -439,7 +441,6 @@ class GameViewModel(
     fun submitCounterOffer() {
         val state = uiState.value
         if (!state.showsTradeCounterHand ||
-            selectedMoneyCardIds.value.isEmpty() ||
             isTradeActionSubmitting.value
         ) {
             return

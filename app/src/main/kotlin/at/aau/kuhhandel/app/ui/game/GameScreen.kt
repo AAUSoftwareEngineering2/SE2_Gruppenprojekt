@@ -36,7 +36,6 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 
 @Composable
@@ -253,7 +252,11 @@ fun GameScreenPreview() {
             Player(
                 "1",
                 "Player 1",
-                moneyCards = List(6) { MoneyCard("a$it", 10) },
+                moneyCards =
+                    List(6) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("a$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard(
@@ -269,7 +272,11 @@ fun GameScreenPreview() {
             Player(
                 "2",
                 "Player 2",
-                moneyCards = List(3) { MoneyCard("b$it", 10) },
+                moneyCards =
+                    List(3) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("b$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard("b1", AnimalType.PIG),
@@ -280,13 +287,21 @@ fun GameScreenPreview() {
             Player(
                 "3",
                 "Player 3",
-                moneyCards = List(5) { MoneyCard("c$it", 10) },
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("c$it", 10)
+                    },
                 animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
             ),
             Player(
                 "4",
                 "Player 4",
-                moneyCards = List(12) { MoneyCard("d$it", 10) },
+                moneyCards =
+                    List(12) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("d$it", 10)
+                    },
                 animals =
                     listOf(
                         AnimalCard("d1", AnimalType.HORSE),
@@ -298,7 +313,11 @@ fun GameScreenPreview() {
             Player(
                 "5",
                 "Me",
-                moneyCards = List(5) { MoneyCard("m$it", 50) },
+                moneyCards =
+                    List(5) {
+                        at.aau.kuhhandel.shared.model
+                            .MoneyCard("m$it", 50)
+                    },
                 animals =
                     listOf(
                         AnimalCard("m1", AnimalType.DONKEY),
@@ -319,8 +338,16 @@ fun GameScreenPreview() {
             myPlayerId = "5",
             currentPhase = GamePhase.PLAYER_CHOICE,
             deckCountText = "5",
+            activeCardLabel = "No card revealed",
+            isConnected = true,
             canRevealCard = true,
+            canStartGame = false,
+            auctionTimerSeconds = null,
+            errorMessage = null,
             myMoneyCards = players[4].moneyCards,
+            selectedMoneyCardIds = emptySet(),
+            sharedAnimalsWithSelectedPlayer = emptyList(),
+            selectedTargetPlayerId = null,
             isHandFanned = false,
         )
     GameScreen(
