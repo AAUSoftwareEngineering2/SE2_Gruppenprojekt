@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
@@ -926,7 +927,13 @@ private fun TutorialBidPreview(animalDrawableId: Int) {
         RuleAsset(animalDrawableId, "auction animal")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(10, 50, 100).forEach { amount ->
-                TutorialActionButton("+$amount")
+                if (amount == 50) {
+                    TutorialClickTarget {
+                        TutorialActionButton("+$amount")
+                    }
+                } else {
+                    TutorialActionButton("+$amount")
+                }
             }
         }
     }
@@ -940,8 +947,10 @@ private fun TutorialBuyBackPreview(animalDrawableId: Int) {
     ) {
         RuleAsset(animalDrawableId, "auction animal")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {}) {
-                Text("Buy Back")
+            TutorialClickTarget {
+                Button(onClick = {}) {
+                    Text("Buy Back")
+                }
             }
             Button(onClick = {}) {
                 Text("Let Winner Buy")
@@ -957,7 +966,9 @@ private fun TutorialTradeTargetPreview() {
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RuleAsset(R.drawable.ig_farm_blue, "opponent farm")
+        TutorialClickTarget {
+            RuleAsset(R.drawable.ig_farm_blue, "opponent farm")
+        }
         Text(
             text = "then",
             style = MaterialTheme.typography.labelMedium,
@@ -991,19 +1002,31 @@ private fun TutorialSendOfferPreview() {
                 MoneyCard("tutorial-50", 50),
                 MoneyCard("tutorial-100", 100),
             ).forEach { card ->
-                MoneyCardView(
-                    card = card,
-                    isSelected = card.value != 100,
-                    onClick = {},
-                    isClickable = false,
-                )
+                if (card.value == 50) {
+                    TutorialClickTarget(
+                        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+                    ) {
+                        MoneyCardView(
+                            card = card,
+                            isSelected = true,
+                            onClick = {},
+                            isClickable = false,
+                        )
+                    }
+                } else {
+                    MoneyCardView(
+                        card = card,
+                        isSelected = card.value == 10,
+                        onClick = {},
+                        isClickable = false,
+                    )
+                }
             }
         }
-        Button(
-            onClick = {},
-            modifier = Modifier.padding(top = 8.dp),
-        ) {
-            Text("Send Offer (2)")
+        TutorialClickTarget(modifier = Modifier.padding(top = 8.dp)) {
+            Button(onClick = {}) {
+                Text("Send Offer (2)")
+            }
         }
         HiddenOfferPreview(
             label = "Hidden on table",
@@ -1022,8 +1045,10 @@ private fun TutorialTradeResponsePreview() {
         Button(onClick = {}) {
             Text("Take Offer")
         }
-        Button(onClick = {}) {
-            Text("Counter")
+        TutorialClickTarget {
+            Button(onClick = {}) {
+                Text("Counter")
+            }
         }
     }
 }
@@ -1058,6 +1083,44 @@ private fun TutorialActionButton(label: String) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
         )
+    }
+}
+
+@Composable
+private fun TutorialClickTarget(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier.padding(4.dp)) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = WhitePurple,
+            tonalElevation = 4.dp,
+            shadowElevation = 6.dp,
+            border = BorderStroke(2.dp, LightPurple.copy(alpha = 0.82f)),
+        ) {
+            Box(modifier = Modifier.padding(5.dp)) {
+                content()
+            }
+        }
+        Surface(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 10.dp, y = 10.dp)
+                    .size(30.dp),
+            shape = CircleShape,
+            color = WhitePurple,
+            shadowElevation = 4.dp,
+            border = BorderStroke(1.dp, LightPurple),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "👆",
+                    fontSize = 18.sp,
+                )
+            }
+        }
     }
 }
 
@@ -1098,29 +1161,46 @@ private fun TutorialAnimalCircle() {
                     else -> (-24).dp
                 }
 
-            Surface(
+            Box(
                 modifier =
                     Modifier
                         .offset(x = xOffset, y = yOffset)
-                        .size(34.dp)
                         .alpha(if (isShared) 1f else 0.35f),
-                shape = CircleShape,
-                color = Color.White,
-                border =
-                    if (isShared) {
-                        BorderStroke(2.dp, DarkPurple)
-                    } else {
-                        null
-                    },
             ) {
-                Image(
-                    painter = painterResource(id = drawableId),
-                    contentDescription = null,
-                    modifier = Modifier.padding(4.dp),
-                    contentScale = ContentScale.Fit,
-                )
+                if (drawableId == R.drawable.hs_goat) {
+                    TutorialClickTarget {
+                        TutorialAnimalCircleItem(drawableId, isShared)
+                    }
+                } else {
+                    TutorialAnimalCircleItem(drawableId, isShared)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun TutorialAnimalCircleItem(
+    drawableId: Int,
+    isShared: Boolean,
+) {
+    Surface(
+        modifier = Modifier.size(34.dp),
+        shape = CircleShape,
+        color = Color.White,
+        border =
+            if (isShared) {
+                BorderStroke(2.dp, LightPurple)
+            } else {
+                null
+            },
+    ) {
+        Image(
+            painter = painterResource(id = drawableId),
+            contentDescription = null,
+            modifier = Modifier.padding(4.dp),
+            contentScale = ContentScale.Fit,
+        )
     }
 }
 
