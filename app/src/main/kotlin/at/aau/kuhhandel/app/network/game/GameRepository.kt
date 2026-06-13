@@ -50,7 +50,7 @@ class GameRepository(
     private var eventsJob: Job? = null
 
     /** Requests to create a new game room with the given player name. */
-    suspend fun createGame(playerName: String? = null) {
+    suspend fun createGame(playerName: String) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.createGame(playerName)
@@ -59,7 +59,7 @@ class GameRepository(
     /** Requests to join an existing game room using its ID. */
     suspend fun joinGame(
         gameId: String,
-        playerName: String? = null,
+        playerName: String,
     ) {
         ensureConnected()
         _state.update { it.copy(gameId = gameId, errorMessage = null) }

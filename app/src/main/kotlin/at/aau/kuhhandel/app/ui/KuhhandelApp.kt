@@ -86,6 +86,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
                 RoomCreationScreen(
                     uiState = creationUiState,
+                    onPlayerNameChanged = creationViewModel::onPlayerNameChanged,
                     onCreateLobby = creationViewModel::createLobby,
                     onBack = {
                         repository.disconnect()
@@ -109,6 +110,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                 RoomJoiningScreen(
                     uiState = joiningUiState,
                     onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
+                    onPlayerNameChanged = joiningViewModel::onPlayerNameChanged,
                     onJoinLobby = joiningViewModel::joinLobby,
                     onBack = {
                         repository.disconnect()
