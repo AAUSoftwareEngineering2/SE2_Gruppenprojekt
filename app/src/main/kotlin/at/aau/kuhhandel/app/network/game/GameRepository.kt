@@ -24,6 +24,10 @@ import kotlinx.coroutines.launch
 data class GameRepositoryState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
+    // True while the repository is automatically trying to restore a lost connection. Lets the
+    // UI distinguish "reconnecting, hang on" from a hard connection failure.
+    val isReconnecting: Boolean = false,
+    val reconnectAttempt: Int = 0,
     val gameId: String? = null,
     val myPlayerId: String? = null,
     val gameState: GameState? = null,
@@ -42,12 +46,19 @@ class GameRepository(
     private companion object {
         const val CONNECTION_FAILED = "Connection failed"
         const val CONNECTION_LOST = "Connection lost"
+
+        // Exponential backoff for automatic reconnects: 1s, 2s, 4s, 8s, then capped at 15s.
+        // Retries run until the connection comes back or the user leaves the game.
+        const val INITIAL_RECONNECT_DELAY_MS = 1_000L
+        const val MAX_RECONNECT_DELAY_MS = 15_000L
+        const val MAX_BACKOFF_SHIFT = 4
     }
 
     private val _state = MutableStateFlow(GameRepositoryState())
     val state: StateFlow<GameRepositoryState> = _state.asStateFlow()
 
     private var eventsJob: Job? = null
+    private var reconnectAttempts = 0
 
     /** Requests to create a new game room with the given player name. */
     suspend fun createGame(playerName: String? = null) {
@@ -149,6 +160,7 @@ class GameRepository(
         scope.launch {
             val activeJob = eventsJob
             eventsJob = null
+            reconnectAttempts = 0
             activeJob?.cancel()
             client.disconnect()
             tokenStorage.clearSession()
@@ -228,16 +240,32 @@ class GameRepository(
             reportCollectorFailure(e, collectorJob)
             // Try to auto-reconnect if it was a real connection error and we have a gameId
             if (eventsJob === collectorJob && _state.value.gameId != null) {
-                scope.launch {
-                    kotlinx.coroutines.delay(2000)
-                    if (eventsJob == null) {
-                        runCatching { ensureConnected() }
-                    }
-                }
+                scheduleReconnect()
             }
         } finally {
             finishCollector(collectorJob)
         }
+    }
+
+    /**
+     * Schedules the next automatic reconnect attempt with exponential backoff. The attempt is
+     * skipped when the user left the game in the meantime (gameId cleared by [disconnect]).
+     */
+    private fun scheduleReconnect() {
+        val attempt = ++reconnectAttempts
+        _state.update { it.copy(isReconnecting = true, reconnectAttempt = attempt) }
+
+        scope.launch {
+            kotlinx.coroutines.delay(reconnectDelayMs(attempt))
+            if (eventsJob == null && _state.value.gameId != null) {
+                runCatching { ensureConnected() }
+            }
+        }
+    }
+
+    private fun reconnectDelayMs(attempt: Int): Long {
+        val shift = (attempt - 1).coerceIn(0, MAX_BACKOFF_SHIFT)
+        return (INITIAL_RECONNECT_DELAY_MS shl shift).coerceAtMost(MAX_RECONNECT_DELAY_MS)
     }
 
     /** Updates the error state when the event collector encounters an exception. */
@@ -269,7 +297,16 @@ class GameRepository(
     private suspend fun awaitInitialConnection(collectorJob: Job) {
         try {
             client.awaitConnected()
-            _state.update { it.copy(isConnecting = false, isConnected = true, errorMessage = null) }
+            reconnectAttempts = 0
+            _state.update {
+                it.copy(
+                    isConnecting = false,
+                    isConnected = true,
+                    isReconnecting = false,
+                    reconnectAttempt = 0,
+                    errorMessage = null,
+                )
+            }
         } catch (e: Exception) {
             cancelCollector(collectorJob)
             reportConnectionFailure(e)

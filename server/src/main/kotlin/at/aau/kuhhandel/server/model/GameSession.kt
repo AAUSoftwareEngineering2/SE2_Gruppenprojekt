@@ -1061,7 +1061,7 @@ class GameSession(
         const val INITIAL_TEN_MONEY_CARDS = 4
         const val INITIAL_FIFTY_MONEY_CARDS = 1
 
-        // Used for testing
+        // Wraps a state loaded from the database; used for every action on the stateless path.
         fun fromState(
             gameId: String,
             state: GameState,
