@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -16,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,22 +28,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.audio.rememberAnimalAuctionSound
+import at.aau.kuhhandel.app.audio.rememberMediaSoundEffect
 import at.aau.kuhhandel.app.audio.rememberSoundEffect
+import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
+import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
+import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
+import kotlinx.coroutines.delay
 
 @Composable
 fun GameScreen(
@@ -63,8 +73,14 @@ fun GameScreen(
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
     val playGavelSound = rememberSoundEffect(R.raw.auction_gavel)
     val playPickFarmSound = rememberSoundEffect(R.raw.trade_pick_farm)
+    val playAnimalSetCompletedSound = rememberMediaSoundEffect(R.raw.animal_set_completed)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
+    val completedAnimalSets = uiState.gameState.completedAnimalSets()
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
+    var previousCompletedAnimalSets by remember {
+        mutableStateOf<Set<CompletedAnimalSet>?>(null)
+    }
+    var animalSetNotification by remember { mutableStateOf<CompletedAnimalSet?>(null) }
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -80,6 +96,21 @@ fun GameScreen(
         if (uiState.currentPhase == GamePhase.AUCTION_BIDDING && auctionCard != null) {
             playAnimalAuctionSound(auctionCard.type)
         }
+    }
+
+    LaunchedEffect(completedAnimalSets) {
+        val previousSets = previousCompletedAnimalSets
+        val newCompletedSets = completedAnimalSets - (previousSets ?: emptySet())
+        val newCompletedSet = newCompletedSets.firstOrNull()
+        if (previousSets != null && newCompletedSet != null) {
+            playAnimalSetCompletedSound()
+            animalSetNotification = newCompletedSet
+            delay(3_000)
+            if (animalSetNotification == newCompletedSet) {
+                animalSetNotification = null
+            }
+        }
+        previousCompletedAnimalSets = completedAnimalSets
     }
 
     LaunchedEffect(uiState.currentPhase) {
@@ -277,8 +308,97 @@ fun GameScreen(
             actions = tradeActions,
             onToggleMoneyCard = onToggleMoneyCard,
         )
+
+        animalSetNotification?.let { notification ->
+            AnimalSetCompletedNotification(
+                completedAnimalSet = notification,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 76.dp, end = 16.dp),
+            )
+        }
     }
 }
+
+@Composable
+private fun AnimalSetCompletedNotification(
+    completedAnimalSet: CompletedAnimalSet,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(0.72f),
+        shape = MaterialTheme.shapes.medium,
+        color = WhitePurple,
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${completedAnimalSet.playerName} has completed the",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DarkPurple,
+            )
+            Surface(
+                modifier =
+                    Modifier
+                        .padding(horizontal = 8.dp)
+                        .size(36.dp),
+                shape = MaterialTheme.shapes.small,
+                color = LightPurple,
+            ) {
+                Image(
+                    painter =
+                        painterResource(
+                            id =
+                                getAnimalDrawable(
+                                    completedAnimalSet.animalType,
+                                    AnimalStyle.CHIP,
+                                ),
+                        ),
+                    contentDescription = completedAnimalSet.animalName,
+                    modifier = Modifier.padding(4.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+            Text(
+                text = "set!",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DarkPurple,
+            )
+        }
+    }
+}
+
+private data class CompletedAnimalSet(
+    val playerId: String,
+    val playerName: String,
+    val animalType: AnimalType,
+) {
+    val animalName: String = animalType.name.lowercase().replaceFirstChar { it.titlecase() }
+}
+
+private fun GameState?.completedAnimalSets(): Set<CompletedAnimalSet> =
+    this
+        ?.players
+        ?.flatMap { player ->
+            player.animals
+                .groupingBy { it.type }
+                .eachCount()
+                .filterValues { count -> count >= 4 }
+                .keys
+                .map { animalType ->
+                    CompletedAnimalSet(
+                        playerId = player.id,
+                        playerName = player.name,
+                        animalType = animalType,
+                    )
+                }
+        }?.toSet()
+        ?: emptySet()
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
