@@ -37,6 +37,11 @@ class GameEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "face_up_animal_type", length = 16)
     var faceUpAnimalType: AnimalType? = null,
+    // Last time a real player acted on this game (create / join / gameplay). Timeout sweeps do
+    // NOT bump it, so an abandoned game goes stale and the StaleGameReaper can purge it instead
+    // of the sweeper advancing it forever. Nullable so ddl-auto can add the column to old rows.
+    @Column(name = "last_activity_at")
+    var lastActivityAt: Long? = System.currentTimeMillis(),
     @Version
     @Column(name = "version", nullable = false)
     var version: Int = 0,

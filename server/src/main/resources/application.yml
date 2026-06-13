@@ -37,3 +37,9 @@ kuhhandel:
     timeout-sweeper:
       interval-ms: 1000
       initial-delay-ms: 5000
+    stale-game-reaper:
+      # Purge games with no player activity for this long. Timeout advances do NOT count as
+      # activity, so abandoned games are reaped instead of being advanced by the sweeper forever.
+      stale-after-ms: 1800000
+      interval-ms: 60000
+      initial-delay-ms: 60000

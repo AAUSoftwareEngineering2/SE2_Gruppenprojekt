@@ -307,4 +307,36 @@ class GameServiceTest
                 assertEquals(emptyList(), advanced)
                 verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
             }
+
+        @Test
+        fun `reapStaleGames purges games older than the cutoff and keeps fresh ones`() {
+            val service = service(codes = listOf("11111"))
+            val created = service.createGame("Player 1")
+            // Pin the activity timestamp to a known point in the past.
+            persistenceService.saveGameState(created.gameId, created.gameState, activityAt = 1_000L)
+
+            // A cutoff before the recorded activity reaps nothing.
+            assertEquals(emptyList(), service.reapStaleGames(cutoff = 500L))
+            assertNotNull(persistenceService.loadGameState(created.gameId))
+
+            // A cutoff after the recorded activity reaps the game.
+            assertEquals(listOf(created.gameId), service.reapStaleGames(cutoff = 2_000L))
+            assertNull(persistenceService.loadGameState(created.gameId))
+        }
+
+        @Test
+        fun `player mutations refresh activity but timeout sweeps do not`() {
+            val service = service(codes = listOf("11111"))
+            val created = service.createGame("Player 1")
+            persistenceService.saveGameState(created.gameId, created.gameState, activityAt = 1_000L)
+            assertEquals(1_000L, persistenceService.lastActivityAt(created.gameId))
+
+            // Sweep-style mutation (activityAt = null) must NOT refresh the activity timestamp.
+            persistenceService.mutateGameState(created.gameId, activityAt = null) { it }
+            assertEquals(1_000L, persistenceService.lastActivityAt(created.gameId))
+
+            // A player-style mutation refreshes it, keeping the game out of the reaper's reach.
+            persistenceService.mutateGameState(created.gameId, activityAt = 5_000L) { it }
+            assertEquals(5_000L, persistenceService.lastActivityAt(created.gameId))
+        }
     }
