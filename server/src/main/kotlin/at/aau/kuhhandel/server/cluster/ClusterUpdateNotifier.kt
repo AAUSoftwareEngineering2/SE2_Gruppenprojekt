@@ -51,10 +51,10 @@ class ClusterUpdateNotifier(
 
     fun gameUpdated(gameId: String) {
         if (!properties.clusterEnabled) return
-        val targets = resolvePeerUrls()
-        if (targets.isEmpty()) return
 
         notifyScope.launch {
+            // Peer resolution can hit DNS (headless service), so keep it off the caller thread.
+            val targets = resolvePeerUrls()
             targets.forEach { baseUrl ->
                 runCatching {
                     restClient

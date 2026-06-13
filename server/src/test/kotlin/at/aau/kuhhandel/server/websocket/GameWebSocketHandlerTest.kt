@@ -329,6 +329,21 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
+    fun `afterConnectionClosed still removes the player when no reconnect token was ever stored`() =
+        runTest(testDispatcher.scheduler) {
+            // Both fingerprints are null (token never persisted / write failed). The player did
+            // NOT reconnect, so the grace period must still end in a leave. Regression guard for
+            // the null fingerprint being misread as "already gone".
+            whenever(gameService.reconnectTokenFingerprint("game-1", "player-1")).thenReturn(null)
+            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(baseState)
+
+            handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
+            advanceUntilIdle()
+
+            verify(gameService).leaveGame("game-1", "player-1")
+        }
+
+    @Test
     fun `CREATE_GAME binds session and sends GAME_CREATED`() =
         runTest(testDispatcher.scheduler) {
             val createdSession =

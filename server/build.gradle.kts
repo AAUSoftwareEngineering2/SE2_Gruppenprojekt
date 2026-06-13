@@ -47,7 +47,8 @@ dependencies {
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
     // Runtime so the server can run locally without Postgres (see scripts/run-multipod-local.sh).
-    // Production sets SPRING_DATASOURCE_URL to Postgres and never touches H2.
+    // DatabaseConnectionVerifier refuses to start on staging/production unless the datasource is
+    // Postgres, so this cannot silently become an embedded production database.
     runtimeOnly(libs.h2)
 }
 

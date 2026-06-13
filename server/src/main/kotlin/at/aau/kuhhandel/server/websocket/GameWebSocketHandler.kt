@@ -136,8 +136,10 @@ class GameWebSocketHandler(
                             playerSession.gameId,
                             playerSession.playerId,
                         )
-                    if (fingerprintNow == null || fingerprintNow != fingerprintAtClose) {
-                        // Game gone or player already reconnected, nothing to do.
+                    // Only the fingerprint *changing* means the player reconnected (token rotated)
+                    // or the game is gone. A still-null fingerprint (token never stored) must NOT
+                    // skip the leave, otherwise the player would linger forever.
+                    if (fingerprintNow != fingerprintAtClose) {
                         return@launch
                     }
 
