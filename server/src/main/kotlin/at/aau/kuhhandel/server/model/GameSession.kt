@@ -621,7 +621,7 @@ class GameSession(
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
                 timerEnd = calculatedTimeout,
-                auctionState = auctionState.copy(timerEndTime = null),
+                auctionState = auctionState.copy(timerEndTime = calculatedTimeout),
             )
 
         return state

@@ -428,13 +428,6 @@ class GameViewModel(
 
     /** Submits the auctioneer's buy-back or sell decision. */
     fun resolveAuction(buyBack: Boolean) {
-        val state = uiState.value
-        if (!state.isAuctioneer ||
-            state.currentPhase != GamePhase.AUCTIONEER_DECISION ||
-            (buyBack && !state.canAuctioneerAffordBuyBack)
-        ) {
-            return
-        }
         scope.launch {
             try {
                 repository.resolveAuction(buyBack)

@@ -581,6 +581,7 @@ class GameSessionTest {
         assertEquals(20, auction.highestBid)
         assertEquals("player-2", auction.highestBidderId)
         assertNull(auction.buyerId)
+        assertEquals(updatedState.timerEnd, auction.timerEndTime)
 
         // Assert: The card has NOT been given away yet
         updatedState.players.forEach { player ->
