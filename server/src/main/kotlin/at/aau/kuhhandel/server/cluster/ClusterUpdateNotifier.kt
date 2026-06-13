@@ -3,6 +3,8 @@ package at.aau.kuhhandel.server.cluster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -55,21 +57,31 @@ class ClusterUpdateNotifier(
         notifyScope.launch {
             // Peer resolution can hit DNS (headless service), so keep it off the caller thread.
             val targets = resolvePeerUrls()
-            targets.forEach { baseUrl ->
-                runCatching {
-                    restClient
-                        .post()
-                        .uri("$baseUrl/internal/cluster/game-updated")
-                        .header(SECRET_HEADER, properties.secret)
-                        .header(ORIGIN_HEADER, instanceId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(GameUpdatedNotification(gameId))
-                        .retrieve()
-                        .toBodilessEntity()
-                }.onFailure { error ->
-                    logger.warn("Peer notify failed for game $gameId -> $baseUrl: ${error.message}")
-                }
-            }
+            targets
+                .map { baseUrl ->
+                    async {
+                        notifyPeer(baseUrl, gameId)
+                    }
+                }.awaitAll()
+        }
+    }
+
+    private fun notifyPeer(
+        baseUrl: String,
+        gameId: String,
+    ) {
+        runCatching {
+            restClient
+                .post()
+                .uri("$baseUrl/internal/cluster/game-updated")
+                .header(SECRET_HEADER, properties.secret)
+                .header(ORIGIN_HEADER, instanceId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(GameUpdatedNotification(gameId))
+                .retrieve()
+                .toBodilessEntity()
+        }.onFailure { error ->
+            logger.warn("Peer notify failed for game $gameId -> $baseUrl: ${error.message}")
         }
     }
 

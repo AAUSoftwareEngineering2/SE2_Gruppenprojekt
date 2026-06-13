@@ -295,7 +295,7 @@ class GameService(
         dueGameIds.forEach { gameId ->
             runCatching {
                 var advancedState: GameState? = null
-                persistenceService.mutateGameState(gameId) { current ->
+                persistenceService.mutateGameState(gameId, activityAt = null) { current ->
                     val timerEnd = current.timerEnd
                     if (timerEnd != null && timerEnd <= now) {
                         GameSession
@@ -316,6 +316,24 @@ class GameService(
         }
 
         return advancedGames
+    }
+
+    /**
+     * Purges games that have seen no real player activity since [cutoff] (timeout advances do not
+     * count as activity, see [GameSession.handleTimeoutExpiration] / the sweeper). Safe on every
+     * pod: the delete is idempotent, so a pod that loses the race simply finds nothing to delete.
+     */
+    fun reapStaleGames(cutoff: Long): List<String> {
+        val reaped = mutableListOf<String>()
+        persistenceService.findStaleGameIds(cutoff).forEach { gameId ->
+            runCatching { persistenceService.deleteGame(gameId) }
+                .onSuccess { reaped += gameId }
+                .onFailure { logger.warn("Failed to reap stale game $gameId", it) }
+        }
+        if (reaped.isNotEmpty()) {
+            logger.info("Reaped {} stale games: {}", reaped.size, reaped)
+        }
+        return reaped
     }
 
     /**
