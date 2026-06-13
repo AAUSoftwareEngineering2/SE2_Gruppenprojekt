@@ -88,7 +88,14 @@ data class PlaceBidPayload(
 @Serializable
 data class ResolveAuctionPayload(
     val buyBack: Boolean,
-    val moneyCardIds: Set<String> = emptySet(),
+)
+
+/**
+ * Payload used by [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+ */
+@Serializable
+data class SubmitAuctionPaymentPayload(
+    val moneyCardIds: Set<String>,
 )
 
 /**

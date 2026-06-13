@@ -79,7 +79,7 @@ data class GameUiState(
     val isAuctionPayer: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_PAYMENT &&
-                gameState?.auctionState?.highestBidderId == myPlayerId
+                gameState?.auctionState?.buyerId == myPlayerId
 
     val selectedMoneyTotal: Int
         get() =
@@ -94,12 +94,7 @@ data class GameUiState(
         }
 
     val canSelectAuctionPaymentCards: Boolean
-        get() =
-            (
-                currentPhase == GamePhase.AUCTIONEER_DECISION &&
-                    canAuctioneerAffordBuyBack
-            ) ||
-                isAuctionPayer
+        get() = isAuctionPayer
 
     val canSubmitAuctionPayment: Boolean
         get() =
@@ -429,35 +424,32 @@ class GameViewModel(
         }
     }
 
-    /** Submits the auctioneer's decision, including selected cards for a buy-back. */
-    fun buyBack(buyBack: Boolean) {
-        val paymentMoneyCardIds =
-            if (buyBack) {
-                val state = uiState.value
-                if (!state.canSubmitAuctionPayment) return
-                selectedMoneyCardIds.value
-            } else {
-                emptySet()
-            }
-
+    /** Submits the auctioneer's buy-back or sell decision. */
+    fun resolveAuction(buyBack: Boolean) {
+        val state = uiState.value
+        if (!state.isAuctioneer ||
+            state.currentPhase != GamePhase.AUCTIONEER_DECISION ||
+            (buyBack && !state.canAuctioneerAffordBuyBack)
+        ) {
+            return
+        }
         scope.launch {
             try {
-                repository.buyBack(buyBack, paymentMoneyCardIds)
-                clearSelection()
+                repository.resolveAuction(buyBack)
             } catch (_: Exception) {
                 // Error handled by repository
             }
         }
     }
 
-    /** Submits the highest bidder's selected payment cards. */
+    /** Submits the selected cards for whichever player must pay. */
     fun submitAuctionPayment() {
         val state = uiState.value
         if (!state.isAuctionPayer || !state.canSubmitAuctionPayment) return
 
         scope.launch {
             try {
-                repository.buyBack(false, selectedMoneyCardIds.value)
+                repository.submitAuctionPayment(selectedMoneyCardIds.value)
                 clearSelection()
             } catch (_: Exception) {
                 // Error handled by repository

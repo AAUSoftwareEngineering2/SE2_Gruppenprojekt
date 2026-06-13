@@ -9,6 +9,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -246,21 +247,27 @@ class GameWebSocketClient(
         return requestId
     }
 
-    /** Resolves an auction decision or submits the payer's selected money cards. */
-    suspend fun buyBack(
-        buyBack: Boolean,
-        moneyCardIds: Set<String> = emptySet(),
-    ): String {
+    /** Submits the auctioneer's buy-back or sell decision. */
+    suspend fun resolveAuction(buyBack: Boolean): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
                 ResolveAuctionPayload.serializer(),
-                ResolveAuctionPayload(
-                    buyBack = buyBack,
-                    moneyCardIds = moneyCardIds,
-                ),
+                ResolveAuctionPayload(buyBack = buyBack),
             )
         send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
+        return requestId
+    }
+
+    /** Submits the current auction payer's selected money cards. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SubmitAuctionPaymentPayload.serializer(),
+                SubmitAuctionPaymentPayload(moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.SUBMIT_AUCTION_PAYMENT, requestId, payload))
         return requestId
     }
 

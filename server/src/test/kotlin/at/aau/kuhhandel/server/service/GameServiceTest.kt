@@ -289,7 +289,6 @@ class GameServiceTest {
                 gameSession.resolveAuction(
                     result.playerId,
                     auctioneerBuysCard = false,
-                    paymentMoneyCardIds = setOf("money-1"),
                 ),
             ).thenReturn(gameStateToReturn)
 
@@ -298,13 +297,11 @@ class GameServiceTest {
                     result.gameId,
                     result.playerId,
                     auctioneerBuysCard = false,
-                    paymentMoneyCardIds = setOf("money-1"),
                 )
 
             verify(gameSession).resolveAuction(
                 result.playerId,
                 auctioneerBuysCard = false,
-                paymentMoneyCardIds = setOf("money-1"),
             )
             assertEquals(gameStateToReturn, state)
         }
@@ -315,7 +312,29 @@ class GameServiceTest {
             assertThrows<IllegalStateException> {
                 service.resolveAuction("fake code", "player-1", auctioneerBuysCard = false)
             }
-            verify(gameSession, never()).resolveAuction(any(), any(), any())
+            verify(gameSession, never()).resolveAuction(any(), any())
+        }
+
+    @Test
+    fun test_submitAuctionPayment_delegatesWork() =
+        runTest {
+            val result = service.createGame("Player 1")
+            whenever(
+                gameSession.submitAuctionPayment(
+                    result.playerId,
+                    setOf("money-1"),
+                ),
+            ).thenReturn(gameStateToReturn)
+
+            val state =
+                service.submitAuctionPayment(
+                    result.gameId,
+                    result.playerId,
+                    setOf("money-1"),
+                )
+
+            verify(gameSession).submitAuctionPayment(result.playerId, setOf("money-1"))
+            assertEquals(gameStateToReturn, state)
         }
 
     @Test
@@ -487,7 +506,6 @@ class GameServiceTest {
                 gameSession.resolveAuction(
                     result.playerId,
                     auctioneerBuysCard = false,
-                    paymentMoneyCardIds = emptySet(),
                 ),
             ).thenReturn(restartedGameState)
             whenever(gameSession.state).thenReturn(restartedGameState)

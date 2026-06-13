@@ -209,10 +209,21 @@ class GameService(
         gameId: String,
         actorId: String,
         auctioneerBuysCard: Boolean,
-        paymentMoneyCardIds: Set<String> = emptySet(),
     ): GameState =
         executeAction(gameId) { session ->
-            session.resolveAuction(actorId, auctioneerBuysCard, paymentMoneyCardIds)
+            session.resolveAuction(actorId, auctioneerBuysCard)
+        }
+
+    /**
+     * Submits the selected money cards for the current auction payment.
+     */
+    suspend fun submitAuctionPayment(
+        gameId: String,
+        actorId: String,
+        moneyCardIds: Set<String>,
+    ): GameState =
+        executeAction(gameId) { session ->
+            session.submitAuctionPayment(actorId, moneyCardIds)
         }
 
     /**

@@ -87,14 +87,18 @@ class GameRepository(
         client.placeBid(amount)
     }
 
-    /** Sends an auction decision or the payer's selected money cards. */
-    suspend fun buyBack(
-        buyBack: Boolean,
-        moneyCardIds: Set<String> = emptySet(),
-    ) {
+    /** Sends the auctioneer's buy-back or sell decision. */
+    suspend fun resolveAuction(buyBack: Boolean) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.buyBack(buyBack, moneyCardIds)
+        client.resolveAuction(buyBack)
+    }
+
+    /** Sends the current auction payer's selected money cards. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.submitAuctionPayment(moneyCardIds)
     }
 
     /** Initiates a trade challenge against another player. */

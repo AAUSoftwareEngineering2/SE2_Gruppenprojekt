@@ -50,7 +50,7 @@ fun ChoicePhaseContent(
 fun AuctionPhaseContent(
     uiState: GameUiState,
     onPlaceBid: (Int) -> Unit,
-    onBuyBack: (Boolean) -> Unit,
+    onResolveAuction: (Boolean) -> Unit,
     onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,8 +125,8 @@ fun AuctionPhaseContent(
                                 val payerName =
                                     gameState
                                         ?.players
-                                        ?.find { it.id == highestBidderId }
-                                        ?.name ?: "winner"
+                                        ?.find { it.id == buyerId }
+                                        ?.name ?: "buyer"
                                 GameStatusText(
                                     text = "Waiting for $payerName to pay...",
                                     color = DarkPurple,
@@ -145,18 +145,11 @@ fun AuctionPhaseContent(
                                 color = DarkPurple,
                             )
                             if (highestBidderId == null) {
-                                Button(onClick = { onBuyBack(true) }) {
+                                Button(onClick = { onResolveAuction(true) }) {
                                     Text("CONTINUE")
                                 }
                             } else {
-                                if (uiState.canAuctioneerAffordBuyBack) {
-                                    Text(
-                                        text =
-                                            "Select money cards totaling at least " +
-                                                "${auctionState.highestBid} to buy back.",
-                                        modifier = Modifier.padding(bottom = 8.dp),
-                                    )
-                                } else {
+                                if (!uiState.canAuctioneerAffordBuyBack) {
                                     Text(
                                         text = "You do not have enough money to buy back.",
                                         modifier = Modifier.padding(bottom = 8.dp),
@@ -164,12 +157,12 @@ fun AuctionPhaseContent(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
-                                        onClick = { onBuyBack(true) },
-                                        enabled = uiState.canSubmitAuctionPayment,
+                                        onClick = { onResolveAuction(true) },
+                                        enabled = uiState.canAuctioneerAffordBuyBack,
                                     ) {
-                                        Text("Buy Back (${uiState.selectedMoneyTotal})")
+                                        Text("Buy Back")
                                     }
-                                    Button(onClick = { onBuyBack(false) }) {
+                                    Button(onClick = { onResolveAuction(false) }) {
                                         Text("Let Winner Buy")
                                     }
                                 }

@@ -18,6 +18,7 @@ enum class WebSocketType {
     RESPOND_TO_TRADE,
     PLACE_BID,
     RESOLVE_AUCTION,
+    SUBMIT_AUCTION_PAYMENT,
     FINISH_TRADE_REVEAL,
     SPY,
     CATCH_SPY,

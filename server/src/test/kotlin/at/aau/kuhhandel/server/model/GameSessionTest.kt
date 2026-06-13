@@ -634,12 +634,12 @@ class GameSessionTest {
             state = paymentState,
         )
         assertEquals(paymentState.timerEnd, paymentState.auctionState?.timerEndTime)
+        assertEquals("player-2", paymentState.auctionState?.buyerId)
         assertTrue(paymentState.players.all { it.animals.isEmpty() })
 
         val updatedState =
-            session.resolveAuction(
+            session.submitAuctionPayment(
                 "player-2",
-                auctioneerBuysCard = false,
                 paymentMoneyCardIds = setOf("player-2-10-1", "player-2-10-2"),
             )
         val seller = updatedState.players.find { it.id == "player-1" }!!
@@ -686,11 +686,13 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", resolutionState)
 
-        // Act: Auctioneer buys the card
+        val paymentState = session.resolveAuction("player-1", auctioneerBuysCard = true)
+        assertEquals(GamePhase.AUCTION_PAYMENT, paymentState.phase)
+        assertEquals("player-1", paymentState.auctionState?.buyerId)
+
         val updatedState =
-            session.resolveAuction(
+            session.submitAuctionPayment(
                 "player-1",
-                auctioneerBuysCard = true,
                 paymentMoneyCardIds = setOf("player-1-50-1"),
             )
 
@@ -808,22 +810,19 @@ class GameSessionTest {
 
         // Act & Assert: Transaction validation check fails
         assertActionFailsWithReason(resolutionState, GameErrorReason.NOT_ENOUGH_MONEY) {
-            it.resolveAuction(
-                "player-1",
-                auctioneerBuysCard = true,
-                paymentMoneyCardIds = setOf("player-1-10-1"),
-            )
+            it.resolveAuction("player-1", auctioneerBuysCard = true)
         }
     }
 
     @Test
-    fun `resolveAuction rejects insufficient selected payment`() {
+    fun `submitAuctionPayment rejects insufficient selected payment`() {
         val auctionState =
             AuctionState(
                 auctionCard = AnimalCard("cow-1", AnimalType.COW),
                 auctioneerId = "player-1",
                 highestBid = 20,
                 highestBidderId = "player-2",
+                buyerId = "player-2",
             )
         val paymentState =
             baselineState.copy(
@@ -837,22 +836,22 @@ class GameSessionTest {
             )
 
         assertActionFailsWithReason(paymentState, GameErrorReason.NOT_ENOUGH_MONEY) {
-            it.resolveAuction(
+            it.submitAuctionPayment(
                 "player-2",
-                auctioneerBuysCard = false,
                 paymentMoneyCardIds = setOf("player-2-10-1"),
             )
         }
     }
 
     @Test
-    fun `resolveAuction rejects payment cards not owned by payer`() {
+    fun `submitAuctionPayment rejects payment cards not owned by payer`() {
         val auctionState =
             AuctionState(
                 auctionCard = AnimalCard("cow-1", AnimalType.COW),
                 auctioneerId = "player-1",
                 highestBid = 20,
                 highestBidderId = "player-2",
+                buyerId = "player-2",
             )
         val paymentState =
             baselineState.copy(
@@ -866,16 +865,15 @@ class GameSessionTest {
             )
 
         assertActionFailsWithReason(paymentState, GameErrorReason.NOT_OWNED_MONEY_CARDS) {
-            it.resolveAuction(
+            it.submitAuctionPayment(
                 "player-2",
-                auctioneerBuysCard = false,
                 paymentMoneyCardIds = setOf("unknown-card"),
             )
         }
     }
 
     @Test
-    fun `resolveAuction rejects player who is not auction payer`() {
+    fun `submitAuctionPayment rejects player who is not auction payer`() {
         val paymentState =
             baselineState.copy(
                 phase = GamePhase.AUCTION_PAYMENT,
@@ -885,11 +883,12 @@ class GameSessionTest {
                         auctioneerId = "player-1",
                         highestBid = 20,
                         highestBidderId = "player-2",
+                        buyerId = "player-2",
                     ),
             )
 
         assertActionFailsWithReason(paymentState, GameErrorReason.NOT_AUCTION_PAYER) {
-            it.resolveAuction("player-3", auctioneerBuysCard = false)
+            it.submitAuctionPayment("player-3", emptySet())
         }
     }
 
@@ -1583,7 +1582,7 @@ class GameSessionTest {
             expectedDuration = PhaseDurations.AUCTION_PAYMENT_MS,
             state = updatedState,
         )
-        assertNull(updatedState.auctionState?.buyerId)
+        assertEquals("player-2", updatedState.auctionState?.buyerId)
     }
 
     @Test
@@ -1598,6 +1597,7 @@ class GameSessionTest {
                         auctioneerId = "player-1",
                         highestBid = 20,
                         highestBidderId = "player-2",
+                        buyerId = "player-2",
                     ),
                 players =
                     baselineState.players.withPlayerAssets(
@@ -1834,10 +1834,10 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", decisionState)
 
         // Act: Auctioneer manually executes buy-back to claim the final quartet card
+        session.resolveAuction("player-1", auctioneerBuysCard = true)
         val stateAfterResolution =
-            session.resolveAuction(
+            session.submitAuctionPayment(
                 "player-1",
-                auctioneerBuysCard = true,
                 paymentMoneyCardIds = setOf("player-1-50-1"),
             )
 
@@ -1866,6 +1866,7 @@ class GameSessionTest {
                 auctioneerId = "player-2",
                 highestBid = 15,
                 highestBidderId = "player-1",
+                buyerId = "player-1",
             )
         val resolutionState =
             baselineState.copy(

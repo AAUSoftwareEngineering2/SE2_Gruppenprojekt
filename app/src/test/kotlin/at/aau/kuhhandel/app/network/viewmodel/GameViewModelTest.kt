@@ -930,7 +930,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `buyBack submits selected payment cards`() {
+    fun `resolveAuction submits buy back decision without payment cards`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -963,17 +963,10 @@ class GameViewModelTest {
                         ),
                 )
             advanceUntilIdle()
-            viewModel.toggleMoneyCardSelection("m1")
+            viewModel.resolveAuction(true)
             advanceUntilIdle()
 
-            viewModel.buyBack(true)
-            advanceUntilIdle()
-
-            coVerify { mockRepository.buyBack(true, setOf("m1")) }
-            assertTrue(
-                viewModel.uiState.value.selectedMoneyCardIds
-                    .isEmpty(),
-            )
+            coVerify { mockRepository.resolveAuction(true) }
         }
     }
 
@@ -1036,6 +1029,7 @@ class GameViewModelTest {
                                     auctioneerId = "auctioneer",
                                     highestBid = 20,
                                     highestBidderId = "bidder",
+                                    buyerId = "bidder",
                                 ),
                             players =
                                 listOf(
@@ -1061,7 +1055,7 @@ class GameViewModelTest {
             viewModel.submitAuctionPayment()
             advanceUntilIdle()
 
-            coVerify { mockRepository.buyBack(false, setOf("m1")) }
+            coVerify { mockRepository.submitAuctionPayment(setOf("m1")) }
         }
     }
 
