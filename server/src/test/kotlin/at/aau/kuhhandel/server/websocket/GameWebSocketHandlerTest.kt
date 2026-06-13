@@ -60,8 +60,8 @@ class GameWebSocketHandlerTest {
         GameState(
             players =
                 listOf(
-                    Player("player-1", "Player 1"),
-                    Player("player-2", "Player 2"),
+                    Player("player-1", "Player1"),
+                    Player("player-2", "Player2"),
                 ),
             hostPlayerId = "player-1",
         )
@@ -175,7 +175,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -287,7 +287,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-2", "Player 2")),
+                    players = listOf(Player("player-2", "Player2")),
                     hostPlayerId = "player-2",
                 )
 
@@ -315,7 +315,7 @@ class GameWebSocketHandlerTest {
                 GameSession(
                     gameId = "game-1",
                     hostPlayerId = "player-1",
-                    hostPlayerName = "Player 1",
+                    hostPlayerName = "Player1",
                 )
 
             val returnedResult =
@@ -326,7 +326,7 @@ class GameWebSocketHandlerTest {
                 )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.createGame("Player 1")).thenReturn(returnedResult)
+            whenever(gameService.createGame("Player1")).thenReturn(returnedResult)
 
             sendEnvelope(
                 session = session1,
@@ -335,11 +335,11 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         CreateGamePayload.serializer(),
-                        CreateGamePayload("Player 1"),
+                        CreateGamePayload("Player1"),
                     ),
             )
 
-            verify(gameService).createGame("Player 1")
+            verify(gameService).createGame("Player1")
 
             val response = captureResponse(session1)
             assertEquals(WebSocketType.GAME_CREATED, response.type)
@@ -367,7 +367,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     CreateGamePayload.serializer(),
-                    CreateGamePayload("Player 1"),
+                    CreateGamePayload("Player1"),
                 ),
         )
 
@@ -399,7 +399,7 @@ class GameWebSocketHandlerTest {
             )
 
             whenever(
-                gameService.joinGame("game-1", "Player 1"),
+                gameService.joinGame("game-1", "Player1"),
             ).thenReturn(returnedResult)
 
             sendEnvelope(
@@ -409,11 +409,11 @@ class GameWebSocketHandlerTest {
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         JoinGamePayload.serializer(),
-                        JoinGamePayload("game-1", "Player 1"),
+                        JoinGamePayload("game-1", "Player1"),
                     ),
             )
 
-            verify(gameService).joinGame("game-1", "Player 1")
+            verify(gameService).joinGame("game-1", "Player1")
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_JOINED, response1.type)
@@ -450,7 +450,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-2", "Player 1"),
+                    JoinGamePayload("game-2", "Player1"),
                 ),
         )
 
@@ -478,7 +478,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     CreateGamePayload.serializer(),
-                    CreateGamePayload("Player 1"),
+                    CreateGamePayload("Player1"),
                 ),
         )
 
@@ -536,7 +536,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-1", "Player 1")),
+                    players = listOf(Player("player-1", "Player1")),
                     hostPlayerId = "player-1",
                 )
 
@@ -581,7 +581,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 
@@ -608,7 +608,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     CreateGamePayload.serializer(),
-                    CreateGamePayload("Player 1"),
+                    CreateGamePayload("Player1"),
                 ),
         )
 
@@ -620,7 +620,7 @@ class GameWebSocketHandlerTest {
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
-                    players = listOf(Player("player-1", "Player 1")),
+                    players = listOf(Player("player-1", "Player1")),
                     hostPlayerId = "player-1",
                 )
 
@@ -834,7 +834,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 
@@ -924,7 +924,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 
@@ -1033,7 +1033,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 
@@ -1138,7 +1138,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 
@@ -1234,7 +1234,7 @@ class GameWebSocketHandlerTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     JoinGamePayload.serializer(),
-                    JoinGamePayload("game-1", "Player 1"),
+                    JoinGamePayload("game-1", "Player1"),
                 ),
         )
 

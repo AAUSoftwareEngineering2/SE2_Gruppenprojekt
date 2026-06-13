@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
@@ -22,15 +26,12 @@ import at.aau.kuhhandel.app.ui.components.MenuCard
 @Composable
 fun RoomCreationScreen(
     uiState: LobbyCreationUiState,
+    onPlayerNameChanged: (String) -> Unit,
     onCreateLobby: () -> Unit,
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
     val playClickSound = LocalButtonClickSound.current
-
-    LaunchedEffect(Unit) {
-        onCreateLobby()
-    }
 
     LaunchedEffect(uiState.isCreated, uiState.gameId) {
         if (uiState.isCreated && uiState.gameId != null) {
@@ -89,17 +90,56 @@ fun RoomCreationScreen(
                         )
                     }
 
-                    else -> {
+                    uiState.isConnecting -> {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
+                        Text(text = "Connection to Server...")
+                    }
+
+                    else -> {
                         Text(
-                            text =
-                                if (uiState.isConnecting) {
-                                    "Connection to Server..."
-                                } else {
-                                    "Create Lobby..."
-                                },
+                            "Create Lobby",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary,
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            "Choose your player name",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = uiState.playerName,
+                            onValueChange = onPlayerNameChanged,
+                            label = { Text("Player name") },
+                            placeholder = { Text("Player Name") },
+                            singleLine = true,
+                            isError = uiState.playerNameError != null,
+                            supportingText = {
+                                Text(
+                                    text =
+                                        uiState.playerNameError
+                                            ?: "Max 8 chars, letters and digits only",
+                                )
+                            },
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.None,
+                                ),
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = {
+                                playClickSound()
+                                onCreateLobby()
+                            },
+                            enabled = uiState.canSubmit,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Create Lobby")
+                        }
                     }
                 }
             }

@@ -197,7 +197,7 @@ class GameWebSocketClientTest {
     @Test
     fun `joinGame without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.joinGame("g1") }
+            assertFailsWith<IllegalStateException> { client.joinGame("g1", "Player1") }
         }
     }
 
