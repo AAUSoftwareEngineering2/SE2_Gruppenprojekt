@@ -9,6 +9,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -306,6 +307,27 @@ class GameWebSocketClient(
     suspend fun finishTradeReveal(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
+        return requestId
+    }
+
+    /** Initiates a spying action against an opponent player. */
+    suspend fun spy(targetPlayerId: String): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SpyPayload.serializer(),
+                SpyPayload(
+                    targetPlayerId = targetPlayerId,
+                ),
+            )
+        send(WebSocketEnvelope(WebSocketType.SPY, requestId, payload))
+        return requestId
+    }
+
+    /** Attempts to catch any players currently spying on this player. */
+    suspend fun catchSpy(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.CATCH_SPY, requestId))
         return requestId
     }
 

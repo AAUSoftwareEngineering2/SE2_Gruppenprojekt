@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -14,6 +15,7 @@ import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -68,6 +71,14 @@ class GameRepositoryTest {
             animalType: AnimalType = AnimalType.COW,
         ) {
             repository.initiateTrade(targetPlayerId, animalType)
+        }
+
+        suspend fun spy(targetPlayerId: String) {
+            repository.spy(targetPlayerId)
+        }
+
+        suspend fun catchSpy() {
+            repository.catchSpy()
         }
 
         fun clearError() {
@@ -358,6 +369,71 @@ class GameRepositoryTest {
             val harness = createHarness()
             harness.initiateTrade("p2")
             assertEquals(WebSocketType.CHOOSE_TRADE, harness.sentEnvelope().type)
+        }
+    }
+
+    @Test
+    fun `spy sends request with target payload`() {
+        runBlocking {
+            val harness = createHarness()
+
+            harness.spy("player-2")
+
+            val envelope = harness.sentEnvelope()
+            assertEquals(WebSocketType.SPY, envelope.type)
+
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SpyPayload.serializer(),
+                    assertNotNull(envelope.payload),
+                )
+            assertEquals("player-2", payload.targetPlayerId)
+        }
+    }
+
+    @Test
+    fun `catchSpy sends request`() {
+        runBlocking {
+            val harness = createHarness()
+
+            harness.catchSpy()
+
+            val envelope = harness.sentEnvelope()
+            assertEquals(WebSocketType.CATCH_SPY, envelope.type)
+        }
+    }
+
+    @Test
+    fun `cheating operations reactively apply incoming GAME_STATE_UPDATED messages`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame()
+
+            // Construct an updated state showing an active cheating transaction
+            val initialSpy =
+                SpyAction(
+                    spyId = "me",
+                    targetId = "player-2",
+                    expiresAt = System.currentTimeMillis() + 5000L,
+                    revealedCards = emptySet(),
+                )
+            val updatedState =
+                sampleState(phase = GamePhase.PLAYER_CHOICE).copy(
+                    activeSpies = setOf(initialSpy),
+                )
+
+            // Simulate the repository's background stream reading the server broadcast
+            harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, updatedState)
+
+            // Verify the repository reactively pushed the data straight into the UI flow
+            assertEquals(updatedState, harness.state.gameState)
+            assertEquals(
+                1,
+                harness.state.gameState
+                    ?.activeSpies
+                    ?.size,
+            )
+            assertNull(harness.state.errorMessage)
         }
     }
 

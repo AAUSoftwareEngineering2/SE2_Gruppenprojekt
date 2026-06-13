@@ -132,6 +132,20 @@ class GameRepository(
         client.finishTradeReveal()
     }
 
+    /** Requests to spy on a targeted opponent player's money cards. */
+    suspend fun spy(targetPlayerId: String) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.spy(targetPlayerId)
+    }
+
+    /** Attempts to catch opponents who are actively spying on this player. */
+    suspend fun catchSpy() {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.catchSpy()
+    }
+
     /** Resets the current error message in the repository state. */
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
