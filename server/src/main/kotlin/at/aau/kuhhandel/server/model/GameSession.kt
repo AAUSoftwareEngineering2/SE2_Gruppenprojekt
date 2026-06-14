@@ -14,6 +14,7 @@ import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.utils.ScoreCalculator
 
 /**
  * State machine representing a single game session.
@@ -757,13 +758,19 @@ class GameSession(
             }
 
         if (totalQuartetsFormed == AnimalType.entries.size) {
+            val ranking = ScoreCalculator.calculateGameRanking(state.players)
+
             state =
                 state.copy(
                     phase = GamePhase.FINISHED,
                     timerEnd = null,
                     lastEvent = null,
-                    // leaderboard = ...
+                    finalRanking = ranking,
                 )
+
+            // NOTE FOR FUTURE: This is where the finalRanking data can be extracted to be
+            // saved in a global leaderboard on the database later.
+            // The source of truth for the winner and their points is available here in 'ranking'.
         } else {
             val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
 

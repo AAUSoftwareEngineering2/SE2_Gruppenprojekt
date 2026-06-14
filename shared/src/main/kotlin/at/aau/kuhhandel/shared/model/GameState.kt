@@ -19,6 +19,7 @@ data class GameState(
     val tradeState: TradeState? = null,
     val activeSpies: Set<SpyAction> = emptySet(),
     val spiedThisTurn: Set<String> = emptySet(),
+    val finalRanking: List<at.aau.kuhhandel.shared.utils.GameRankEntry> = emptyList(),
     // The last event that occurred, e.g. a money bonus from a donkey
     val lastEvent: GameEvent? = null,
 ) {
@@ -98,6 +99,7 @@ data class GameState(
             spyingTargetCards = activeLocalCheating?.revealedCards?.toList(),
             localPlayerSpiedOn = localPlayerSpiedOn,
             spiedOnOpponentIds = spiedOnOpponentIds,
+            finalRanking = this.finalRanking,
             lastEvent = this.lastEvent,
         )
     }

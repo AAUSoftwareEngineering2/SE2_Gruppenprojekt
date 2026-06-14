@@ -20,5 +20,6 @@ data class GameStateView(
     val spyingTargetCards: List<MoneyCard>?,
     val localPlayerSpiedOn: Boolean,
     val spiedOnOpponentIds: List<String>,
+    val finalRanking: List<at.aau.kuhhandel.shared.utils.GameRankEntry> = emptyList(),
     val lastEvent: GameEvent?,
 )
