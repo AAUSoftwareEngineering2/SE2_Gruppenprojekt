@@ -162,6 +162,7 @@ class GameRepositoryTest {
                 ),
             currentFaceUpCard = currentCard,
             players = players,
+            hostPlayerId = "player-1",
         )
 
     private fun gameCreatedEnvelope(
@@ -457,6 +458,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
+            val stateView = state.createViewForPlayer("player-1")
 
             harness.repository.createGame("me")
 
@@ -471,6 +473,7 @@ class GameRepositoryTest {
                                 playerId = "me",
                                 reconnectToken = "test-token",
                                 state = state,
+                                stateView = stateView,
                             ),
                         ),
                 )
@@ -481,6 +484,7 @@ class GameRepositoryTest {
             assertEquals("g1", harness.state.gameId)
             assertEquals("me", harness.state.myPlayerId)
             assertEquals(state, harness.state.gameState)
+            assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
                 harness.tokenStorage.saveSession(
@@ -497,6 +501,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
+            val stateView = state.createViewForPlayer("player-1")
 
             harness.repository.createGame("me") // Ensure connected and setup
 
@@ -512,6 +517,7 @@ class GameRepositoryTest {
                                 playerId = "me",
                                 reconnectToken = "test-token",
                                 state = state,
+                                stateView = stateView,
                             ),
                         ),
                 )
@@ -521,6 +527,7 @@ class GameRepositoryTest {
 
             assertEquals("g1", harness.state.gameId)
             assertEquals(state, harness.state.gameState)
+            assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
                 harness.tokenStorage.saveSession(
@@ -569,6 +576,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
+            val stateView = state.createViewForPlayer("player-1")
 
             harness.repository.createGame("me")
 
@@ -581,6 +589,7 @@ class GameRepositoryTest {
                             SnapshotPayload(
                                 reconnectToken = "new-token",
                                 state = state,
+                                stateView = stateView,
                             ),
                         ),
                 )
@@ -589,6 +598,7 @@ class GameRepositoryTest {
             flushRepository()
 
             assertEquals(state, harness.state.gameState)
+            assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
                 harness.tokenStorage.saveReconnectToken("new-token")

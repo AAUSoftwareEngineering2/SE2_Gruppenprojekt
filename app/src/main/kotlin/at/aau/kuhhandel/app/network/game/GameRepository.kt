@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
@@ -27,6 +28,7 @@ data class GameRepositoryState(
     val gameId: String? = null,
     val myPlayerId: String? = null,
     val gameState: GameState? = null,
+    val gameStateView: GameStateView? = null,
     val errorMessage: String? = null,
 )
 
@@ -347,6 +349,7 @@ class GameRepository(
                             gameId = created.gameId,
                             myPlayerId = created.playerId,
                             gameState = created.state,
+                            gameStateView = created.stateView,
                             errorMessage = null,
                         )
                     }
@@ -375,6 +378,7 @@ class GameRepository(
                         it.copy(
                             myPlayerId = it.myPlayerId ?: joined.playerId,
                             gameState = joined.state,
+                            gameStateView = joined.stateView,
                             errorMessage = null,
                         )
                     }
@@ -394,6 +398,7 @@ class GameRepository(
                     _state.update {
                         it.copy(
                             gameState = gameStatePayload.state,
+                            gameStateView = gameStatePayload.stateView,
                             errorMessage = null,
                         )
                     }
@@ -421,6 +426,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameState = payload.state,
+                        gameStateView = payload.stateView,
                         errorMessage = null,
                     )
                 }
@@ -439,6 +445,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameState = payload.state,
+                        gameStateView = payload.stateView,
                         errorMessage = null,
                     )
                 }

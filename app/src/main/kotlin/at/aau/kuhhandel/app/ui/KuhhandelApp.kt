@@ -179,6 +179,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,
                     onCollapseHand = gameViewModel::collapseHand,
+                    onFarmTapForEye = gameViewModel::selectEyeTargetPlayer,
+                    onEyeIconClick = gameViewModel::highlightEyeIcon,
+                    onPhoneShake = gameViewModel::onPhoneShake,
+                    onCatchSpy = gameViewModel::catchSpy,
                 )
             }
         }
