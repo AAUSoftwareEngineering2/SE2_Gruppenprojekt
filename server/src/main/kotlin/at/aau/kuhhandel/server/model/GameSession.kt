@@ -597,7 +597,14 @@ class GameSession(
     /**
      * Skip the player's turn.
      */
-    private fun makeDefaultPlayerChoice(): GameState = advanceTurnAndCheckGameEnd()
+    private fun makeDefaultPlayerChoice(): GameState {
+        state =
+            state.copy(
+                activeSpies = emptySet(),
+                spiedThisTurn = emptySet(),
+            )
+        return advanceTurnAndCheckGameEnd()
+    }
 
     /**
      * Concludes bidding and determines whether to show a final result or request a decision.

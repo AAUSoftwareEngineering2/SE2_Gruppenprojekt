@@ -1744,6 +1744,16 @@ class GameSessionTest {
                 phase = GamePhase.PLAYER_CHOICE,
                 currentPlayerIndex = 0,
                 roundNumber = 5,
+                activeSpies =
+                    setOf(
+                        SpyAction(
+                            "player-2",
+                            "player-1",
+                            System.currentTimeMillis() + 1000L,
+                            setOf(MoneyCard("money-20-1", 20)),
+                        ),
+                    ),
+                spiedThisTurn = setOf("player-2"),
             )
         val session = GameSession.fromState("game-1", activeState)
 
@@ -1755,6 +1765,8 @@ class GameSessionTest {
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
         assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
+        assertEquals(emptySet(), updatedState.activeSpies)
+        assertEquals(emptySet(), updatedState.spiedThisTurn)
     }
 
     @Test
