@@ -12,6 +12,14 @@ import org.springframework.stereotype.Repository
 interface GamePlayerRepository : JpaRepository<GamePlayerEntity, Long> {
     fun findByGameOrderBySeatOrderAsc(game: GameEntity): List<GamePlayerEntity>
 
+    @Query(
+        "SELECT gp FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.playerId = :playerId",
+    )
+    fun findByGameIdAndPlayerId(
+        @Param("gameId") gameId: Long,
+        @Param("playerId") playerId: String,
+    ): GamePlayerEntity?
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM GamePlayerEntity gp WHERE gp.game = :game")
     fun deleteByGame(

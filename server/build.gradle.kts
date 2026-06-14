@@ -46,7 +46,10 @@ dependencies {
     }
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
-    testRuntimeOnly(libs.h2)
+    // Runtime so the server can run locally without Postgres (see scripts/run-multipod-local.sh).
+    // DatabaseConnectionVerifier refuses to start on staging/production unless the datasource is
+    // Postgres, so this cannot silently become an embedded production database.
+    runtimeOnly(libs.h2)
 }
 
 tasks.withType<Test> {

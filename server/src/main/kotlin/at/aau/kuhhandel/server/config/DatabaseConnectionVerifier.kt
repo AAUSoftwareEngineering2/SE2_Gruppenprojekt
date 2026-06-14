@@ -37,6 +37,14 @@ class DatabaseConnectionVerifier(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
+        // H2 is on the runtime classpath for the local multi-pod script. Refuse to start on
+        // staging/production if the datasource is not Postgres, so a missing or misconfigured
+        // SPRING_DATASOURCE_URL can never silently fall back to an embedded H2 (data loss risk).
+        require(datasourceUrl.startsWith(POSTGRES_URL_PREFIX)) {
+            "staging/production requires a PostgreSQL datasource, but spring.datasource.url was " +
+                "'$datasourceUrl'. Refusing to start on a non-Postgres database."
+        }
+
         connectionFactory
             .open(
                 datasourceUrl,
@@ -49,5 +57,9 @@ class DatabaseConnectionVerifier(
             }
 
         logger.info("Successfully connected to the configured PostgreSQL database.")
+    }
+
+    private companion object {
+        const val POSTGRES_URL_PREFIX = "jdbc:postgresql:"
     }
 }

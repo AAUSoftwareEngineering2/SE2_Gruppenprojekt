@@ -1133,7 +1133,7 @@ class GameSession(
 
         const val SPYING_CARDS_REVEALED = 4
 
-        // Used for testing
+        // Wraps a state loaded from the database; used for every action on the stateless path.
         fun fromState(
             gameId: String,
             state: GameState,
