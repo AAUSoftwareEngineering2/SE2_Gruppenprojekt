@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -197,7 +198,7 @@ class GameWebSocketClientTest {
     @Test
     fun `joinGame without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.joinGame("g1") }
+            assertFailsWith<IllegalStateException> { client.joinGame("g1", "Player1") }
         }
     }
 
@@ -214,6 +215,20 @@ class GameWebSocketClientTest {
             assertFailsWith<IllegalStateException> {
                 client.respondToTrade(emptySet())
             }
+        }
+    }
+
+    @Test
+    fun `spy without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.spy("player-2") }
+        }
+    }
+
+    @Test
+    fun `catchSpy without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> { client.catchSpy() }
         }
     }
 
@@ -399,6 +414,48 @@ class GameWebSocketClientTest {
                 WebSocketType.FINISH_TRADE_REVEAL,
                 connection.session.onlySentEnvelope().type,
             )
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `spy sends envelope with payload`() {
+        runBlocking {
+            // ARRANGE: Build an active channel session
+            val connection = connectClient()
+
+            // ACT: Fire the command
+            val requestId = client.spy("player-2")
+            val sent = connection.session.onlySentEnvelope()
+
+            // ASSERT: Verify matching types and payload mapping
+            assertEquals(WebSocketType.SPY, sent.type)
+            assertEquals(requestId, sent.requestId)
+
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SpyPayload.serializer(),
+                    assertNotNull(sent.payload),
+                )
+
+            assertEquals("player-2", payload.targetPlayerId)
+
+            // CLEANUP: Tear down gracefully
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `catchSpy sends envelope`() {
+        runBlocking {
+            val connection = connectClient()
+
+            val requestId = client.catchSpy()
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.CATCH_SPY, sent.type)
+            assertEquals(requestId, sent.requestId)
+
             connection.disconnect()
         }
     }

@@ -87,6 +87,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
                 RoomCreationScreen(
                     uiState = creationUiState,
+                    onPlayerNameChanged = creationViewModel::onPlayerNameChanged,
                     onCreateLobby = creationViewModel::createLobby,
                     onBack = {
                         repository.disconnect()
@@ -110,6 +111,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                 RoomJoiningScreen(
                     uiState = joiningUiState,
                     onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
+                    onPlayerNameChanged = joiningViewModel::onPlayerNameChanged,
                     onJoinLobby = joiningViewModel::joinLobby,
                     onBack = {
                         repository.disconnect()
@@ -180,6 +182,10 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,
                     onCollapseHand = gameViewModel::collapseHand,
+                    onFarmTapForEye = gameViewModel::selectEyeTargetPlayer,
+                    onEyeIconClick = gameViewModel::highlightEyeIcon,
+                    onPhoneShake = gameViewModel::onPhoneShake,
+                    onCatchSpy = gameViewModel::catchSpy,
                 )
             }
 

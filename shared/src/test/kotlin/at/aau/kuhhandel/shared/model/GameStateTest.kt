@@ -2,6 +2,7 @@ package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -104,7 +105,8 @@ class GameStateTest {
         assertTrue(view.opponents.any { it.id == "player-3" })
         assertEquals(baseState.hostPlayerId, view.hostPlayerId)
         assertEquals(baseState.roundNumber, view.roundNumber)
-        assertEquals(baseState.currentPlayerIndex, view.currentPlayerIndex)
+        val currentPlayerId = baseState.players.getOrNull(baseState.currentPlayerIndex)?.id
+        assertEquals(currentPlayerId, view.currentPlayerId)
         assertEquals(baseState.deck.size(), view.deckSize)
         assertEquals(baseState.auctionState, view.auctionState)
         assertEquals(baseState.lastEvent, view.lastEvent)
@@ -132,7 +134,8 @@ class GameStateTest {
         assertTrue(view.opponents.any { it.id == "player-2" })
         assertEquals(baseState.hostPlayerId, view.hostPlayerId)
         assertEquals(baseState.roundNumber, view.roundNumber)
-        assertEquals(baseState.currentPlayerIndex, view.currentPlayerIndex)
+        val currentPlayerId = baseState.players.getOrNull(baseState.currentPlayerIndex)?.id
+        assertEquals(currentPlayerId, view.currentPlayerId)
         assertEquals(baseState.deck.size(), view.deckSize)
         assertEquals(baseState.auctionState, view.auctionState)
         assertEquals(baseState.lastEvent, view.lastEvent)
@@ -174,6 +177,69 @@ class GameStateTest {
         assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
         assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
         assertEquals(tradeState?.winnerId, tradeView.winnerId)
+    }
+
+    @Test
+    fun test_createViewForPlayer_showsRelevantSpyData() {
+        val moneyCard = MoneyCard("money-20-1", 20)
+        val spyAction =
+            SpyAction(
+                spyId = "player-1",
+                targetId = "player-2",
+                expiresAt = System.currentTimeMillis() + 1000,
+                revealedCards = setOf(moneyCard),
+            )
+
+        val spyState =
+            baseState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                tradeState = null,
+                activeSpies = setOf(spyAction),
+                spiedThisTurn = setOf("player-1"),
+            )
+
+        // Verify the view generated for the spy
+        val spyView = spyState.createViewForPlayer("player-1")
+        assertTrue(spyView.alreadySpied)
+        assertEquals("player-2", spyView.spyingTargetId)
+        assertEquals(listOf(moneyCard), spyView.spyingTargetCards)
+        assertFalse(spyView.localPlayerSpiedOn)
+        assertTrue(spyView.spiedOnOpponentIds.isEmpty())
+
+        // Verify the view generated for the target
+        val targetView = spyState.createViewForPlayer("player-2")
+        assertFalse(targetView.alreadySpied)
+        assertNull(targetView.spyingTargetId)
+        assertNull(targetView.spyingTargetCards)
+        assertTrue(targetView.localPlayerSpiedOn)
+        assertTrue(targetView.spiedOnOpponentIds.isEmpty())
+
+        // Verify the view generated for an outside observer
+        val observerView = spyState.createViewForPlayer("player-3")
+        assertFalse(observerView.alreadySpied)
+        assertNull(observerView.spyingTargetId)
+        assertNull(observerView.spyingTargetCards)
+        assertFalse(observerView.localPlayerSpiedOn)
+        assertEquals(listOf("player-2"), observerView.spiedOnOpponentIds)
+    }
+
+    @Test
+    fun test_createViewForPlayer_ordersOpponentsInTurnOrderBasedOnViewer() {
+        // Given a specific player order: Player 1 -> Player 2 -> Player 3
+        // When Player 1 views the state, opponents should be: Player 2, Player 3
+        val view1 = baseState.createViewForPlayer("player-1")
+        assertEquals("player-2", view1.opponents[0].id)
+        assertEquals("player-3", view1.opponents[1].id)
+
+        // When Player 2 views the state, opponents should wrap around: Player 3, Player 1
+        val view2 = baseState.createViewForPlayer("player-2")
+        assertEquals("player-3", view2.opponents[0].id)
+        assertEquals("player-1", view2.opponents[1].id)
+
+        // When Player 3 views the state, opponents should wrap around: Player 1, Player 2
+        val view3 = baseState.createViewForPlayer("player-3")
+        assertEquals("player-1", view3.opponents[0].id)
+        assertEquals("player-2", view3.opponents[1].id)
     }
 
     @Test

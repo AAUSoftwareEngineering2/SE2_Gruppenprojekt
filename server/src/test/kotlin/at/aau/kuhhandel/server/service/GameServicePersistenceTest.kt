@@ -44,7 +44,7 @@ class GameServicePersistenceTest
         @Test
         fun `getGame reloads a removed session from the persisted snapshot`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("Player1")
 
             service.removeGame(created.gameId)
 
@@ -52,13 +52,13 @@ class GameServicePersistenceTest
             assertEquals(created.gameId, reloaded.gameId)
             assertEquals(GamePhase.NOT_STARTED, reloaded.state.phase)
             assertEquals(1, reloaded.state.players.size)
-            assertEquals("player-1", reloaded.state.players[0].name)
+            assertEquals("Player1", reloaded.state.players[0].name)
         }
 
         @Test
         fun `purgeGame removes both the in-memory session and the persisted record`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("Player1")
 
             service.purgeGame(created.gameId)
 
@@ -69,11 +69,11 @@ class GameServicePersistenceTest
         @Test
         fun `createGame writes a LOBBY snapshot the moment the game is created`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("Player1")
 
             val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
-            assertEquals(listOf("player-1"), loaded.players.map { it.name })
+            assertEquals(listOf("Player1"), loaded.players.map { it.name })
         }
 
         @Test
@@ -89,8 +89,8 @@ class GameServicePersistenceTest
                         hostPlayerId = "player-1",
                         players =
                             listOf(
-                                Player(id = "player-1", name = "player-1"),
-                                Player(id = "player-2", name = "player-2"),
+                                Player(id = "player-1", name = "Player1"),
+                                Player(id = "player-2", name = "Player2"),
                             ),
                         auctionState =
                             AuctionState(
