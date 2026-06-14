@@ -12,7 +12,10 @@ import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.model.TradeState
+import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -963,7 +966,7 @@ class GameSessionTest {
                 currentPlayerIndex = 0,
             )
 
-        assertActionFailsWithReason(playableState, GameErrorReason.UNKNOWN_TRADE_TARGET) {
+        assertActionFailsWithReason(playableState, GameErrorReason.UNKNOWN_TARGET) {
             it.chooseTrade("player-1", "fake-target-id", AnimalType.COW)
         }
     }
@@ -1433,6 +1436,307 @@ class GameSessionTest {
     }
 
     @Test
+    fun `spy successfully adds spying information`() {
+        // Player 2 is spying on Player 3
+        val spyingState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0, // player-1 is active
+                activeSpies = emptySet(),
+                spiedThisTurn = emptySet(),
+                players =
+                    baselineState.players
+                        .withPlayerAssets("player-2", moneyValues = listOf(10)) // Spy has money
+                        .withPlayerAssets(
+                            "player-3",
+                            moneyValues = listOf(50, 100, 20, 10, 0),
+                        ),
+                // Target has money
+            )
+        val session = GameSession.fromState("game-1", spyingState)
+
+        // Act
+        val updatedState = session.spy(actorId = "player-2", targetId = "player-3")
+
+        // Verify: The spy action tracking record was stored correctly
+        assertEquals(1, updatedState.activeSpies.size)
+        val activeSpy = updatedState.activeSpies.first()
+        assertEquals("player-2", activeSpy.spyId)
+        assertEquals("player-3", activeSpy.targetId)
+
+        // Verify: Selected cards are drawn from the targets real money card hand
+        assertEquals(GameSession.SPYING_CARDS_REVEALED, activeSpy.revealedCards.size)
+        val targetMoney = updatedState.players.find { it.id == "player-3" }!!.moneyCards
+        assertTrue(targetMoney.containsAll(activeSpy.revealedCards))
+
+        // Verify: Cooldown tracking set up
+        assertTrue(updatedState.spiedThisTurn.contains("player-2"))
+    }
+
+    @Test
+    fun `spy fails if actor is not in room`() {
+        val state = baselineState.copy(phase = GamePhase.PLAYER_CHOICE)
+        assertActionFailsWithReason(state, GameErrorReason.UNKNOWN_ACTOR) {
+            it.spy(actorId = "nonexistent player", targetId = "player-3")
+        }
+    }
+
+    @Test
+    fun `spy fails if phase is invalid`() {
+        val state = baselineState.copy(phase = GamePhase.AUCTION_BIDDING)
+        assertActionFailsWithReason(state, GameErrorReason.INVALID_PHASE) {
+            it.spy(actorId = "player-2", targetId = "player-3")
+        }
+    }
+
+    @Test
+    fun `spy fails if actor is the currently active player`() {
+        val state =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 1, // Player 2 is the active turn player
+            )
+        assertActionFailsWithReason(state, GameErrorReason.ACTIVE_PLAYER_CANNOT_SPY) {
+            it.spy(actorId = "player-2", targetId = "player-3")
+        }
+    }
+
+    @Test
+    fun `spy fails if actor has already spied during this turn cycle`() {
+        val state =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                spiedThisTurn = setOf("player-2"), // Player 2 already spied
+            )
+        assertActionFailsWithReason(state, GameErrorReason.ALREADY_SPIED_THIS_TURN) {
+            it.spy(actorId = "player-2", targetId = "player-3")
+        }
+    }
+
+    @Test
+    fun `spy fails if target player does not exist`() {
+        val state =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+            )
+        assertActionFailsWithReason(state, GameErrorReason.UNKNOWN_TARGET) {
+            it.spy(actorId = "player-2", targetId = "nonexistent player")
+        }
+    }
+
+    @Test
+    fun `spy fails if actor targets themselves`() {
+        val state =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+            )
+        assertActionFailsWithReason(state, GameErrorReason.TARGETING_SELF) {
+            it.spy(actorId = "player-2", targetId = "player-2")
+        }
+    }
+
+    @Test
+    fun `spy fails if actor has no money cards`() {
+        val state =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                players =
+                    baselineState.players
+                        .withPlayerAssets(
+                            "player-2",
+                            moneyValues = emptyList(),
+                        ),
+                // No money cards
+            )
+        assertActionFailsWithReason(state, GameErrorReason.CANNOT_SPY_WITHOUT_MONEY) {
+            it.spy(actorId = "player-2", targetId = "player-3")
+        }
+    }
+
+    @Test
+    fun `catchSpy penalizes active spies and awards cards to actor`() {
+        val currentTime = System.currentTimeMillis()
+
+        // Setup: Player 2 and Player 3 are spying on Player 1
+        val spy1Action =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = currentTime + 5000,
+                revealedCards = emptySet(),
+            )
+        val spy2Action =
+            SpyAction(
+                spyId = "player-3",
+                targetId = "player-1",
+                expiresAt = currentTime + 5000,
+                revealedCards = emptySet(),
+            )
+
+        val catchingState =
+            baselineState.copy(
+                activeSpies = setOf(spy1Action, spy2Action),
+                players =
+                    baselineState.players
+                        .withPlayerAssets(
+                            "player-1",
+                            moneyValues = listOf(10),
+                        ) // Actor starts with 1 card
+                        .withPlayerAssets("player-2", moneyValues = listOf(50))
+                        .withPlayerAssets("player-3", moneyValues = listOf(100)),
+            )
+        val session = GameSession.fromState("game-1", catchingState)
+
+        // Act
+        val updatedState = session.catchSpy("player-1")
+
+        // Verify: The active spies lost their cards
+        val updatedSpy1 = updatedState.players.find { it.id == "player-2" }!!
+        val updatedSpy2 = updatedState.players.find { it.id == "player-3" }!!
+        assertTrue(updatedSpy1.moneyCards.isEmpty())
+        assertTrue(updatedSpy2.moneyCards.isEmpty())
+
+        // Verify: Actor gained both stolen cards (Total: 10 + 50 + 100)
+        val updatedActor = updatedState.players.find { it.id == "player-1" }!!
+        assertEquals(3, updatedActor.moneyCards.size)
+
+        // Verify: The money cards match the taken assets
+        val totalMoneyValues = updatedActor.moneyCards.map { it.value }
+        assertTrue(totalMoneyValues.containsAll(listOf(10, 50, 100)))
+
+        // Verify: Caught spy actions are dropped from active tracking
+        assertTrue(updatedState.activeSpies.isEmpty())
+    }
+
+    @Test
+    fun `catchSpy fails if actor is not in room`() {
+        assertActionFailsWithReason(baselineState, GameErrorReason.UNKNOWN_ACTOR) {
+            it.catchSpy("nonexistent player")
+        }
+    }
+
+    @Test
+    fun `catchSpy fails if actor is spying`() {
+        // Setup: Player 1 tries to catch players, but Player 1 is currently busy spying on Player 3
+        val runningSpy =
+            SpyAction(
+                spyId = "player-1",
+                targetId = "player-3",
+                expiresAt = System.currentTimeMillis() + 5000,
+                revealedCards = emptySet(),
+            )
+        val state =
+            baselineState.copy(
+                activeSpies = setOf(runningSpy),
+            )
+
+        assertActionFailsWithReason(state, GameErrorReason.CANNOT_CATCH_WHILE_SPYING) {
+            it.catchSpy("player-1")
+        }
+    }
+
+    @Test
+    fun `catchSpy fails if no valid spies target the actor`() {
+        val currentTime = System.currentTimeMillis()
+
+        // Setup: There is an active spy, but they are targeting Player 3, not Player 1
+        val unrelatedSpy =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-3",
+                expiresAt = currentTime + 5000,
+                revealedCards = emptySet(),
+            )
+        // Setup: Player 2 also has an expired spy targeting Player 1
+        val expiredSpy =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = currentTime - 10000,
+                revealedCards = emptySet(),
+            )
+
+        val catchingState =
+            baselineState.copy(
+                activeSpies = setOf(unrelatedSpy, expiredSpy),
+                players =
+                    baselineState.players
+                        .withPlayerAssets("player-1", moneyValues = listOf(10))
+                        .withPlayerAssets("player-2", moneyValues = listOf(50)),
+            )
+
+        assertActionFailsWithReason(catchingState, GameErrorReason.NOT_SPIED_UPON) {
+            it.catchSpy("player-1")
+        }
+    }
+
+    @Test
+    fun `catchSpy throws IllegalStateException if an active spy is missing from players list`() {
+        val currentTime = System.currentTimeMillis()
+
+        // Setup: Player 2 is spying on Player 1
+        val corruptedSpyAction =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = currentTime + 5000,
+                revealedCards = emptySet(),
+            )
+        val corruptedState =
+            baselineState.copy(
+                activeSpies = setOf(corruptedSpyAction),
+                players =
+                    listOf(
+                        Player(
+                            id = "player-1",
+                            name = "Player 1",
+                            moneyCards = listOf(MoneyCard(id = "m1", value = 10)),
+                        ),
+                        // The spy player-2 is missing from the player list
+                    ),
+            )
+        val session = GameSession.fromState("game-1", corruptedState)
+
+        assertThrows<IllegalStateException> {
+            session.catchSpy("player-1")
+        }
+    }
+
+    @Test
+    fun `catchSpy throws IllegalStateException if caught spy has no money cards`() {
+        val currentTime = System.currentTimeMillis()
+
+        // Setup: Player 2 is spying on Player 1
+        val spyAction =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = currentTime + 5000,
+                revealedCards = emptySet(),
+            )
+
+        // Setup: Player 2 has no money cards
+        val corruptedState =
+            baselineState.copy(
+                activeSpies = setOf(spyAction),
+                players =
+                    baselineState.players
+                        .withPlayerAssets("player-1", moneyValues = listOf(10))
+                        .withPlayerAssets("player-2", moneyValues = emptyList()),
+                // Breaking constraint
+            )
+        val session = GameSession.fromState("game-1", corruptedState)
+
+        assertThrows<IllegalStateException> {
+            session.catchSpy("player-1")
+        }
+    }
+
+    @Test
     fun `makeDefaultPlayerChoice skips player turn when player choice phase expires`() {
         // Setup: Active turn state with Player 1 frozen at the wheel
         val activeState =
@@ -1440,6 +1744,16 @@ class GameSessionTest {
                 phase = GamePhase.PLAYER_CHOICE,
                 currentPlayerIndex = 0,
                 roundNumber = 5,
+                activeSpies =
+                    setOf(
+                        SpyAction(
+                            "player-2",
+                            "player-1",
+                            System.currentTimeMillis() + 1000L,
+                            setOf(MoneyCard("money-20-1", 20)),
+                        ),
+                    ),
+                spiedThisTurn = setOf("player-2"),
             )
         val session = GameSession.fromState("game-1", activeState)
 
@@ -1451,6 +1765,8 @@ class GameSessionTest {
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
         assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
+        assertEquals(emptySet(), updatedState.activeSpies)
+        assertEquals(emptySet(), updatedState.spiedThisTurn)
     }
 
     @Test
@@ -1773,6 +2089,121 @@ class GameSessionTest {
         val gameSession = GameSession.fromState("game-1", baselineState)
 
         assertFalse(gameSession.hasPlayer("player-4"))
+    }
+
+    @Test
+    fun `getEarliestSpyExpiration returns the lowest timestamp among active spies`() {
+        val now = System.currentTimeMillis()
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = now + 5000L,
+                    revealedCards = emptySet(),
+                ),
+                SpyAction(
+                    spyId = "player-3",
+                    targetId = "player-1",
+                    expiresAt = now + 2000L,
+                    revealedCards = emptySet(),
+                ),
+                SpyAction(
+                    spyId = "player-5",
+                    targetId = "player-1",
+                    expiresAt = now + 8000L,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val stateWithSpies = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", stateWithSpies)
+
+        assertEquals(now + 2000L, gameSession.getEarliestSpyExpiration())
+    }
+
+    @Test
+    fun `getEarliestSpyExpiration returns null when there are no active spies`() {
+        val stateWithoutSpies = baselineState.copy(activeSpies = emptySet())
+        val gameSession = GameSession.fromState("game-1", stateWithoutSpies)
+
+        assertNull(gameSession.getEarliestSpyExpiration())
+    }
+
+    @Test
+    fun `hasActiveSpies returns true when there is at least one active spy`() {
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = System.currentTimeMillis() + 5000L,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val stateWithSpies = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", stateWithSpies)
+
+        assertTrue(gameSession.hasActiveSpies())
+    }
+
+    @Test
+    fun `hasActiveSpies returns false when there are no active spies`() {
+        val stateWithoutSpies = baselineState.copy(activeSpies = emptySet())
+        val gameSession = GameSession.fromState("game-1", stateWithoutSpies)
+
+        assertFalse(gameSession.hasActiveSpies())
+    }
+
+    @Test
+    fun `clearExpiredSpies purges expired spy actions`() {
+        val pastTime = System.currentTimeMillis() - 5000L
+        val futureTime = System.currentTimeMillis() + 10000L
+
+        val expiredSpy =
+            SpyAction(
+                spyId = "player-2",
+                targetId = "player-1",
+                expiresAt = pastTime,
+                revealedCards = emptySet(),
+            )
+        val validSpy =
+            SpyAction(
+                spyId = "player-3",
+                targetId = "player-1",
+                expiresAt = futureTime,
+                revealedCards = emptySet(),
+            )
+
+        val initialGameState = baselineState.copy(activeSpies = setOf(expiredSpy, validSpy))
+        val gameSession = GameSession.fromState("game-1", initialGameState)
+
+        val resultState = gameSession.clearExpiredSpies()
+
+        assertNotSame(initialGameState, resultState)
+        assertEquals(1, resultState.activeSpies.size)
+        assertTrue(resultState.activeSpies.contains(validSpy))
+        assertFalse(resultState.activeSpies.contains(expiredSpy))
+    }
+
+    @Test
+    fun `clearExpiredSpies does not mutate the state reference when no spies have expired`() {
+        val futureTime = System.currentTimeMillis() + 10000L
+        val spyActions =
+            setOf(
+                SpyAction(
+                    spyId = "player-2",
+                    targetId = "player-1",
+                    expiresAt = futureTime,
+                    revealedCards = emptySet(),
+                ),
+            )
+        val initialGameState = baselineState.copy(activeSpies = spyActions)
+        val gameSession = GameSession.fromState("game-1", initialGameState)
+
+        val resultState = gameSession.clearExpiredSpies()
+
+        assertSame(initialGameState, resultState)
+        assertEquals(1, gameSession.state.activeSpies.size)
     }
 
     private fun assertValidTimeout(

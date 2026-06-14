@@ -11,6 +11,7 @@ import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -23,6 +24,7 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -1239,6 +1241,158 @@ class GameWebSocketHandlerTest {
         )
 
         assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
+
+    @Test
+    fun `SPY sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(session1, session2),
+            )
+
+            val gameState =
+                baseState.copy(
+                    activeSpies =
+                        setOf(
+                            SpyAction(
+                                "player-1",
+                                "player-2",
+                                System.currentTimeMillis() + 5000L,
+                                emptySet(),
+                            ),
+                        ),
+                )
+            whenever(gameService.spy("game-1", "player-1", "player-2"))
+                .thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.SPY,
+                requestId = "req-1",
+                payload =
+                    WebSocketJson.json.encodeToJsonElement(
+                        SpyPayload.serializer(),
+                        SpyPayload(targetPlayerId = "player-2"),
+                    ),
+            )
+
+            verify(gameService).spy("game-1", "player-1", "player-2")
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
+        }
+
+    @Test
+    fun `SPY with no bound player session sends ERROR`() {
+        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SPY,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    SpyPayload.serializer(),
+                    SpyPayload(targetPlayerId = "player-2"),
+                ),
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
+    }
+
+    @Test
+    fun `SPY with missing payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SPY,
+            requestId = "req-1",
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `SPY with invalid payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SPY,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player 1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
+
+    @Test
+    fun `CATCH_SPY sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(session1, session2),
+            )
+
+            val gameState = baseState.copy(activeSpies = emptySet())
+            whenever(gameService.catchSpy("game-1", "player-1"))
+                .thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.CATCH_SPY,
+                requestId = "req-1",
+            )
+
+            verify(gameService).catchSpy("game-1", "player-1")
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
+        }
+
+    @Test
+    fun `CATCH_SPY with no bound player session sends ERROR`() {
+        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
+
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.CATCH_SPY,
+            requestId = "req-1",
+        )
+
+        verifyNoInteractions(gameService)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
     }
 
     private fun sendEnvelope(

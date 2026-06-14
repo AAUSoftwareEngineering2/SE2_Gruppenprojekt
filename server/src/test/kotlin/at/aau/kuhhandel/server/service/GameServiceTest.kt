@@ -12,6 +12,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
@@ -135,6 +136,79 @@ class GameServiceTest {
         }
 
     @Test
+    fun test_removeGame_cancelsPhaseTimerJob() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+
+            val result = service.createGame("Player1")
+            val now = System.currentTimeMillis()
+            val targetTimerEnd = now + 5000L
+
+            val activeGameState =
+                gameStateToReturn.copy(
+                    phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = targetTimerEnd,
+                )
+            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
+            whenever(gameSession.state).thenReturn(activeGameState)
+
+            service.chooseAuction(result.gameId, result.playerId)
+
+            // Remove the game session from memory mid-flight
+            service.removeGame(result.gameId)
+
+            advanceTimeBy(5200.milliseconds)
+
+            // Verify game removal blocks timeout routing execution loops
+            verify(gameSession, never()).handleTimeoutExpiration()
+            verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_removeGame_cancelsSpyTimerJob() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+            val result = service.createGame("Player1")
+            val targetExpiration = System.currentTimeMillis() + 5000L
+
+            val stateWithSpy =
+                gameStateToReturn.copy(
+                    activeSpies =
+                        setOf(
+                            SpyAction(
+                                "player-2",
+                                result.playerId,
+                                targetExpiration,
+                                emptySet(),
+                            ),
+                        ),
+                )
+            whenever(gameSession.spy(result.playerId, "player-2")).thenReturn(stateWithSpy)
+            whenever(gameSession.getEarliestSpyExpiration()).thenReturn(targetExpiration)
+            whenever(gameSession.state).thenReturn(stateWithSpy)
+
+            service.spy(result.gameId, result.playerId, "player-2")
+
+            // Remove the game while the background coroutine timer is active
+            service.removeGame(result.gameId)
+
+            advanceTimeBy(5200.milliseconds)
+
+            // Verify the background check never runs because its job was canceled
+            verify(gameSession, never()).clearExpiredSpies()
+        }
+
+    @Test
     fun test_joinGame_delegatesWork() =
         runTest {
             val createResult = service.createGame("Player1")
@@ -152,7 +226,7 @@ class GameServiceTest {
         runTest {
             val exception =
                 assertThrows<GameException> {
-                    service.getStateForReconnection("fake code", "player-1")
+                    service.joinGame("fake code", "player-1")
                 }
             assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
             verify(gameSession, never()).addPlayer(any(), any())
@@ -419,6 +493,67 @@ class GameServiceTest {
         }
 
     @Test
+    fun test_spy_delegatesWork() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+            val result = service.createGame("Player1")
+
+            whenever(gameSession.spy(result.playerId, "player-2")).thenReturn(gameStateToReturn)
+            whenever(gameSession.getEarliestSpyExpiration()).thenReturn(
+                System.currentTimeMillis() + 5000L,
+            )
+
+            val state = service.spy(result.gameId, result.playerId, "player-2")
+
+            verify(gameSession).spy(result.playerId, "player-2")
+            verify(gameSession).getEarliestSpyExpiration()
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_spy_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.spy("fake code", "player-1", "player-2")
+            }
+            verify(gameSession, never()).spy(any(), any())
+        }
+
+    @Test
+    fun test_catchSpy_delegatesWork() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+            val result = service.createGame("Player1")
+
+            whenever(gameSession.catchSpy(result.playerId)).thenReturn(gameStateToReturn)
+            whenever(gameSession.getEarliestSpyExpiration()).thenReturn(null)
+
+            val state = service.catchSpy(result.gameId, result.playerId)
+
+            verify(gameSession).catchSpy(result.playerId)
+            assertEquals(gameStateToReturn, state)
+        }
+
+    @Test
+    fun test_catchSpy_throws_forInvalidGameId() =
+        runTest {
+            assertThrows<IllegalStateException> {
+                service.catchSpy("fake code", "player-1")
+            }
+            verify(gameSession, never()).catchSpy(any())
+        }
+
+    @Test
     fun test_schedulePhaseTimeout_executesAndPublishesEvent() =
         runTest {
             service =
@@ -619,7 +754,7 @@ class GameServiceTest {
         }
 
     @Test
-    fun test_schedulePhaseTimeout_returnsEarlyIfSessionRemoved() =
+    fun test_scheduleSpyExpirationWatcher_executesAndPublishesEvent() =
         runTest {
             service =
                 GameService(
@@ -627,28 +762,84 @@ class GameServiceTest {
                     gameSessionFactory = { _, _, _ -> gameSession },
                     serviceScope = backgroundScope,
                 )
-
             val result = service.createGame("Player1")
             val now = System.currentTimeMillis()
-            val targetTimerEnd = now + 5000L
+            val targetExpiration = now + 5000L
 
-            val activeGameState =
+            val stateWithSpy =
                 gameStateToReturn.copy(
-                    phase = GamePhase.AUCTION_BIDDING,
-                    timerEnd = targetTimerEnd,
+                    activeSpies =
+                        setOf(
+                            SpyAction(
+                                "player-2",
+                                result.playerId,
+                                targetExpiration,
+                                emptySet(),
+                            ),
+                        ),
                 )
-            whenever(gameSession.chooseAuction(result.playerId)).thenReturn(activeGameState)
-            whenever(gameSession.state).thenReturn(activeGameState)
+            val stateAfterClear = gameStateToReturn.copy(activeSpies = emptySet())
 
-            service.chooseAuction(result.gameId, result.playerId)
+            // Setup state progression references to trigger the state update check
+            whenever(gameSession.spy(result.playerId, "player-2")).thenReturn(stateWithSpy)
+            whenever(gameSession.getEarliestSpyExpiration()).thenReturn(targetExpiration)
 
-            // Remove the game session from memory mid-flight
-            service.removeGame(result.gameId)
+            var structuralState = stateWithSpy
+            whenever(gameSession.state).thenAnswer { structuralState }
+
+            // Simulate the clearing of the expired spy
+            whenever(gameSession.clearExpiredSpies()).thenAnswer {
+                structuralState = stateAfterClear
+                stateAfterClear
+            }
+            whenever(gameSession.hasActiveSpies()).thenReturn(false)
+
+            service.spy(result.gameId, result.playerId, "player-2")
+
+            // Advance time past the 5000ms expiration plus 100ms padding
+            advanceTimeBy(5200.milliseconds)
+
+            verify(gameSession).clearExpiredSpies()
+            verify(eventPublisher, timeout(1000)).publishEvent(any<GameStateChangedEvent>())
+        }
+
+    @Test
+    fun test_scheduleSpyExpirationWatcher_skipsUpdateIfStateUnchanged() =
+        runTest {
+            service =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    gameSessionFactory = { _, _, _ -> gameSession },
+                    serviceScope = backgroundScope,
+                )
+            val result = service.createGame("Player1")
+            val targetExpiration = System.currentTimeMillis() + 5000L
+
+            val stateWithSpy =
+                gameStateToReturn.copy(
+                    activeSpies =
+                        setOf(
+                            SpyAction(
+                                "player-2",
+                                result.playerId,
+                                targetExpiration,
+                                emptySet(),
+                            ),
+                        ),
+                )
+
+            whenever(gameSession.spy(result.playerId, "player-2")).thenReturn(stateWithSpy)
+            whenever(gameSession.getEarliestSpyExpiration()).thenReturn(targetExpiration)
+            whenever(gameSession.state).thenReturn(stateWithSpy)
+
+            // Simulate no expired spy actions found
+            whenever(gameSession.clearExpiredSpies()).thenReturn(stateWithSpy)
+
+            service.spy(result.gameId, result.playerId, "player-2")
 
             advanceTimeBy(5200.milliseconds)
 
-            // Verify game removal blocks timeout routing execution loops
-            verify(gameSession, never()).handleTimeoutExpiration()
+            verify(gameSession).clearExpiredSpies()
             verify(eventPublisher, never()).publishEvent(any<GameStateChangedEvent>())
         }
 }

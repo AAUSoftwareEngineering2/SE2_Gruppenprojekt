@@ -90,7 +90,8 @@ class GameService(
      */
     fun removeGame(gameId: String) {
         val room = rooms.remove(gameId)
-        room?.timerJob?.cancel()
+        room?.phaseTimerJob?.cancel()
+        room?.spyTimerJob?.cancel()
     }
 
     /**
@@ -270,6 +271,27 @@ class GameService(
         }
 
     /**
+     * Starts spying on a chosen target player.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun spy(
+        gameId: String,
+        actorId: String,
+        targetId: String,
+    ): GameState = executeSpyAction(gameId) { session -> session.spy(actorId, targetId) }
+
+    /**
+     * Catches all players currently spying on the player.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun catchSpy(
+        gameId: String,
+        actorId: String,
+    ): GameState = executeSpyAction(gameId) { session -> session.catchSpy(actorId) }
+
+    /**
      * Centralized helper that handles room fetching, mutex locking, state persistence,
      * and automatic timer updates for all game modifications.
      */
@@ -298,13 +320,13 @@ class GameService(
         val room = rooms[gameId] ?: return
 
         // Defensively cancel the previous timer coroutine job for this room to prevent leaks
-        room.timerJob?.cancel()
-        room.timerJob = null
+        room.phaseTimerJob?.cancel()
+        room.phaseTimerJob = null
 
         val timerEnd = room.session.state.timerEnd ?: return
 
         // Launch a fresh job tracking the current timeout window
-        room.timerJob =
+        room.phaseTimerJob =
             serviceScope.launch {
                 val now = System.currentTimeMillis()
                 val delayDuration = timerEnd - now
@@ -327,6 +349,70 @@ class GameService(
                         // If the next state also sets a timeout, recursively spin up the next handler
                         if (updatedState.timerEnd != null) {
                             schedulePhaseTimeout(gameId)
+                        }
+                    }
+                }
+            }
+    }
+
+    /**
+     * Dedicated helper for spy mutations. Reuses the core execution mechanics
+     * but ensures the independent spy timer tracking is recalculated.
+     */
+    private suspend inline fun executeSpyAction(
+        gameId: String,
+        crossinline action: (GameSession) -> GameState,
+    ): GameState {
+        val room = fetchGameRoom(gameId)
+
+        room.mutex.withLock {
+            val newState = action(room.session)
+            persistSafely(room.session)
+
+            // Maintain standard phase timeout checks
+            schedulePhaseTimeout(gameId)
+
+            // Explicitly recalculate or clear the spy timer loop
+            scheduleSpyExpirationWatcher(gameId)
+
+            return newState
+        }
+    }
+
+    /**
+     * Schedules an independent background check to automatically clear
+     * spy actions from the state when their tracking windows expire.
+     */
+    private fun scheduleSpyExpirationWatcher(gameId: String) {
+        val room = rooms[gameId] ?: return
+
+        // Cancel the old job handle first to avoid leaking coroutines
+        room.spyTimerJob?.cancel()
+        room.spyTimerJob = null
+
+        // If no spies remain, exit
+        val nextExpirationTime = room.session.getEarliestSpyExpiration() ?: return
+
+        room.spyTimerJob =
+            serviceScope.launch {
+                val delayDuration = nextExpirationTime - System.currentTimeMillis()
+                if (delayDuration > 0) {
+                    delay(delayDuration + 100)
+                }
+
+                room.mutex.withLock {
+                    val oldState = room.session.state
+                    val newState = room.session.clearExpiredSpies()
+
+                    // If a new GameState instance was copied, propagate the changes
+                    if (newState !== oldState) {
+                        persistSafely(room.session)
+
+                        eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
+
+                        // Reschedule for the next spy deadline if any remain
+                        if (room.session.hasActiveSpies()) {
+                            scheduleSpyExpirationWatcher(gameId)
                         }
                     }
                 }
@@ -394,5 +480,6 @@ class GameService(
 private class SyncGameRoom(
     val session: GameSession,
     val mutex: Mutex = Mutex(),
-    var timerJob: Job? = null,
+    var phaseTimerJob: Job? = null,
+    var spyTimerJob: Job? = null,
 )

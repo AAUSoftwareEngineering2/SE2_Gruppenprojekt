@@ -120,6 +120,14 @@ data class RespondToTradePayload(
 )
 
 /**
+ * Payload used by [WebSocketType.SPY] commands.
+ */
+@Serializable
+data class SpyPayload(
+    val targetPlayerId: String,
+)
+
+/**
  * Payload used by [WebSocketType.ERROR] events
  */
 @Serializable
