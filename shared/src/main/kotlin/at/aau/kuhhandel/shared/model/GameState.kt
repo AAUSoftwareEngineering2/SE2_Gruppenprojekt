@@ -70,6 +70,7 @@ data class GameState(
                 )
             }
 
+        val alreadySpied = this.spiedThisTurn.contains(playerId)
         val activeLocalCheating = this.activeSpies.find { it.spyId == playerId }
         val localPlayerSpiedOn = this.activeSpies.any { it.targetId == playerId }
         val spiedOnOpponentIds =
@@ -88,6 +89,7 @@ data class GameState(
             deckSize = this.deck.size(),
             auctionState = this.auctionState,
             tradeState = tradeStateView,
+            alreadySpied = alreadySpied,
             spyingTargetId = activeLocalCheating?.targetId,
             spyingTargetCards = activeLocalCheating?.revealedCards?.toList(),
             localPlayerSpiedOn = localPlayerSpiedOn,

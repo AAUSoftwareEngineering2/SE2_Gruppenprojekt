@@ -15,6 +15,7 @@ data class GameStateView(
     val deckSize: Int,
     val auctionState: AuctionState?,
     val tradeState: TradeStateView?,
+    val alreadySpied: Boolean,
     val spyingTargetId: String?,
     val spyingTargetCards: List<MoneyCard>?,
     val localPlayerSpiedOn: Boolean,

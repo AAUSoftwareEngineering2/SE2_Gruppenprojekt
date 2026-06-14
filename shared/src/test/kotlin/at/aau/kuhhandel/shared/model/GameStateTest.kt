@@ -2,6 +2,7 @@ package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -174,6 +175,50 @@ class GameStateTest {
         assertEquals(tradeState?.offeredMoneyCards, tradeView.visibleInitiatorCards?.toSet())
         assertEquals(tradeState?.counterOfferedMoneyCards, tradeView.visibleTargetCards?.toSet())
         assertEquals(tradeState?.winnerId, tradeView.winnerId)
+    }
+
+    @Test
+    fun test_createViewForPlayer_showsRelevantSpyData() {
+        val moneyCard = MoneyCard("money-20-1", 20)
+        val spyAction =
+            SpyAction(
+                spyId = "player-1",
+                targetId = "player-2",
+                expiresAt = System.currentTimeMillis() + 1000,
+                revealedCards = setOf(moneyCard),
+            )
+
+        val spyState =
+            baseState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                tradeState = null,
+                activeSpies = setOf(spyAction),
+                spiedThisTurn = setOf("player-1"),
+            )
+
+        // Verify the view generated for the spy
+        val spyView = spyState.createViewForPlayer("player-1")
+        assertTrue(spyView.alreadySpied)
+        assertEquals("player-2", spyView.spyingTargetId)
+        assertEquals(listOf(moneyCard), spyView.spyingTargetCards)
+        assertFalse(spyView.localPlayerSpiedOn)
+        assertTrue(spyView.spiedOnOpponentIds.isEmpty())
+
+        // Verify the view generated for the target
+        val targetView = spyState.createViewForPlayer("player-2")
+        assertFalse(targetView.alreadySpied)
+        assertNull(targetView.spyingTargetId)
+        assertNull(targetView.spyingTargetCards)
+        assertTrue(targetView.localPlayerSpiedOn)
+        assertTrue(targetView.spiedOnOpponentIds.isEmpty())
+
+        // Verify the view generated for an outside observer
+        val observerView = spyState.createViewForPlayer("player-3")
+        assertFalse(observerView.alreadySpied)
+        assertNull(observerView.spyingTargetId)
+        assertNull(observerView.spyingTargetCards)
+        assertFalse(observerView.localPlayerSpiedOn)
+        assertEquals(listOf("player-2"), observerView.spiedOnOpponentIds)
     }
 
     @Test
