@@ -149,10 +149,8 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
 
         val payload = decodePayload(envelope, CreateGamePayload.serializer())
-        // For now, uses a temporary player name if no name is provided; will be changed in the future
-        val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
 
-        val result = gameService.createGame(playerName)
+        val result = gameService.createGame(payload.playerName)
         val gameId = result.gameId
         val playerId = result.playerId
 
@@ -191,10 +189,8 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, JoinGamePayload.serializer())
 
         val gameId = payload.gameId
-        // For now, uses a temporary player name if no name is provided; will be changed in the future
-        val playerName = payload.playerName ?: "Player ${session.id.takeLast(4)}"
 
-        val result = gameService.joinGame(gameId, playerName)
+        val result = gameService.joinGame(gameId, payload.playerName)
 
         val joinedGameId = result.gameId
         val playerId = result.playerId

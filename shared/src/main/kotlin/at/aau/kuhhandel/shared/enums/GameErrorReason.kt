@@ -29,6 +29,7 @@ enum class GameErrorReason {
     NOT_ENOUGH_PLAYERS,
     ROOM_FULL,
     NOT_HOST,
+    INVALID_PLAYER_NAME,
 
     DECK_EMPTY,
     OWN_AUCTION,

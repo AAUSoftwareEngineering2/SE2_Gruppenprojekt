@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class CreateGamePayload(
-    val playerName: String? = null,
+    val playerName: String,
 )
 
 /**
@@ -40,7 +40,7 @@ data class GameStatePayload(
 @Serializable
 data class JoinGamePayload(
     val gameId: String,
-    val playerName: String? = null,
+    val playerName: String,
 )
 
 /**

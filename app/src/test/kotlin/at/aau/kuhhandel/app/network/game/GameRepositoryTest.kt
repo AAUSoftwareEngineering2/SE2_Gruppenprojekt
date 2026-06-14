@@ -46,7 +46,7 @@ class GameRepositoryTest {
         val state: GameRepositoryState
             get() = repository.state.value
 
-        suspend fun createGame(playerName: String? = null) {
+        suspend fun createGame(playerName: String = "Player1") {
             repository.createGame(playerName)
         }
 
@@ -843,7 +843,7 @@ class GameRepositoryTest {
             // We need a way to make awaitConnected hang or delay.
             // FakeWebSocketSession doesn't have a way to delay awaitConnected yet.
             // Just ensuring this runs without crashing for now.
-            repository.createGame()
+            repository.createGame("Player1")
             repository.disconnect()
         }
     }

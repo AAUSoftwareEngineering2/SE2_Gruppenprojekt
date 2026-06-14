@@ -52,13 +52,6 @@ class WebSocketProtocolTest {
     // WebSocketPayloads tests
 
     @Test
-    fun `CreateGamePayload defaults are correct`() {
-        val payload = CreateGamePayload()
-
-        assertNull(payload.playerName)
-    }
-
-    @Test
     fun `CreateGamePayload round-trips`() {
         val payload = CreateGamePayload(playerName = "John")
 
