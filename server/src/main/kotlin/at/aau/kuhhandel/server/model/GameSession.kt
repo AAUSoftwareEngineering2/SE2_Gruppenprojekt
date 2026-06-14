@@ -12,6 +12,7 @@ import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.PhaseDurations
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.model.TradeState
 
 /**
@@ -171,6 +172,8 @@ class GameSession(
                         highestBidderId = null,
                         timerEndTime = calculatedTimeout,
                     ),
+                activeSpies = emptySet(),
+                spiedThisTurn = emptySet(),
             )
 
         return state
@@ -310,7 +313,7 @@ class GameSession(
         val initiator = requireActorInRoom(actorId)
         ensurePhase(GamePhase.PLAYER_CHOICE)
         ensureActivePlayer(actorId)
-        val target = requireValidTradeTarget(targetId)
+        val target = requireValidTarget(targetId)
         ensureNotTargetingSelf(actorId, targetId)
         val initiatorMatchingAnimals = requireTradeInitiatorHasAnimalType(initiator, animalType)
         val targetMatchingAnimals = requireTradeTargetHasAnimalType(target, animalType)
@@ -346,6 +349,8 @@ class GameSession(
                             offeredMoneyCards = null,
                             counterOfferedMoneyCards = null,
                         ),
+                    activeSpies = emptySet(),
+                    spiedThisTurn = emptySet(),
                 )
 
         return state
@@ -494,9 +499,83 @@ class GameSession(
     }
 
     /**
-     * Checks if a player exists in the current game session.
+     * Starts spying on a chosen target player.
      */
-    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
+    fun spy(
+        actorId: String,
+        targetId: String,
+    ): GameState {
+        val spy = requireActorInRoom(actorId)
+        ensurePhase(GamePhase.PLAYER_CHOICE)
+        ensureSpyNotActivePlayer(actorId)
+        ensureNotSpiedThisTurn(actorId)
+        val target = requireValidTarget(targetId)
+        ensureNotTargetingSelf(actorId, targetId)
+        ensureHasMoneyCardsForSpying(spy)
+
+        val revealedCards =
+            target.moneyCards
+                .shuffled()
+                .take(SPYING_CARDS_REVEALED)
+                .toSet()
+
+        val expiresAt = System.currentTimeMillis() + PhaseDurations.SPY_WINDOW_MS
+
+        val newSpy =
+            SpyAction(
+                spyId = actorId,
+                targetId = targetId,
+                expiresAt = expiresAt,
+                revealedCards = revealedCards,
+            )
+
+        state =
+            state.copy(
+                activeSpies = state.activeSpies + newSpy,
+                spiedThisTurn = state.spiedThisTurn + actorId,
+            )
+
+        return state
+    }
+
+    /**
+     * Catches all players currently spying on the actor.
+     */
+    fun catchSpy(actorId: String): GameState {
+        requireActorInRoom(actorId)
+        ensureNotSpying(actorId)
+        val validSpies = requireValidSpies(actorId, System.currentTimeMillis())
+
+        var updatedPlayers = state.players
+
+        validSpies.forEach { spyAction ->
+            val spy =
+                checkNotNull(updatedPlayers.find { it.id == spyAction.spyId }) {
+                    "Spy ${spyAction.spyId} not found among players when caught"
+                }
+            val penaltyCard =
+                checkNotNull(spy.moneyCards.randomOrNull()) {
+                    "Spy ${spy.id} has no money cards when caught"
+                }
+
+            updatedPlayers =
+                updatedPlayers.map { player ->
+                    when (player.id) {
+                        spy.id -> player.copy(moneyCards = player.moneyCards - penaltyCard)
+                        actorId -> player.copy(moneyCards = player.moneyCards + penaltyCard)
+                        else -> player
+                    }
+                }
+        }
+
+        state =
+            state.copy(
+                players = updatedPlayers,
+                activeSpies = state.activeSpies - validSpies.toSet(),
+            )
+
+        return state
+    }
 
     /**
      * Transitions the game phase when a timer expires.
@@ -518,7 +597,14 @@ class GameSession(
     /**
      * Skip the player's turn.
      */
-    private fun makeDefaultPlayerChoice(): GameState = advanceTurnAndCheckGameEnd()
+    private fun makeDefaultPlayerChoice(): GameState {
+        state =
+            state.copy(
+                activeSpies = emptySet(),
+                spiedThisTurn = emptySet(),
+            )
+        return advanceTurnAndCheckGameEnd()
+    }
 
     /**
      * Concludes bidding and determines whether to show a final result or request a decision.
@@ -627,6 +713,38 @@ class GameSession(
     }
 
     /**
+     * Checks if a player exists in the current game session.
+     */
+    fun hasPlayer(playerId: String): Boolean = state.players.any { it.id == playerId }
+
+    /**
+     * Finds the absolute earliest expiration deadline among all active spies.
+     * Returns null if no players are actively spying.
+     */
+    fun getEarliestSpyExpiration(): Long? = state.activeSpies.minOfOrNull { it.expiresAt }
+
+    /**
+     * Checks if there are any active spy actions tracked in the session.
+     */
+    fun hasActiveSpies(): Boolean = state.activeSpies.isNotEmpty()
+
+    /**
+     * Clears out any spy actions that have crossed their expiration deadline.
+     * Returns true if the state was mutated, and false otherwise.
+     */
+    fun clearExpiredSpies(): GameState {
+        val now = System.currentTimeMillis()
+        val (expired, valid) = state.activeSpies.partition { it.expiresAt <= now }
+
+        // Exit early if no changes are needed
+        if (expired.isNotEmpty()) {
+            state = state.copy(activeSpies = valid.toSet())
+        }
+
+        return state
+    }
+
+    /**
      * Shifts the active turn indicator to the next player.
      *
      * Transitions the game to [GamePhase.FINISHED] if all animal quartets
@@ -716,11 +834,13 @@ class GameSession(
     }
 
     private fun ensureEnoughPlayers() {
-        if (state.players.size < 3) throw GameException(GameErrorReason.NOT_ENOUGH_PLAYERS)
+        if (state.players.size < MIN_PLAYERS) {
+            throw GameException(GameErrorReason.NOT_ENOUGH_PLAYERS)
+        }
     }
 
     private fun ensureRoomNotFull() {
-        if (state.players.size >= 5) throw GameException(GameErrorReason.ROOM_FULL)
+        if (state.players.size >= MAX_PLAYERS) throw GameException(GameErrorReason.ROOM_FULL)
     }
 
     private fun ensurePlayerNotInRoom(playerId: String) {
@@ -800,9 +920,9 @@ class GameSession(
         }
     }
 
-    private fun requireValidTradeTarget(playerId: String): Player =
+    private fun requireValidTarget(playerId: String): Player =
         state.players.find { it.id == playerId }
-            ?: throw GameException(GameErrorReason.UNKNOWN_TRADE_TARGET)
+            ?: throw GameException(GameErrorReason.UNKNOWN_TARGET)
 
     private fun ensureNotTargetingSelf(
         actorId: String,
@@ -860,6 +980,43 @@ class GameSession(
             throw GameException(GameErrorReason.NOT_OWNED_MONEY_CARDS)
         }
         return moneyCards.toSet()
+    }
+
+    private fun ensureSpyNotActivePlayer(playerId: String) {
+        if (state.players[state.currentPlayerIndex].id == playerId) {
+            throw GameException(GameErrorReason.ACTIVE_PLAYER_CANNOT_SPY)
+        }
+    }
+
+    private fun ensureNotSpiedThisTurn(playerId: String) {
+        if (state.spiedThisTurn.contains(playerId)) {
+            throw GameException(GameErrorReason.ALREADY_SPIED_THIS_TURN)
+        }
+    }
+
+    private fun ensureHasMoneyCardsForSpying(player: Player) {
+        if (player.moneyCards.isEmpty()) {
+            throw GameException(GameErrorReason.CANNOT_SPY_WITHOUT_MONEY)
+        }
+    }
+
+    private fun ensureNotSpying(playerId: String) {
+        if (state.activeSpies.any { it.spyId == playerId }) {
+            throw GameException(GameErrorReason.CANNOT_CATCH_WHILE_SPYING)
+        }
+    }
+
+    private fun requireValidSpies(
+        targetId: String,
+        currentTime: Long,
+    ): List<SpyAction> {
+        val spies =
+            state.activeSpies
+                .filter { it.targetId == targetId && it.expiresAt >= currentTime }
+        if (spies.isEmpty()) {
+            throw GameException(GameErrorReason.NOT_SPIED_UPON)
+        }
+        return spies
     }
 
     /**
@@ -966,10 +1123,15 @@ class GameSession(
     }
 
     companion object {
+        const val MIN_PLAYERS = 3
+        const val MAX_PLAYERS = 5
+
         const val CARDS_PER_ANIMAL_TYPE = 4
         const val INITIAL_ZERO_MONEY_CARDS = 2
         const val INITIAL_TEN_MONEY_CARDS = 4
         const val INITIAL_FIFTY_MONEY_CARDS = 1
+
+        const val SPYING_CARDS_REVEALED = 4
 
         // Wraps a state loaded from the database; used for every action on the stateless path.
         fun fromState(

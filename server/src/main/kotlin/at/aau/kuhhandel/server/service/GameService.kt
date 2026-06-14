@@ -9,6 +9,7 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.PlayerNameRules
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,9 +27,10 @@ import kotlin.random.Random
  * [GamePersistenceService.mutateGameState] (row lock, load, apply [GameSession], save), so the
  * service keeps no game state in memory and multiple pods can work on the same games.
  *
- * Phase timeouts are handled by [sweepExpiredTimeouts], called periodically from the
+ * Time-based transitions (phase timeouts and spy-reveal expiry) run from the periodic sweeps
+ * [sweepExpiredTimeouts] and [sweepExpiredSpies], driven by
  * [at.aau.kuhhandel.server.cluster.TimeoutSweeper]. In-memory timer coroutines would die with
- * their pod.
+ * their pod and only fire on one pod, so the deadlines live in the database instead.
  */
 @Service
 class GameService(
@@ -48,12 +50,13 @@ class GameService(
      * Creates a new game with a unique 5-digit game id and persists the lobby snapshot.
      * A code collision with another pod fails on the primary key and is retried.
      */
-    fun createGame(hostPlayerName: String): RoomActionResult {
+    fun createGame(rawHostPlayerName: String): RoomActionResult {
         val playerId = generatePlayerId()
+        val playerName = resolvePlayerName(rawHostPlayerName)
 
         repeat(CREATE_GAME_MAX_ATTEMPTS) {
             val gameId = generateGameCode()
-            val session = gameSessionFactory(gameId, playerId, hostPlayerName)
+            val session = gameSessionFactory(gameId, playerId, playerName)
 
             try {
                 persistenceService.saveGameState(gameId, session.state)
@@ -89,9 +92,10 @@ class GameService(
      */
     suspend fun joinGame(
         gameId: String,
-        playerName: String,
+        rawPlayerName: String,
     ): RoomActionResult {
         val playerId = generatePlayerId()
+        val playerName = resolvePlayerName(rawPlayerName)
         val newState =
             executeAction(gameId) { session -> session.addPlayer(playerId, playerName) }
         return RoomActionResult(gameId, playerId, newState)
@@ -270,6 +274,27 @@ class GameService(
         }
 
     /**
+     * Starts spying on a chosen target player.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun spy(
+        gameId: String,
+        actorId: String,
+        targetId: String,
+    ): GameState = executeAction(gameId) { session -> session.spy(actorId, targetId) }
+
+    /**
+     * Catches all players currently spying on the actor.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun catchSpy(
+        gameId: String,
+        actorId: String,
+    ): GameState = executeAction(gameId) { session -> session.catchSpy(actorId) }
+
+    /**
      * Advances every game whose phase timer expired and returns their ids. Safe to run on all
      * pods at once: the advance re-checks the deadline under the row lock, so only the first
      * pod actually advances a game.
@@ -302,6 +327,39 @@ class GameService(
         }
 
         return advancedGames
+    }
+
+    /**
+     * Clears spy reveals whose window expired and returns the affected game ids. The stateless
+     * replacement for the old in-memory spy timer: the deadline lives in the database, so any pod
+     * can clear it and notify the players. Re-checks under the row lock, so a concurrent clear by
+     * another pod is a harmless no-op.
+     */
+    fun sweepExpiredSpies(now: Long = System.currentTimeMillis()): List<String> {
+        val dueGameIds = persistenceService.findGameIdsWithExpiredSpies(now)
+        val clearedGames = mutableListOf<String>()
+
+        dueGameIds.forEach { gameId ->
+            runCatching {
+                var clearedState: GameState? = null
+                persistenceService.mutateGameState(gameId, activityAt = null) { current ->
+                    val next = GameSession.fromState(gameId, current).clearExpiredSpies()
+                    if (next.activeSpies != current.activeSpies) {
+                        next.also { clearedState = it }
+                    } else {
+                        // Another pod already cleared the expired spies between query and lock.
+                        current
+                    }
+                }
+                clearedState?.let { newState ->
+                    clearedGames += gameId
+                    eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
+                    clusterNotifier?.gameUpdated(gameId)
+                }
+            }.onFailure { logger.warn("Spy expiration sweep failed for game $gameId", it) }
+        }
+
+        return clearedGames
     }
 
     /**
@@ -339,6 +397,18 @@ class GameService(
 
         clusterNotifier?.gameUpdated(gameId)
         return newState
+    }
+
+    /**
+     * Validates and normalizes a raw player name, throwing [GameErrorReason.INVALID_PLAYER_NAME]
+     * when it does not satisfy [PlayerNameRules].
+     */
+    private fun resolvePlayerName(rawName: String): String {
+        val trimmed = rawName.trim()
+        if (!PlayerNameRules.isValid(trimmed)) {
+            throw GameException(GameErrorReason.INVALID_PLAYER_NAME)
+        }
+        return trimmed
     }
 
     /**

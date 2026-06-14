@@ -11,7 +11,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -49,6 +48,14 @@ data class GameUiState(
     val isTradeHandFanned: Boolean = false,
     val isCounterOfferSelected: Boolean = false,
     val isTradeActionSubmitting: Boolean = false,
+    val eyeIconPlayerId: String? = null,
+    val eyeIconTimerSeconds: Int? = null,
+    val alreadySpied: Boolean = false,
+    val isEyeIconHighlighted: Boolean = false,
+    val spyingTargetId: String? = null,
+    val spyingTargetCards: List<MoneyCard>? = null,
+    val localPlayerSpiedOn: Boolean = false,
+    val spiedOnOpponentIds: List<String> = emptyList(),
 ) {
     /** Helper property to check if an auction is currently in progress. */
     val isAuctionActive: Boolean
@@ -122,6 +129,14 @@ data class GameUiState(
     val tradeResultCounterOfferTotal: Int
         get() = tradeResultCounterOfferCards.sumOf { it.value }
 
+    val isCurrentlySpying: Boolean
+        get() = spyingTargetId != null
+
+    val canShowEyeIconOnOpponents: Boolean
+        get() =
+            currentPhase == GamePhase.PLAYER_CHOICE &&
+                gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id != myPlayerId
+
     val activePlayerName: String
         get() =
             gameState?.let {
@@ -161,6 +176,10 @@ class GameViewModel(
     private val isTradeHandFanned = MutableStateFlow(false)
     private val isCounterOfferSelected = MutableStateFlow(false)
     private val isTradeActionSubmitting = MutableStateFlow(false)
+    private val eyeIconPlayerId = MutableStateFlow<String?>(null)
+    private val eyeIconTimerSeconds = MutableStateFlow<Int?>(null)
+    private var eyeTimerJob: kotlinx.coroutines.Job? = null
+    private val isEyeIconHighlighted = MutableStateFlow(false)
 
     init {
         scope.launch {
@@ -174,6 +193,26 @@ class GameViewModel(
                     )
                 }.distinctUntilChanged()
                 .collect(::synchronizeTradeUi)
+        }
+
+        // Listen exclusively to turn index changes to clear the eye icon when your turn starts
+        scope.launch {
+            repository.state
+                .map { it.gameState?.currentPlayerIndex }
+                .distinctUntilChanged()
+                .collect { index ->
+                    val state = repository.state.value
+                    val activePlayerId =
+                        state.gameState
+                            ?.players
+                            ?.getOrNull(index ?: -1)
+                            ?.id
+
+                    // If the turn moves onto us, clear out our local eye icon variables instantly
+                    if (activePlayerId == state.myPlayerId && activePlayerId != null) {
+                        clearEyeSelection()
+                    }
+                }
         }
     }
 
@@ -229,9 +268,17 @@ class GameViewModel(
                     isSubmitting = submitting,
                 )
             },
-            isHandFanned,
-        ) { repoState, timer, selectedIds, tradeLocalState, fanned ->
+            combine(
+                isHandFanned,
+                eyeIconPlayerId,
+                eyeIconTimerSeconds,
+                isEyeIconHighlighted,
+            ) { fanned, eyePlayerId, eyeTimer, eyeHighlighted ->
+                LocalUiStateBundle(fanned, eyePlayerId, eyeTimer, eyeHighlighted)
+            },
+        ) { repoState, timer, selectedIds, tradeLocalState, uiBundle ->
             val gameState = repoState.gameState
+            val view = repoState.gameStateView
             val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
             val activePlayerId =
                 gameState
@@ -307,10 +354,18 @@ class GameViewModel(
                 pendingTradeTargetPlayerId = tradeSelection.pendingTargetPlayerId,
                 pendingTradeAnimalType = tradeSelection.pendingAnimalType,
                 canSelectTradeTarget = canSelectTradeTarget,
-                isHandFanned = fanned,
+                isHandFanned = uiBundle.isHandFanned,
                 isTradeHandFanned = tradeLocalState.isHandFanned,
                 isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
                 isTradeActionSubmitting = tradeLocalState.isSubmitting,
+                eyeIconPlayerId = uiBundle.eyePlayerId,
+                eyeIconTimerSeconds = uiBundle.eyeTimer,
+                alreadySpied = view?.alreadySpied ?: false,
+                isEyeIconHighlighted = uiBundle.isEyeHighlighted,
+                spyingTargetId = view?.spyingTargetId,
+                spyingTargetCards = view?.spyingTargetCards,
+                localPlayerSpiedOn = view?.localPlayerSpiedOn ?: false,
+                spiedOnOpponentIds = view?.spiedOnOpponentIds.orEmpty(),
             )
         }.distinctUntilChanged()
             .stateIn(
@@ -328,7 +383,16 @@ class GameViewModel(
 
     /** Toggles the money hand fanned state. */
     fun toggleHandFanned() {
-        isHandFanned.update { !it }
+        isHandFanned.update { current ->
+            val nextState = !current
+
+            // If we are fanning our hand out, hide and clear the active eye icon
+            if (nextState) {
+                clearEyeSelection()
+            }
+
+            nextState
+        }
     }
 
     /** Collapses the normal game money hand when the player taps outside it. */
@@ -530,6 +594,87 @@ class GameViewModel(
         }
     }
 
+    /** Sets the opponent player targeted by the local eye icon selection and runs its timer. */
+    fun selectEyeTargetPlayer(targetPlayerId: String) {
+        val state = uiState.value
+
+        if (!state.canShowEyeIconOnOpponents) return
+        if (targetPlayerId == state.myPlayerId) return
+
+        // Collapse our own money hand to clear the center screen real estate
+        collapseHand()
+
+        // Reset the eye selection
+        clearEyeSelection()
+
+        // Update the local state with the newly selected opponent player ID
+        eyeIconPlayerId.value = targetPlayerId
+
+        // Start a fresh asynchronous countdown loop for 5 seconds
+        eyeTimerJob =
+            scope.launch {
+                var remaining = 5
+                while (remaining > 0) {
+                    eyeIconTimerSeconds.value = remaining
+                    delay(1000)
+                    remaining--
+                }
+                // When the 5 seconds are up, clear the target selection entirely
+                clearEyeSelection()
+            }
+    }
+
+    /** Highlights the active eye icon with a circle, prepping the device for shaking. */
+    fun highlightEyeIcon() {
+        if (eyeIconPlayerId.value != null) {
+            isEyeIconHighlighted.value = true
+        }
+    }
+
+    /** Triggers the network spy request when a valid device shake gesture is detected. */
+    fun onPhoneShake() {
+        val state = uiState.value
+        if (!state.isEyeIconHighlighted) return
+
+        val targetPlayerId = state.eyeIconPlayerId ?: return
+
+        if (state.myMoneyCards.isEmpty()) return
+
+        if (state.alreadySpied || state.isCurrentlySpying) {
+            return
+        }
+
+        clearEyeSelection()
+
+        // Dispatch the action
+        scope.launch {
+            try {
+                repository.spy(targetPlayerId)
+            } catch (_: Exception) {
+                // Managed by repository error state
+            }
+        }
+    }
+
+    /** Sends an outbound command over the network to catch any players spying on this farm. */
+    fun catchSpy() {
+        scope.launch {
+            try {
+                repository.catchSpy()
+            } catch (_: Exception) {
+                // Error managed by repository state
+            }
+        }
+    }
+
+    /** Cancels the active countdown timer and completely clears all eye icon tracking states. */
+    private fun clearEyeSelection() {
+        eyeTimerJob?.cancel()
+        eyeIconPlayerId.value = null
+        eyeIconTimerSeconds.value = null
+        isEyeIconHighlighted.value = false
+    }
+
     private data class TradeSelectionState(
         val activeTargetPlayerId: String?,
         val pendingTargetPlayerId: String?,
@@ -550,7 +695,21 @@ class GameViewModel(
         val errorMessage: String?,
     )
 
+    private data class LocalUiStateBundle(
+        val isHandFanned: Boolean,
+        val eyePlayerId: String?,
+        val eyeTimer: Int?,
+        val isEyeHighlighted: Boolean,
+    )
+
     private fun synchronizeTradeUi(serverState: TradeServerState) {
+        if (serverState.phase != GamePhase.PLAYER_CHOICE) {
+            eyeTimerJob?.cancel()
+            eyeIconPlayerId.value = null
+            eyeIconTimerSeconds.value = null
+            isEyeIconHighlighted.value = false
+        }
+
         when (serverState.phase) {
             GamePhase.TRADE_OFFER -> {
                 pendingTradeTargetPlayerId.value = null

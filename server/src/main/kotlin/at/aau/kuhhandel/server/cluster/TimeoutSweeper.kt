@@ -34,5 +34,14 @@ class TimeoutSweeper(
                     logger.info("Timeout sweep advanced games: {}", advanced)
                 }
             }.onFailure { logger.warn("Timeout sweep run failed", it) }
+
+        // Spy reveals expire on their own deadline (independent of the phase timer), so clear
+        // them here too. Replaces the old in-memory spy timer that died with its pod.
+        runCatching { gameService.sweepExpiredSpies() }
+            .onSuccess { cleared ->
+                if (cleared.isNotEmpty()) {
+                    logger.info("Spy expiration sweep cleared games: {}", cleared)
+                }
+            }.onFailure { logger.warn("Spy expiration sweep run failed", it) }
     }
 }

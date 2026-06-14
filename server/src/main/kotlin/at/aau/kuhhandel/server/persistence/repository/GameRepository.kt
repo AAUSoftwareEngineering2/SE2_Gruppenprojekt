@@ -36,4 +36,13 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
     fun findIdsByLastActivityBefore(
         @Param("cutoff") cutoff: Long,
     ): List<Long>
+
+    /**
+     * Ids of games with at least one active spy whose expiration deadline has passed. Used by the
+     * spy-expiration sweep (the stateless replacement for the old in-memory spy timer).
+     */
+    @Query("SELECT g.id FROM GameEntity g WHERE g.earliestSpyExpiry <= :now")
+    fun findIdsWithExpiredSpies(
+        @Param("now") now: Long,
+    ): List<Long>
 }

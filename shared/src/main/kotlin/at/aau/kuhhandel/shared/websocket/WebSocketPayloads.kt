@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class CreateGamePayload(
-    val playerName: String? = null,
+    val playerName: String,
 )
 
 /**
@@ -40,7 +40,7 @@ data class GameStatePayload(
 @Serializable
 data class JoinGamePayload(
     val gameId: String,
-    val playerName: String? = null,
+    val playerName: String,
 )
 
 /**
@@ -117,6 +117,14 @@ data class SubmitTradeMoneyPayload(
 @Serializable
 data class RespondToTradePayload(
     val moneyCardIds: Set<String>,
+)
+
+/**
+ * Payload used by [WebSocketType.SPY] commands.
+ */
+@Serializable
+data class SpyPayload(
+    val targetPlayerId: String,
 )
 
 /**

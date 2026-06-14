@@ -42,6 +42,15 @@ class GameEntity(
     // of the sweeper advancing it forever. Nullable so ddl-auto can add the column to old rows.
     @Column(name = "last_activity_at")
     var lastActivityAt: Long? = System.currentTimeMillis(),
+    // Spy state (cheating feature) persisted so it survives the stateless save/reload round-trip
+    // and is shared across pods. activeSpies expire by time -> earliestSpyExpiry lets the sweeper
+    // find games to clear, mirroring timer_end for phase timeouts.
+    @Column(name = "active_spies_json", columnDefinition = "text")
+    var activeSpiesJson: String? = null,
+    @Column(name = "spied_this_turn_json", columnDefinition = "text")
+    var spiedThisTurnJson: String? = null,
+    @Column(name = "earliest_spy_expiry")
+    var earliestSpyExpiry: Long? = null,
     @Version
     @Column(name = "version", nullable = false)
     var version: Int = 0,
