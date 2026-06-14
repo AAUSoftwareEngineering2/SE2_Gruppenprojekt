@@ -263,7 +263,7 @@ class WebSocketProtocolTest {
             opponents = emptyList(),
             hostPlayerId = "player-1",
             roundNumber = 0,
-            currentPlayerIndex = -1,
+            currentPlayerId = null,
             deckSize = 5,
             auctionState = null,
             tradeState = null,

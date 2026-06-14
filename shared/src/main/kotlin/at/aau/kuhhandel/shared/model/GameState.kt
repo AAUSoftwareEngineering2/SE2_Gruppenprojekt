@@ -28,17 +28,21 @@ data class GameState(
             "Viewing player $playerId not found in game state"
         }
 
+        // Order opponents according to the turn order, with the first opponent
+        // in the list having their turn directly after the local player
+        val localPlayerIndex = this.players.indexOf(localPlayer)
         val opponents =
-            this.players
-                .filter { it.id != playerId }
-                .map { player ->
-                    Opponent(
-                        id = player.id,
-                        name = player.name,
-                        animals = player.animals,
-                        moneyCardCount = player.moneyCards.size,
-                    )
-                }
+            (1 until this.players.size).map { offset ->
+                val targetIndex = (localPlayerIndex + offset) % this.players.size
+                val player = this.players[targetIndex]
+
+                Opponent(
+                    id = player.id,
+                    name = player.name,
+                    animals = player.animals,
+                    moneyCardCount = player.moneyCards.size,
+                )
+            }
 
         val tradeStateView =
             this.tradeState?.let { tradeState ->
@@ -85,7 +89,7 @@ data class GameState(
             opponents = opponents,
             hostPlayerId = checkNotNull(this.hostPlayerId) { "Game state has no host" },
             roundNumber = this.roundNumber,
-            currentPlayerIndex = this.currentPlayerIndex,
+            currentPlayerId = this.players.getOrNull(this.currentPlayerIndex)?.id,
             deckSize = this.deck.size(),
             auctionState = this.auctionState,
             tradeState = tradeStateView,

@@ -11,7 +11,7 @@ data class GameStateView(
     val opponents: List<Opponent>,
     val hostPlayerId: String,
     val roundNumber: Int,
-    val currentPlayerIndex: Int,
+    val currentPlayerId: String?,
     val deckSize: Int,
     val auctionState: AuctionState?,
     val tradeState: TradeStateView?,
