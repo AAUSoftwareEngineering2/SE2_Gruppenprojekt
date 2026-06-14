@@ -7,6 +7,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 enum class AnimalStyle {
     CHIP,
     CARD,
+    ILLUSTRATION,
 }
 
 /** Maps an [AnimalType] and [AnimalStyle] to its corresponding drawable resource ID. */
@@ -40,6 +41,19 @@ fun getAnimalDrawable(
                 AnimalType.PIG -> R.drawable.auc_pig
                 AnimalType.COW -> R.drawable.auc_cow
                 AnimalType.HORSE -> R.drawable.auc_horse
+            }
+        AnimalStyle.ILLUSTRATION ->
+            when (type) {
+                AnimalType.CHICKEN -> R.drawable.ig_chicken
+                AnimalType.GOOSE -> R.drawable.ig_goose
+                AnimalType.CAT -> R.drawable.ig_cat
+                AnimalType.DOG -> R.drawable.ig_dog
+                AnimalType.SHEEP -> R.drawable.ig_sheep
+                AnimalType.GOAT -> R.drawable.ig_goat
+                AnimalType.DONKEY -> R.drawable.ig_donkey
+                AnimalType.PIG -> R.drawable.ig_pig
+                AnimalType.COW -> R.drawable.ig_cow
+                AnimalType.HORSE -> R.drawable.ig_horse
             }
     }
 

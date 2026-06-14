@@ -8,13 +8,14 @@ import kotlinx.serialization.Serializable
  * Result of a player's performance in a finished game.
  */
 @Serializable
-data class PlayerResult(
+data class GameRankEntry(
     val playerId: String,
     val playerName: String,
     val points: Int,
     val quartetCount: Int,
     val totalMoney: Int,
     val isWinner: Boolean = false,
+    val collectedAnimalTypes: List<AnimalType> = emptyList(),
 )
 
 /**
@@ -43,24 +44,25 @@ object ScoreCalculator {
             .toList()
 
     /**
-     * Calculates and sorts the leaderboard for a list of players.
+     * Calculates and sorts the ranking for a list of players.
      * Sort priority: Points (DESC), Total Money (DESC).
      */
-    fun getLeaderboard(players: List<Player>): List<PlayerResult> {
+    fun calculateGameRanking(players: List<Player>): List<GameRankEntry> {
         val results =
             players
                 .map { player ->
                     val points = calculateScore(player)
                     val quartets = getFullQuartets(player)
-                    PlayerResult(
+                    GameRankEntry(
                         playerId = player.id,
                         playerName = player.name,
                         points = points,
                         quartetCount = quartets.size,
                         totalMoney = player.totalMoney(),
+                        collectedAnimalTypes = player.animals.map { it.type }.distinct(),
                     )
                 }.sortedWith(
-                    compareByDescending<PlayerResult> { it.points }
+                    compareByDescending<GameRankEntry> { it.points }
                         .thenByDescending { it.totalMoney },
                 )
 

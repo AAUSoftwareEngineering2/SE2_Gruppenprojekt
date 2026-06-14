@@ -24,17 +24,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
 import at.aau.kuhhandel.app.ui.theme.AndroidAppTheme
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
@@ -44,7 +45,7 @@ import at.aau.kuhhandel.app.ui.theme.Typography
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.utils.PlayerResult
+import at.aau.kuhhandel.shared.utils.GameRankEntry
 import at.aau.kuhhandel.shared.utils.ScoreCalculator
 
 @Composable
@@ -53,9 +54,9 @@ fun WinScreen(
     onHome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val results = uiState.results
-    val winner = results.firstOrNull()
-    val runnerUps = results.drop(1)
+    val finalRanking = uiState.finalRanking
+    val winner = finalRanking.firstOrNull()
+    val runnerUps = finalRanking.drop(1)
 
     MenuBackground(modifier = modifier) {
         Column(
@@ -124,7 +125,9 @@ fun WinScreen(
                     }
 
                     // 2. SPACER FOR ANIMALS (Large Padding above/below hero row)
-                    Spacer(modifier = Modifier.height(280.dp))
+                    val winnerAnimals = winner?.collectedAnimalTypes ?: emptyList()
+                    val spacerHeight = if (winnerAnimals.isNotEmpty()) 280.dp else 40.dp
+                    Spacer(modifier = Modifier.height(spacerHeight))
 
                     // 3. RUNNER-UP GRID
                     FlowRow(
@@ -133,7 +136,7 @@ fun WinScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                     ) {
-                        runnerUps.forEachIndexed { index: Int, result: PlayerResult ->
+                        runnerUps.forEachIndexed { index: Int, result: GameRankEntry ->
                             Box(modifier = Modifier.fillMaxWidth(0.47f)) {
                                 RunnerUpCard(rank = index + 2, result = result)
                             }
@@ -169,80 +172,78 @@ fun WinScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // 5. HERO ANIMALS OVERLAY (Cat - Horse - Donkey - Cow - Dog)
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(280.dp)
-                            .offset(y = (-110).dp), // Moves animals UP to avoid ranking overlap
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    // 1. Dog (Right Pop-out) - BACK
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_dog),
-                        contentDescription = null,
+                // 5. HERO ANIMALS OVERLAY (Dynamic based on winner)
+                if (winner != null && winner.collectedAnimalTypes.isNotEmpty()) {
+                    Box(
                         modifier =
                             Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(130.dp)
-                                .offset(x = 30.dp),
-                    )
+                                .fillMaxWidth()
+                                .height(280.dp)
+                                .offset(y = (-110).dp), // Moves animals UP to avoid ranking overlap
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            val animals = winner.collectedAnimalTypes
+                            val maxAnimalsBeforeScaling = 3
+                            val baseScale =
+                                if (animals.size > maxAnimalsBeforeScaling) {
+                                    (
+                                        maxAnimalsBeforeScaling.toFloat() /
+                                            animals.size
+                                    ).coerceAtLeast(
+                                        0.3f,
+                                    )
+                                } else {
+                                    1f
+                                }
 
-                    // 2. Cat (Left Pop-out)
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_cat),
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomStart)
-                                .size(120.dp)
-                                .offset(x = (-35).dp, y = 5.dp),
-                    )
-
-                    // 3. Horse (Center-Left)
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_horse),
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .size(200.dp)
-                                .offset(x = (-75).dp), // Moved right from -95
-                    )
-
-                    // 4. Cow (Center-Right)
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_cow),
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .size(180.dp)
-                                .offset(x = 75.dp),
-                    )
-
-                    // 5. Donkey (Middle) - FRONT
-                    Image(
-                        painter = painterResource(id = R.drawable.ig_donkey),
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .size(180.dp)
-                                .scale(scaleX = -1f, scaleY = 1f)
-                                .offset(y = (-5).dp),
-                    )
+                            animals.forEach { type ->
+                                val baseSize = getAnimalSize(type)
+                                Image(
+                                    painter =
+                                        painterResource(
+                                            id = getAnimalDrawable(type, AnimalStyle.ILLUSTRATION),
+                                        ),
+                                    contentDescription = null,
+                                    modifier =
+                                        Modifier
+                                            .size(baseSize * baseScale)
+                                            .padding(horizontal = (2 * baseScale).dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Returns a base size for each animal type to maintain relative proportions.
+ */
+private fun getAnimalSize(type: AnimalType): Dp =
+    when (type) {
+        AnimalType.CHICKEN -> 90.dp
+        AnimalType.GOOSE -> 100.dp
+        AnimalType.CAT -> 110.dp
+        AnimalType.DOG -> 120.dp
+        AnimalType.SHEEP -> 140.dp
+        AnimalType.GOAT -> 140.dp
+        AnimalType.PIG -> 150.dp
+        AnimalType.DONKEY -> 170.dp
+        AnimalType.COW -> 180.dp
+        AnimalType.HORSE -> 200.dp
+    }
+
 @Composable
 fun RunnerUpCard(
     rank: Int,
-    result: PlayerResult,
+    result: GameRankEntry,
 ) {
     val suffix =
         when (rank) {
@@ -293,7 +294,7 @@ fun WinScreenPreview() {
         listOf(
             Player(
                 "1",
-                "Player Name",
+                "Winner Name",
                 animals = generateQuartets(listOf(AnimalType.HORSE, AnimalType.COW)),
             ),
             Player("2", "Player Two", animals = generateQuartets(listOf(AnimalType.PIG))),
@@ -301,8 +302,8 @@ fun WinScreenPreview() {
             Player("4", "Player Four", animals = generateQuartets(listOf(AnimalType.CAT))),
             Player("5", "Player Five", animals = generateQuartets(listOf(AnimalType.GOOSE))),
         )
-    val results = ScoreCalculator.getLeaderboard(samplePlayers)
-    val uiState = GameUiState(results = results)
+    val results = ScoreCalculator.calculateGameRanking(samplePlayers)
+    val uiState = GameUiState(finalRanking = results)
 
     AndroidAppTheme {
         WinScreen(uiState = uiState, onHome = {})

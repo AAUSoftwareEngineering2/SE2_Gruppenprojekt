@@ -47,7 +47,7 @@ data class GameUiState(
     val isTradeHandFanned: Boolean = false,
     val isCounterOfferSelected: Boolean = false,
     val isTradeActionSubmitting: Boolean = false,
-    val results: List<at.aau.kuhhandel.shared.utils.PlayerResult> = emptyList(),
+    val finalRanking: List<at.aau.kuhhandel.shared.utils.GameRankEntry> = emptyList(),
     val eyeIconPlayerId: String? = null,
     val eyeIconTimerSeconds: Int? = null,
     val alreadySpied: Boolean = false,
@@ -357,10 +357,10 @@ class GameViewModel(
                 isTradeHandFanned = tradeLocalState.isHandFanned,
                 isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
                 isTradeActionSubmitting = tradeLocalState.isSubmitting,
-                results =
+                finalRanking =
                     gameState?.players?.let {
                         at.aau.kuhhandel.shared.utils.ScoreCalculator
-                            .getLeaderboard(it)
+                            .calculateGameRanking(it)
                     } ?: emptyList(),
                 eyeIconPlayerId = uiBundle.eyePlayerId,
                 eyeIconTimerSeconds = uiBundle.eyeTimer,
