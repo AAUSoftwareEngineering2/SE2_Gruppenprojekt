@@ -24,8 +24,8 @@ class TimeoutSweeper(
     private val logger = LoggerFactory.getLogger(TimeoutSweeper::class.java)
 
     @Scheduled(
-        fixedDelayString = "\${kuhhandel.cluster.timeout-sweeper.interval-ms:1000}",
-        initialDelayString = "\${kuhhandel.cluster.timeout-sweeper.initial-delay-ms:5000}",
+        fixedDelayString = "\${kuhhandel.cluster.timeout-sweeper.interval-ms:250}",
+        initialDelayString = "\${kuhhandel.cluster.timeout-sweeper.initial-delay-ms:0}",
     )
     fun sweep() {
         runCatching { gameService.sweepExpiredTimeouts() }

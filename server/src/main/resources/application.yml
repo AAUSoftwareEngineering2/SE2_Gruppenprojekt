@@ -35,8 +35,8 @@ kuhhandel:
     # Without peers the server runs single-pod and /internal/cluster rejects everything.
     peer-port: 8080
     timeout-sweeper:
-      interval-ms: 1000
-      initial-delay-ms: 5000
+      interval-ms: 250
+      initial-delay-ms: 0
     stale-game-reaper:
       # Purge games with no player activity for this long. Timeout advances do NOT count as
       # activity, so abandoned games are reaped instead of being advanced by the sweeper forever.

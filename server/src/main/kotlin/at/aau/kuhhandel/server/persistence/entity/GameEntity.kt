@@ -8,13 +8,22 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 
 @Entity
-@Table(name = "games")
+@Table(
+    name = "games",
+    // The timeout/spy sweeps poll these columns on every tick; index them so the frequent
+    // polling is a cheap index range scan instead of a full table scan.
+    indexes = [
+        Index(name = "idx_games_timer_end", columnList = "timer_end"),
+        Index(name = "idx_games_earliest_spy_expiry", columnList = "earliest_spy_expiry"),
+    ],
+)
 class GameEntity(
     @Id
     @Column(name = "id")
