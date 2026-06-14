@@ -23,9 +23,12 @@ spec:
     # Wie die Pods aktualisiert werden
     type: RollingUpdate
     rollingUpdate:
-      # ein zusätzlicher Pod darf starten
-      maxSurge: 1
-      maxUnavailable: 0
+      # Einen Pod nach dem anderen ersetzen, KEINEN zusätzlichen starten.
+      # Grund: 3 Pods x Hikari-Pool 4 + 1 Surge-Pod = 16 DB-Verbindungen, das
+      # sprengt das Supabase-Session-Limit (15) und der neue Pod kommt nicht
+      # hoch -> Rollout-Deadlock. So bleibt der Rollout bei max. 3 Pods (= 12).
+      maxSurge: 0
+      maxUnavailable: 1
 
   # wie die Pods aussehen sollen
   template:
@@ -83,9 +86,18 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               # java begrenzt auf 256mb heap.
               value: "-Xmx256m -XX:+UseSerialGC"
-            # Datenbankverbindung: max. 2 Verbindungen, keine idle connections, timeout 5s
+            # Headless-Service, über den sich die Pods gegenseitig über Spiel-Updates informieren
+            - name: KUHHANDEL_CLUSTER_PEERSERVICE
+              value: "kuhhandel-server-peers"
+            - name: KUHHANDEL_CLUSTER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: kuhhandel-cluster
+                  key: KUHHANDEL_CLUSTER_SECRET
+            # 4 statt 2 Verbindungen pro Pod, weil Aktionen jetzt Row-Locks halten.
+            # 3 Pods x 4 = 12, bleibt unter dem Supabase-Limit.
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-              value: "2"
+              value: "4"
             - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
               value: "0"
             - name: SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT
