@@ -17,6 +17,8 @@ data class GameState(
     val auctionState: AuctionState? = null,
     // Active trade state, null if no trade is running
     val tradeState: TradeState? = null,
+    val activeSpies: Set<SpyAction> = emptySet(),
+    val spiedThisTurn: Set<String> = emptySet(),
     // The last event that occurred, e.g. a money bonus from a donkey
     val lastEvent: GameEvent? = null,
 ) {
@@ -26,17 +28,21 @@ data class GameState(
             "Viewing player $playerId not found in game state"
         }
 
+        // Order opponents according to the turn order, with the first opponent
+        // in the list having their turn directly after the local player
+        val localPlayerIndex = this.players.indexOf(localPlayer)
         val opponents =
-            this.players
-                .filter { it.id != playerId }
-                .map { player ->
-                    Opponent(
-                        id = player.id,
-                        name = player.name,
-                        animals = player.animals,
-                        moneyCardCount = player.moneyCards.size,
-                    )
-                }
+            (1 until this.players.size).map { offset ->
+                val targetIndex = (localPlayerIndex + offset) % this.players.size
+                val player = this.players[targetIndex]
+
+                Opponent(
+                    id = player.id,
+                    name = player.name,
+                    animals = player.animals,
+                    moneyCardCount = player.moneyCards.size,
+                )
+            }
 
         val tradeStateView =
             this.tradeState?.let { tradeState ->
@@ -68,6 +74,14 @@ data class GameState(
                 )
             }
 
+        val alreadySpied = this.spiedThisTurn.contains(playerId)
+        val activeLocalCheating = this.activeSpies.find { it.spyId == playerId }
+        val localPlayerSpiedOn = this.activeSpies.any { it.targetId == playerId }
+        val spiedOnOpponentIds =
+            this.activeSpies
+                .filterNot { it.spyId == playerId || it.targetId == playerId }
+                .map { it.targetId }
+
         return GameStateView(
             phase = this.phase,
             timerEnd = this.timerEnd,
@@ -75,10 +89,15 @@ data class GameState(
             opponents = opponents,
             hostPlayerId = checkNotNull(this.hostPlayerId) { "Game state has no host" },
             roundNumber = this.roundNumber,
-            currentPlayerIndex = this.currentPlayerIndex,
+            currentPlayerId = this.players.getOrNull(this.currentPlayerIndex)?.id,
             deckSize = this.deck.size(),
             auctionState = this.auctionState,
             tradeState = tradeStateView,
+            alreadySpied = alreadySpied,
+            spyingTargetId = activeLocalCheating?.targetId,
+            spyingTargetCards = activeLocalCheating?.revealedCards?.toList(),
+            localPlayerSpiedOn = localPlayerSpiedOn,
+            spiedOnOpponentIds = spiedOnOpponentIds,
             lastEvent = this.lastEvent,
         )
     }

@@ -6,7 +6,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -18,15 +20,19 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.sensor.ShakeDetector
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
@@ -36,6 +42,7 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 
 @Composable
@@ -49,12 +56,17 @@ fun GameScreen(
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
     onCollapseHand: () -> Unit,
+    onFarmTapForEye: (String) -> Unit,
+    onEyeIconClick: () -> Unit,
+    onPhoneShake: () -> Unit,
+    onCatchSpy: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isAuctionActive = uiState.isAuctionActive
     val isTradeActive = uiState.isTradeActive
     val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
         val event = uiState.gameState?.lastEvent
@@ -63,6 +75,19 @@ fun GameScreen(
                 message = event.message,
                 withDismissAction = true,
             )
+        }
+    }
+
+    DisposableEffect(context, onPhoneShake) {
+        val detector =
+            ShakeDetector(context) {
+                onPhoneShake()
+            }
+
+        detector.startListening()
+
+        onDispose {
+            detector.stopListening()
         }
     }
 
@@ -81,7 +106,7 @@ fun GameScreen(
     ) {
         // --- DECOR ---
         Image(
-            painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_short_bush),
+            painter = painterResource(id = R.drawable.ig_short_bush),
             contentDescription = null,
             modifier =
                 Modifier
@@ -91,7 +116,7 @@ fun GameScreen(
             alpha = 0.6f,
         )
         Image(
-            painter = painterResource(id = at.aau.kuhhandel.app.R.drawable.ig_tall_bush),
+            painter = painterResource(id = R.drawable.ig_tall_bush),
             contentDescription = null,
             modifier =
                 Modifier
@@ -106,11 +131,19 @@ fun GameScreen(
             OpponentList(
                 players = uiState.gameState?.players ?: emptyList(),
                 myId = uiState.myPlayerId,
-                onOpponentClick = tradeActions.selectTargetPlayer,
+                onTradeTargetSelected = tradeActions.selectTargetPlayer,
+                currentPhase = uiState.currentPhase,
                 canSelectTradeTarget = uiState.canSelectTradeTarget,
                 selectedTargetPlayerId = uiState.selectedTargetPlayerId,
                 enabledTradeAnimalTypes = uiState.sharedAnimalsWithSelectedPlayer.toSet(),
                 onTradeAnimalClick = tradeActions.selectAnimal,
+                eyeIconPlayerId = uiState.eyeIconPlayerId,
+                isCurrentlySpying = uiState.isCurrentlySpying,
+                hasSpiedThisTurn = uiState.alreadySpied,
+                isEyeIconHighlighted = uiState.isEyeIconHighlighted,
+                spiedOnOpponentIds = uiState.spiedOnOpponentIds,
+                onEyeIconClick = onEyeIconClick,
+                onFarmTapForEye = onFarmTapForEye,
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
@@ -222,6 +255,51 @@ fun GameScreen(
             )
         }
 
+        // --- SPYING REVEALED CARDS PANEL ---
+        if (uiState.isCurrentlySpying) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(enabled = false) {},
+                // Intercepts accidental underlying farm clicks
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    uiState.spyingTargetCards?.forEach { card ->
+                        Image(
+                            painter = painterResource(id = getMoneyCardDrawable(card.value)),
+                            contentDescription = "Spied card value: ${card.value}",
+                            modifier = Modifier.size(width = 70.dp, height = 110.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- SPY CATCH BUTTON ---
+        if (uiState.localPlayerSpiedOn && !uiState.isHandFanned && !uiState.isCurrentlySpying) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 240.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.spy_indicator_white),
+                    contentDescription = "Catch Spy Button",
+                    modifier =
+                        Modifier
+                            .size(110.dp)
+                            .clickable { onCatchSpy() },
+                )
+            }
+        }
+
         // --- AUCTION OVERLAY (Modal layer with highest priority) ---
         if (isAuctionActive) {
             Box(
@@ -254,8 +332,7 @@ fun GameScreenPreview() {
                 "Player 1",
                 moneyCards =
                     List(6) {
-                        at.aau.kuhhandel.shared.model
-                            .MoneyCard("a$it", 10)
+                        MoneyCard("a$it", 10)
                     },
                 animals =
                     listOf(
@@ -274,8 +351,7 @@ fun GameScreenPreview() {
                 "Player 2",
                 moneyCards =
                     List(3) {
-                        at.aau.kuhhandel.shared.model
-                            .MoneyCard("b$it", 10)
+                        MoneyCard("b$it", 10)
                     },
                 animals =
                     listOf(
@@ -289,8 +365,7 @@ fun GameScreenPreview() {
                 "Player 3",
                 moneyCards =
                     List(5) {
-                        at.aau.kuhhandel.shared.model
-                            .MoneyCard("c$it", 10)
+                        MoneyCard("c$it", 10)
                     },
                 animals = listOf(AnimalCard("c1", AnimalType.CHICKEN)),
             ),
@@ -299,8 +374,7 @@ fun GameScreenPreview() {
                 "Player 4",
                 moneyCards =
                     List(12) {
-                        at.aau.kuhhandel.shared.model
-                            .MoneyCard("d$it", 10)
+                        MoneyCard("d$it", 10)
                     },
                 animals =
                     listOf(
@@ -315,8 +389,7 @@ fun GameScreenPreview() {
                 "Me",
                 moneyCards =
                     List(5) {
-                        at.aau.kuhhandel.shared.model
-                            .MoneyCard("m$it", 50)
+                        MoneyCard("m$it", 50)
                     },
                 animals =
                     listOf(
@@ -370,5 +443,21 @@ fun GameScreenPreview() {
         onToggleMoneyCard = {},
         onToggleHandFanned = {},
         onCollapseHand = {},
+        onFarmTapForEye = {},
+        onEyeIconClick = {},
+        onPhoneShake = {},
+        onCatchSpy = {},
     )
 }
+
+/** Maps a money card value to its corresponding graphic resource ID. */
+private fun getMoneyCardDrawable(value: Int): Int =
+    when (value) {
+        0 -> R.drawable.ig_money_revealed_0
+        10 -> R.drawable.ig_money_revealed_10
+        50 -> R.drawable.ig_money_revealed_50
+        100 -> R.drawable.ig_money_revealed_100
+        200 -> R.drawable.ig_money_revealed_200
+        500 -> R.drawable.ig_money_revealed_500
+        else -> R.drawable.ig_money_revealed_0 // Fallback asset
+    }

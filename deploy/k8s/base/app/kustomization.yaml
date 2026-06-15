@@ -9,4 +9,5 @@ resources:
   - supabase-ca-configmap.yaml
   - deployment.yaml
   - service.yaml
+  - service-peers.yaml
   - pdb.yaml

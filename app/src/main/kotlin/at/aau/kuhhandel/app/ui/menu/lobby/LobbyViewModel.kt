@@ -59,6 +59,7 @@ class LobbyViewModel(
                     connectionStatus =
                         when {
                             repoState.isConnected -> "Connected"
+                            repoState.isReconnecting -> "Reconnecting..."
                             repoState.isConnecting -> "Connecting..."
                             else -> "Not connected"
                         },
