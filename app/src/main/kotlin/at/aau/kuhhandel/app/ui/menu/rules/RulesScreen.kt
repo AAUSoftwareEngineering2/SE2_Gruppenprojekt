@@ -869,22 +869,18 @@ private fun HiddenSpyTutorialButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    Box(
         modifier =
             modifier
-                .size(46.dp)
+                .size(36.dp)
+                .alpha(0.58f)
                 .clickable(onClick = onClick),
-        shape = CircleShape,
-        color = WhitePurple.copy(alpha = 0.94f),
-        shadowElevation = 6.dp,
-        border = BorderStroke(1.dp, LightPurple),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = "👀",
-                fontSize = 24.sp,
-            )
-        }
+        Text(
+            text = "👀",
+            fontSize = 18.sp,
+        )
     }
 }
 
