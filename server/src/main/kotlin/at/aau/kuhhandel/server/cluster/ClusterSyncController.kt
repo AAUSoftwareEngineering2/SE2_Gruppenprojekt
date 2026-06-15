@@ -1,0 +1,65 @@
+package at.aau.kuhhandel.server.cluster
+
+import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import kotlinx.serialization.Serializable
+import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RestController
+import java.security.MessageDigest
+
+@Serializable
+data class GameUpdatedNotification(
+    val gameId: String,
+)
+
+/**
+ * Receives "game updated" notifications from peer pods, reloads the state from the database
+ * and republishes it as a local [GameStateChangedEvent] so the WebSocket listener can push
+ * player-specific views to the sessions on this pod. Only the gameId crosses the wire.
+ *
+ * Protected by the shared cluster secret; without one configured every request is rejected.
+ */
+@RestController
+class ClusterSyncController(
+    private val properties: ClusterProperties,
+    private val notifier: ClusterUpdateNotifier,
+    private val persistenceService: GamePersistenceService,
+    private val eventPublisher: ApplicationEventPublisher,
+) {
+    private val logger = LoggerFactory.getLogger(ClusterSyncController::class.java)
+
+    @PostMapping("/internal/cluster/game-updated")
+    fun gameUpdated(
+        @RequestHeader(ClusterUpdateNotifier.SECRET_HEADER, required = false) secret: String?,
+        @RequestHeader(ClusterUpdateNotifier.ORIGIN_HEADER, required = false) origin: String?,
+        @RequestBody notification: GameUpdatedNotification,
+    ): ResponseEntity<Unit> {
+        if (!isAuthorized(secret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+        }
+        // Drop the echo of our own notification.
+        if (origin == notifier.instanceId) {
+            return ResponseEntity.noContent().build()
+        }
+
+        val state = persistenceService.loadGameState(notification.gameId)
+        if (state == null) {
+            logger.debug("Peer update for unknown game {} ignored", notification.gameId)
+            return ResponseEntity.noContent().build()
+        }
+
+        eventPublisher.publishEvent(GameStateChangedEvent(notification.gameId, state))
+        return ResponseEntity.noContent().build()
+    }
+
+    private fun isAuthorized(secret: String?): Boolean {
+        if (!properties.clusterEnabled || secret.isNullOrBlank()) return false
+        return MessageDigest.isEqual(secret.toByteArray(), properties.secret.toByteArray())
+    }
+}

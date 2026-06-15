@@ -9,9 +9,6 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.mockk
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
@@ -25,9 +22,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 /**
- * Verifies that the in-memory [GameService] flow integrates with the persistence layer: a game
- * persists itself on each mutation and can be reloaded from the database after the live session is
- * dropped, which is how a reconnect after a WebSocket close looks.
+ * Verifies the stateless [GameService] flow against real Postgres: a game persists itself on
+ * each mutation and any service instance can pick it up from the database, like a reconnect
+ * after a pod replacement.
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -42,23 +39,24 @@ class GameServicePersistenceTest
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
         @Test
-        fun `getGame reloads a removed session from the persisted snapshot`() {
+        fun `a fresh service instance reloads the game from the persisted snapshot`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("Player1")
+            val created = service.createGame("player1")
 
-            service.removeGame(created.gameId)
+            // A fresh service instance simulates a pod restart: no shared memory, only the DB.
+            val restartedService = GameService(eventPublisher, persistenceService)
 
-            val reloaded = assertNotNull(service.getGame(created.gameId))
+            val reloaded = assertNotNull(restartedService.getGame(created.gameId))
             assertEquals(created.gameId, reloaded.gameId)
             assertEquals(GamePhase.NOT_STARTED, reloaded.state.phase)
             assertEquals(1, reloaded.state.players.size)
-            assertEquals("Player1", reloaded.state.players[0].name)
+            assertEquals("player1", reloaded.state.players[0].name)
         }
 
         @Test
-        fun `purgeGame removes both the in-memory session and the persisted record`() {
+        fun `purgeGame removes the persisted record`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("Player1")
+            val created = service.createGame("player1")
 
             service.purgeGame(created.gameId)
 
@@ -69,51 +67,81 @@ class GameServicePersistenceTest
         @Test
         fun `createGame writes a LOBBY snapshot the moment the game is created`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("Player1")
+            val created = service.createGame("player1")
 
             val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
-            assertEquals(listOf("Player1"), loaded.players.map { it.name })
+            assertEquals(listOf("player1"), loaded.players.map { it.name })
         }
 
         @Test
-        @OptIn(ExperimentalCoroutinesApi::class)
-        fun `getGame revives an expired persisted timer after loading from database`() =
-            runTest {
-                persistenceService.saveGameState(
-                    "34567",
-                    GameState(
-                        phase = GamePhase.AUCTION_RESULT,
-                        timerEnd = 1L,
-                        currentPlayerIndex = 0,
-                        hostPlayerId = "player-1",
-                        players =
-                            listOf(
-                                Player(id = "player-1", name = "Player1"),
-                                Player(id = "player-2", name = "Player2"),
-                            ),
-                        auctionState =
-                            AuctionState(
-                                auctionCard = AnimalCard(id = "auction-cow", type = AnimalType.COW),
-                                auctioneerId = "player-1",
-                                buyerId = "player-1",
-                            ),
-                    ),
+        fun `createGame retries generated codes that already exist in persistence`() {
+            val firstService =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    persistenceService = persistenceService,
+                    gameCodeGenerator = { "12345" },
                 )
-                val service =
-                    GameService(
-                        eventPublisher = eventPublisher,
-                        persistenceService = persistenceService,
-                        serviceScope = backgroundScope,
-                    )
+            firstService.createGame("player1")
 
-                val reloaded = assertNotNull(service.getGame("34567"))
-                assertEquals(GamePhase.AUCTION_RESULT, reloaded.state.phase)
+            val generatedCodes = ArrayDeque(listOf("12345", "23456"))
+            val restartedService =
+                GameService(
+                    eventPublisher = eventPublisher,
+                    persistenceService = persistenceService,
+                    gameCodeGenerator = { generatedCodes.removeFirst() },
+                )
 
-                runCurrent()
+            val created = restartedService.createGame("player2")
 
-                assertEquals(GamePhase.PLAYER_CHOICE, reloaded.state.phase)
-                assertNull(reloaded.state.auctionState)
-                service.removeGame("34567")
-            }
+            assertEquals("23456", created.gameId)
+            assertEquals(
+                listOf("player1"),
+                persistenceService
+                    .loadGameState("12345")
+                    ?.players
+                    ?.map { player -> player.name },
+            )
+            assertEquals(
+                listOf("player2"),
+                persistenceService
+                    .loadGameState("23456")
+                    ?.players
+                    ?.map { player -> player.name },
+            )
+        }
+
+        @Test
+        fun `timeout sweep advances an expired timer regardless of which instance runs it`() {
+            persistenceService.saveGameState(
+                "34567",
+                GameState(
+                    phase = GamePhase.AUCTION_RESULT,
+                    timerEnd = 1L,
+                    currentPlayerIndex = 0,
+                    hostPlayerId = "player1",
+                    players =
+                        listOf(
+                            Player(id = "player1", name = "player1"),
+                            Player(id = "player2", name = "player2"),
+                        ),
+                    auctionState =
+                        AuctionState(
+                            auctionCard = AnimalCard(id = "auction-cow", type = AnimalType.COW),
+                            auctioneerId = "player1",
+                            buyerId = "player1",
+                        ),
+                ),
+            )
+
+            // The sweeping instance never saw this game in memory, it finds the expired timer
+            // in the database.
+            val sweeperService = GameService(eventPublisher, persistenceService)
+            val advanced = sweeperService.sweepExpiredTimeouts()
+
+            assertEquals(listOf("34567"), advanced)
+            val resolved = assertNotNull(persistenceService.loadGameState("34567"))
+            assertEquals(GamePhase.PLAYER_CHOICE, resolved.phase)
+            assertNull(resolved.auctionState)
+        }
     }

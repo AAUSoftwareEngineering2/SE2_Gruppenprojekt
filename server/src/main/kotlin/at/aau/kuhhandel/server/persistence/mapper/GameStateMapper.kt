@@ -16,6 +16,7 @@ import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.model.TradeState
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -37,6 +38,7 @@ object GameStateMapper {
     private val stringListSerializer = ListSerializer(String.serializer())
     private val animalCardListSerializer = ListSerializer(AnimalCard.serializer())
     private val moneyCardListSerializer = ListSerializer(MoneyCard.serializer())
+    private val spyActionListSerializer = ListSerializer(SpyAction.serializer())
 
     fun toGameStatus(phase: GamePhase): GameStatus =
         when (phase) {
@@ -74,6 +76,16 @@ object GameStateMapper {
 
     fun encodeMoneyCards(values: List<MoneyCard>): String =
         json.encodeToString(moneyCardListSerializer, values)
+
+    fun encodeSpies(values: Set<SpyAction>): String =
+        json.encodeToString(spyActionListSerializer, values.toList())
+
+    fun decodeSpies(payload: String?): Set<SpyAction> =
+        if (payload.isNullOrBlank()) {
+            emptySet()
+        } else {
+            json.decodeFromString(spyActionListSerializer, payload).toSet()
+        }
 
     fun decodeStringList(payload: String?): List<String> =
         if (payload.isNullOrBlank()) {
@@ -188,6 +200,8 @@ object GameStateMapper {
             auctionState = auctionDto,
             tradeState = tradeDto,
             hostPlayerId = game.hostPlayerId ?: domainPlayers.firstOrNull()?.id,
+            activeSpies = decodeSpies(game.activeSpiesJson),
+            spiedThisTurn = decodeStringList(game.spiedThisTurnJson).toSet(),
         )
     }
 

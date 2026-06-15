@@ -1,17 +1,20 @@
 package at.aau.kuhhandel.app.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 import kotlin.math.cos
@@ -49,6 +53,11 @@ fun OtherFarm(
     showTradeAnimalPicker: Boolean = false,
     enabledTradeAnimalTypes: Set<AnimalType> = emptySet(),
     onTradeAnimalClick: (AnimalType) -> Unit = {},
+    isEyeIconVisible: Boolean = false,
+    onEyeIconClick: () -> Unit = {},
+    isEyeIconGreyedOut: Boolean = false,
+    isEyeIconHighlighted: Boolean = false,
+    isSpyIndicatorVisible: Boolean = false,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -133,6 +142,63 @@ fun OtherFarm(
                     onAnimalClick = onTradeAnimalClick,
                 )
             }
+            if (isEyeIconVisible) {
+                val eyeAlpha = if (isEyeIconGreyedOut) 0.4f else 1.0f
+                val greyScaleFilter =
+                    remember {
+                        ColorFilter.colorMatrix(
+                            ColorMatrix().apply { setToSaturation(0f) },
+                        )
+                    }
+
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = 10.dp, y = 25.dp)
+                            .size(44.dp)
+                            .then(
+                                if (!isEyeIconGreyedOut) {
+                                    Modifier.clickable { onEyeIconClick() }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.spy_eye),
+                        contentDescription = "Spy Eye Icon",
+                        alpha = eyeAlpha,
+                        colorFilter = if (isEyeIconGreyedOut) greyScaleFilter else null,
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (isEyeIconHighlighted) {
+                                        Modifier.border(
+                                            width = 3.dp,
+                                            color = at.aau.kuhhandel.app.ui.theme.DefaultPurple,
+                                            shape = CircleShape,
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                    )
+                }
+            }
+            if (isSpyIndicatorVisible) {
+                Image(
+                    painter = painterResource(id = R.drawable.spy_indicator_white),
+                    contentDescription = "Player being spied on",
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-10).dp, y = 25.dp)
+                            .size(36.dp),
+                )
+            }
         }
     }
 }
@@ -142,15 +208,25 @@ fun OtherFarm(
 fun OpponentList(
     players: List<Player>,
     myId: String?,
-    onOpponentClick: (String) -> Unit,
+    onTradeTargetSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    currentPhase: GamePhase = GamePhase.NOT_STARTED,
     isAuctionActive: Boolean = false,
     canSelectTradeTarget: Boolean = true,
     selectedTargetPlayerId: String? = null,
     enabledTradeAnimalTypes: Set<AnimalType> = emptySet(),
     onTradeAnimalClick: (AnimalType) -> Unit = {},
+    onFarmTapForEye: (String) -> Unit = {},
+    eyeIconPlayerId: String? = null,
+    onEyeIconClick: () -> Unit = {},
+    isEyeIconHighlighted: Boolean = false,
+    isCurrentlySpying: Boolean = false,
+    hasSpiedThisTurn: Boolean = false,
+    spiedOnOpponentIds: List<String> = emptyList(),
 ) {
     val opponents = players.filter { it.id != myId }
+    val isChoicePhase = currentPhase == GamePhase.PLAYER_CHOICE
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -163,16 +239,36 @@ fun OpponentList(
                 rowPlayers.forEachIndexed { colIndex, player ->
                     val index = (rowIndex * 2) + colIndex
                     val color = FarmColor.entries[index % FarmColor.entries.size]
+
+                    val isSelectedForEye = eyeIconPlayerId == player.id
+
+                    val myPlayer = players.find { it.id == myId }
+                    val hasNoMoney = myPlayer?.moneyCards?.isEmpty() ?: true
+
+                    val isGreyedOut = hasSpiedThisTurn || isCurrentlySpying || hasNoMoney
+                    val anyoneElseSpiedOnThem = spiedOnOpponentIds.contains(player.id)
+
                     OtherFarm(
                         player = player,
                         farmColor = color,
-                        onClick = { onOpponentClick(player.id) },
+                        onClick = {
+                            if (isChoicePhase && !canSelectTradeTarget) {
+                                onFarmTapForEye(player.id)
+                            } else {
+                                onTradeTargetSelected(player.id)
+                            }
+                        },
                         showName = !isAuctionActive,
-                        canClick = canSelectTradeTarget,
+                        canClick = canSelectTradeTarget || isChoicePhase,
                         showTradeAnimalPicker =
                             canSelectTradeTarget && selectedTargetPlayerId == player.id,
                         enabledTradeAnimalTypes = enabledTradeAnimalTypes,
                         onTradeAnimalClick = onTradeAnimalClick,
+                        isEyeIconVisible = isSelectedForEye,
+                        onEyeIconClick = onEyeIconClick,
+                        isEyeIconGreyedOut = isGreyedOut,
+                        isEyeIconHighlighted = isEyeIconHighlighted && isSelectedForEye,
+                        isSpyIndicatorVisible = anyoneElseSpiedOnThem,
                     )
                 }
             }

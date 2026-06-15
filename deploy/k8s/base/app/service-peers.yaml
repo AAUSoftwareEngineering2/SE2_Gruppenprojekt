@@ -1,0 +1,18 @@
+# Headless-Service für die Pod-zu-Pod-Kommunikation.
+#
+# clusterIP: None heißt: die DNS-Auflösung liefert die IPs aller Server-Pods statt einer
+# virtuellen Service-IP. Der ClusterUpdateNotifier erreicht darüber jeden Pod direkt.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuhhandel-server-peers
+  labels:
+    app: kuhhandel-server
+spec:
+  clusterIP: None
+  selector:
+    app: kuhhandel-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

@@ -6,13 +6,14 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Infrastructure registry managing transient network routing for active connections.
+ *
+ * Only maps this pod's live sockets to players. Reconnect tokens live in the database
+ * (see [at.aau.kuhhandel.server.persistence.GamePersistenceService.isReconnectTokenValid]),
+ * so reconnects also work on other pods.
  */
 @Component
 class ConnectionRegistry {
     private val playerSessions = ConcurrentHashMap<String, PlayerSession>()
-
-    // TODO: Implement an eviction strategy to prune stale entries
-    private val reconnectTokens = ConcurrentHashMap<String, String>()
     private val connectionIdsByGameId = ConcurrentHashMap<String, MutableSet<String>>()
     private val connections = ConcurrentHashMap<String, WebSocketSession>()
 
@@ -24,16 +25,14 @@ class ConnectionRegistry {
     }
 
     /**
-     * Binds a game ID, player ID, and reconnection token to a WebSocket session ID.
+     * Binds a game ID and player ID to a WebSocket session ID.
      */
     fun bindPlayerSession(
         sessionId: String,
         gameId: String,
         playerId: String,
-        token: String,
     ) {
         playerSessions[sessionId] = PlayerSession(gameId, playerId)
-        reconnectTokens[playerId] = token
 
         connectionIdsByGameId
             .computeIfAbsent(gameId) { ConcurrentHashMap.newKeySet() }
@@ -46,11 +45,6 @@ class ConnectionRegistry {
      * Retrieves the PlayerSession associated with a WebSocket session ID.
      */
     fun playerSessionFor(sessionId: String): PlayerSession? = playerSessions[sessionId]
-
-    fun isValidToken(
-        playerId: String,
-        token: String,
-    ): Boolean = reconnectTokens[playerId] == token
 
     fun connectionIdsFor(gameId: String): Set<String> =
         connectionIdsByGameId[gameId]?.toSet().orEmpty()
