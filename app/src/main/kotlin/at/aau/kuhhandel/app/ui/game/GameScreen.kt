@@ -226,7 +226,10 @@ fun GameScreen(
                 isEyeIconHighlighted = uiState.isEyeIconHighlighted,
                 spiedOnOpponentIds = uiState.spiedOnOpponentIds,
                 onEyeIconClick = onEyeIconClick,
-                onFarmTapForEye = onFarmTapForEye,
+                onFarmTapForEye = { playerId ->
+                    playPickFarmSound()
+                    onFarmTapForEye(playerId)
+                },
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
