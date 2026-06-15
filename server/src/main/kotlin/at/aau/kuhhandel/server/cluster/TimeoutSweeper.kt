@@ -24,8 +24,8 @@ class TimeoutSweeper(
     private val logger = LoggerFactory.getLogger(TimeoutSweeper::class.java)
 
     @Scheduled(
-        fixedDelayString = "\${kuhhandel.cluster.timeout-sweeper.interval-ms:1000}",
-        initialDelayString = "\${kuhhandel.cluster.timeout-sweeper.initial-delay-ms:5000}",
+        fixedDelayString = "\${kuhhandel.cluster.timeout-sweeper.interval-ms:250}",
+        initialDelayString = "\${kuhhandel.cluster.timeout-sweeper.initial-delay-ms:0}",
     )
     fun sweep() {
         runCatching { gameService.sweepExpiredTimeouts() }
@@ -34,5 +34,14 @@ class TimeoutSweeper(
                     logger.info("Timeout sweep advanced games: {}", advanced)
                 }
             }.onFailure { logger.warn("Timeout sweep run failed", it) }
+
+        // Spy reveals expire on their own deadline (independent of the phase timer), so clear
+        // them here too. Replaces the old in-memory spy timer that died with its pod.
+        runCatching { gameService.sweepExpiredSpies() }
+            .onSuccess { cleared ->
+                if (cleared.isNotEmpty()) {
+                    logger.info("Spy expiration sweep cleared games: {}", cleared)
+                }
+            }.onFailure { logger.warn("Spy expiration sweep run failed", it) }
     }
 }

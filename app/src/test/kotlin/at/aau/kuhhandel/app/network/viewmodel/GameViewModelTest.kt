@@ -971,6 +971,16 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `resolveAuction submits let winner buy decision`() {
+        runTest {
+            viewModel.resolveAuction(false)
+            advanceUntilIdle()
+
+            coVerify { mockRepository.resolveAuction(false) }
+        }
+    }
+
+    @Test
     fun `auctioneer cannot buy back without enough total money`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

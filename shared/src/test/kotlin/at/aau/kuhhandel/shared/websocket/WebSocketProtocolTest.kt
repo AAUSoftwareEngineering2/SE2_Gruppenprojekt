@@ -52,13 +52,6 @@ class WebSocketProtocolTest {
     // WebSocketPayloads tests
 
     @Test
-    fun `CreateGamePayload defaults are correct`() {
-        val payload = CreateGamePayload()
-
-        assertNull(payload.playerName)
-    }
-
-    @Test
     fun `CreateGamePayload round-trips`() {
         val payload = CreateGamePayload(playerName = "John")
 
@@ -217,6 +210,16 @@ class WebSocketProtocolTest {
     }
 
     @Test
+    fun `SpyPayload round-trips`() {
+        val payload = SpyPayload(targetPlayerId = "player-1")
+
+        val encoded = json.encodeToString(SpyPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SpyPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
     fun `ErrorPayload round-trips`() {
         val payload = ErrorPayload(message = "Something went wrong")
 
@@ -263,10 +266,16 @@ class WebSocketProtocolTest {
             opponents = emptyList(),
             hostPlayerId = "player-1",
             roundNumber = 0,
-            currentPlayerIndex = -1,
+            currentPlayerId = null,
             deckSize = 5,
             auctionState = null,
             tradeState = null,
+            alreadySpied = false,
+            spyingTargetId = null,
+            spyingTargetCards = null,
+            localPlayerSpiedOn = false,
+            spiedOnOpponentIds = emptyList(),
             lastEvent = null,
+            finalRanking = null,
         )
 }

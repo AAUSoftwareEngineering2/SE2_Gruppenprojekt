@@ -41,7 +41,7 @@ class GameServicePersistenceTest
         @Test
         fun `a fresh service instance reloads the game from the persisted snapshot`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("player1")
 
             // A fresh service instance simulates a pod restart: no shared memory, only the DB.
             val restartedService = GameService(eventPublisher, persistenceService)
@@ -50,13 +50,13 @@ class GameServicePersistenceTest
             assertEquals(created.gameId, reloaded.gameId)
             assertEquals(GamePhase.NOT_STARTED, reloaded.state.phase)
             assertEquals(1, reloaded.state.players.size)
-            assertEquals("player-1", reloaded.state.players[0].name)
+            assertEquals("player1", reloaded.state.players[0].name)
         }
 
         @Test
         fun `purgeGame removes the persisted record`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("player1")
 
             service.purgeGame(created.gameId)
 
@@ -67,11 +67,11 @@ class GameServicePersistenceTest
         @Test
         fun `createGame writes a LOBBY snapshot the moment the game is created`() {
             val service = GameService(eventPublisher, persistenceService)
-            val created = service.createGame("player-1")
+            val created = service.createGame("player1")
 
             val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
             assertEquals(GamePhase.NOT_STARTED, loaded.phase)
-            assertEquals(listOf("player-1"), loaded.players.map { it.name })
+            assertEquals(listOf("player1"), loaded.players.map { it.name })
         }
 
         @Test
@@ -82,7 +82,7 @@ class GameServicePersistenceTest
                     persistenceService = persistenceService,
                     gameCodeGenerator = { "12345" },
                 )
-            firstService.createGame("player-1")
+            firstService.createGame("player1")
 
             val generatedCodes = ArrayDeque(listOf("12345", "23456"))
             val restartedService =
@@ -92,18 +92,18 @@ class GameServicePersistenceTest
                     gameCodeGenerator = { generatedCodes.removeFirst() },
                 )
 
-            val created = restartedService.createGame("player-2")
+            val created = restartedService.createGame("player2")
 
             assertEquals("23456", created.gameId)
             assertEquals(
-                listOf("player-1"),
+                listOf("player1"),
                 persistenceService
                     .loadGameState("12345")
                     ?.players
                     ?.map { player -> player.name },
             )
             assertEquals(
-                listOf("player-2"),
+                listOf("player2"),
                 persistenceService
                     .loadGameState("23456")
                     ?.players
@@ -119,17 +119,17 @@ class GameServicePersistenceTest
                     phase = GamePhase.AUCTION_RESULT,
                     timerEnd = 1L,
                     currentPlayerIndex = 0,
-                    hostPlayerId = "player-1",
+                    hostPlayerId = "player1",
                     players =
                         listOf(
-                            Player(id = "player-1", name = "player-1"),
-                            Player(id = "player-2", name = "player-2"),
+                            Player(id = "player1", name = "player1"),
+                            Player(id = "player2", name = "player2"),
                         ),
                     auctionState =
                         AuctionState(
                             auctionCard = AnimalCard(id = "auction-cow", type = AnimalType.COW),
-                            auctioneerId = "player-1",
-                            buyerId = "player-1",
+                            auctioneerId = "player1",
+                            buyerId = "player1",
                         ),
                 ),
             )

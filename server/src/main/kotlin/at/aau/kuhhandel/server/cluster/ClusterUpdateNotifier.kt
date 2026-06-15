@@ -91,7 +91,11 @@ class ClusterUpdateNotifier(
         return runCatching {
             InetAddress
                 .getAllByName(properties.peerService)
-                .map { "http://${it.hostAddress}:${properties.peerPort}" }
+                .map { address ->
+                    // Bracket IPv6 literals so the URL stays valid, e.g. http://[fd00::1]:8080.
+                    val host = address.hostAddress.let { if (':' in it) "[$it]" else it }
+                    "http://$host:${properties.peerPort}"
+                }
         }.onFailure { error ->
             logger.warn(
                 "Peer DNS resolution failed for '${properties.peerService}': ${error.message}",

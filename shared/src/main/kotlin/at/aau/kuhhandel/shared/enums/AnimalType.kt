@@ -9,7 +9,7 @@ enum class AnimalType(
     CHICKEN(10),
     GOOSE(40),
     CAT(90),
-    DOG(180),
+    DOG(160),
     SHEEP(250),
     GOAT(350),
     DONKEY(500),

@@ -148,6 +148,13 @@ class GamePersistenceService(
         gameRepository.findIdsByLastActivityBefore(cutoff).map { it.toString() }
 
     /**
+     * Game ids with at least one active spy whose expiration deadline has passed.
+     */
+    @Transactional(readOnly = true)
+    fun findGameIdsWithExpiredSpies(now: Long): List<String> =
+        gameRepository.findIdsWithExpiredSpies(now).map { it.toString() }
+
+    /**
      * Last time a real player acted on the game, or null when unknown.
      */
     @Transactional(readOnly = true)
@@ -243,6 +250,10 @@ class GamePersistenceService(
                     roundNumber = state.roundNumber,
                     faceUpAnimalType = state.currentFaceUpCard?.type,
                     lastActivityAt = activityAt ?: System.currentTimeMillis(),
+                    activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies),
+                    spiedThisTurnJson =
+                        GameStateMapper.encodeStringList(state.spiedThisTurn.toList()),
+                    earliestSpyExpiry = state.activeSpies.minOfOrNull { it.expiresAt },
                 ),
             )
         } else {
@@ -252,6 +263,10 @@ class GamePersistenceService(
             existing.hostPlayerId = state.hostPlayerId
             existing.roundNumber = state.roundNumber
             existing.faceUpAnimalType = state.currentFaceUpCard?.type
+            existing.activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies)
+            existing.spiedThisTurnJson =
+                GameStateMapper.encodeStringList(state.spiedThisTurn.toList())
+            existing.earliestSpyExpiry = state.activeSpies.minOfOrNull { it.expiresAt }
             // null = timeout sweep -> leave the timestamp untouched so the game can go stale.
             if (activityAt != null) existing.lastActivityAt = activityAt
             existing

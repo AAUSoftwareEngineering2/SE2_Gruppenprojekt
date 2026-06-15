@@ -17,7 +17,7 @@ images:
 
 replicas:
   - name: kuhhandel-server
-    count: 3
+    count: 1
 
 patches:
   - path: spring-profile-patch.yaml

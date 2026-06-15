@@ -19,6 +19,7 @@ import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.game.TradeActions
+import at.aau.kuhhandel.app.ui.game.WinScreen
 import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
@@ -53,12 +54,25 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
     // Handle Game State transitions via Navigation
-    LaunchedEffect(isGameStarted) {
-        if (isGameStarted) {
-            navController.navigate(Screen.Game) {
-                // Pop up to Main to clear the backstack when game starts
-                popUpTo(Screen.Main) { inclusive = false }
-                launchSingleTop = true
+    LaunchedEffect(currentPhase) {
+        when (currentPhase) {
+            GamePhase.NOT_STARTED -> Unit
+            GamePhase.FINISHED -> {
+                navController.navigate(Screen.Win) {
+                    // Pop up to Game to clear it from backstack
+                    popUpTo(Screen.Game) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+
+            null -> Unit
+            else -> {
+                if (navController.currentDestination?.route != Screen.Game::class.qualifiedName) {
+                    navController.navigate(Screen.Game) {
+                        popUpTo(Screen.Main) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
             }
         }
     }
@@ -86,6 +100,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
 
                 RoomCreationScreen(
                     uiState = creationUiState,
+                    onPlayerNameChanged = creationViewModel::onPlayerNameChanged,
                     onCreateLobby = creationViewModel::createLobby,
                     onBack = {
                         repository.disconnect()
@@ -109,6 +124,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                 RoomJoiningScreen(
                     uiState = joiningUiState,
                     onLobbyCodeChanged = joiningViewModel::onLobbyCodeChanged,
+                    onPlayerNameChanged = joiningViewModel::onPlayerNameChanged,
                     onJoinLobby = joiningViewModel::joinLobby,
                     onBack = {
                         repository.disconnect()
@@ -180,6 +196,26 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                     onToggleHandFanned = gameViewModel::toggleHandFanned,
                     onCollapseHand = gameViewModel::collapseHand,
+                    onFarmTapForEye = gameViewModel::selectEyeTargetPlayer,
+                    onEyeIconClick = gameViewModel::highlightEyeIcon,
+                    onPhoneShake = gameViewModel::onPhoneShake,
+                    onCatchSpy = gameViewModel::catchSpy,
+                )
+            }
+
+            composable<Screen.Win> {
+                val gameViewModel =
+                    remember(repository, scope) {
+                        GameViewModel(repository, scope)
+                    }
+                val gameUiState by gameViewModel.uiState.collectAsState()
+
+                WinScreen(
+                    uiState = gameUiState,
+                    onHome = {
+                        repository.disconnect()
+                        navController.popBackStack(Screen.Main, inclusive = false)
+                    },
                 )
             }
         }

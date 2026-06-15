@@ -6,6 +6,7 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.SpyAction
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
@@ -67,13 +68,13 @@ class GameServiceTest
         fun `createGame generates a five digit code and persists the lobby`() {
             val service = service()
 
-            val result = service.createGame("Player 1")
+            val result = service.createGame("Player1")
             usedGameIds += result.gameId
 
             assertEquals(5, result.gameId.length)
             assertEquals(GamePhase.NOT_STARTED, result.gameState.phase)
             assertEquals(
-                "Player 1",
+                "Player1",
                 result.gameState.players
                     .single()
                     .name,
@@ -92,8 +93,8 @@ class GameServiceTest
         fun `createGame generates different codes`() {
             val service = service()
 
-            val first = service.createGame("Player 1")
-            val second = service.createGame("Player 1")
+            val first = service.createGame("Player1")
+            val second = service.createGame("Player1")
             usedGameIds += listOf(first.gameId, second.gameId)
 
             assertNotEquals(first.gameId, second.gameId)
@@ -102,7 +103,7 @@ class GameServiceTest
         @Test
         fun `getGame loads the persisted state and returns null for unknown ids`() {
             val service = service(codes = listOf("11111"))
-            service.createGame("Player 1")
+            service.createGame("Player1")
 
             val loaded = assertNotNull(service.getGame("11111"))
             assertEquals("11111", loaded.gameId)
@@ -116,14 +117,14 @@ class GameServiceTest
         fun `joinGame adds the player and persists the change`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                service.createGame("Player 1")
+                service.createGame("Player1")
 
-                val joinResult = service.joinGame("11111", "Player 2")
+                val joinResult = service.joinGame("11111", "Player2")
 
                 assertEquals("11111", joinResult.gameId)
                 assertEquals(2, joinResult.gameState.players.size)
                 assertEquals(
-                    listOf("Player 1", "Player 2"),
+                    listOf("Player1", "Player2"),
                     persistenceService.loadGameState("11111")?.players?.map { it.name },
                 )
             }
@@ -134,7 +135,7 @@ class GameServiceTest
                 val service = service()
 
                 val exception =
-                    assertThrows<GameException> { service.joinGame("99999", "Player 2") }
+                    assertThrows<GameException> { service.joinGame("99999", "Player2") }
                 assertEquals(GameErrorReason.GAME_NOT_FOUND, exception.reason)
             }
 
@@ -142,8 +143,8 @@ class GameServiceTest
         fun `leaveGame removes the player and purges an empty game`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
-                val joined = service.joinGame("11111", "Player 2")
+                val created = service.createGame("Player1")
+                val joined = service.joinGame("11111", "Player2")
 
                 val afterLeave = service.leaveGame("11111", joined.playerId)
                 assertEquals(listOf(created.playerId), afterLeave.players.map { it.id })
@@ -167,7 +168,7 @@ class GameServiceTest
         fun `getStateForReconnection returns state for a known player`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
+                val created = service.createGame("Player1")
 
                 val state = service.getStateForReconnection("11111", created.playerId)
 
@@ -178,7 +179,7 @@ class GameServiceTest
         fun `getStateForReconnection throws for unknown game and unknown player`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                service.createGame("Player 1")
+                service.createGame("Player1")
 
                 val unknownGame =
                     assertThrows<GameException> {
@@ -197,9 +198,9 @@ class GameServiceTest
         fun `startGame runs the real state machine against persisted state`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
-                service.joinGame("11111", "Player 2")
-                service.joinGame("11111", "Player 3")
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
 
                 val started = service.startGame("11111", created.playerId)
 
@@ -216,7 +217,7 @@ class GameServiceTest
         fun `game rule violations roll back and leave the persisted state untouched`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
+                val created = service.createGame("Player1")
 
                 // Two players are not enough, the game needs three.
                 assertThrows<GameException> { service.startGame("11111", created.playerId) }
@@ -251,7 +252,7 @@ class GameServiceTest
         fun `reconnect tokens are stored hashed and validated from the database`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
+                val created = service.createGame("Player1")
 
                 service.storeReconnectToken("11111", created.playerId, "token-1")
 
@@ -274,9 +275,9 @@ class GameServiceTest
         fun `sweepExpiredTimeouts advances an expired phase and publishes the update`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
-                service.joinGame("11111", "Player 2")
-                service.joinGame("11111", "Player 3")
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
                 service.startGame("11111", created.playerId)
 
                 val expired = assertNotNull(persistenceService.loadGameState("11111"))
@@ -298,9 +299,9 @@ class GameServiceTest
         fun `sweepExpiredTimeouts ignores games whose timer is still running`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player 1")
-                service.joinGame("11111", "Player 2")
-                service.joinGame("11111", "Player 3")
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
                 service.startGame("11111", created.playerId)
 
                 val advanced = service.sweepExpiredTimeouts(now = 0L)
@@ -312,7 +313,7 @@ class GameServiceTest
         @Test
         fun `reapStaleGames purges games older than the cutoff and keeps fresh ones`() {
             val service = service(codes = listOf("11111"))
-            val created = service.createGame("Player 1")
+            val created = service.createGame("Player1")
             // Pin the activity timestamp to a known point in the past.
             persistenceService.saveGameState(created.gameId, created.gameState, activityAt = 1_000L)
 
@@ -328,7 +329,7 @@ class GameServiceTest
         @Test
         fun `player mutations refresh activity but timeout sweeps do not`() {
             val service = service(codes = listOf("11111"))
-            val created = service.createGame("Player 1")
+            val created = service.createGame("Player1")
             persistenceService.saveGameState(created.gameId, created.gameState, activityAt = 1_000L)
             assertEquals(1_000L, persistenceService.lastActivityAt(created.gameId))
 
@@ -340,4 +341,73 @@ class GameServiceTest
             persistenceService.mutateGameState(created.gameId, activityAt = 5_000L) { it }
             assertEquals(5_000L, persistenceService.lastActivityAt(created.gameId))
         }
+
+        @Test
+        fun `createGame rejects a player name with invalid characters`() {
+            val service = service()
+
+            val exception = assertThrows<GameException> { service.createGame("bad name!") }
+            assertEquals(GameErrorReason.INVALID_PLAYER_NAME, exception.reason)
+        }
+
+        @Test
+        fun `active spies are persisted and cleared by the expiry sweep`() {
+            val service = service(codes = listOf("11111"))
+            val created = service.createGame("Player1")
+            val lobby = assertNotNull(persistenceService.loadGameState("11111"))
+
+            // Persist a state carrying an already-expired spy reveal.
+            val withSpy =
+                lobby.copy(
+                    activeSpies =
+                        setOf(
+                            SpyAction(
+                                spyId = "spy-1",
+                                targetId = created.playerId,
+                                expiresAt = 1L,
+                                revealedCards = emptySet(),
+                            ),
+                        ),
+                    spiedThisTurn = setOf("spy-1"),
+                )
+            persistenceService.saveGameState("11111", withSpy)
+
+            // The spy state survives the stateless save/reload round-trip.
+            val reloaded = assertNotNull(persistenceService.loadGameState("11111"))
+            assertEquals(setOf("spy-1"), reloaded.activeSpies.map { it.spyId }.toSet())
+            assertEquals(setOf("spy-1"), reloaded.spiedThisTurn)
+
+            // The sweep clears the expired spy.
+            val cleared = service.sweepExpiredSpies(now = 1_000L)
+            assertEquals(listOf("11111"), cleared)
+            assertTrue(
+                assertNotNull(persistenceService.loadGameState("11111")).activeSpies.isEmpty(),
+            )
+        }
+
+        @Test
+        fun `spy persists the active spy reveal across the stateless round-trip`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                val started = service.startGame("11111", host.playerId)
+
+                // The spy is any player whose turn it is not; the target is another player.
+                val activeId = started.players[started.currentPlayerIndex].id
+                val spyId = started.players.first { it.id != activeId }.id
+                val targetId = started.players.first { it.id != spyId }.id
+
+                val afterSpy = service.spy("11111", spyId, targetId)
+
+                assertTrue(
+                    afterSpy.activeSpies.any { it.spyId == spyId && it.targetId == targetId },
+                )
+                assertTrue(
+                    assertNotNull(persistenceService.loadGameState("11111"))
+                        .activeSpies
+                        .any { it.spyId == spyId },
+                )
+            }
     }

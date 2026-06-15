@@ -10,8 +10,6 @@ metadata:
     app: kuhhandel-server
 spec:
   clusterIP: None
-  # auch startende Pods auflösen, damit sie keine Updates verpassen
-  publishNotReadyAddresses: true
   selector:
     app: kuhhandel-server
   ports:
