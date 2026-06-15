@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
@@ -72,7 +73,7 @@ fun RoomJoiningScreen(
                     value = uiState.playerName,
                     onValueChange = onPlayerNameChanged,
                     label = { Text("Name") },
-                    placeholder = { Text("Felix01") },
+                    placeholder = { Text("Player Name...") },
                     enabled = !uiState.isLoading,
                     singleLine = true,
                     isError = uiState.playerNameError != null,
@@ -107,6 +108,7 @@ fun RoomJoiningScreen(
                     placeholder = { Text("12345") },
                     enabled = !uiState.isLoading,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )

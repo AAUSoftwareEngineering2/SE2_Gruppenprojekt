@@ -106,7 +106,7 @@ fun RoomCreationScreen(
                             value = uiState.playerName,
                             onValueChange = onPlayerNameChanged,
                             label = { Text("Player name") },
-                            placeholder = { Text("Player Name") },
+                            placeholder = { Text("Player Name...") },
                             singleLine = true,
                             isError = uiState.playerNameError != null,
                             supportingText = {
