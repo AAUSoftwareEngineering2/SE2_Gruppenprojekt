@@ -266,5 +266,6 @@ class WebSocketProtocolTest {
             localPlayerSpiedOn = false,
             spiedOnOpponentIds = emptyList(),
             lastEvent = null,
+            finalRanking = null,
         )
 }
