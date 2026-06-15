@@ -86,6 +86,7 @@ fun GameScreen(
     val playAnimalSetCompletedSound = rememberMediaSoundEffect(R.raw.animal_set_completed)
     val playCheatingEyeSound = rememberMediaSoundEffect(R.raw.cheating_eye)
     val playSpyMoneyRevealedSound = rememberMediaSoundEffect(R.raw.spy_money_revealed)
+    val playSpyExposedSound = rememberMediaSoundEffect(R.raw.spy_exposed)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
     val completedAnimalSets = uiState.gameState.completedAnimalSets()
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
@@ -381,7 +382,10 @@ fun GameScreen(
                     modifier =
                         Modifier
                             .size(110.dp)
-                            .clickable { onCatchSpy() },
+                            .clickable {
+                                playSpyExposedSound()
+                                onCatchSpy()
+                            },
                 )
             }
         }
