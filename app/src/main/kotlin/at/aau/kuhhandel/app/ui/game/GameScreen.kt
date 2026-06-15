@@ -84,12 +84,16 @@ fun GameScreen(
     val playGavelSound = rememberSoundEffect(R.raw.auction_gavel)
     val playPickFarmSound = rememberSoundEffect(R.raw.trade_pick_farm)
     val playAnimalSetCompletedSound = rememberMediaSoundEffect(R.raw.animal_set_completed)
+    val playCheatingEyeSound = rememberMediaSoundEffect(R.raw.cheating_eye)
+    val playSpyMoneyRevealedSound = rememberMediaSoundEffect(R.raw.spy_money_revealed)
     val auctionCard = uiState.gameState?.auctionState?.auctionCard
     val completedAnimalSets = uiState.gameState.completedAnimalSets()
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
     var previousCompletedAnimalSets by remember {
         mutableStateOf<Set<CompletedAnimalSet>?>(null)
     }
+    var previousEyeHighlighted by remember { mutableStateOf<Boolean?>(null) }
+    var previousSpyingTargetId by remember { mutableStateOf<String?>(null) }
     var animalSetNotification by remember { mutableStateOf<CompletedAnimalSet?>(null) }
 
     LaunchedEffect(uiState.gameState?.lastEvent) {
@@ -121,6 +125,20 @@ fun GameScreen(
             }
         }
         previousCompletedAnimalSets = completedAnimalSets
+    }
+
+    LaunchedEffect(uiState.isEyeIconHighlighted) {
+        if (previousEyeHighlighted == false && uiState.isEyeIconHighlighted) {
+            playCheatingEyeSound()
+        }
+        previousEyeHighlighted = uiState.isEyeIconHighlighted
+    }
+
+    LaunchedEffect(uiState.spyingTargetId) {
+        if (previousSpyingTargetId == null && uiState.spyingTargetId != null) {
+            playSpyMoneyRevealedSound()
+        }
+        previousSpyingTargetId = uiState.spyingTargetId
     }
 
     LaunchedEffect(uiState.currentPhase) {
