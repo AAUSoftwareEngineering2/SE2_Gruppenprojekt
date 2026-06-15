@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -188,31 +189,30 @@ fun WinScreen(
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             val animals = winner.collectedAnimalTypes
-                            val maxAnimalsBeforeScaling = 3
+                            val maxTotalRepresentativeWidth = 2.8f
                             val baseScale =
-                                if (animals.size > maxAnimalsBeforeScaling) {
+                                if (animals.size > 2) {
                                     (
-                                        maxAnimalsBeforeScaling.toFloat() /
+                                        maxTotalRepresentativeWidth /
                                             animals.size
-                                    ).coerceAtLeast(
-                                        0.3f,
-                                    )
+                                    ).coerceAtMost(1f)
                                 } else {
                                     1f
                                 }
 
                             animals.forEach { type ->
-                                val baseSize = getAnimalSize(type)
+                                val targetHeight = getAnimalSize(type)
                                 Image(
                                     painter =
                                         painterResource(
                                             id = getAnimalDrawable(type, AnimalStyle.ILLUSTRATION),
                                         ),
                                     contentDescription = null,
+                                    contentScale = ContentScale.Fit,
                                     modifier =
                                         Modifier
-                                            .size(baseSize * baseScale)
-                                            .padding(horizontal = (2 * baseScale).dp),
+                                            .height(targetHeight * baseScale)
+                                            .padding(horizontal = (4 * baseScale).dp),
                                 )
                             }
                         }
@@ -224,20 +224,25 @@ fun WinScreen(
 }
 
 /**
- * Returns a base size for each animal type to maintain relative proportions.
+ * Returns a base height for each animal type to maintain relative proportions.
  */
 private fun getAnimalSize(type: AnimalType): Dp =
     when (type) {
-        AnimalType.CHICKEN -> 90.dp
-        AnimalType.GOOSE -> 100.dp
-        AnimalType.CAT -> 110.dp
-        AnimalType.DOG -> 120.dp
-        AnimalType.SHEEP -> 140.dp
-        AnimalType.GOAT -> 140.dp
-        AnimalType.PIG -> 150.dp
-        AnimalType.DONKEY -> 170.dp
-        AnimalType.COW -> 180.dp
-        AnimalType.HORSE -> 200.dp
+        AnimalType.CHICKEN,
+        AnimalType.GOOSE,
+        AnimalType.CAT,
+        AnimalType.DOG,
+        -> 100.dp
+
+        AnimalType.SHEEP,
+        AnimalType.GOAT,
+        -> 120.dp
+
+        AnimalType.DONKEY,
+        AnimalType.PIG,
+        AnimalType.COW,
+        AnimalType.HORSE,
+        -> 145.dp
     }
 
 @Composable
