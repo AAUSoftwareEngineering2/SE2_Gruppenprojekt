@@ -3,7 +3,7 @@ package at.aau.kuhhandel.app.ui.game
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.GameStateView
+import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
  * Contains everything needed to render the board and player actions.
  */
 data class GameUiState(
-    val gameState: GameStateView? = null,
+    val gameState: GameState? = null,
     val myPlayerId: String? = null,
     val currentPhase: GamePhase = GamePhase.NOT_STARTED,
     val deckCountText: String = "0",
@@ -74,10 +74,14 @@ data class GameUiState(
                 currentPhase == GamePhase.TRADE_RESULT
 
     val isMyTurn: Boolean
-        get() = myPlayerId != null && gameState?.currentPlayerId == myPlayerId
+        get() =
+            gameState?.currentPlayerIndex?.let {
+                gameState.players.getOrNull(it)?.id == myPlayerId
+            } ?: false
 
     val isAuctioneer: Boolean
-        get() = gameState?.auctionState?.auctioneerId == myPlayerId
+        get() =
+            gameState?.auctionState?.auctioneerId == myPlayerId
 
     val isTradeInitiator: Boolean
         get() = gameState?.tradeState?.initiatorId == myPlayerId
@@ -101,16 +105,24 @@ data class GameUiState(
                 isCounterOfferSelected
 
     val tradeOfferCardCount: Int?
-        get() = gameState?.tradeState?.initiatorCardCount
+        get() =
+            gameState?.tradeState?.let { trade ->
+                trade.offeredMoneyCards?.size
+                    ?: trade.offeredMoneyCardIds.size.takeIf { it > 0 }
+            }
 
     val tradeCounterOfferCardCount: Int?
-        get() = gameState?.tradeState?.targetCardCount
+        get() =
+            gameState?.tradeState?.let { trade ->
+                trade.counterOfferedMoneyCards?.size
+                    ?: trade.counterOfferedMoneyCardIds.size.takeIf { it > 0 }
+            }
 
     val tradeResultOfferCards: List<MoneyCard>
-        get() = resultCards(gameState?.tradeState?.visibleInitiatorCards)
+        get() = resultCards(gameState?.tradeState?.offeredMoneyCards)
 
     val tradeResultCounterOfferCards: List<MoneyCard>
-        get() = resultCards(gameState?.tradeState?.visibleTargetCards)
+        get() = resultCards(gameState?.tradeState?.counterOfferedMoneyCards)
 
     val tradeResultOfferTotal: Int
         get() = tradeResultOfferCards.sumOf { it.value }
@@ -124,17 +136,15 @@ data class GameUiState(
     val canShowEyeIconOnOpponents: Boolean
         get() =
             currentPhase == GamePhase.PLAYER_CHOICE &&
-                gameState?.currentPlayerId != myPlayerId
+                gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id != myPlayerId
 
     val activePlayerName: String
         get() =
-            if (isMyTurn) {
-                "Your"
-            } else {
-                gameState?.opponents?.find { it.id == gameState.currentPlayerId }?.name ?: "Unknown"
-            }
+            gameState?.let {
+                it.players.getOrNull(it.currentPlayerIndex)?.name
+            } ?: "Unknown"
 
-    private fun resultCards(cards: List<MoneyCard>?): List<MoneyCard> =
+    private fun resultCards(cards: Set<MoneyCard>?): List<MoneyCard> =
         if (currentPhase == GamePhase.TRADE_RESULT) {
             cards.orEmpty().sortedWith(compareBy<MoneyCard> { it.value }.thenBy { it.id })
         } else {
@@ -306,28 +316,39 @@ class GameViewModel(
                 }
 
             GameUiState(
-                gameState = view,
+                gameState = gameState,
                 myPlayerId = repoState.myPlayerId,
                 currentPhase = currentPhase,
-                deckCountText = "${view?.deckSize ?: 0}",
-                activeCardLabel = "No card revealed",
-                // This can be refined if currentFaceUpCard is added to view
+                deckCountText = "${gameState?.deck?.size() ?: 0}",
+                activeCardLabel =
+                    gameState?.currentFaceUpCard?.let { card ->
+                        "${card.type.name} (#${card.id})"
+                    } ?: "No card revealed",
                 isConnected = repoState.isConnected,
                 isReconnecting = repoState.isReconnecting,
                 canRevealCard =
                     (
                         repoState.isConnected &&
                             currentPhase == GamePhase.PLAYER_CHOICE &&
-                            (view?.currentPlayerId == repoState.myPlayerId)
+                            (
+                                gameState
+                                    ?.players
+                                    ?.getOrNull(
+                                        gameState.currentPlayerIndex,
+                                    )?.id ==
+                                    repoState.myPlayerId
+                            )
                     ),
                 canStartGame =
                     repoState.isConnected &&
                         currentPhase == GamePhase.NOT_STARTED &&
-                        (view?.opponents?.size?.plus(1) ?: 0) >= 3 &&
-                        view?.hostPlayerId == repoState.myPlayerId,
+                        (gameState?.players?.size ?: 0) >= 3 &&
+                        gameState?.hostPlayerId == repoState.myPlayerId,
                 errorMessage = repoState.errorMessage,
                 auctionTimerSeconds = timer,
-                myMoneyCards = view?.localPlayer?.moneyCards ?: emptyList(),
+                myMoneyCards =
+                    gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
+                        ?: emptyList(),
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
@@ -338,7 +359,7 @@ class GameViewModel(
                 isTradeHandFanned = tradeLocalState.isHandFanned,
                 isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
                 isTradeActionSubmitting = tradeLocalState.isSubmitting,
-                finalRanking = view?.finalRanking ?: emptyList(),
+                finalRanking = gameState?.finalRanking ?: emptyList(),
                 eyeIconPlayerId = uiBundle.eyePlayerId,
                 eyeIconTimerSeconds = uiBundle.eyeTimer,
                 alreadySpied = view?.alreadySpied ?: false,

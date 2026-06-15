@@ -54,12 +54,25 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
 
     // Handle Game State transitions via Navigation
-    LaunchedEffect(isGameStarted) {
-        if (isGameStarted) {
-            navController.navigate(Screen.Game) {
-                // Pop up to Main to clear the backstack when game starts
-                popUpTo(Screen.Main) { inclusive = false }
-                launchSingleTop = true
+    LaunchedEffect(currentPhase) {
+        when (currentPhase) {
+            GamePhase.NOT_STARTED -> Unit
+            GamePhase.FINISHED -> {
+                navController.navigate(Screen.Win) {
+                    // Pop up to Game to clear it from backstack
+                    popUpTo(Screen.Game) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+
+            null -> Unit
+            else -> {
+                if (navController.currentDestination?.route != Screen.Game::class.qualifiedName) {
+                    navController.navigate(Screen.Game) {
+                        popUpTo(Screen.Main) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
             }
         }
     }
