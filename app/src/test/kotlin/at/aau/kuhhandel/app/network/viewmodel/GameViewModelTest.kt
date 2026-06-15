@@ -9,7 +9,9 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -1070,6 +1072,91 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `auction decision is derived from GameStateView when raw state is stale`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val auctionState =
+                AuctionState(
+                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                    auctioneerId = "auctioneer",
+                    highestBid = 20,
+                    highestBidderId = "bidder",
+                    timerEndTime = 5_000L,
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "auctioneer",
+                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
+                    gameStateView =
+                        auctionGameStateView(
+                            phase = GamePhase.AUCTIONEER_DECISION,
+                            currentPlayerId = "auctioneer",
+                            auctionState = auctionState,
+                            localPlayer =
+                                Player(
+                                    id = "auctioneer",
+                                    name = "Auctioneer",
+                                    moneyCards = listOf(MoneyCard("money-1", 20)),
+                                ),
+                            opponents = listOf(Opponent("bidder", "Bidder", emptyList(), 3)),
+                        ),
+                )
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals(GamePhase.AUCTIONEER_DECISION, uiState.currentPhase)
+            assertTrue(uiState.isAuctionActive)
+            assertTrue(uiState.isAuctioneer)
+            assertTrue(uiState.canAuctioneerAffordBuyBack)
+            assertEquals(auctionState, uiState.auctionState)
+            assertEquals(listOf("auctioneer", "bidder"), uiState.visiblePlayers.map { it.id })
+            assertEquals("Auctioneer", uiState.activePlayerName)
+        }
+    }
+
+    @Test
+    fun `auction result with no bidder is derived from GameStateView`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val auctionState =
+                AuctionState(
+                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                    auctioneerId = "auctioneer",
+                    highestBid = 0,
+                    highestBidderId = null,
+                    buyerId = "auctioneer",
+                )
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "auctioneer",
+                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
+                    gameStateView =
+                        auctionGameStateView(
+                            phase = GamePhase.AUCTION_RESULT,
+                            currentPlayerId = "auctioneer",
+                            auctionState = auctionState,
+                            localPlayer = Player(id = "auctioneer", name = "Auctioneer"),
+                        ),
+                )
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals(GamePhase.AUCTION_RESULT, uiState.currentPhase)
+            assertTrue(uiState.isAuctionActive)
+            assertEquals("auctioneer", uiState.auctionState?.buyerId)
+            assertNull(uiState.auctionState?.highestBidderId)
+        }
+    }
+
+    @Test
     fun `initiateTrade calls repository and handles error`() {
         runTest {
             coEvery { mockRepository.initiateTrade("player-2", AnimalType.COW) } throws
@@ -1218,4 +1305,30 @@ class GameViewModelTest {
             assertNull(viewModel.uiState.value.auctionTimerSeconds)
         }
     }
+
+    private fun auctionGameStateView(
+        phase: GamePhase,
+        currentPlayerId: String,
+        auctionState: AuctionState,
+        localPlayer: Player,
+        opponents: List<Opponent> = emptyList(),
+    ) = GameStateView(
+        phase = phase,
+        timerEnd = auctionState.timerEndTime,
+        localPlayer = localPlayer,
+        opponents = opponents,
+        hostPlayerId = "auctioneer",
+        roundNumber = 1,
+        currentPlayerId = currentPlayerId,
+        deckSize = 0,
+        auctionState = auctionState,
+        tradeState = null,
+        alreadySpied = false,
+        spyingTargetId = null,
+        spyingTargetCards = null,
+        localPlayerSpiedOn = false,
+        spiedOnOpponentIds = emptyList(),
+        lastEvent = null,
+        finalRanking = null,
+    )
 }
