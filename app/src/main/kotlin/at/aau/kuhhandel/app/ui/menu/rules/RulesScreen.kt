@@ -91,6 +91,11 @@ private enum class TutorialAction {
     SEND_OFFER,
     TRADE_RESPONSE,
     GAME_OVER,
+    SPY_SELECT_FARM,
+    SPY_ARM_EYE,
+    SPY_SHAKE,
+    SPY_REVEAL,
+    SPY_CATCH,
 }
 
 private val ruleGroups =
@@ -365,13 +370,58 @@ private val tutorialSlides =
         ),
     )
 
+private val spyTutorialSlides =
+    listOf(
+        TutorialSlide(
+            title = "Choose A Target",
+            body =
+                "When another player is choosing their action, tap one opponent farm to " +
+                    "prepare a secret spy attempt.",
+            action = TutorialAction.SPY_SELECT_FARM,
+            drawableIds = emptyList(),
+        ),
+        TutorialSlide(
+            title = "Arm The Eye",
+            body =
+                "An eye appears on that farm. Tap the eye to arm it before the short timer " +
+                    "runs out.",
+            action = TutorialAction.SPY_ARM_EYE,
+            drawableIds = emptyList(),
+        ),
+        TutorialSlide(
+            title = "Shake To Spy",
+            body =
+                "After the eye is armed, shake the phone to reveal the opponent's money cards.",
+            action = TutorialAction.SPY_SHAKE,
+            drawableIds = emptyList(),
+        ),
+        TutorialSlide(
+            title = "Read The Money",
+            body =
+                "If the spy attempt succeeds, the target player's money cards are shown " +
+                    "briefly in the middle of the screen.",
+            action = TutorialAction.SPY_REVEAL,
+            drawableIds = emptyList(),
+        ),
+        TutorialSlide(
+            title = "Do Not Get Caught",
+            body =
+                "The player being spied on can tap the spy indicator to catch the spy. " +
+                    "Use it carefully.",
+            action = TutorialAction.SPY_CATCH,
+            drawableIds = emptyList(),
+        ),
+    )
+
 @Composable
 fun RulesScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
 ) {
     var isTutorialOpen by rememberSaveable { mutableStateOf(false) }
+    var isSpyTutorialOpen by rememberSaveable { mutableStateOf(false) }
     var tutorialSlideIndex by rememberSaveable { mutableStateOf(0) }
+    var spyTutorialSlideIndex by rememberSaveable { mutableStateOf(0) }
     var expandedTopicId by
         rememberSaveable {
             mutableStateOf(
@@ -393,14 +443,34 @@ fun RulesScreen(
         ) {
             MenuCard(
                 onBack = {
-                    if (isTutorialOpen) {
+                    if (isSpyTutorialOpen) {
+                        isSpyTutorialOpen = false
+                    } else if (isTutorialOpen) {
                         isTutorialOpen = false
                     } else {
                         onBack()
                     }
                 },
             ) {
-                if (isTutorialOpen) {
+                if (isSpyTutorialOpen) {
+                    TutorialSlideContent(
+                        slide = spyTutorialSlides[spyTutorialSlideIndex],
+                        currentIndex = spyTutorialSlideIndex,
+                        totalSlides = spyTutorialSlides.size,
+                        onPrevious = {
+                            spyTutorialSlideIndex =
+                                (spyTutorialSlideIndex - 1).coerceAtLeast(0)
+                        },
+                        onNext = {
+                            if (spyTutorialSlideIndex == spyTutorialSlides.lastIndex) {
+                                isSpyTutorialOpen = false
+                                spyTutorialSlideIndex = 0
+                            } else {
+                                spyTutorialSlideIndex += 1
+                            }
+                        },
+                    )
+                } else if (isTutorialOpen) {
                     TutorialSlideContent(
                         slide = tutorialSlides[tutorialSlideIndex],
                         currentIndex = tutorialSlideIndex,
@@ -469,6 +539,18 @@ fun RulesScreen(
                         }
                     }
                 }
+            }
+            if (!isTutorialOpen && !isSpyTutorialOpen) {
+                HiddenSpyTutorialButton(
+                    onClick = {
+                        spyTutorialSlideIndex = 0
+                        isSpyTutorialOpen = true
+                    },
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 4.dp, end = 4.dp),
+                )
             }
         }
     }
@@ -783,6 +865,30 @@ private fun TutorialTeaser(onStartTutorial: () -> Unit) {
 }
 
 @Composable
+private fun HiddenSpyTutorialButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier =
+            modifier
+                .size(46.dp)
+                .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = WhitePurple.copy(alpha = 0.94f),
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, LightPurple),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "👀",
+                fontSize = 24.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun TutorialSlideContent(
     slide: TutorialSlide,
     currentIndex: Int,
@@ -879,6 +985,11 @@ private fun TutorialUiPreview(slide: TutorialSlide) {
                 TutorialAction.SEND_OFFER -> TutorialSendOfferPreview()
                 TutorialAction.TRADE_RESPONSE -> TutorialTradeResponsePreview()
                 TutorialAction.GAME_OVER -> TutorialGameOverPreview()
+                TutorialAction.SPY_SELECT_FARM -> SpySelectFarmPreview()
+                TutorialAction.SPY_ARM_EYE -> SpyArmEyePreview()
+                TutorialAction.SPY_SHAKE -> SpyShakePreview()
+                TutorialAction.SPY_REVEAL -> SpyRevealPreview()
+                TutorialAction.SPY_CATCH -> SpyCatchPreview()
             }
         }
     }
@@ -1050,6 +1161,92 @@ private fun TutorialTradeResponsePreview() {
                 Text("Counter")
             }
         }
+    }
+}
+
+@Composable
+private fun SpySelectFarmPreview() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TutorialClickTarget {
+            RuleAsset(R.drawable.ig_farm_red, "opponent farm")
+        }
+        RuleAsset(R.drawable.spy_eye, "spy eye")
+    }
+}
+
+@Composable
+private fun SpyArmEyePreview() {
+    Box(
+        modifier = Modifier.size(width = 142.dp, height = 104.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        RuleAsset(R.drawable.ig_farm_red, "opponent farm")
+        TutorialClickTarget(
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 18.dp, y = 4.dp),
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.spy_eye),
+                contentDescription = "spy eye",
+                modifier = Modifier.size(34.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpyShakePreview() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.spy_eye),
+            contentDescription = "armed spy eye",
+            modifier = Modifier.size(58.dp),
+            contentScale = ContentScale.Fit,
+        )
+        TutorialActionButton("Shake phone")
+    }
+}
+
+@Composable
+private fun SpyRevealPreview() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        listOf(
+            R.drawable.ig_money_revealed_10,
+            R.drawable.ig_money_revealed_50,
+            R.drawable.ig_money_revealed_100,
+        ).forEach { drawableId ->
+            Image(
+                painter = painterResource(id = drawableId),
+                contentDescription = null,
+                modifier = Modifier.size(width = 44.dp, height = 64.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpyCatchPreview() {
+    TutorialClickTarget {
+        Image(
+            painter = painterResource(id = R.drawable.spy_indicator_white),
+            contentDescription = "catch spy",
+            modifier = Modifier.size(76.dp),
+            contentScale = ContentScale.Fit,
+        )
     }
 }
 
