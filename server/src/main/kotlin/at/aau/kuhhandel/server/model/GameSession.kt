@@ -693,7 +693,7 @@ class GameSession(
                     players = updatedPlayers,
                     auctionState =
                         auctionState.copy(
-                            timerEndTime = null,
+                            timerEndTime = calculatedTimeout,
                             buyerId = auctionState.auctioneerId,
                         ),
                 )
@@ -702,13 +702,11 @@ class GameSession(
         }
 
         // If a bid exists, proceed to the auctioneer decision phase
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTIONEER_DECISION_MS
-
         state =
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
-                timerEnd = calculatedTimeout,
-                auctionState = auctionState.copy(timerEndTime = calculatedTimeout),
+                timerEnd = null,
+                auctionState = auctionState.copy(timerEndTime = null),
             )
 
         return state

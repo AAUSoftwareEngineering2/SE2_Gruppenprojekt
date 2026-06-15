@@ -548,6 +548,7 @@ class GameSessionTest {
         val auction = updatedState.auctionState
         assertNotNull(auction)
         assertEquals("player-1", auction.buyerId)
+        assertEquals(updatedState.timerEnd, auction.timerEndTime)
     }
 
     @Test
@@ -573,10 +574,7 @@ class GameSessionTest {
 
         // Assert: Transitions to the AUCTIONEER_DECISION phase
         assertEquals(GamePhase.AUCTIONEER_DECISION, updatedState.phase)
-        assertValidTimeout(
-            expectedDuration = PhaseDurations.AUCTIONEER_DECISION_MS,
-            state = updatedState,
-        )
+        assertNull(updatedState.timerEnd)
 
         // Assert: The auction details remain intact
         val auction = updatedState.auctionState
@@ -584,7 +582,7 @@ class GameSessionTest {
         assertEquals(20, auction.highestBid)
         assertEquals("player-2", auction.highestBidderId)
         assertNull(auction.buyerId)
-        assertEquals(updatedState.timerEnd, auction.timerEndTime)
+        assertNull(auction.timerEndTime)
 
         // Assert: The card has NOT been given away yet
         updatedState.players.forEach { player ->

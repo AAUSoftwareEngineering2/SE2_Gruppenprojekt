@@ -54,8 +54,7 @@ fun AuctionPhaseContent(
     onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val gameState = uiState.gameState
-    val auctionState = gameState?.auctionState
+    val auctionState = uiState.auctionState
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -64,11 +63,11 @@ fun AuctionPhaseContent(
         AuctionView(
             auction = auctionState,
             timerSeconds = uiState.auctionTimerSeconds,
-            phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING,
-            players = gameState?.players ?: emptyList(),
+            phase = uiState.currentPhase,
+            players = uiState.visiblePlayers,
             myPlayerId = uiState.myPlayerId,
             footerContent = {
-                val phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING
+                val phase = uiState.currentPhase
                 if (!uiState.isAuctioneer &&
                     (phase == GamePhase.AUCTION_BIDDING)
                 ) {
@@ -89,7 +88,7 @@ fun AuctionPhaseContent(
                     val auctioneerId = auctionState?.auctioneerId
                     val buyerName =
                         if (buyerId != null) {
-                            gameState.players.find { it.id == buyerId }?.name ?: "Unknown"
+                            uiState.visiblePlayers.find { it.id == buyerId }?.name ?: "Unknown"
                         } else {
                             ""
                         }
@@ -123,9 +122,9 @@ fun AuctionPhaseContent(
                                 }
                             } else {
                                 val payerName =
-                                    gameState
-                                        ?.players
-                                        ?.find { it.id == buyerId }
+                                    uiState
+                                        .visiblePlayers
+                                        .find { it.id == buyerId }
                                         ?.name ?: "buyer"
                                 GameStatusText(
                                     text = "Waiting for $payerName to pay...",
@@ -168,8 +167,19 @@ fun AuctionPhaseContent(
                                 }
                             }
                         } else {
+                            val auctioneerName =
+                                uiState
+                                    .visiblePlayers
+                                    .find { it.id == auctioneerId }
+                                    ?.name ?: "auctioneer"
+                            val waitingText =
+                                if (phase == GamePhase.AUCTIONEER_DECISION) {
+                                    "Waiting for $auctioneerName to decide..."
+                                } else {
+                                    "Waiting for player ${uiState.activePlayerName}..."
+                                }
                             GameStatusText(
-                                text = "Waiting for player ${uiState.activePlayerName}...",
+                                text = waitingText,
                                 color = DarkPurple,
                             )
                         }

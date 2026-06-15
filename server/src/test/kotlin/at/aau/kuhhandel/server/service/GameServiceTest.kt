@@ -8,6 +8,7 @@ import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.SpyAction
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -293,6 +294,74 @@ class GameServiceTest
                 // the future).
                 val secondSweep = service.sweepExpiredTimeouts(now = deadline + 1)
                 assertEquals(emptyList(), secondSweep)
+            }
+
+        @Test
+        fun `sweepExpiredTimeouts shows auction result when bidding expires without bids`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", created.playerId)
+
+                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
+                val biddingState = service.chooseAuction("11111", auctioneerId)
+                val deadline = assertNotNull(biddingState.timerEnd)
+                val eventSlot = slot<GameStateChangedEvent>()
+
+                val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
+
+                assertEquals(listOf("11111"), advanced)
+                val persisted = assertNotNull(persistenceService.loadGameState("11111"))
+                assertEquals(GamePhase.AUCTION_RESULT, persisted.phase)
+                assertEquals(auctioneerId, persisted.auctionState?.buyerId)
+                assertNull(persisted.auctionState?.highestBidderId)
+                assertEquals(persisted.timerEnd, persisted.auctionState?.timerEndTime)
+                verify(exactly = 1) { eventPublisher.publishEvent(capture(eventSlot)) }
+                assertEquals(GamePhase.AUCTION_RESULT, eventSlot.captured.newState.phase)
+                assertEquals(
+                    auctioneerId,
+                    eventSlot.captured.newState.auctionState
+                        ?.buyerId,
+                )
+            }
+
+        @Test
+        fun `sweepExpiredTimeouts shows auctioneer decision after bid timeout`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", created.playerId)
+
+                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
+                val biddingState = service.chooseAuction("11111", auctioneerId)
+                val bidderId = biddingState.players.first { it.id != auctioneerId }.id
+                val activeBiddingState = service.placeBid("11111", bidderId, 10)
+                val deadline = assertNotNull(activeBiddingState.timerEnd)
+                val eventSlot = slot<GameStateChangedEvent>()
+
+                val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
+
+                assertEquals(listOf("11111"), advanced)
+                val persisted = assertNotNull(persistenceService.loadGameState("11111"))
+                assertEquals(GamePhase.AUCTIONEER_DECISION, persisted.phase)
+                assertEquals(auctioneerId, persisted.auctionState?.auctioneerId)
+                assertEquals(bidderId, persisted.auctionState?.highestBidderId)
+                assertEquals(10, persisted.auctionState?.highestBid)
+                assertNull(persisted.timerEnd)
+                assertNull(persisted.auctionState?.timerEndTime)
+                verify(exactly = 1) { eventPublisher.publishEvent(capture(eventSlot)) }
+                assertEquals(GamePhase.AUCTIONEER_DECISION, eventSlot.captured.newState.phase)
+                assertEquals(
+                    bidderId,
+                    eventSlot.captured.newState.auctionState
+                        ?.highestBidderId,
+                )
             }
 
         @Test
