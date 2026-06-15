@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -50,19 +51,82 @@ class LobbyCreationViewModelTest {
     fun `initial state is fully correct`() {
         runTest {
             val uiState = viewModel.uiState.value
+            assertEquals("", uiState.playerName)
+            assertNull(uiState.playerNameError)
             assertFalse(uiState.isConnecting)
             assertNull(uiState.gameId)
             assertNull(uiState.errorMessage)
             assertFalse(uiState.isCreated)
+            assertFalse(uiState.canSubmit)
         }
     }
 
     @Test
-    fun `createLobby shall call repository`() {
+    fun `onPlayerNameChanged updates name and clears error`() {
         runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onPlayerNameChanged("Felix")
+            advanceUntilIdle()
+            assertEquals("Felix", viewModel.uiState.value.playerName)
+            assertTrue(viewModel.uiState.value.canSubmit)
+        }
+    }
+
+    @Test
+    fun `onPlayerNameChanged ignores input above max length`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onPlayerNameChanged("Felix1234") // 9 chars
+            advanceUntilIdle()
+            assertEquals("", viewModel.uiState.value.playerName)
+        }
+    }
+
+    @Test
+    fun `createLobby with valid name calls repository`() {
+        runTest {
+            viewModel.onPlayerNameChanged("Felix01")
             viewModel.createLobby()
             advanceUntilIdle()
-            coVerify { mockRepository.createGame() }
+            coVerify { mockRepository.createGame("Felix01") }
+        }
+    }
+
+    @Test
+    fun `createLobby with empty name surfaces validation error and skips repository`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.createLobby()
+            advanceUntilIdle()
+
+            assertNotNull(viewModel.uiState.value.playerNameError)
+            coVerify(exactly = 0) { mockRepository.createGame(any()) }
+        }
+    }
+
+    @Test
+    fun `createLobby rejects invalid characters`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onPlayerNameChanged("Fe lix")
+            // length is 6 but contains a space — invalid
+            viewModel.createLobby()
+            advanceUntilIdle()
+
+            assertNotNull(viewModel.uiState.value.playerNameError)
+            coVerify(exactly = 0) { mockRepository.createGame(any()) }
         }
     }
 

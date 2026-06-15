@@ -57,4 +57,55 @@ class ClusterUpdateNotifierTest {
             server.stop(0)
         }
     }
+
+    @Test
+    fun `slow peer does not delay another peer notification`() {
+        val fastReceived = CompletableFuture<RecordedRequest>()
+        val slowServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val fastServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+
+        slowServer.createContext("/internal/cluster/game-updated") { exchange ->
+            exchange.requestBody.readBytes()
+            Thread.sleep(1_500)
+            exchange.sendResponseHeaders(204, -1)
+            exchange.close()
+        }
+        fastServer.createContext("/internal/cluster/game-updated") { exchange ->
+            val body = exchange.requestBody.readBytes().decodeToString()
+            val secret = exchange.requestHeaders.getFirst(ClusterUpdateNotifier.SECRET_HEADER)
+            val origin = exchange.requestHeaders.getFirst(ClusterUpdateNotifier.ORIGIN_HEADER)
+            exchange.sendResponseHeaders(204, -1)
+            exchange.close()
+            fastReceived.complete(RecordedRequest(secret, origin, body))
+        }
+        slowServer.start()
+        fastServer.start()
+
+        try {
+            val notifier =
+                ClusterUpdateNotifier(
+                    ClusterProperties(
+                        peers =
+                            listOf(
+                                "http://127.0.0.1:${slowServer.address.port}",
+                                "http://127.0.0.1:${fastServer.address.port}",
+                            ),
+                        secret = "s3cret",
+                    ),
+                )
+
+            notifier.gameUpdated("12345")
+
+            val request = fastReceived.get(1, TimeUnit.SECONDS)
+            assertEquals("s3cret", request.secret)
+            assertEquals(notifier.instanceId, request.origin)
+            assertTrue(
+                request.body.contains("12345"),
+                "body should carry the game id: ${request.body}",
+            )
+        } finally {
+            slowServer.stop(0)
+            fastServer.stop(0)
+        }
+    }
 }

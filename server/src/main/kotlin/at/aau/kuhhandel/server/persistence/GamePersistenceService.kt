@@ -52,10 +52,13 @@ class GamePersistenceService(
     fun saveGameState(
         gameId: String,
         state: GameState,
+        // Real player activity stamps "now"; the timeout sweeper passes null so it does not keep
+        // an abandoned game looking alive (see [GameEntity.lastActivityAt]).
+        activityAt: Long? = System.currentTimeMillis(),
     ) {
         logger.info("[DB WRITE] Saving game $gameId | phase=${state.phase}")
         val gameKey = gameId.toLongOrNull() ?: error("Game id must be numeric, was '$gameId'")
-        val game = upsertGame(gameKey, state)
+        val game = upsertGame(gameKey, state, activityAt)
         val playerEntities = syncPlayers(game, state.players)
         syncDeck(game, state)
         syncPlayerInventories(playerEntities, state.players)
@@ -119,13 +122,14 @@ class GamePersistenceService(
     @Transactional
     fun mutateGameState(
         gameId: String,
+        activityAt: Long? = System.currentTimeMillis(),
         mutate: (GameState) -> GameState,
     ): GameState? {
         val gameKey = gameId.toLongOrNull() ?: return null
         gameRepository.findWithLockById(gameKey) ?: return null
         val current = loadGameState(gameId) ?: return null
         val next = mutate(current)
-        saveGameState(gameId, next)
+        saveGameState(gameId, next, activityAt)
         return next
     }
 
@@ -135,6 +139,29 @@ class GamePersistenceService(
     @Transactional(readOnly = true)
     fun findGameIdsWithExpiredTimers(now: Long): List<String> =
         gameRepository.findIdsWithExpiredTimer(now).map { it.toString() }
+
+    /**
+     * Game ids whose last player activity is older than [cutoff] (or was never recorded).
+     */
+    @Transactional(readOnly = true)
+    fun findStaleGameIds(cutoff: Long): List<String> =
+        gameRepository.findIdsByLastActivityBefore(cutoff).map { it.toString() }
+
+    /**
+     * Game ids with at least one active spy whose expiration deadline has passed.
+     */
+    @Transactional(readOnly = true)
+    fun findGameIdsWithExpiredSpies(now: Long): List<String> =
+        gameRepository.findIdsWithExpiredSpies(now).map { it.toString() }
+
+    /**
+     * Last time a real player acted on the game, or null when unknown.
+     */
+    @Transactional(readOnly = true)
+    fun lastActivityAt(gameId: String): Long? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        return gameRepository.findById(gameKey).orElse(null)?.lastActivityAt
+    }
 
     /**
      * Stores the SHA-256 hash of [token] on the player's row. Returns false when the game or
@@ -209,6 +236,7 @@ class GamePersistenceService(
     private fun upsertGame(
         gameKey: Long,
         state: GameState,
+        activityAt: Long?,
     ): GameEntity {
         val existing = gameRepository.findById(gameKey).orElse(null)
         return if (existing == null) {
@@ -221,6 +249,11 @@ class GamePersistenceService(
                     hostPlayerId = state.hostPlayerId,
                     roundNumber = state.roundNumber,
                     faceUpAnimalType = state.currentFaceUpCard?.type,
+                    lastActivityAt = activityAt ?: System.currentTimeMillis(),
+                    activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies),
+                    spiedThisTurnJson =
+                        GameStateMapper.encodeStringList(state.spiedThisTurn.toList()),
+                    earliestSpyExpiry = state.activeSpies.minOfOrNull { it.expiresAt },
                 ),
             )
         } else {
@@ -230,6 +263,12 @@ class GamePersistenceService(
             existing.hostPlayerId = state.hostPlayerId
             existing.roundNumber = state.roundNumber
             existing.faceUpAnimalType = state.currentFaceUpCard?.type
+            existing.activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies)
+            existing.spiedThisTurnJson =
+                GameStateMapper.encodeStringList(state.spiedThisTurn.toList())
+            existing.earliestSpyExpiry = state.activeSpies.minOfOrNull { it.expiresAt }
+            // null = timeout sweep -> leave the timestamp untouched so the game can go stale.
+            if (activityAt != null) existing.lastActivityAt = activityAt
             existing
         }
     }

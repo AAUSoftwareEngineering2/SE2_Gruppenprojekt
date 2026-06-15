@@ -9,6 +9,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -172,7 +173,7 @@ class GameWebSocketClient(
     }
 
     /** Sends CREATE_GAME. Returns the requestId so the caller can match the server reply well. */
-    suspend fun createGame(playerName: String? = null): String {
+    suspend fun createGame(playerName: String): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
@@ -186,7 +187,7 @@ class GameWebSocketClient(
     /** Joins an existing game lobby. */
     suspend fun joinGame(
         gameId: String,
-        playerName: String? = null,
+        playerName: String,
     ): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -319,6 +320,27 @@ class GameWebSocketClient(
     suspend fun finishTradeReveal(): String {
         val requestId = UUID.randomUUID().toString()
         send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
+        return requestId
+    }
+
+    /** Initiates a spying action against an opponent player. */
+    suspend fun spy(targetPlayerId: String): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SpyPayload.serializer(),
+                SpyPayload(
+                    targetPlayerId = targetPlayerId,
+                ),
+            )
+        send(WebSocketEnvelope(WebSocketType.SPY, requestId, payload))
+        return requestId
+    }
+
+    /** Attempts to catch any players currently spying on this player. */
+    suspend fun catchSpy(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.CATCH_SPY, requestId))
         return requestId
     }
 

@@ -1,7 +1,9 @@
 package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.data.TokenStorage
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
@@ -31,6 +33,7 @@ data class GameRepositoryState(
     val gameId: String? = null,
     val myPlayerId: String? = null,
     val gameState: GameState? = null,
+    val gameStateView: GameStateView? = null,
     val errorMessage: String? = null,
 )
 
@@ -61,7 +64,7 @@ class GameRepository(
     private var reconnectAttempts = 0
 
     /** Requests to create a new game room with the given player name. */
-    suspend fun createGame(playerName: String? = null) {
+    suspend fun createGame(playerName: String) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.createGame(playerName)
@@ -70,7 +73,7 @@ class GameRepository(
     /** Requests to join an existing game room using its ID. */
     suspend fun joinGame(
         gameId: String,
-        playerName: String? = null,
+        playerName: String,
     ) {
         ensureConnected()
         _state.update { it.copy(gameId = gameId, errorMessage = null) }
@@ -115,7 +118,7 @@ class GameRepository(
     /** Initiates a trade challenge against another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,
-        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
+        animalType: AnimalType,
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
@@ -148,6 +151,20 @@ class GameRepository(
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.finishTradeReveal()
+    }
+
+    /** Requests to spy on a targeted opponent player's money cards. */
+    suspend fun spy(targetPlayerId: String) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.spy(targetPlayerId)
+    }
+
+    /** Attempts to catch opponents who are actively spying on this player. */
+    suspend fun catchSpy() {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.catchSpy()
     }
 
     /** Resets the current error message in the repository state. */
@@ -377,6 +394,7 @@ class GameRepository(
                             gameId = created.gameId,
                             myPlayerId = created.playerId,
                             gameState = created.state,
+                            gameStateView = created.stateView,
                             errorMessage = null,
                         )
                     }
@@ -405,6 +423,7 @@ class GameRepository(
                         it.copy(
                             myPlayerId = it.myPlayerId ?: joined.playerId,
                             gameState = joined.state,
+                            gameStateView = joined.stateView,
                             errorMessage = null,
                         )
                     }
@@ -424,6 +443,7 @@ class GameRepository(
                     _state.update {
                         it.copy(
                             gameState = gameStatePayload.state,
+                            gameStateView = gameStatePayload.stateView,
                             errorMessage = null,
                         )
                     }
@@ -451,6 +471,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameState = payload.state,
+                        gameStateView = payload.stateView,
                         errorMessage = null,
                     )
                 }
@@ -469,6 +490,7 @@ class GameRepository(
                 _state.update {
                     it.copy(
                         gameState = payload.state,
+                        gameStateView = payload.stateView,
                         errorMessage = null,
                     )
                 }

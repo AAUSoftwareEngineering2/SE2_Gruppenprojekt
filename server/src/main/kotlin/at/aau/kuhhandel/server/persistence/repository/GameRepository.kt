@@ -27,4 +27,22 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
     fun findIdsWithExpiredTimer(
         @Param("now") now: Long,
     ): List<Long>
+
+    /**
+     * Ids of games whose last player activity is older than [cutoff], or was never recorded
+     * (legacy rows). Used by the stale-game reaper to purge abandoned games.
+     */
+    @Query("SELECT g.id FROM GameEntity g WHERE COALESCE(g.lastActivityAt, 0) < :cutoff")
+    fun findIdsByLastActivityBefore(
+        @Param("cutoff") cutoff: Long,
+    ): List<Long>
+
+    /**
+     * Ids of games with at least one active spy whose expiration deadline has passed. Used by the
+     * spy-expiration sweep (the stateless replacement for the old in-memory spy timer).
+     */
+    @Query("SELECT g.id FROM GameEntity g WHERE g.earliestSpyExpiry <= :now")
+    fun findIdsWithExpiredSpies(
+        @Param("now") now: Long,
+    ): List<Long>
 }

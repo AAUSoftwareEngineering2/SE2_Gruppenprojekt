@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -16,15 +17,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
-import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningUiState
 
 @Composable
 fun RoomJoiningScreen(
     uiState: LobbyJoiningUiState,
     onLobbyCodeChanged: (String) -> Unit,
+    onPlayerNameChanged: (String) -> Unit,
     onJoinLobby: () -> Unit,
     onBack: () -> Unit,
     onLobbyJoined: (String) -> Unit,
@@ -62,11 +65,41 @@ fun RoomJoiningScreen(
                 }
 
                 Text(
+                    "Player name",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = uiState.playerName,
+                    onValueChange = onPlayerNameChanged,
+                    label = { Text("Name") },
+                    placeholder = { Text("Player Name...") },
+                    enabled = !uiState.isLoading,
+                    singleLine = true,
+                    isError = uiState.playerNameError != null,
+                    supportingText = {
+                        Text(
+                            text =
+                                uiState.playerNameError
+                                    ?: "Max 8 chars, letters and digits only",
+                        )
+                    },
+                    keyboardOptions =
+                        KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                        ),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
                     "Enter 5-digit Code here",
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
                     value = uiState.lobbyCode,
@@ -75,6 +108,7 @@ fun RoomJoiningScreen(
                     placeholder = { Text("12345") },
                     enabled = !uiState.isLoading,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -87,7 +121,7 @@ fun RoomJoiningScreen(
                     Button(
                         onClick = onJoinLobby,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState.lobbyCode.length == 5,
+                        enabled = uiState.canSubmit,
                     ) {
                         Text("Enter")
                     }
