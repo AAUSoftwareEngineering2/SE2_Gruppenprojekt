@@ -84,4 +84,53 @@ class ScoreCalculatorTest {
         assertEquals("1", ranking[1].playerId)
         assertEquals(10, ranking[1].totalMoney)
     }
+
+    @Test
+    fun `official rulebook examples calculate correctly`() {
+        // Andi: Horse(1000), Goat(350), Goose(40) -> 1390 * 3 = 4170
+        val andi =
+            Player(
+                "andi",
+                "Andi",
+                animals =
+                    generateQuartet(AnimalType.HORSE) +
+                        generateQuartet(AnimalType.GOAT) +
+                        generateQuartet(AnimalType.GOOSE),
+            )
+
+        // Ben: Cow(800), Donkey(500) -> 1300 * 2 = 2600
+        val ben =
+            Player(
+                "ben",
+                "Ben",
+                animals =
+                    generateQuartet(AnimalType.COW) +
+                        generateQuartet(AnimalType.DONKEY),
+            )
+
+        // Claudia: Pig(650), Sheep(250), Dog(160), Cat(90), Chicken(10) -> 1160 * 5 = 5800
+        val claudia =
+            Player(
+                "claudia",
+                "Claudia",
+                animals =
+                    generateQuartet(AnimalType.PIG) +
+                        generateQuartet(AnimalType.SHEEP) +
+                        generateQuartet(AnimalType.DOG) +
+                        generateQuartet(AnimalType.CAT) +
+                        generateQuartet(AnimalType.CHICKEN),
+            )
+
+        assertEquals(4170, ScoreCalculator.calculateScore(andi))
+        assertEquals(2600, ScoreCalculator.calculateScore(ben))
+        assertEquals(5800, ScoreCalculator.calculateScore(claudia))
+
+        val ranking = ScoreCalculator.calculateGameRanking(listOf(andi, ben, claudia))
+        assertEquals("claudia", ranking[0].playerId)
+        assertEquals("andi", ranking[1].playerId)
+        assertEquals("ben", ranking[2].playerId)
+    }
+
+    private fun generateQuartet(type: AnimalType) =
+        (1..4).map { AnimalCard("${type.name}-$it", type) }
 }

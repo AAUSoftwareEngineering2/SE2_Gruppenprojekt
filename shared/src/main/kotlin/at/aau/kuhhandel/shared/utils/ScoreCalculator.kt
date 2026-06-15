@@ -59,7 +59,7 @@ object ScoreCalculator {
                         points = points,
                         quartetCount = quartets.size,
                         totalMoney = player.totalMoney(),
-                        collectedAnimalTypes = player.animals.map { it.type }.distinct(),
+                        collectedAnimalTypes = quartets,
                     )
                 }.sortedWith(
                     compareByDescending<GameRankEntry> { it.points }
