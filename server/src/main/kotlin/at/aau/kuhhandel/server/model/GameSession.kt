@@ -767,14 +767,6 @@ class GameSession(
                     lastEvent = null,
                     finalRanking = ranking,
                 )
-
-            // Finalize the match and extract metadata for the upcoming global leaderboard persistence.
-            // The ranking is sorted by score; identifies the winner(s) and their final point counts.
-            ranking.find { it.isWinner }?.let { _ ->
-                // val winnersName = winner.playerName
-                // val acquiredPoints = winner.points
-                // TODO: Invoke GamePersistenceService to record the match result in the global leaderboard.
-            }
         } else {
             val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
 
