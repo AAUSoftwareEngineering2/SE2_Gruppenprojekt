@@ -4,7 +4,6 @@ import at.aau.kuhhandel.server.persistence.entity.LeaderboardEntry
 import at.aau.kuhhandel.server.persistence.repository.LeaderboardRepository
 import at.aau.kuhhandel.shared.utils.GameRankEntry
 import org.slf4j.LoggerFactory
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.TimeUnit
@@ -33,13 +32,8 @@ class LeaderboardService(
     }
 
     /**
-     * Periodically deletes entries older than 7 days.
-     * Runs once every 24 hours (86400000 ms).
+     * Deletes entries older than 7 days.
      */
-    @Scheduled(
-        fixedDelayString = "\${kuhhandel.leaderboard.cleanup.interval-ms:86400000}",
-        initialDelayString = "\${kuhhandel.leaderboard.cleanup.initial-delay-ms:60000}",
-    )
     @Transactional
     fun cleanOldEntries() {
         runCatching {
