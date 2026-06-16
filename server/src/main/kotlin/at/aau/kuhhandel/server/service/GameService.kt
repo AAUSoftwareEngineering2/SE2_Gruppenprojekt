@@ -8,7 +8,6 @@ import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
-import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerNameRules
 import kotlinx.coroutines.CoroutineDispatcher
@@ -111,7 +110,7 @@ class GameService(
         playerId: String,
     ): GameState {
         val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
-        if (newState.players.isEmpty()) {
+        if (newState.hasNoPlayers()) {
             withContext(ioDispatcher) { purgeGame(gameId) }
         }
         return newState
@@ -131,7 +130,7 @@ class GameService(
             withContext(ioDispatcher) { persistenceService.loadGameState(gameId) }
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
-        if (state.players.none { it.id == playerId }) {
+        if (!state.hasPlayer(playerId)) {
             throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
         }
 
@@ -409,7 +408,7 @@ class GameService(
      * Stores final player rankings in the leaderboard if a game is finished.
      */
     private fun checkAndStoreLeaderboard(newState: GameState) {
-        if (newState.phase == GamePhase.FINISHED) {
+        if (newState.isFinished()) {
             val rankings = newState.finalRanking
             checkNotNull(rankings) { "Final ranking is null in a finished game" }
             leaderboardService.storeScores(rankings)
