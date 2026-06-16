@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.data.TokenStorage
+import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -110,7 +111,7 @@ class GameRepository(
     /** Initiates a trade challenge against another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,
-        animalType: at.aau.kuhhandel.shared.enums.AnimalType,
+        animalType: AnimalType,
     ) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
