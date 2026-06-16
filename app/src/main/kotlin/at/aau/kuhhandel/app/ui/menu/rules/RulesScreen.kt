@@ -260,7 +260,7 @@ private val animalValues =
         AnimalValue("Chicken", 10, R.drawable.hs_chicken),
         AnimalValue("Goose", 40, R.drawable.hs_goose),
         AnimalValue("Cat", 90, R.drawable.hs_cat),
-        AnimalValue("Dog", 180, R.drawable.hs_dog),
+        AnimalValue("Dog", 160, R.drawable.hs_dog),
         AnimalValue("Sheep", 250, R.drawable.hs_sheep),
         AnimalValue("Goat", 350, R.drawable.hs_goat),
         AnimalValue("Donkey", 500, R.drawable.hs_donkey),
