@@ -102,6 +102,7 @@ class WebSocketProtocolTest {
     fun `GameJoinedPayload round-trips`() {
         val payload =
             GameJoinedPayload(
+                gameId = "game-1",
                 playerId = "player-1",
                 reconnectToken = "token-1",
                 state = GameState(),
