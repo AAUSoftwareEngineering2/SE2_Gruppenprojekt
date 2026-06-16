@@ -125,6 +125,13 @@ class GameRepository(
         client.submitTradeMoney(moneyCardIds)
     }
 
+    /** Submits the auction buyer's selected money cards as payment. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.submitAuctionPayment(moneyCardIds)
+    }
+
     /** Disconnects from the current game and resets local state. */
     suspend fun leaveGame() {
         ensureConnected()
