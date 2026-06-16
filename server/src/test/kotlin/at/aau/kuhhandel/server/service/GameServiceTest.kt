@@ -380,6 +380,62 @@ class GameServiceTest
             }
 
         @Test
+        fun `advanceExpiredTimeout advances one expired auction timer on demand`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", created.playerId)
+
+                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
+                val biddingState = service.chooseAuction("11111", auctioneerId)
+                val bidderId = biddingState.players.first { it.id != auctioneerId }.id
+                val activeBiddingState = service.placeBid("11111", bidderId, 10)
+                val expiredAt = System.currentTimeMillis() - 1
+                persistenceService.saveGameState(
+                    "11111",
+                    activeBiddingState.copy(
+                        timerEnd = expiredAt,
+                        auctionState =
+                            activeBiddingState.auctionState?.copy(
+                                timerEndTime = expiredAt,
+                            ),
+                    ),
+                    activityAt = null,
+                )
+
+                val advancedState = service.advanceExpiredTimeout("11111")
+
+                assertEquals(GamePhase.AUCTIONEER_DECISION, advancedState.phase)
+                assertEquals(bidderId, advancedState.auctionState?.highestBidderId)
+                assertNull(advancedState.timerEnd)
+                assertNull(advancedState.auctionState?.timerEndTime)
+                verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
+            }
+
+        @Test
+        fun `advanceExpiredTimeout ignores a timer that has not expired yet`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", created.playerId)
+
+                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
+                val biddingState = service.chooseAuction("11111", auctioneerId)
+
+                val state = service.advanceExpiredTimeout("11111")
+
+                assertEquals(GamePhase.AUCTION_BIDDING, state.phase)
+                assertEquals(biddingState.timerEnd, state.timerEnd)
+                verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
+            }
+
+        @Test
         fun `reapStaleGames purges games older than the cutoff and keeps fresh ones`() {
             val service = service(codes = listOf("11111"))
             val created = service.createGame("Player1")

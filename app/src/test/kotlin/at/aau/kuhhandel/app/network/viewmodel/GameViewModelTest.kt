@@ -1212,6 +1212,32 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `auction timeout requests server advance when timer reaches zero`() {
+        runTest {
+            val endTime = testScheduler.currentTime + 5000
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState =
+                        GameState(
+                            phase = GamePhase.AUCTION_BIDDING,
+                            auctionState =
+                                AuctionState(
+                                    auctioneerId = "p1",
+                                    auctionCard = AnimalCard("1", AnimalType.COW),
+                                    timerEndTime = endTime,
+                                ),
+                            players = listOf(Player(id = "p1", name = "P1")),
+                        ),
+                )
+
+            advanceTimeBy(5001.milliseconds)
+
+            coVerify(exactly = 1) { mockRepository.advanceTimeout() }
+        }
+    }
+
+    @Test
     fun `auction timer handles extreme clock desync`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

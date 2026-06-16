@@ -663,6 +663,7 @@ class GameSessionTest {
         val finalAuction = updatedState.auctionState
         assertNotNull(finalAuction)
         assertEquals("player-2", finalAuction.buyerId)
+        assertEquals(updatedState.timerEnd, finalAuction.timerEndTime)
     }
 
     @Test
@@ -718,6 +719,7 @@ class GameSessionTest {
         val finalAuction = updatedState.auctionState
         assertNotNull(finalAuction)
         assertEquals("player-1", finalAuction.buyerId)
+        assertEquals(updatedState.timerEnd, finalAuction.timerEndTime)
     }
 
     @Test

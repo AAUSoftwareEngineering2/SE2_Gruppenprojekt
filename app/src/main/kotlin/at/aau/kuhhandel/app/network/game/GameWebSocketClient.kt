@@ -272,6 +272,13 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Requests that the server advance the current expired phase timer. */
+    suspend fun advanceTimeout(): String {
+        val requestId = UUID.randomUUID().toString()
+        send(WebSocketEnvelope(WebSocketType.ADVANCE_TIMEOUT, requestId))
+        return requestId
+    }
+
     /** Starts a "Kuhhandel" trade with another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,

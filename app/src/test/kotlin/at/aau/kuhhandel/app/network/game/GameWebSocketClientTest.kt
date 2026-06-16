@@ -365,6 +365,22 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    fun `advanceTimeout sends envelope without payload`() {
+        runBlocking {
+            val connection = connectClient()
+
+            val requestId = client.advanceTimeout()
+            val sent = connection.session.onlySentEnvelope()
+
+            assertEquals(WebSocketType.ADVANCE_TIMEOUT, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertEquals(null, sent.payload)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
     fun `initiateTrade sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
