@@ -203,6 +203,11 @@ class GameViewModel(
     private val scope: CoroutineScope,
     private val timeProvider: TimeProvider = SystemTimeProvider(),
 ) {
+    private companion object {
+        const val AUCTION_TIMEOUT_ADVANCE_ATTEMPTS = 8
+        const val AUCTION_TIMEOUT_ADVANCE_RETRY_MS = 1_000L
+    }
+
     private val selectedMoneyCardIds = MutableStateFlow<Set<String>>(emptySet())
     private val selectedTargetPlayerId = MutableStateFlow<String?>(null)
     private val pendingTradeTargetPlayerId = MutableStateFlow<String?>(null)
@@ -214,6 +219,8 @@ class GameViewModel(
     private val eyeIconPlayerId = MutableStateFlow<String?>(null)
     private val eyeIconTimerSeconds = MutableStateFlow<Int?>(null)
     private var eyeTimerJob: kotlinx.coroutines.Job? = null
+    private var auctionTimeoutAdvanceJob: kotlinx.coroutines.Job? = null
+    private var auctionTimeoutAdvanceKey: AuctionTimeoutKey? = null
     private val isEyeIconHighlighted = MutableStateFlow(false)
 
     init {
@@ -279,10 +286,14 @@ class GameViewModel(
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
                 flow<Int?> {
                     val maxSeconds =
-                        if (phase == GamePhase.AUCTION_PAYMENT) {
-                            (PhaseDurations.AUCTION_PAYMENT_MS / 1000L).toInt()
-                        } else {
-                            (PhaseDurations.AUCTION_BIDDING_MS / 1000L).toInt()
+                        when (phase) {
+                            GamePhase.AUCTION_PAYMENT ->
+                                (PhaseDurations.AUCTION_PAYMENT_MS / 1000L).toInt()
+
+                            GamePhase.AUCTION_RESULT ->
+                                (PhaseDurations.AUCTION_RESULT_MS / 1000L).toInt()
+
+                            else -> (PhaseDurations.AUCTION_BIDDING_MS / 1000L).toInt()
                         }
                     // Calculate initial remaining seconds once, clamped to the phase duration
                     // to handle server/client clock desync.
@@ -299,6 +310,23 @@ class GameViewModel(
                     }
                 }
             }
+
+    init {
+        scope.launch {
+            combine(repository.state, auctionTimerSeconds) { repoState, timer ->
+                val phase = repoState.gameStateView?.phase ?: repoState.gameState?.phase
+                val auctionState =
+                    repoState.gameStateView?.auctionState ?: repoState.gameState?.auctionState
+                AuctionTimeoutSignal(
+                    phase = phase,
+                    timerEndTime = auctionState?.timerEndTime,
+                    timerSeconds = timer,
+                    isConnected = repoState.isConnected,
+                )
+            }.distinctUntilChanged()
+                .collect(::synchronizeAuctionTimeout)
+        }
+    }
 
     /**
      * The combined UI state for the game screen.
@@ -755,6 +783,36 @@ class GameViewModel(
         }
     }
 
+    private fun synchronizeAuctionTimeout(signal: AuctionTimeoutSignal) {
+        if (!signal.shouldRequestAdvance()) {
+            if (signal.key() != auctionTimeoutAdvanceKey) {
+                auctionTimeoutAdvanceJob?.cancel()
+                auctionTimeoutAdvanceJob = null
+                auctionTimeoutAdvanceKey = null
+            }
+            return
+        }
+
+        val key = signal.key() ?: return
+        if (auctionTimeoutAdvanceKey == key && auctionTimeoutAdvanceJob?.isActive == true) {
+            return
+        }
+
+        auctionTimeoutAdvanceJob?.cancel()
+        auctionTimeoutAdvanceKey = key
+        auctionTimeoutAdvanceJob =
+            scope.launch {
+                repeat(AUCTION_TIMEOUT_ADVANCE_ATTEMPTS) {
+                    try {
+                        repository.advanceTimeout()
+                    } catch (_: Exception) {
+                        // Repository state owns user-visible errors.
+                    }
+                    delay(AUCTION_TIMEOUT_ADVANCE_RETRY_MS)
+                }
+            }
+    }
+
     /** Cancels the active countdown timer and completely clears all eye icon tracking states. */
     private fun clearEyeSelection() {
         eyeTimerJob?.cancel()
@@ -788,6 +846,38 @@ class GameViewModel(
         val eyePlayerId: String?,
         val eyeTimer: Int?,
         val isEyeHighlighted: Boolean,
+    )
+
+    private data class AuctionTimeoutSignal(
+        val phase: GamePhase?,
+        val timerEndTime: Long?,
+        val timerSeconds: Int?,
+        val isConnected: Boolean,
+    ) {
+        fun key(): AuctionTimeoutKey? =
+            if (phase != null && timerEndTime != null) {
+                AuctionTimeoutKey(phase, timerEndTime)
+            } else {
+                null
+            }
+
+        fun shouldRequestAdvance(): Boolean =
+            isConnected &&
+                timerSeconds == 0 &&
+                timerEndTime != null &&
+                when (phase) {
+                    GamePhase.AUCTION_BIDDING,
+                    GamePhase.AUCTION_PAYMENT,
+                    GamePhase.AUCTION_RESULT,
+                    -> true
+
+                    else -> false
+                }
+    }
+
+    private data class AuctionTimeoutKey(
+        val phase: GamePhase,
+        val timerEndTime: Long,
     )
 
     private fun synchronizeTradeUi(serverState: TradeServerState) {

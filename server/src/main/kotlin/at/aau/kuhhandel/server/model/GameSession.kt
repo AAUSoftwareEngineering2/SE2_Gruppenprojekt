@@ -353,7 +353,7 @@ class GameSession(
                 players = updatedPlayers,
                 auctionState =
                     auctionState.copy(
-                        timerEndTime = null,
+                        timerEndTime = calculatedTimeout,
                         buyerId = receiver.id,
                     ),
             )

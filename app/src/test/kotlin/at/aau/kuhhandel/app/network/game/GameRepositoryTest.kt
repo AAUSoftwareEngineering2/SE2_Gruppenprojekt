@@ -68,6 +68,10 @@ class GameRepositoryTest {
             repository.resolveAuction(buyBack)
         }
 
+        suspend fun advanceTimeout() {
+            repository.advanceTimeout()
+        }
+
         suspend fun initiateTrade(
             targetPlayerId: String,
             animalType: AnimalType = AnimalType.COW,
@@ -377,6 +381,18 @@ class GameRepositoryTest {
                     requireNotNull(envelope.payload),
                 )
             assertEquals(setOf("money-1"), payload.moneyCardIds)
+        }
+    }
+
+    @Test
+    fun `advanceTimeout sends request`() {
+        runBlocking {
+            val harness = createHarness()
+
+            harness.advanceTimeout()
+
+            assertEquals(WebSocketType.ADVANCE_TIMEOUT, harness.sentEnvelope().type)
+            assertNull(harness.sentEnvelope().payload)
         }
     }
 

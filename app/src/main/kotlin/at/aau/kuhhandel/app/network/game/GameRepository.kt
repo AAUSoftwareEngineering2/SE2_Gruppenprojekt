@@ -115,6 +115,13 @@ class GameRepository(
         client.submitAuctionPayment(moneyCardIds)
     }
 
+    /** Requests a server-side transition if the current persisted phase timer expired. */
+    suspend fun advanceTimeout() {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.advanceTimeout()
+    }
+
     /** Initiates a trade challenge against another player. */
     suspend fun initiateTrade(
         challengedPlayerId: String,

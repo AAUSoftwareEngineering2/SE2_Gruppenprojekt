@@ -234,6 +234,35 @@ class GameService(
         }
 
     /**
+     * Advances one expired phase timer on demand. The persisted deadline is checked under the
+     * row lock, so duplicate or early client requests are no-ops.
+     */
+    suspend fun advanceExpiredTimeout(gameId: String): GameState {
+        var advanced = false
+        val now = System.currentTimeMillis()
+        val newState =
+            withContext(ioDispatcher) {
+                persistenceService.mutateGameState(gameId, activityAt = null) { current ->
+                    val timerEnd = current.timerEnd
+                    if (timerEnd != null && timerEnd <= now) {
+                        advanced = true
+                        GameSession
+                            .fromState(gameId, current)
+                            .handleTimeoutExpiration()
+                    } else {
+                        current
+                    }
+                }
+            } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
+        if (advanced) {
+            clusterNotifier?.gameUpdated(gameId)
+        }
+
+        return newState
+    }
+
+    /**
      * Starts a trade against an opponent.
      *
      * Expects a valid [gameId].

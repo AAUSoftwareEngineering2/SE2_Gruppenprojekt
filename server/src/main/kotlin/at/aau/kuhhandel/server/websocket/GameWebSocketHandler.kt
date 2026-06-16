@@ -88,6 +88,7 @@ class GameWebSocketHandler(
                     WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
                     WebSocketType.SUBMIT_AUCTION_PAYMENT ->
                         handleSubmitAuctionPayment(session, envelope)
+                    WebSocketType.ADVANCE_TIMEOUT -> handleAdvanceTimeout(session, envelope)
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
@@ -402,6 +403,21 @@ class GameWebSocketHandler(
                 actorId,
                 payload.moneyCardIds,
             )
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.ADVANCE_TIMEOUT] commands.
+     */
+    private suspend fun handleAdvanceTimeout(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+
+        val state = gameService.advanceExpiredTimeout(gameId)
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)

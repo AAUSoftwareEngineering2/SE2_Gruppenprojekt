@@ -1011,6 +1011,32 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
+    fun `ADVANCE_TIMEOUT sends and broadcasts GAME_STATE_UPDATED`() =
+        runTest(testDispatcher.scheduler) {
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(session1, session2),
+            )
+            val gameState = baseState.copy(phase = GamePhase.AUCTIONEER_DECISION)
+            whenever(gameService.advanceExpiredTimeout("game-1")).thenReturn(gameState)
+
+            sendEnvelope(
+                session = session1,
+                type = WebSocketType.ADVANCE_TIMEOUT,
+                requestId = "req-timeout",
+            )
+
+            verify(gameService).advanceExpiredTimeout("game-1")
+            assertEquals(
+                WebSocketType.GAME_STATE_UPDATED,
+                captureResponse(session1).type,
+            )
+            assertEquals(
+                WebSocketType.GAME_STATE_UPDATED,
+                captureResponse(session2).type,
+            )
+        }
+
+    @Test
     fun `CHOOSE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
