@@ -248,8 +248,8 @@ class GameWebSocketClient(
         return requestId
     }
 
-    /** Submits the auctioneer's buy-back or sell decision. */
-    suspend fun resolveAuction(buyBack: Boolean): String {
+    /** Decides whether the auctioneer buys back the animal. */
+    suspend fun buyBack(buyBack: Boolean): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
             WebSocketJson.json.encodeToJsonElement(
@@ -257,25 +257,6 @@ class GameWebSocketClient(
                 ResolveAuctionPayload(buyBack = buyBack),
             )
         send(WebSocketEnvelope(WebSocketType.RESOLVE_AUCTION, requestId, payload))
-        return requestId
-    }
-
-    /** Submits the current auction payer's selected money cards. */
-    suspend fun submitAuctionPayment(moneyCardIds: Set<String>): String {
-        val requestId = UUID.randomUUID().toString()
-        val payload =
-            WebSocketJson.json.encodeToJsonElement(
-                SubmitAuctionPaymentPayload.serializer(),
-                SubmitAuctionPaymentPayload(moneyCardIds),
-            )
-        send(WebSocketEnvelope(WebSocketType.SUBMIT_AUCTION_PAYMENT, requestId, payload))
-        return requestId
-    }
-
-    /** Requests that the server advance the current expired phase timer. */
-    suspend fun advanceTimeout(): String {
-        val requestId = UUID.randomUUID().toString()
-        send(WebSocketEnvelope(WebSocketType.ADVANCE_TIMEOUT, requestId))
         return requestId
     }
 
@@ -294,6 +275,18 @@ class GameWebSocketClient(
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.CHOOSE_TRADE, requestId, payload))
+        return requestId
+    }
+
+    /** Submits the auction buyer's selected money cards as payment. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SubmitAuctionPaymentPayload.serializer(),
+                SubmitAuctionPaymentPayload(moneyCardIds = moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.SUBMIT_AUCTION_PAYMENT, requestId, payload))
         return requestId
     }
 

@@ -228,7 +228,6 @@ class GameSession(
             checkNotNull(state.auctionState) {
                 "Missing auction state in resolution phase"
             }
-
         ensureAuctioneer(auctionState, actorId)
 
         val highestBidderId =
@@ -240,43 +239,49 @@ class GameSession(
                 "Highest bidder $highestBidderId not found among players"
             }
 
-        val buyer =
-            if (auctioneerBuysCard) {
-                ensureHasEnoughMoney(actor, auctionState.highestBid)
-                actor
-            } else {
-                // Bluff Check: If the winner cannot pay the auctioneer, they bluffed
-                if (highestBidder.totalMoney() < auctionState.highestBid) {
-                    val calculatedTimeout =
-                        System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+        // Determine the card receiver and seller
+        val receiver: Player
+        val seller: Player
 
-                    state =
-                        state.copy(
-                            phase = GamePhase.AUCTION_BIDDING,
-                            timerEnd = calculatedTimeout,
-                            auctionState =
-                                auctionState.copy(
-                                    highestBid = 0,
-                                    highestBidderId = null,
-                                    timerEndTime = calculatedTimeout,
-                                    excludedPlayerIds =
-                                        auctionState.excludedPlayerIds + highestBidderId,
-                                ),
-                            lastEvent =
-                                GameEvent.BluffDetected(
-                                    playerId = highestBidderId,
-                                    playerName = highestBidder.name,
-                                    message = "${highestBidder.name} bluffed! Auction restarts.",
-                                ),
-                        )
+        if (auctioneerBuysCard) {
+            ensureHasEnoughMoney(actor, auctionState.highestBid)
+            receiver = actor
+            seller = highestBidder
+        } else {
+            // Bluff Check: If the winner cannot pay the auctioneer, they bluffed
+            if (highestBidder.totalMoney() < auctionState.highestBid) {
+                val calculatedTimeout =
+                    System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
 
-                    return state
-                }
-                highestBidder
+                state =
+                    state.copy(
+                        phase = GamePhase.AUCTION_BIDDING,
+                        timerEnd = calculatedTimeout,
+                        auctionState =
+                            auctionState.copy(
+                                highestBid = 0,
+                                highestBidderId = null,
+                                timerEndTime = calculatedTimeout,
+                                excludedPlayerIds =
+                                    auctionState.excludedPlayerIds + highestBidderId,
+                            ),
+                        lastEvent =
+                            GameEvent.BluffDetected(
+                                playerId = highestBidderId,
+                                playerName = highestBidder.name,
+                                message = "${highestBidder.name} bluffed! Auction restarts.",
+                            ),
+                    )
+
+                return state
             }
+            receiver = highestBidder
+            seller = actor
+        }
 
-        val calculatedTimeout =
-            System.currentTimeMillis() + PhaseDurations.AUCTION_PAYMENT_MS
+        // Record who pays and who is paid, then prompt the buyer to select their money cards.
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_PAYMENT_MS
+
         state =
             state.copy(
                 phase = GamePhase.AUCTION_PAYMENT,
@@ -284,18 +289,20 @@ class GameSession(
                 auctionState =
                     auctionState.copy(
                         timerEndTime = calculatedTimeout,
-                        buyerId = buyer.id,
+                        buyerId = receiver.id,
+                        sellerId = seller.id,
                     ),
             )
+
         return state
     }
 
     /**
-     * Submits the selected money cards for the buyer chosen during auction resolution.
+     * Pays for the auctioned card with the money cards the buyer selected.
      */
     fun submitAuctionPayment(
         actorId: String,
-        paymentMoneyCardIds: Set<String>,
+        moneyCardIds: Set<String>,
     ): GameState {
         val actor = requireActorInRoom(actorId)
         ensurePhase(GamePhase.AUCTION_PAYMENT)
@@ -303,62 +310,17 @@ class GameSession(
             checkNotNull(state.auctionState) {
                 "Missing auction state in payment phase"
             }
-        ensureAuctionPayer(auctionState, actorId)
 
-        val highestBidderId =
-            checkNotNull(auctionState.highestBidderId) {
-                "Missing highest bidder in auction payment phase"
-            }
-        val sellerId =
-            if (actorId == auctionState.auctioneerId) {
-                highestBidderId
-            } else {
-                auctionState.auctioneerId
-            }
-        val seller =
-            checkNotNull(state.players.find { it.id == sellerId }) {
-                "Auction seller $sellerId not found among players"
-            }
+        if (auctionState.buyerId != actorId) {
+            throw GameException(GameErrorReason.NOT_AUCTIONEER)
+        }
 
-        return completeAuctionPayment(
-            auctionState = auctionState,
-            receiver = actor,
-            seller = seller,
-            paymentMoneyCardIds = paymentMoneyCardIds,
-        )
-    }
-
-    private fun completeAuctionPayment(
-        auctionState: AuctionState,
-        receiver: Player,
-        seller: Player,
-        paymentMoneyCardIds: Set<String>,
-    ): GameState {
-        val paymentCards = requireOwnsMoneyCards(receiver, paymentMoneyCardIds)
-        if (paymentCards.sumOf { it.value } < auctionState.highestBid) {
+        val selectedMoneyCards = requireOwnsMoneyCards(actor, moneyCardIds)
+        if (selectedMoneyCards.sumOf { it.value } < auctionState.highestBid) {
             throw GameException(GameErrorReason.NOT_ENOUGH_MONEY)
         }
 
-        val playersAfterPayment =
-            transferMoneyCards(state.players, receiver, seller, paymentMoneyCardIds)
-        val updatedPlayers =
-            addAnimalToPlayer(playersAfterPayment, receiver.id, auctionState.auctionCard)
-
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
-
-        state =
-            state.copy(
-                phase = GamePhase.AUCTION_RESULT,
-                timerEnd = calculatedTimeout,
-                players = updatedPlayers,
-                auctionState =
-                    auctionState.copy(
-                        timerEndTime = calculatedTimeout,
-                        buyerId = receiver.id,
-                    ),
-            )
-
-        return state
+        return completeAuctionPayment(moneyCardIds)
     }
 
     /**
@@ -693,7 +655,7 @@ class GameSession(
                     players = updatedPlayers,
                     auctionState =
                         auctionState.copy(
-                            timerEndTime = calculatedTimeout,
+                            timerEndTime = null,
                             buyerId = auctionState.auctioneerId,
                         ),
                 )
@@ -702,10 +664,12 @@ class GameSession(
         }
 
         // If a bid exists, proceed to the auctioneer decision phase
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTIONEER_DECISION_MS
+
         state =
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
-                timerEnd = null,
+                timerEnd = calculatedTimeout,
                 auctionState = auctionState.copy(timerEndTime = null),
             )
 
@@ -725,25 +689,62 @@ class GameSession(
     }
 
     /**
-     * Completes payment automatically if the highest bidder does not submit a selection in time.
+     * Auto-selects the buyer's money cards when they fail to pay before the timer expires.
      */
     private fun makeDefaultAuctionPayment(): GameState {
         val auctionState =
             checkNotNull(state.auctionState) {
                 "Missing auction state in payment phase"
             }
-        val payerId =
+        val buyerId =
             checkNotNull(auctionState.buyerId) {
                 "Missing buyer in auction payment phase"
             }
-        val payer =
-            checkNotNull(state.players.find { it.id == payerId }) {
-                "Auction payer $payerId not found among players"
+        val buyer =
+            checkNotNull(state.players.find { it.id == buyerId }) {
+                "Buyer $buyerId not found among players"
             }
-        val paymentMoneyCardIds =
-            selectMoneyCardsForPayment(payer, auctionState.highestBid)
 
-        return submitAuctionPayment(payerId, paymentMoneyCardIds)
+        val paymentCardIds = selectMoneyCardsForPayment(buyer, auctionState.highestBid)
+        return completeAuctionPayment(paymentCardIds)
+    }
+
+    /**
+     * Transfers the buyer's payment to the seller, awards the animal, and shows the result.
+     */
+    private fun completeAuctionPayment(paymentCardIds: Set<String>): GameState {
+        val auctionState =
+            checkNotNull(state.auctionState) {
+                "Missing auction state in payment phase"
+            }
+        val buyer =
+            checkNotNull(state.players.find { it.id == auctionState.buyerId }) {
+                "Buyer ${auctionState.buyerId} not found among players"
+            }
+        val seller =
+            checkNotNull(state.players.find { it.id == auctionState.sellerId }) {
+                "Seller ${auctionState.sellerId} not found among players"
+            }
+
+        val playersAfterPayment =
+            transferMoneyCards(state.players, buyer, seller, paymentCardIds)
+        val updatedPlayers =
+            addAnimalToPlayer(playersAfterPayment, buyer.id, auctionState.auctionCard)
+
+        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
+
+        state =
+            state.copy(
+                phase = GamePhase.AUCTION_RESULT,
+                timerEnd = calculatedTimeout,
+                players = updatedPlayers,
+                auctionState =
+                    auctionState.copy(
+                        timerEndTime = null,
+                    ),
+            )
+
+        return state
     }
 
     /**
@@ -999,15 +1000,6 @@ class GameSession(
     ) {
         if (auctionState.auctioneerId != playerId) {
             throw GameException(GameErrorReason.NOT_AUCTIONEER)
-        }
-    }
-
-    private fun ensureAuctionPayer(
-        auctionState: AuctionState,
-        playerId: String,
-    ) {
-        if (auctionState.buyerId != playerId) {
-            throw GameException(GameErrorReason.NOT_AUCTION_PAYER)
         }
     }
 

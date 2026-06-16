@@ -38,7 +38,6 @@ enum class GameErrorReason {
     BID_TOO_HIGH,
     NOT_ENOUGH_MONEY,
     NOT_AUCTIONEER,
-    NOT_AUCTION_PAYER,
 
     UNKNOWN_TARGET,
     TARGETING_SELF,

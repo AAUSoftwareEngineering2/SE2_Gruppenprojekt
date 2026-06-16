@@ -16,6 +16,8 @@ data class AuctionState(
     val timerEndTime: Long? = null,
     // IDs of players who bluffed and are excluded from bidding in this auction
     val excludedPlayerIds: Set<String> = emptySet(),
-    // The ID of the selected buyer, who receives the card after payment
+    // The ID of the player who must pay for and receives the auctioned card
     val buyerId: String? = null,
+    // The ID of the player who receives the payment for the auctioned card
+    val sellerId: String? = null,
 )

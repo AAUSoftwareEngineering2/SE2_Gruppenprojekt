@@ -1,8 +1,12 @@
 package at.aau.kuhhandel.app.ui.game
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
+import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.GamePhase
@@ -50,143 +55,160 @@ fun ChoicePhaseContent(
 fun AuctionPhaseContent(
     uiState: GameUiState,
     onPlaceBid: (Int) -> Unit,
-    onResolveAuction: (Boolean) -> Unit,
+    onBuyBack: (Boolean) -> Unit,
+    onToggleMoneyCard: (String) -> Unit,
     onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val auctionState = uiState.auctionState
+    val gameState = uiState.gameState
+    val auctionState = gameState?.auctionState
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(top = 32.dp),
-    ) {
-        AuctionView(
-            auction = auctionState,
-            timerSeconds = uiState.auctionTimerSeconds,
-            phase = uiState.currentPhase,
-            players = uiState.visiblePlayers,
-            myPlayerId = uiState.myPlayerId,
-            footerContent = {
-                val phase = uiState.currentPhase
-                if (!uiState.isAuctioneer &&
-                    (phase == GamePhase.AUCTION_BIDDING)
-                ) {
-                    AuctionControls(
-                        onBid = onPlaceBid,
-                        currentBid = auctionState?.highestBid ?: 0,
-                        isExcluded =
-                            auctionState?.excludedPlayerIds?.contains(
-                                uiState.myPlayerId,
-                            ) == true,
-                    )
-                } else if (phase == GamePhase.AUCTIONEER_DECISION ||
-                    phase == GamePhase.AUCTION_PAYMENT ||
-                    phase == GamePhase.AUCTION_RESULT
-                ) {
-                    val highestBidderId = auctionState?.highestBidderId
-                    val buyerId = auctionState?.buyerId
-                    val auctioneerId = auctionState?.auctioneerId
-                    val buyerName =
-                        if (buyerId != null) {
-                            uiState.visiblePlayers.find { it.id == buyerId }?.name ?: "Unknown"
-                        } else {
-                            ""
-                        }
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 32.dp),
+        ) {
+            AuctionView(
+                auction = auctionState,
+                timerSeconds = uiState.auctionTimerSeconds,
+                phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING,
+                players = gameState?.players ?: emptyList(),
+                myPlayerId = uiState.myPlayerId,
+                footerContent = {
+                    val phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING
+                    if (!uiState.isAuctioneer &&
+                        (phase == GamePhase.AUCTION_BIDDING)
                     ) {
-                        if (phase == GamePhase.AUCTION_RESULT) {
-                            val resultText =
-                                when {
-                                    highestBidderId == null -> "$buyerName got the animal for free!"
-                                    buyerId == auctioneerId -> "$buyerName bought back!"
-                                    else -> "$buyerName won the auction!"
-                                }
-                            GameStatusText(
-                                text = resultText,
-                                color = DarkPurple,
-                            )
-                        } else if (phase == GamePhase.AUCTION_PAYMENT) {
-                            if (uiState.isAuctionPayer) {
+                        AuctionControls(
+                            onBid = onPlaceBid,
+                            currentBid = auctionState?.highestBid ?: 0,
+                            isExcluded =
+                                auctionState?.excludedPlayerIds?.contains(
+                                    uiState.myPlayerId,
+                                ) == true,
+                        )
+                    } else if (phase == GamePhase.AUCTION_PAYMENT) {
+                        val buyerName =
+                            auctionState?.buyerId?.let { buyerId ->
+                                gameState?.players?.find { it.id == buyerId }?.name
+                            } ?: "the buyer"
+                        GameStatusText(
+                            text =
+                                if (uiState.isAuctionBuyer) {
+                                    "Pay ${uiState.auctionBidToPay}€ — select your money cards"
+                                } else {
+                                    "Waiting for $buyerName to pay..."
+                                },
+                            color = DarkPurple,
+                        )
+                    } else if (phase == GamePhase.AUCTIONEER_DECISION ||
+                        phase == GamePhase.AUCTION_RESULT
+                    ) {
+                        val highestBidderId = auctionState?.highestBidderId
+                        val buyerId = auctionState?.buyerId
+                        val auctioneerId = auctionState?.auctioneerId
+                        val buyerName =
+                            if (buyerId != null) {
+                                gameState.players.find { it.id == buyerId }?.name ?: "Unknown"
+                            } else {
+                                ""
+                            }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (phase == GamePhase.AUCTION_RESULT) {
+                                val resultText =
+                                    when {
+                                        highestBidderId == null ->
+                                            "$buyerName got the animal for free!"
+                                        buyerId == auctioneerId -> "$buyerName bought back!"
+                                        else -> "$buyerName won the auction!"
+                                    }
                                 GameStatusText(
-                                    text = "Select money cards to pay ${auctionState?.highestBid}.",
+                                    text = resultText,
+                                    color = DarkPurple,
+                                )
+                            } else if (uiState.isAuctioneer) {
+                                val statusText =
+                                    if (highestBidderId == null) {
+                                        "Auction Closed. No one bid!"
+                                    } else {
+                                        "Auction Closed. Choose your action:"
+                                    }
+                                GameStatusText(
+                                    text = statusText,
                                     modifier = Modifier.padding(bottom = 8.dp),
                                     color = DarkPurple,
                                 )
-                                Button(
-                                    onClick = onSubmitAuctionPayment,
-                                    enabled = uiState.canSubmitAuctionPayment,
-                                ) {
-                                    Text("Pay (${uiState.selectedMoneyTotal})")
+                                if (highestBidderId == null) {
+                                    Button(onClick = { onBuyBack(true) }) {
+                                        Text("CONTINUE")
+                                    }
+                                } else {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { onBuyBack(true) },
+                                            enabled = uiState.canAuctioneerBuyBack,
+                                        ) {
+                                            Text("Buy Back")
+                                        }
+                                        Button(onClick = { onBuyBack(false) }) {
+                                            Text("Let Winner Buy")
+                                        }
+                                    }
                                 }
                             } else {
-                                val payerName =
-                                    uiState
-                                        .visiblePlayers
-                                        .find { it.id == buyerId }
-                                        ?.name ?: "buyer"
                                 GameStatusText(
-                                    text = "Waiting for $payerName to pay...",
+                                    text = "Waiting for player ${uiState.activePlayerName}...",
                                     color = DarkPurple,
                                 )
                             }
-                        } else if (uiState.isAuctioneer) {
-                            val statusText =
-                                if (highestBidderId == null) {
-                                    "Auction Closed. No one bid!"
-                                } else {
-                                    "Auction Closed. Choose your action:"
-                                }
-                            GameStatusText(
-                                text = statusText,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                                color = DarkPurple,
-                            )
-                            if (highestBidderId == null) {
-                                Button(onClick = { onResolveAuction(true) }) {
-                                    Text("CONTINUE")
-                                }
-                            } else {
-                                if (!uiState.canAuctioneerAffordBuyBack) {
-                                    Text(
-                                        text = "You do not have enough money to buy back.",
-                                        modifier = Modifier.padding(bottom = 8.dp),
-                                    )
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { onResolveAuction(true) },
-                                        enabled = uiState.canAuctioneerAffordBuyBack,
-                                    ) {
-                                        Text("Buy Back")
-                                    }
-                                    Button(onClick = { onResolveAuction(false) }) {
-                                        Text("Let Winner Buy")
-                                    }
-                                }
-                            }
-                        } else {
-                            val auctioneerName =
-                                uiState
-                                    .visiblePlayers
-                                    .find { it.id == auctioneerId }
-                                    ?.name ?: "auctioneer"
-                            val waitingText =
-                                if (phase == GamePhase.AUCTIONEER_DECISION) {
-                                    "Waiting for $auctioneerName to decide..."
-                                } else {
-                                    "Waiting for player ${uiState.activePlayerName}..."
-                                }
-                            GameStatusText(
-                                text = waitingText,
-                                color = DarkPurple,
-                            )
                         }
                     }
-                }
-            },
+                },
+            )
+        }
+
+        if (uiState.isAuctionBuyer) {
+            AuctionPaymentSelection(
+                uiState = uiState,
+                onToggleMoneyCard = onToggleMoneyCard,
+                onSubmit = onSubmitAuctionPayment,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.AuctionPaymentSelection(
+    uiState: GameUiState,
+    onToggleMoneyCard: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MoneyHand(
+            cards = uiState.myMoneyCards,
+            selectedCardIds = uiState.selectedMoneyCardIds,
+            onCardClick = { onToggleMoneyCard(it.id) },
+            isFanned = true,
+            onToggleFanned = {},
+            isTradePhase = true,
         )
+        Button(
+            onClick = onSubmit,
+            enabled = uiState.canSubmitAuctionPayment && !uiState.isTradeActionSubmitting,
+        ) {
+            Text("Pay (${uiState.selectedMoneyTotal}€ / ${uiState.auctionBidToPay}€)")
+        }
     }
 }
 

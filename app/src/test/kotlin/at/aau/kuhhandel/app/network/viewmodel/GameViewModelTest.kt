@@ -9,9 +9,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -323,33 +321,6 @@ class GameViewModelTest {
             repoStateFlow.value = GameRepositoryState(isConnected = true, gameState = gameState)
             advanceTimeBy(1.milliseconds)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
-        }
-    }
-
-    @Test
-    fun `auction payment timer uses payment phase duration`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-            val endTime = testScheduler.currentTime + 15_000
-            repoStateFlow.value =
-                GameRepositoryState(
-                    gameState =
-                        GameState(
-                            phase = GamePhase.AUCTION_PAYMENT,
-                            auctionState =
-                                AuctionState(
-                                    auctioneerId = "p1",
-                                    auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = endTime,
-                                ),
-                        ),
-                )
-
-            advanceTimeBy(1.milliseconds)
-
-            assertEquals(15, viewModel.uiState.value.auctionTimerSeconds)
         }
     }
 
@@ -725,6 +696,127 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `auction payment ui state tracks buyer and selected money total`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+            assertTrue(viewModel.uiState.value.isAuctionBuyer)
+            assertEquals(25, viewModel.uiState.value.auctionBidToPay)
+            assertEquals(10, viewModel.uiState.value.selectedMoneyTotal)
+            assertFalse(viewModel.uiState.value.canSubmitAuctionPayment)
+            assertTrue(viewModel.uiState.value.canAuctioneerBuyBack)
+
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            assertEquals(30, viewModel.uiState.value.selectedMoneyTotal)
+            assertTrue(viewModel.uiState.value.canSubmitAuctionPayment)
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment sends selected money and clears selection`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment ignores non buyers and underfunded selections`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "observer",
+                    gameState = auctionPaymentGameState(buyerId = "me", highestBid = 20),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify(exactly = 0) { mockRepository.submitAuctionPayment(any()) }
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment releases submitting state when repository fails`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            coEvery {
+                mockRepository.submitAuctionPayment(setOf("m10", "m20"))
+            } throws RuntimeException("Network error")
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertFalse(viewModel.uiState.value.isTradeActionSubmitting)
+        }
+    }
+
+    @Test
     fun `takeTradeOffer sends empty response`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -932,227 +1024,12 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `resolveAuction submits buy back decision without payment cards`() {
+    fun `buyBack calls repository and handles error`() {
         runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "me",
-                    gameState =
-                        GameState(
-                            phase = GamePhase.AUCTIONEER_DECISION,
-                            auctionState =
-                                AuctionState(
-                                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                                    auctioneerId = "me",
-                                    highestBid = 20,
-                                    highestBidderId = "other",
-                                ),
-                            players =
-                                listOf(
-                                    Player(
-                                        id = "me",
-                                        name = "Me",
-                                        moneyCards =
-                                            listOf(
-                                                MoneyCard("m1", 50),
-                                            ),
-                                    ),
-                                    Player(id = "other", name = "Other"),
-                                ),
-                        ),
-                )
+            coEvery { mockRepository.buyBack(true) } throws RuntimeException("Network error")
+            viewModel.buyBack(true)
             advanceUntilIdle()
-            viewModel.resolveAuction(true)
-            advanceUntilIdle()
-
-            coVerify { mockRepository.resolveAuction(true) }
-        }
-    }
-
-    @Test
-    fun `resolveAuction submits let winner buy decision`() {
-        runTest {
-            viewModel.resolveAuction(false)
-            advanceUntilIdle()
-
-            coVerify { mockRepository.resolveAuction(false) }
-        }
-    }
-
-    @Test
-    fun `auctioneer cannot buy back without enough total money`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "me",
-                    gameState =
-                        GameState(
-                            phase = GamePhase.AUCTIONEER_DECISION,
-                            auctionState =
-                                AuctionState(
-                                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                                    auctioneerId = "me",
-                                    highestBid = 20,
-                                    highestBidderId = "other",
-                                ),
-                            players =
-                                listOf(
-                                    Player(
-                                        id = "me",
-                                        name = "Me",
-                                        moneyCards =
-                                            listOf(
-                                                MoneyCard("m1", 10),
-                                            ),
-                                    ),
-                                    Player(id = "other", name = "Other"),
-                                ),
-                        ),
-                )
-            advanceUntilIdle()
-
-            assertFalse(viewModel.uiState.value.canAuctioneerAffordBuyBack)
-            assertFalse(viewModel.uiState.value.canSelectAuctionPaymentCards)
-            assertFalse(viewModel.uiState.value.canSubmitAuctionPayment)
-        }
-    }
-
-    @Test
-    fun `highest bidder can submit intentional overpayment`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "bidder",
-                    gameState =
-                        GameState(
-                            phase = GamePhase.AUCTION_PAYMENT,
-                            auctionState =
-                                AuctionState(
-                                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                                    auctioneerId = "auctioneer",
-                                    highestBid = 20,
-                                    highestBidderId = "bidder",
-                                    buyerId = "bidder",
-                                ),
-                            players =
-                                listOf(
-                                    Player(id = "auctioneer", name = "Auctioneer"),
-                                    Player(
-                                        id = "bidder",
-                                        name = "Bidder",
-                                        moneyCards =
-                                            listOf(
-                                                MoneyCard("m1", 50),
-                                            ),
-                                    ),
-                                ),
-                        ),
-                )
-            advanceUntilIdle()
-            viewModel.toggleMoneyCardSelection("m1")
-            advanceUntilIdle()
-
-            assertEquals(50, viewModel.uiState.value.selectedMoneyTotal)
-            assertTrue(viewModel.uiState.value.canSubmitAuctionPayment)
-
-            viewModel.submitAuctionPayment()
-            advanceUntilIdle()
-
-            coVerify { mockRepository.submitAuctionPayment(setOf("m1")) }
-        }
-    }
-
-    @Test
-    fun `auction decision is derived from GameStateView when raw state is stale`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-
-            val auctionState =
-                AuctionState(
-                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                    auctioneerId = "auctioneer",
-                    highestBid = 20,
-                    highestBidderId = "bidder",
-                    timerEndTime = 5_000L,
-                )
-
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "auctioneer",
-                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
-                    gameStateView =
-                        auctionGameStateView(
-                            phase = GamePhase.AUCTIONEER_DECISION,
-                            currentPlayerId = "auctioneer",
-                            auctionState = auctionState,
-                            localPlayer =
-                                Player(
-                                    id = "auctioneer",
-                                    name = "Auctioneer",
-                                    moneyCards = listOf(MoneyCard("money-1", 20)),
-                                ),
-                            opponents = listOf(Opponent("bidder", "Bidder", emptyList(), 3)),
-                        ),
-                )
-            advanceUntilIdle()
-
-            val uiState = viewModel.uiState.value
-            assertEquals(GamePhase.AUCTIONEER_DECISION, uiState.currentPhase)
-            assertTrue(uiState.isAuctionActive)
-            assertTrue(uiState.isAuctioneer)
-            assertTrue(uiState.canAuctioneerAffordBuyBack)
-            assertEquals(auctionState, uiState.auctionState)
-            assertEquals(listOf("auctioneer", "bidder"), uiState.visiblePlayers.map { it.id })
-            assertEquals("Auctioneer", uiState.activePlayerName)
-        }
-    }
-
-    @Test
-    fun `auction result with no bidder is derived from GameStateView`() {
-        runTest {
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.uiState.collect {}
-            }
-
-            val auctionState =
-                AuctionState(
-                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                    auctioneerId = "auctioneer",
-                    highestBid = 0,
-                    highestBidderId = null,
-                    buyerId = "auctioneer",
-                )
-
-            repoStateFlow.value =
-                GameRepositoryState(
-                    myPlayerId = "auctioneer",
-                    gameState = GameState(phase = GamePhase.PLAYER_CHOICE),
-                    gameStateView =
-                        auctionGameStateView(
-                            phase = GamePhase.AUCTION_RESULT,
-                            currentPlayerId = "auctioneer",
-                            auctionState = auctionState,
-                            localPlayer = Player(id = "auctioneer", name = "Auctioneer"),
-                        ),
-                )
-            advanceUntilIdle()
-
-            val uiState = viewModel.uiState.value
-            assertEquals(GamePhase.AUCTION_RESULT, uiState.currentPhase)
-            assertTrue(uiState.isAuctionActive)
-            assertEquals("auctioneer", uiState.auctionState?.buyerId)
-            assertNull(uiState.auctionState?.highestBidderId)
+            coVerify { mockRepository.buyBack(true) }
         }
     }
 
@@ -1208,32 +1085,6 @@ class GameViewModelTest {
             // Advance past end time
             advanceTimeBy(3000.milliseconds)
             assertEquals(0, viewModel.uiState.value.auctionTimerSeconds)
-        }
-    }
-
-    @Test
-    fun `auction timeout requests server advance when timer reaches zero`() {
-        runTest {
-            val endTime = testScheduler.currentTime + 5000
-            repoStateFlow.value =
-                GameRepositoryState(
-                    isConnected = true,
-                    gameState =
-                        GameState(
-                            phase = GamePhase.AUCTION_BIDDING,
-                            auctionState =
-                                AuctionState(
-                                    auctioneerId = "p1",
-                                    auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = endTime,
-                                ),
-                            players = listOf(Player(id = "p1", name = "P1")),
-                        ),
-                )
-
-            advanceTimeBy(5001.milliseconds)
-
-            coVerify(exactly = 1) { mockRepository.advanceTimeout() }
         }
     }
 
@@ -1297,11 +1148,6 @@ class GameViewModelTest {
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isAuctionActive)
 
-            repoStateFlow.value =
-                GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_PAYMENT))
-            advanceUntilIdle()
-            assertTrue(viewModel.uiState.value.isAuctionActive)
-
             // Result phase
             repoStateFlow.value =
                 GameRepositoryState(gameState = GameState(phase = GamePhase.AUCTION_RESULT))
@@ -1332,29 +1178,33 @@ class GameViewModelTest {
         }
     }
 
-    private fun auctionGameStateView(
-        phase: GamePhase,
-        currentPlayerId: String,
-        auctionState: AuctionState,
-        localPlayer: Player,
-        opponents: List<Opponent> = emptyList(),
-    ) = GameStateView(
-        phase = phase,
-        timerEnd = auctionState.timerEndTime,
-        localPlayer = localPlayer,
-        opponents = opponents,
-        hostPlayerId = "auctioneer",
-        roundNumber = 1,
-        currentPlayerId = currentPlayerId,
-        deckSize = 0,
-        auctionState = auctionState,
-        tradeState = null,
-        alreadySpied = false,
-        spyingTargetId = null,
-        spyingTargetCards = null,
-        localPlayerSpiedOn = false,
-        spiedOnOpponentIds = emptyList(),
-        lastEvent = null,
-        finalRanking = null,
+    private fun auctionPaymentGameState(
+        buyerId: String = "me",
+        highestBid: Int,
+    ) = GameState(
+        phase = GamePhase.AUCTION_PAYMENT,
+        auctionState =
+            AuctionState(
+                auctioneerId = "seller",
+                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                highestBid = highestBid,
+                highestBidderId = buyerId,
+                buyerId = buyerId,
+                sellerId = "seller",
+            ),
+        players =
+            listOf(
+                Player(
+                    id = "me",
+                    name = "Me",
+                    moneyCards =
+                        listOf(
+                            MoneyCard("m10", 10),
+                            MoneyCard("m20", 20),
+                        ),
+                ),
+                Player(id = "seller", name = "Seller"),
+                Player(id = "observer", name = "Observer"),
+            ),
     )
 }
