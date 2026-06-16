@@ -406,8 +406,8 @@ private val spyTutorialSlides =
         TutorialSlide(
             title = "Do Not Get Caught",
             body =
-                "The player being spied on can tap the spy indicator to catch the spy. " +
-                    "Use it carefully.",
+                "If someone spies on you, tap the large spy indicator while it is visible. " +
+                    "A caught spy loses one random money card to you.",
             action = TutorialAction.SPY_CATCH,
             drawableIds = emptyList(),
         ),
@@ -1236,13 +1236,47 @@ private fun SpyRevealPreview() {
 
 @Composable
 private fun SpyCatchPreview() {
-    TutorialClickTarget {
-        Image(
-            painter = painterResource(id = R.drawable.spy_indicator_white),
-            contentDescription = "catch spy",
-            modifier = Modifier.size(76.dp),
-            contentScale = ContentScale.Fit,
-        )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        TutorialClickTarget {
+            Image(
+                painter = painterResource(id = R.drawable.spy_indicator_white),
+                contentDescription = "catch spy",
+                modifier = Modifier.size(76.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Spy",
+                style = MaterialTheme.typography.labelMedium,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
+            Image(
+                painter = painterResource(id = R.drawable.ig_money_revealed_50),
+                contentDescription = null,
+                modifier = Modifier.size(width = 32.dp, height = 46.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Text(
+                text = "->",
+                style = MaterialTheme.typography.titleMedium,
+                color = DarkPurple,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = "You",
+                style = MaterialTheme.typography.labelMedium,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 
