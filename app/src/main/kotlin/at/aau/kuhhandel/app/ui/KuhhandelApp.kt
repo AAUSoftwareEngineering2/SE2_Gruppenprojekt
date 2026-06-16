@@ -14,8 +14,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
 import at.aau.kuhhandel.app.data.TokenStorage
+import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
+import at.aau.kuhhandel.app.network.leaderboard.LeaderboardService
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.game.TradeActions
@@ -24,6 +26,8 @@ import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
 import at.aau.kuhhandel.app.ui.menu.joining.RoomJoiningScreen
+import at.aau.kuhhandel.app.ui.menu.leaderboard.LeaderboardScreen
+import at.aau.kuhhandel.app.ui.menu.leaderboard.LeaderboardViewModel
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyScreen
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
@@ -38,6 +42,8 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val tokenStorage = remember(context) { TokenStorage(context) }
+    val sharedHttpClient = remember { NetworkClientFactory.create() }
+    val leaderboardService = remember(sharedHttpClient) { LeaderboardService(sharedHttpClient) }
     val repository =
         remember(scope) {
             GameRepository(
@@ -88,6 +94,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onCreateLobby = { navController.navigate(Screen.RoomCreation) },
                     onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                     onRules = { navController.navigate(Screen.Rules) },
+                    onLeaderboard = { navController.navigate(Screen.Leaderboard) },
                 )
             }
 
@@ -213,6 +220,25 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     uiState = gameUiState,
                     onHome = {
                         repository.disconnect()
+                        navController.popBackStack(Screen.Main, inclusive = false)
+                    },
+                )
+            }
+
+            composable<Screen.Leaderboard> {
+                val leaderboardViewModel =
+                    remember(leaderboardService, scope) {
+                        LeaderboardViewModel(
+                            service = leaderboardService,
+                            scope = scope,
+                        )
+                    }
+                val leaderboardUiState by leaderboardViewModel.uiState.collectAsState()
+
+                LeaderboardScreen(
+                    uiState = leaderboardUiState,
+                    onRefresh = leaderboardViewModel::loadLeaderboard,
+                    onBack = {
                         navController.popBackStack(Screen.Main, inclusive = false)
                     },
                 )

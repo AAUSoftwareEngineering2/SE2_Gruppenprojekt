@@ -36,6 +36,7 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
+    onLeaderboard: () -> Unit,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -103,6 +104,17 @@ fun MainMenuScreen(
                 MenuButton(R.drawable.mm_join_room_button, "Join", onJoinLobby)
                 MenuButton(R.drawable.mm_rules_button, "Rules", onRules)
             }
+        }
+
+        // Leaderboard
+        Button(
+            onClick = onLeaderboard,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+        ) {
+            Text("Leaderboard")
         }
 
         // DEBUG: Navigation & Ping Buttons
