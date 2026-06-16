@@ -1302,7 +1302,7 @@ private fun TutorialWinScreenPreview() {
                 fontWeight = FontWeight.ExtraBold,
             )
             Text(
-                text = "FELIX",
+                text = "PLAYER 1",
                 style = MaterialTheme.typography.headlineSmall,
                 color = DarkPurple,
                 fontWeight = FontWeight.Bold,
@@ -1340,8 +1340,8 @@ private fun TutorialWinScreenPreview() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                WinnerRankPreview("2", "Mia", "1280p")
-                WinnerRankPreview("3", "Noah", "940p")
+                WinnerRankPreview("2", "Player 2", "1280p")
+                WinnerRankPreview("3", "Player 3", "940p")
             }
             Surface(
                 shape = RoundedCornerShape(8.dp),
