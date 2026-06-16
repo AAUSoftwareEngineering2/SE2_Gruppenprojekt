@@ -4,9 +4,14 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import at.aau.kuhhandel.app.R
 import kotlinx.coroutines.delay
@@ -17,6 +22,9 @@ private const val NORMAL_GAME_MUSIC_SPEED = 1.0f
 private const val AUCTION_GAME_MUSIC_SPEED = 1.2f
 private const val GAME_MUSIC_START_COMPLETION_BUFFER_MS = 2_500L
 private const val GAME_MUSIC_LOOP_VOLUME = 0.35f
+private const val DUCKED_GAME_MUSIC_LOOP_VOLUME = 0.12f
+
+val LocalGameMusicDucking = staticCompositionLocalOf<(Boolean) -> Unit> { {} }
 
 @Composable
 fun GameMusicPlayer(
@@ -27,12 +35,30 @@ fun GameMusicPlayer(
     val context = LocalContext.current
     val startPlayer = remember { createGameStartMediaPlayer(context) }
     val loopPlayer = remember { createGameLoopMediaPlayer(context) }
+    var duckingRequestCount by remember { mutableIntStateOf(0) }
+    val setDucking: (Boolean) -> Unit =
+        remember {
+            { isDucking ->
+                duckingRequestCount =
+                    (duckingRequestCount + if (isDucking) 1 else -1).coerceAtLeast(0)
+            }
+        }
 
     DisposableEffect(startPlayer, loopPlayer) {
         onDispose {
             releaseMediaPlayer(startPlayer)
             releaseMediaPlayer(loopPlayer)
         }
+    }
+
+    LaunchedEffect(duckingRequestCount) {
+        loopPlayer.setLoopVolume(
+            if (duckingRequestCount > 0) {
+                DUCKED_GAME_MUSIC_LOOP_VOLUME
+            } else {
+                GAME_MUSIC_LOOP_VOLUME
+            },
+        )
     }
 
     LaunchedEffect(isGameStarted) {
@@ -64,7 +90,9 @@ fun GameMusicPlayer(
         )
     }
 
-    content()
+    CompositionLocalProvider(LocalGameMusicDucking provides setDucking) {
+        content()
+    }
 }
 
 private fun createGameStartMediaPlayer(context: Context): MediaPlayer =
@@ -89,6 +117,10 @@ private fun createGameLoopMediaPlayer(context: Context): MediaPlayer =
 
 private fun MediaPlayer.setPlaybackSpeed(speed: Float) {
     playbackParams = playbackParams.setSpeed(speed)
+}
+
+private fun MediaPlayer.setLoopVolume(volume: Float) {
+    setVolume(volume, volume)
 }
 
 private suspend fun MediaPlayer.awaitCompletion() {

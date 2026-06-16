@@ -22,6 +22,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +34,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalGameMusicDucking
+import at.aau.kuhhandel.app.audio.rememberMediaSoundEffect
 import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
@@ -58,6 +62,30 @@ fun WinScreen(
     val finalRanking = uiState.finalRanking
     val winner = finalRanking.firstOrNull()
     val runnerUps = finalRanking.drop(1)
+    val setGameMusicDucking = LocalGameMusicDucking.current
+    val playGameWinSound =
+        rememberMediaSoundEffect(
+            R.raw.game_win,
+            onPlaybackStarted = { setGameMusicDucking(true) },
+            onPlaybackFinished = { setGameMusicDucking(false) },
+        )
+    val playGameLoseSound =
+        rememberMediaSoundEffect(
+            R.raw.game_lose,
+            onPlaybackStarted = { setGameMusicDucking(true) },
+            onPlaybackFinished = { setGameMusicDucking(false) },
+        )
+
+    LaunchedEffect(uiState.myPlayerId, finalRanking) {
+        val myPlayerId = uiState.myPlayerId ?: return@LaunchedEffect
+        if (finalRanking.isEmpty()) return@LaunchedEffect
+
+        if (finalRanking.any { it.playerId == myPlayerId && it.isWinner }) {
+            playGameWinSound()
+        } else {
+            playGameLoseSound()
+        }
+    }
 
     MenuBackground(modifier = modifier) {
         Column(

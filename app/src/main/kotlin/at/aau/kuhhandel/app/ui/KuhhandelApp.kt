@@ -210,23 +210,23 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             onCatchSpy = gameViewModel::catchSpy,
                         )
                     }
-                }
-            }
 
-            composable<Screen.Win> {
-                val gameViewModel =
-                    remember(repository, scope) {
-                        GameViewModel(repository, scope)
+                    composable<Screen.Win> {
+                        val gameViewModel =
+                            remember(repository, scope) {
+                                GameViewModel(repository, scope)
+                            }
+                        val gameUiState by gameViewModel.uiState.collectAsState()
+
+                        WinScreen(
+                            uiState = gameUiState,
+                            onHome = {
+                                repository.disconnect()
+                                navController.popBackStack(Screen.Main, inclusive = false)
+                            },
+                        )
                     }
-                val gameUiState by gameViewModel.uiState.collectAsState()
-
-                WinScreen(
-                    uiState = gameUiState,
-                    onHome = {
-                        repository.disconnect()
-                        navController.popBackStack(Screen.Main, inclusive = false)
-                    },
-                )
+                }
             }
         }
 
