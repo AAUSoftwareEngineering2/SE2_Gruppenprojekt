@@ -8,6 +8,7 @@ import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
+import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerNameRules
 import kotlinx.coroutines.CoroutineDispatcher
@@ -36,6 +37,7 @@ import kotlin.random.Random
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
     private val persistenceService: GamePersistenceService,
+    private val leaderboardService: LeaderboardService,
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
     private val clusterNotifier: ClusterUpdateNotifier? = null,
     private val gameCodeGenerator: () -> String = {
@@ -320,6 +322,7 @@ class GameService(
                 }
                 advancedState?.let { newState ->
                     advancedGames += gameId
+                    checkAndStoreLeaderboard(newState)
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
                     clusterNotifier?.gameUpdated(gameId)
                 }
@@ -353,6 +356,7 @@ class GameService(
                 }
                 clearedState?.let { newState ->
                     clearedGames += gameId
+                    checkAndStoreLeaderboard(newState)
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
                     clusterNotifier?.gameUpdated(gameId)
                 }
@@ -395,8 +399,21 @@ class GameService(
                 }
             } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
+        checkAndStoreLeaderboard(newState)
+
         clusterNotifier?.gameUpdated(gameId)
         return newState
+    }
+
+    /**
+     * Stores final player rankings in the leaderboard if a game is finished.
+     */
+    private fun checkAndStoreLeaderboard(newState: GameState) {
+        if (newState.phase == GamePhase.FINISHED) {
+            val rankings = newState.finalRanking
+            checkNotNull(rankings) { "Final ranking is null in a finished game" }
+            leaderboardService.storeScores(rankings)
+        }
     }
 
     /**
