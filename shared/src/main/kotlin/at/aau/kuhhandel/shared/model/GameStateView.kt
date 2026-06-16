@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.utils.GameRankEntry
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,4 +22,5 @@ data class GameStateView(
     val localPlayerSpiedOn: Boolean,
     val spiedOnOpponentIds: List<String>,
     val lastEvent: GameEvent?,
+    val finalRanking: List<GameRankEntry>?,
 )

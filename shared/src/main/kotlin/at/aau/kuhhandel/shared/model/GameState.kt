@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.shared.model
 
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.utils.GameRankEntry
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,6 +22,7 @@ data class GameState(
     val spiedThisTurn: Set<String> = emptySet(),
     // The last event that occurred, e.g. a money bonus from a donkey
     val lastEvent: GameEvent? = null,
+    val finalRanking: List<GameRankEntry>? = null,
 ) {
     fun createViewForPlayer(playerId: String): GameStateView {
         val localPlayer = this.players.find { it.id == playerId }
@@ -98,6 +100,7 @@ data class GameState(
             spyingTargetCards = activeLocalCheating?.revealedCards?.toList(),
             localPlayerSpiedOn = localPlayerSpiedOn,
             spiedOnOpponentIds = spiedOnOpponentIds,
+            finalRanking = this.finalRanking,
             lastEvent = this.lastEvent,
         )
     }
