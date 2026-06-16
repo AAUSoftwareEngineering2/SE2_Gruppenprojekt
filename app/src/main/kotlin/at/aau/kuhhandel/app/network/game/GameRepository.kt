@@ -101,25 +101,11 @@ class GameRepository(
         client.placeBid(amount)
     }
 
-    /** Sends the auctioneer's buy-back or sell decision. */
-    suspend fun resolveAuction(buyBack: Boolean) {
+    /** Sends the auctioneer's choice to either buy back the animal or sell it. */
+    suspend fun buyBack(buyBack: Boolean) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
-        client.resolveAuction(buyBack)
-    }
-
-    /** Sends the current auction payer's selected money cards. */
-    suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
-        ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
-        client.submitAuctionPayment(moneyCardIds)
-    }
-
-    /** Requests a server-side transition if the current persisted phase timer expired. */
-    suspend fun advanceTimeout() {
-        ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
-        client.advanceTimeout()
+        client.buyBack(buyBack)
     }
 
     /** Initiates a trade challenge against another player. */
@@ -137,6 +123,13 @@ class GameRepository(
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.submitTradeMoney(moneyCardIds)
+    }
+
+    /** Submits the auction buyer's selected money cards as payment. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
+        ensureConnected()
+        _state.update { it.copy(errorMessage = null) }
+        client.submitAuctionPayment(moneyCardIds)
     }
 
     /** Disconnects from the current game and resets local state. */

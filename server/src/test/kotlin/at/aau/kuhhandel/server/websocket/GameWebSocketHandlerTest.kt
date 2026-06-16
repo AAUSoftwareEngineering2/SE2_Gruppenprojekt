@@ -880,13 +880,7 @@ class GameWebSocketHandlerTest {
             )
 
             val gameState = baseState.copy(phase = GamePhase.PLAYER_CHOICE)
-            whenever(
-                gameService.resolveAuction(
-                    "game-1",
-                    "player-1",
-                    true,
-                ),
-            ).thenReturn(gameState)
+            whenever(gameService.resolveAuction("game-1", "player-1", true)).thenReturn(gameState)
 
             sendEnvelope(
                 session = session1,
@@ -899,11 +893,7 @@ class GameWebSocketHandlerTest {
                     ),
             )
 
-            verify(gameService).resolveAuction(
-                "game-1",
-                "player-1",
-                true,
-            )
+            verify(gameService).resolveAuction("game-1", "player-1", true)
 
             val response1 = captureResponse(session1)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
@@ -973,68 +963,103 @@ class GameWebSocketHandlerTest {
     fun `SUBMIT_AUCTION_PAYMENT sends and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
-                setOf(session1, session2),
+                setOf(
+                    session1,
+                    session2,
+                ),
             )
+
+            val cardIds = setOf("m1", "m2")
             val gameState = baseState.copy(phase = GamePhase.AUCTION_RESULT)
             whenever(
                 gameService.submitAuctionPayment(
                     "game-1",
                     "player-1",
-                    setOf("money-1"),
+                    cardIds,
                 ),
             ).thenReturn(gameState)
 
             sendEnvelope(
                 session = session1,
                 type = WebSocketType.SUBMIT_AUCTION_PAYMENT,
-                requestId = "req-payment",
+                requestId = "req-1",
                 payload =
                     WebSocketJson.json.encodeToJsonElement(
                         SubmitAuctionPaymentPayload.serializer(),
-                        SubmitAuctionPaymentPayload(setOf("money-1")),
+                        SubmitAuctionPaymentPayload(moneyCardIds = cardIds),
                     ),
             )
 
             verify(gameService).submitAuctionPayment(
                 "game-1",
                 "player-1",
-                setOf("money-1"),
+                cardIds,
             )
-            assertEquals(
-                WebSocketType.GAME_STATE_UPDATED,
-                captureResponse(session1).type,
-            )
-            assertEquals(
-                WebSocketType.GAME_STATE_UPDATED,
-                captureResponse(session2).type,
-            )
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response1.type)
+            assertEquals("req-1", response1.requestId)
+
+            val payload1 = decodePayload(response1, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload1.state)
+            assertEquals(gameState.createViewForPlayer("player-1"), payload1.stateView)
+
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
+            assertNull(response2.requestId)
+
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+
+            assertEquals(gameState, payload2.state)
+            assertEquals(gameState.createViewForPlayer("player-2"), payload2.stateView)
         }
 
     @Test
-    fun `ADVANCE_TIMEOUT sends and broadcasts GAME_STATE_UPDATED`() =
-        runTest(testDispatcher.scheduler) {
-            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
-                setOf(session1, session2),
-            )
-            val gameState = baseState.copy(phase = GamePhase.AUCTIONEER_DECISION)
-            whenever(gameService.advanceExpiredTimeout("game-1")).thenReturn(gameState)
+    fun `SUBMIT_AUCTION_PAYMENT with no bound player session sends ERROR`() {
+        whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
 
-            sendEnvelope(
-                session = session1,
-                type = WebSocketType.ADVANCE_TIMEOUT,
-                requestId = "req-timeout",
-            )
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SUBMIT_AUCTION_PAYMENT,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    SubmitAuctionPaymentPayload.serializer(),
+                    SubmitAuctionPaymentPayload(moneyCardIds = emptySet()),
+                ),
+        )
 
-            verify(gameService).advanceExpiredTimeout("game-1")
-            assertEquals(
-                WebSocketType.GAME_STATE_UPDATED,
-                captureResponse(session1).type,
-            )
-            assertEquals(
-                WebSocketType.GAME_STATE_UPDATED,
-                captureResponse(session2).type,
-            )
-        }
+        verifyNoInteractions(gameService)
+        assertErrorResponse(session1, "req-1", GameErrorReason.CONNECTION_NOT_BOUND.name)
+    }
+
+    @Test
+    fun `SUBMIT_AUCTION_PAYMENT with missing payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SUBMIT_AUCTION_PAYMENT,
+            requestId = "req-1",
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.MISSING_PAYLOAD.name)
+    }
+
+    @Test
+    fun `SUBMIT_AUCTION_PAYMENT with invalid payload sends ERROR`() {
+        sendEnvelope(
+            session = session1,
+            type = WebSocketType.SUBMIT_AUCTION_PAYMENT,
+            requestId = "req-1",
+            payload =
+                WebSocketJson.json.encodeToJsonElement(
+                    JoinGamePayload.serializer(),
+                    JoinGamePayload("game-1", "Player1"),
+                ),
+        )
+
+        assertErrorResponse(session1, "req-1", GameErrorReason.INVALID_PAYLOAD.name)
+    }
 
     @Test
     fun `CHOOSE_TRADE sends and broadcasts GAME_STATE_UPDATED`() =

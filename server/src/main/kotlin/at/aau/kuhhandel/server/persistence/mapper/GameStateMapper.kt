@@ -274,6 +274,7 @@ object GameStateMapper {
             timerEndTime = entity.timerEndTime,
             excludedPlayerIds = decodeStringList(entity.passedPlayersJson).toSet(),
             buyerId = entity.buyerPlayerId,
+            sellerId = entity.sellerPlayerId,
         )
     }
 

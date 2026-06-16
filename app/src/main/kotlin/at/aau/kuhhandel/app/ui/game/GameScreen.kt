@@ -51,7 +51,7 @@ fun GameScreen(
     onStartGame: () -> Unit,
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
-    onResolveAuction: (Boolean) -> Unit,
+    onBuyBack: (Boolean) -> Unit,
     onSubmitAuctionPayment: () -> Unit,
     tradeActions: TradeActions,
     onToggleMoneyCard: (String) -> Unit,
@@ -209,11 +209,7 @@ fun GameScreen(
             isHandFanned = uiState.isHandFanned,
             onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
-            onCardClick = {
-                if (!isAuctionActive || uiState.canSelectAuctionPaymentCards) {
-                    onToggleMoneyCard(it.id)
-                }
-            },
+            onCardClick = { onToggleMoneyCard(it.id) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -242,11 +238,7 @@ fun GameScreen(
             MoneyHand(
                 cards = myPlayer.moneyCards,
                 selectedCardIds = uiState.selectedMoneyCardIds,
-                onCardClick = {
-                    if (!isAuctionActive || uiState.canSelectAuctionPaymentCards) {
-                        onToggleMoneyCard(it.id)
-                    }
-                },
+                onCardClick = { onToggleMoneyCard(it.id) },
                 isFanned = uiState.isHandFanned,
                 onToggleFanned = onToggleHandFanned,
                 isTradePhase =
@@ -318,7 +310,8 @@ fun GameScreen(
                 AuctionPhaseContent(
                     uiState = uiState,
                     onPlaceBid = onPlaceBid,
-                    onResolveAuction = onResolveAuction,
+                    onBuyBack = onBuyBack,
+                    onToggleMoneyCard = onToggleMoneyCard,
                     onSubmitAuctionPayment = onSubmitAuctionPayment,
                 )
             }
@@ -438,7 +431,7 @@ fun GameScreenPreview() {
         onStartGame = {},
         onRevealCard = {},
         onPlaceBid = {},
-        onResolveAuction = {},
+        onBuyBack = {},
         onSubmitAuctionPayment = {},
         tradeActions =
             TradeActions(

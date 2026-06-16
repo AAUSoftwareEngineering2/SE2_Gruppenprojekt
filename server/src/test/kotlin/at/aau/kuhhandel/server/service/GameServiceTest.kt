@@ -6,9 +6,13 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.AnimalCard
+import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -297,74 +301,6 @@ class GameServiceTest
             }
 
         @Test
-        fun `sweepExpiredTimeouts shows auction result when bidding expires without bids`() =
-            runTest {
-                val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player1")
-                service.joinGame("11111", "Player2")
-                service.joinGame("11111", "Player3")
-                service.startGame("11111", created.playerId)
-
-                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
-                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
-                val biddingState = service.chooseAuction("11111", auctioneerId)
-                val deadline = assertNotNull(biddingState.timerEnd)
-                val eventSlot = slot<GameStateChangedEvent>()
-
-                val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
-
-                assertEquals(listOf("11111"), advanced)
-                val persisted = assertNotNull(persistenceService.loadGameState("11111"))
-                assertEquals(GamePhase.AUCTION_RESULT, persisted.phase)
-                assertEquals(auctioneerId, persisted.auctionState?.buyerId)
-                assertNull(persisted.auctionState?.highestBidderId)
-                assertEquals(persisted.timerEnd, persisted.auctionState?.timerEndTime)
-                verify(exactly = 1) { eventPublisher.publishEvent(capture(eventSlot)) }
-                assertEquals(GamePhase.AUCTION_RESULT, eventSlot.captured.newState.phase)
-                assertEquals(
-                    auctioneerId,
-                    eventSlot.captured.newState.auctionState
-                        ?.buyerId,
-                )
-            }
-
-        @Test
-        fun `sweepExpiredTimeouts shows auctioneer decision after bid timeout`() =
-            runTest {
-                val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player1")
-                service.joinGame("11111", "Player2")
-                service.joinGame("11111", "Player3")
-                service.startGame("11111", created.playerId)
-
-                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
-                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
-                val biddingState = service.chooseAuction("11111", auctioneerId)
-                val bidderId = biddingState.players.first { it.id != auctioneerId }.id
-                val activeBiddingState = service.placeBid("11111", bidderId, 10)
-                val deadline = assertNotNull(activeBiddingState.timerEnd)
-                val eventSlot = slot<GameStateChangedEvent>()
-
-                val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
-
-                assertEquals(listOf("11111"), advanced)
-                val persisted = assertNotNull(persistenceService.loadGameState("11111"))
-                assertEquals(GamePhase.AUCTIONEER_DECISION, persisted.phase)
-                assertEquals(auctioneerId, persisted.auctionState?.auctioneerId)
-                assertEquals(bidderId, persisted.auctionState?.highestBidderId)
-                assertEquals(10, persisted.auctionState?.highestBid)
-                assertNull(persisted.timerEnd)
-                assertNull(persisted.auctionState?.timerEndTime)
-                verify(exactly = 1) { eventPublisher.publishEvent(capture(eventSlot)) }
-                assertEquals(GamePhase.AUCTIONEER_DECISION, eventSlot.captured.newState.phase)
-                assertEquals(
-                    bidderId,
-                    eventSlot.captured.newState.auctionState
-                        ?.highestBidderId,
-                )
-            }
-
-        @Test
         fun `sweepExpiredTimeouts ignores games whose timer is still running`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -380,59 +316,64 @@ class GameServiceTest
             }
 
         @Test
-        fun `advanceExpiredTimeout advances one expired auction timer on demand`() =
+        fun `submitAuctionPayment completes a persisted payment phase after reload`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player1")
-                service.joinGame("11111", "Player2")
-                service.joinGame("11111", "Player3")
-                service.startGame("11111", created.playerId)
-
-                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
-                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
-                val biddingState = service.chooseAuction("11111", auctioneerId)
-                val bidderId = biddingState.players.first { it.id != auctioneerId }.id
-                val activeBiddingState = service.placeBid("11111", bidderId, 10)
-                val expiredAt = System.currentTimeMillis() - 1
                 persistenceService.saveGameState(
                     "11111",
-                    activeBiddingState.copy(
-                        timerEnd = expiredAt,
+                    GameState(
+                        phase = GamePhase.AUCTION_PAYMENT,
+                        players =
+                            listOf(
+                                Player(
+                                    id = "player-1",
+                                    name = "Seller",
+                                ),
+                                Player(
+                                    id = "player-2",
+                                    name = "Buyer",
+                                    moneyCards =
+                                        listOf(
+                                            MoneyCard("m10-a", 10),
+                                            MoneyCard("m10-b", 10),
+                                        ),
+                                ),
+                            ),
+                        hostPlayerId = "player-1",
                         auctionState =
-                            activeBiddingState.auctionState?.copy(
-                                timerEndTime = expiredAt,
+                            AuctionState(
+                                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                                auctioneerId = "player-1",
+                                highestBid = 20,
+                                highestBidderId = "player-2",
+                                buyerId = "player-2",
+                                sellerId = "player-1",
                             ),
                     ),
-                    activityAt = null,
                 )
+                val reloaded = assertNotNull(persistenceService.loadGameState("11111"))
+                val paymentCardIds =
+                    reloaded.players
+                        .single { it.id == "player-2" }
+                        .moneyCards
+                        .mapTo(mutableSetOf()) { it.id }
 
-                val advancedState = service.advanceExpiredTimeout("11111")
+                val updated =
+                    service.submitAuctionPayment(
+                        "11111",
+                        "player-2",
+                        paymentCardIds,
+                    )
 
-                assertEquals(GamePhase.AUCTIONEER_DECISION, advancedState.phase)
-                assertEquals(bidderId, advancedState.auctionState?.highestBidderId)
-                assertNull(advancedState.timerEnd)
-                assertNull(advancedState.auctionState?.timerEndTime)
-                verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
-            }
-
-        @Test
-        fun `advanceExpiredTimeout ignores a timer that has not expired yet`() =
-            runTest {
-                val service = service(codes = listOf("11111"))
-                val created = service.createGame("Player1")
-                service.joinGame("11111", "Player2")
-                service.joinGame("11111", "Player3")
-                service.startGame("11111", created.playerId)
-
-                val choiceState = assertNotNull(persistenceService.loadGameState("11111"))
-                val auctioneerId = choiceState.players[choiceState.currentPlayerIndex].id
-                val biddingState = service.chooseAuction("11111", auctioneerId)
-
-                val state = service.advanceExpiredTimeout("11111")
-
-                assertEquals(GamePhase.AUCTION_BIDDING, state.phase)
-                assertEquals(biddingState.timerEnd, state.timerEnd)
-                verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
+                val seller = updated.players.single { it.id == "player-1" }
+                val buyer = updated.players.single { it.id == "player-2" }
+                assertEquals(GamePhase.AUCTION_RESULT, updated.phase)
+                assertEquals(20, seller.totalMoney())
+                assertTrue(buyer.animals.any { it.type == AnimalType.COW })
+                assertEquals(
+                    GamePhase.AUCTION_RESULT,
+                    persistenceService.loadGameState("11111")?.phase,
+                )
             }
 
         @Test

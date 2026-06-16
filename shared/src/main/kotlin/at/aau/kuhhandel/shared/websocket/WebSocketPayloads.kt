@@ -92,6 +92,7 @@ data class ResolveAuctionPayload(
 
 /**
  * Payload used by [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+ * Sent by the auction buyer to pay for the auctioned card with the selected money cards.
  */
 @Serializable
 data class SubmitAuctionPaymentPayload(

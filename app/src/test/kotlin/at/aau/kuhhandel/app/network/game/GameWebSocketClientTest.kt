@@ -2,7 +2,6 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
-import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
@@ -170,18 +169,9 @@ class GameWebSocketClientTest {
     }
 
     @Test
-    fun `resolveAuction without connect throws`() {
+    fun `buyBack without connect throws`() {
         runBlocking {
-            assertFailsWith<IllegalStateException> { client.resolveAuction(true) }
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment without connect throws`() {
-        runBlocking {
-            assertFailsWith<IllegalStateException> {
-                client.submitAuctionPayment(setOf("money-1"))
-            }
+            assertFailsWith<IllegalStateException> { client.buyBack(true) }
         }
     }
 
@@ -202,6 +192,15 @@ class GameWebSocketClientTest {
         runBlocking {
             assertFailsWith<IllegalStateException> {
                 client.submitTradeMoney(setOf("m1"))
+            }
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment without connect throws`() {
+        runBlocking {
+            assertFailsWith<IllegalStateException> {
+                client.submitAuctionPayment(setOf("m1"))
             }
         }
     }
@@ -323,58 +322,16 @@ class GameWebSocketClientTest {
     }
 
     @Test
-    fun `resolveAuction sends envelope with payload`() {
+    fun `buyBack sends envelope with payload`() {
         runBlocking {
             val connection = connectClient()
 
-            val requestId = client.resolveAuction(true)
+            val requestId = client.buyBack(true)
             val sent = connection.session.onlySentEnvelope()
 
             assertEquals(WebSocketType.RESOLVE_AUCTION, sent.type)
             assertEquals(requestId, sent.requestId)
-            val payload =
-                WebSocketJson.json.decodeFromJsonElement(
-                    ResolveAuctionPayload.serializer(),
-                    assertNotNull(sent.payload),
-                )
-            assertEquals(true, payload.buyBack)
-
-            connection.disconnect()
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment sends envelope with selected cards`() {
-        runBlocking {
-            val connection = connectClient()
-
-            val requestId = client.submitAuctionPayment(setOf("money-1"))
-            val sent = connection.session.onlySentEnvelope()
-
-            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, sent.type)
-            assertEquals(requestId, sent.requestId)
-            val payload =
-                WebSocketJson.json.decodeFromJsonElement(
-                    SubmitAuctionPaymentPayload.serializer(),
-                    assertNotNull(sent.payload),
-                )
-            assertEquals(setOf("money-1"), payload.moneyCardIds)
-
-            connection.disconnect()
-        }
-    }
-
-    @Test
-    fun `advanceTimeout sends envelope without payload`() {
-        runBlocking {
-            val connection = connectClient()
-
-            val requestId = client.advanceTimeout()
-            val sent = connection.session.onlySentEnvelope()
-
-            assertEquals(WebSocketType.ADVANCE_TIMEOUT, sent.type)
-            assertEquals(requestId, sent.requestId)
-            assertEquals(null, sent.payload)
+            assertNotNull(sent.payload)
 
             connection.disconnect()
         }
@@ -411,6 +368,28 @@ class GameWebSocketClientTest {
                 )
 
             assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, sent.type)
+            assertEquals(requestId, sent.requestId)
+            assertEquals(cardIds, payload.moneyCardIds)
+
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment sends envelope with payload`() {
+        runBlocking {
+            val connection = connectClient()
+            val cardIds = setOf("m1", "m2")
+
+            val requestId = client.submitAuctionPayment(cardIds)
+            val sent = connection.session.onlySentEnvelope()
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SubmitAuctionPaymentPayload.serializer(),
+                    assertNotNull(sent.payload),
+                )
+
+            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, sent.type)
             assertEquals(requestId, sent.requestId)
             assertEquals(cardIds, payload.moneyCardIds)
 
