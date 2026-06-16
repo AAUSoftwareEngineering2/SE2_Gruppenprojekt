@@ -20,7 +20,5 @@ class PingService(
             }
         } catch (e: Exception) {
             Result.failure(e)
-        } finally {
-            client.close()
         }
 }
