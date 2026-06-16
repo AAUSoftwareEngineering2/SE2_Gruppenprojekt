@@ -90,7 +90,7 @@ private enum class TutorialAction {
     SELECT_TRADE,
     SEND_OFFER,
     TRADE_RESPONSE,
-    GAME_OVER,
+    WIN_SCREEN,
     SPY_SELECT_FARM,
     SPY_ARM_EYE,
     SPY_SHAKE,
@@ -361,11 +361,11 @@ private val tutorialSlides =
             drawableIds = emptyList(),
         ),
         TutorialSlide(
-            title = "End Of The Game",
+            title = "Winner Screen",
             body =
                 "When all animal sets are complete, the game ends. Money no longer counts; " +
-                    "the player with the highest animal score wins.",
-            action = TutorialAction.GAME_OVER,
+                    "the winner screen ranks players by their final animal score.",
+            action = TutorialAction.WIN_SCREEN,
             drawableIds = emptyList(),
         ),
     )
@@ -980,7 +980,7 @@ private fun TutorialUiPreview(slide: TutorialSlide) {
                 TutorialAction.SELECT_TRADE -> TutorialTradeTargetPreview()
                 TutorialAction.SEND_OFFER -> TutorialSendOfferPreview()
                 TutorialAction.TRADE_RESPONSE -> TutorialTradeResponsePreview()
-                TutorialAction.GAME_OVER -> TutorialGameOverPreview()
+                TutorialAction.WIN_SCREEN -> TutorialWinScreenPreview()
                 TutorialAction.SPY_SELECT_FARM -> SpySelectFarmPreview()
                 TutorialAction.SPY_ARM_EYE -> SpyArmEyePreview()
                 TutorialAction.SPY_SHAKE -> SpyShakePreview()
@@ -1247,19 +1247,119 @@ private fun SpyCatchPreview() {
 }
 
 @Composable
-private fun TutorialGameOverPreview() {
+private fun TutorialWinScreenPreview() {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = LightPurple.copy(alpha = 0.5f),
+        color = WhitePurple,
         border = BorderStroke(1.dp, LightPurple),
     ) {
-        Text(
-            text = "GAME OVER",
-            style = MaterialTheme.typography.headlineSmall,
-            color = DarkPurple,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
-        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "WINNER",
+                style = MaterialTheme.typography.titleLarge,
+                color = DarkPurple,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = "FELIX",
+                style = MaterialTheme.typography.headlineSmall,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = DarkPurple,
+            ) {
+                Text(
+                    text = "1820p",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = WhitePurple,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                listOf(
+                    R.drawable.ig_horse,
+                    R.drawable.ig_cow,
+                    R.drawable.ig_pig,
+                ).forEach { drawableId ->
+                    Image(
+                        painter = painterResource(id = drawableId),
+                        contentDescription = null,
+                        modifier = Modifier.size(width = 44.dp, height = 58.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                WinnerRankPreview("2", "Mia", "1280p")
+                WinnerRankPreview("3", "Noah", "940p")
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = LightPurple.copy(alpha = 0.7f),
+            ) {
+                Text(
+                    text = "HOME",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = DarkPurple,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 34.dp, vertical = 7.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WinnerRankPreview(
+    rank: String,
+    name: String,
+    points: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = LightPurple.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, LightPurple),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = "#$rank",
+                style = MaterialTheme.typography.labelMedium,
+                color = DarkPurple,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelMedium,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = points,
+                style = MaterialTheme.typography.labelSmall,
+                color = DarkPurple,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 
