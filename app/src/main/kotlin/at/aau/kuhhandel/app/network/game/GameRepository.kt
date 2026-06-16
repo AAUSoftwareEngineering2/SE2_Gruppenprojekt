@@ -395,7 +395,7 @@ class GameRepository(
                     return
                 }
 
-                // 2. Try GameJoinedPayload (includes playerId but NOT gameId)
+                // 2. Try GameJoinedPayload (includes gameId and playerId)
                 val joined =
                     runCatching {
                         WebSocketJson.json.decodeFromJsonElement(

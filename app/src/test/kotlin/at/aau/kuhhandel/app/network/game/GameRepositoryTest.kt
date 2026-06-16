@@ -555,6 +555,7 @@ class GameRepositoryTest {
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload
                                 .serializer(),
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
+                                gameId = "g1",
                                 playerId = "player-7da6",
                                 reconnectToken = "test-token",
                                 state = state,
