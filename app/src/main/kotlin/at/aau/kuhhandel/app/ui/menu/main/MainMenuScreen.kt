@@ -24,7 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
@@ -37,6 +36,7 @@ fun MainMenuScreen(
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
     onLeaderboard: () -> Unit,
+    onPingServer: suspend () -> Result<Boolean>,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -128,7 +128,7 @@ fun MainMenuScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val result = PingService().isServerReachable()
+                        val result = onPingServer()
                         result
                             .onSuccess {
                                 Toast

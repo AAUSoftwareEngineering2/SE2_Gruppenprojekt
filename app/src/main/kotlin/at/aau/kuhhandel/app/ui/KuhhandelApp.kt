@@ -18,6 +18,7 @@ import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
 import at.aau.kuhhandel.app.network.leaderboard.LeaderboardService
+import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.game.TradeActions
@@ -42,8 +43,11 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val tokenStorage = remember(context) { TokenStorage(context) }
+
     val sharedHttpClient = remember { NetworkClientFactory.create() }
     val leaderboardService = remember(sharedHttpClient) { LeaderboardService(sharedHttpClient) }
+    val pingService = remember(sharedHttpClient) { PingService(sharedHttpClient) }
+
     val repository =
         remember(scope) {
             GameRepository(
@@ -95,6 +99,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                     onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                     onRules = { navController.navigate(Screen.Rules) },
                     onLeaderboard = { navController.navigate(Screen.Leaderboard) },
+                    onPingServer = { pingService.isServerReachable() },
                 )
             }
 
