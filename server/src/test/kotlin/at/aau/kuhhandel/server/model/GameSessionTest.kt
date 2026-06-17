@@ -1851,13 +1851,16 @@ class GameSessionTest {
     }
 
     @Test
-    fun `makeDefaultPlayerChoice skips player turn when player choice phase expires`() {
-        // Setup: Active turn state with Player 1 frozen at the wheel
+    fun `makeDefaultPlayerChoice starts an auction when deck is not empty`() {
+        // Setup: Ensure the deck has cards so the auction path is taken
+        val testDeck = AnimalDeck(listOf(AnimalCard("cow-1", AnimalType.COW)))
+
         val activeState =
             baselineState.copy(
                 phase = GamePhase.PLAYER_CHOICE,
-                currentPlayerIndex = 0,
+                currentPlayerIndex = 0, // Player 1 is active
                 roundNumber = 5,
+                deck = testDeck,
                 activeSpies =
                     setOf(
                         SpyAction(
@@ -1874,13 +1877,70 @@ class GameSessionTest {
         // Act: Execute via the master timeout gateway
         val updatedState = session.handleTimeoutExpiration()
 
-        // Assert: Advances loop to next seat and stays in player choice room with an automated clock
+        // Assert: Correctly starts an auction for Player 1
+        assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
+        assertEquals(0, updatedState.currentPlayerIndex)
+        assertNotNull(updatedState.auctionState)
+        assertEquals("player-1", updatedState.auctionState?.auctioneerId)
+
+        // Expirations are cleaned up as before
+        assertEquals(emptySet(), updatedState.activeSpies)
+        assertEquals(emptySet(), updatedState.spiedThisTurn)
+    }
+
+    @Test
+    fun `makeDefaultPlayerChoice forces a trade challenge when deck is empty`() {
+        // Setup: Deck is empty. Player1 and Player2 both have a Pig.
+        val player1 =
+            Player("player-1", "Player1", animals = listOf(AnimalCard("pig-1", AnimalType.PIG)))
+        val player2 =
+            Player("player-2", "Player2", animals = listOf(AnimalCard("pig-2", AnimalType.PIG)))
+        val player3 = Player("player-3", "Player3", animals = emptyList())
+
+        val emptyDeckState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                deck = AnimalDeck(emptyList()), // Empty pile
+                players = listOf(player1, player2, player3),
+            )
+        val session = GameSession.fromState("game-1", emptyDeckState)
+
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Transitions to trade offer phase targeting the player holding the matching card
+        assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
+        assertNotNull(updatedState.tradeState)
+        assertEquals("player-1", updatedState.tradeState?.initiatorId)
+        assertEquals("player-2", updatedState.tradeState?.targetId)
+        assertEquals(AnimalType.PIG, updatedState.tradeState?.requestedAnimalType)
+    }
+
+    @Test
+    fun `makeDefaultPlayerChoice skips player turn when no valid trade target exists`() {
+        // Setup: Deck is empty. Player1 has a Pig, but Player2 has a Cow. Zero intersection.
+        val player1 =
+            Player("player-1", "Player1", animals = listOf(AnimalCard("pig-1", AnimalType.PIG)))
+        val player2 =
+            Player("player-2", "Player2", animals = listOf(AnimalCard("cow-1", AnimalType.COW)))
+        val player3 = Player("player-3", "Player3", animals = emptyList())
+
+        val deadlockedHandState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                roundNumber = 5,
+                deck = AnimalDeck(emptyList()),
+                players = listOf(player1, player2, player3),
+            )
+        val session = GameSession.fromState("game-1", deadlockedHandState)
+
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Skips over Player1 and moves turn to Player2 (index 1)
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
-        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
-        assertEquals(emptySet(), updatedState.activeSpies)
-        assertEquals(emptySet(), updatedState.spiedThisTurn)
     }
 
     @Test

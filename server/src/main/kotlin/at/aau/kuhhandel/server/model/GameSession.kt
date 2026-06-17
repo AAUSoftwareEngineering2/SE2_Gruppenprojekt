@@ -654,15 +654,44 @@ class GameSession(
         }
 
     /**
-     * Skip the player's turn.
+     * Handles an automated time-out choice for the active player.
      */
     private fun makeDefaultPlayerChoice(): GameState {
-        state =
-            state.copy(
-                activeSpies = emptySet(),
-                spiedThisTurn = emptySet(),
-            )
-        return advanceTurnAndCheckGameEnd()
+        // If there are cards left in the pile, start an auction
+        if (!state.deck.isEmpty()) {
+            return chooseAuction(state.players[state.currentPlayerIndex].id)
+        }
+
+        // If the deck is empty, start a trade to prevent a softlock
+        val activePlayer = state.players[state.currentPlayerIndex]
+
+        // Find an opponent who shares an animal type with the active player
+        val validTradeTargetPair =
+            state.players
+                .filter { it.id != activePlayer.id }
+                .firstNotNullOfOrNull { opponent ->
+                    val sharedType =
+                        activePlayer.animals
+                            .map { it.type }
+                            .intersect(opponent.animals.map { it.type }.toSet())
+                            .firstOrNull()
+
+                    if (sharedType != null) opponent.id to sharedType else null
+                }
+
+        return if (validTradeTargetPair != null) {
+            // Initiate a trade automatically
+            val (targetId, animalType) = validTradeTargetPair
+            chooseTrade(activePlayer.id, targetId, animalType)
+        } else {
+            // Skip the turn if neither auction nor trade is possible
+            state =
+                state.copy(
+                    activeSpies = emptySet(),
+                    spiedThisTurn = emptySet(),
+                )
+            advanceTurnAndCheckGameEnd()
+        }
     }
 
     /**

@@ -461,15 +461,17 @@ class GameServiceTest
                 val expired = assertNotNull(persistenceService.loadGameState("11111"))
                 val deadline = assertNotNull(expired.timerEnd)
 
-                // Sweep with a "now" after the deadline.
+                // First sweep starts an auction
                 val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
-
                 assertEquals(listOf("11111"), advanced)
                 verify(exactly = 1) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
 
-                // Second sweep at the same instant must be a no-op (the new deadline is in
-                // the future).
-                val secondSweep = service.sweepExpiredTimeouts(now = deadline + 1)
+                // Fetch the freshly generated auction timer from the database row
+                val auctionState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctionTimer = assertNotNull(auctionState.timerEnd)
+
+                // Second sweep must happen BEFORE the auction timer runs out
+                val secondSweep = service.sweepExpiredTimeouts(now = auctionTimer - 1000L)
                 assertEquals(emptyList(), secondSweep)
             }
 
