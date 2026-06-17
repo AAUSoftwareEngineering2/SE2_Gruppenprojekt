@@ -18,6 +18,7 @@ import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -85,6 +86,8 @@ class GameWebSocketHandler(
                     WebSocketType.CHOOSE_AUCTION -> handleChooseAuction(session, envelope)
                     WebSocketType.PLACE_BID -> handlePlaceBid(session, envelope)
                     WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
+                    WebSocketType.SUBMIT_AUCTION_PAYMENT ->
+                        handleSubmitAuctionPayment(session, envelope)
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
@@ -374,6 +377,27 @@ class GameWebSocketHandler(
         val payload = decodePayload(envelope, ResolveAuctionPayload.serializer())
 
         val state = gameService.resolveAuction(gameId, actorId, payload.buyBack)
+
+        sendStateUpdate(session, envelope.requestId, state, actorId)
+        broadcastStateUpdate(gameId, state, session)
+    }
+
+    /**
+     * Processes [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+     */
+    private suspend fun handleSubmitAuctionPayment(
+        session: WebSocketSession,
+        envelope: WebSocketEnvelope,
+    ) {
+        val (gameId, actorId) = requireBoundPlayerSession(session.id)
+        val payload = decodePayload(envelope, SubmitAuctionPaymentPayload.serializer())
+
+        val state =
+            gameService.submitAuctionPayment(
+                gameId,
+                actorId,
+                payload.moneyCardIds,
+            )
 
         sendStateUpdate(session, envelope.requestId, state, actorId)
         broadcastStateUpdate(gameId, state, session)
