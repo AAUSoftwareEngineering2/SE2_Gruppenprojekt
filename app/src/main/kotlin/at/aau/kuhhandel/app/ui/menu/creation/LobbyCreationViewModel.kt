@@ -17,9 +17,10 @@ data class LobbyCreationUiState(
     val gameId: String? = null,
     val errorMessage: String? = null,
     val isCreated: Boolean = false,
+    val isCreating: Boolean = false,
 ) {
     val canSubmit: Boolean
-        get() = PlayerNameRules.isValid(playerName) && !isConnecting && gameId == null
+        get() = PlayerNameRules.isValid(playerName) && !isConnecting && !isCreating && gameId == null
 }
 
 class LobbyCreationViewModel(
@@ -28,20 +29,28 @@ class LobbyCreationViewModel(
 ) {
     private val playerName = MutableStateFlow("")
     private val playerNameError = MutableStateFlow<String?>(null)
+    private val isCreating = MutableStateFlow(false)
 
     val uiState: StateFlow<LobbyCreationUiState> =
         combine(
             playerName,
             playerNameError,
+            isCreating,
             repository.state,
-        ) { name, nameError, repoState ->
+        ) { name, nameError, creating, repoState ->
+            val isCreated = repoState.gameId != null && repoState.gameState != null
+            if (isCreated || repoState.errorMessage != null) {
+                isCreating.value = false
+            }
+
             LobbyCreationUiState(
                 playerName = name,
                 playerNameError = nameError,
                 isConnecting = repoState.isConnecting,
                 gameId = repoState.gameId,
                 errorMessage = repoState.errorMessage,
-                isCreated = repoState.gameId != null,
+                isCreated = isCreated,
+                isCreating = creating,
             )
         }.stateIn(
             scope = scope,
@@ -65,11 +74,12 @@ class LobbyCreationViewModel(
         }
         playerName.value = name
         playerNameError.value = null
+        isCreating.value = true
         scope.launch {
             try {
                 repository.createGame(name)
             } catch (e: Exception) {
-                // Repository surfaces the error via state.errorMessage.
+                isCreating.value = false
             }
         }
     }
