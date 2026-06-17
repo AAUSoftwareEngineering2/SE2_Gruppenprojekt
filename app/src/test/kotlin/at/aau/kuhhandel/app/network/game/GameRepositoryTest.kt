@@ -442,14 +442,19 @@ class GameRepositoryTest {
     fun `error envelopes update the state and can be cleared`() {
         runBlocking {
             val harness = createHarness()
+            val reason = at.aau.kuhhandel.shared.enums.GameErrorReason.GAME_NOT_FOUND
+            val technicalName = reason.name
+            val expectedFriendly = "Game not found. Please check the code."
 
+            // Must call an action first to ensure connection is open and collector is running
             harness.createGame()
-            harness.receiveError("Invalid move")
 
-            assertEquals("Invalid move", harness.state.errorMessage)
+            harness.receiveError(technicalName)
+
+            assertEquals(expectedFriendly, harness.state.errorMessage)
 
             harness.clearError()
-            assertNull(harness.state.errorMessage)
+            assertEquals(null, harness.state.errorMessage)
         }
     }
 
@@ -555,6 +560,7 @@ class GameRepositoryTest {
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload
                                 .serializer(),
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
+                                gameId = "g1",
                                 playerId = "player-7da6",
                                 reconnectToken = "test-token",
                                 state = state,

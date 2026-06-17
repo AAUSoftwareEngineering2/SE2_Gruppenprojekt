@@ -48,6 +48,7 @@ data class JoinGamePayload(
  */
 @Serializable
 data class GameJoinedPayload(
+    val gameId: String,
     val playerId: String,
     val reconnectToken: String,
     val state: GameState,

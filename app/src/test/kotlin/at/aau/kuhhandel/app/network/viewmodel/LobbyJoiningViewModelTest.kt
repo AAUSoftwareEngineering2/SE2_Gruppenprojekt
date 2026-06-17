@@ -3,6 +3,7 @@ package at.aau.kuhhandel.app.network.viewmodel
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameRepositoryState
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
+import at.aau.kuhhandel.shared.model.GameState
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -169,7 +170,7 @@ class LobbyJoiningViewModelTest {
                 viewModel.uiState.collect {}
             }
 
-            repoStateFlow.value = GameRepositoryState(gameId = "54321")
+            repoStateFlow.value = GameRepositoryState(gameId = "54321", gameState = GameState())
             advanceUntilIdle()
 
             assertTrue(viewModel.uiState.value.isJoined)
