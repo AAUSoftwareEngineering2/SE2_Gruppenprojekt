@@ -48,6 +48,7 @@ data class JoinGamePayload(
  */
 @Serializable
 data class GameJoinedPayload(
+    val gameId: String,
     val playerId: String,
     val reconnectToken: String,
     val state: GameState,
@@ -88,6 +89,15 @@ data class PlaceBidPayload(
 @Serializable
 data class ResolveAuctionPayload(
     val buyBack: Boolean,
+)
+
+/**
+ * Payload used by [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+ * Sent by the auction buyer to pay for the auctioned card with the selected money cards.
+ */
+@Serializable
+data class SubmitAuctionPaymentPayload(
+    val moneyCardIds: Set<String>,
 )
 
 /**

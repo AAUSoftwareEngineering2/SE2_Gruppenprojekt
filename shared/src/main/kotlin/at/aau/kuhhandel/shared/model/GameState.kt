@@ -147,4 +147,10 @@ data class GameState(
                 tradeState = null,
             )
     }
+
+    fun isFinished(): Boolean = this.phase == GamePhase.FINISHED
+
+    fun hasPlayer(playerId: String): Boolean = this.players.any { it.id == playerId }
+
+    fun hasNoPlayers(): Boolean = this.players.isEmpty()
 }

@@ -420,6 +420,7 @@ class GamePersistenceService(
                     passedPlayersJson = passedJson,
                     timerEndTime = auction.timerEndTime,
                     buyerPlayerId = auction.buyerId,
+                    sellerPlayerId = auction.sellerId,
                 ),
             )
         } else {
@@ -430,6 +431,7 @@ class GamePersistenceService(
             existing.passedPlayersJson = passedJson
             existing.timerEndTime = auction.timerEndTime
             existing.buyerPlayerId = auction.buyerId
+            existing.sellerPlayerId = auction.sellerId
             auctionStateRepository.save(existing)
         }
     }

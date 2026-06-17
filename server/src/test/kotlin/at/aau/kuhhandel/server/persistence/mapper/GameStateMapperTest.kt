@@ -24,6 +24,14 @@ class GameStateMapperTest {
             PersistedStatus.AUCTION,
             GameStateMapper.toGameStatus(GamePhase.AUCTIONEER_DECISION),
         )
+        kotlin.test.assertEquals(
+            PersistedStatus.AUCTION,
+            GameStateMapper.toGameStatus(GamePhase.AUCTION_PAYMENT),
+        )
+        kotlin.test.assertEquals(
+            PersistedStatus.AUCTION,
+            GameStateMapper.toGameStatus(GamePhase.AUCTION_RESULT),
+        )
     }
 
     @Test
@@ -125,6 +133,69 @@ class GameStateMapperTest {
             )
 
         assertEquals("active-player", state.auctionState?.auctioneerId)
+    }
+
+    @Test
+    fun `auction payment buyer and seller ids restore from persisted auction state`() {
+        val game =
+            GameEntity(
+                id = 12345L,
+                phase = GamePhase.AUCTION_PAYMENT,
+            )
+        val buyerUser =
+            UserEntity(
+                username = "buyer-user",
+                passwordHash = "buyer",
+                id = 101L,
+            )
+        val sellerUser =
+            UserEntity(
+                username = "seller-user",
+                passwordHash = "seller",
+                id = 102L,
+            )
+        val buyer =
+            GamePlayerEntity(
+                game = game,
+                user = buyerUser,
+                playerId = "buyer",
+                displayName = "Buyer",
+                seatOrder = 0,
+                id = 201L,
+            )
+        val seller =
+            GamePlayerEntity(
+                game = game,
+                user = sellerUser,
+                playerId = "seller",
+                displayName = "Seller",
+                seatOrder = 1,
+                id = 202L,
+            )
+        val auction =
+            AuctionStateEntity(
+                game = game,
+                currentAnimal = AnimalType.COW,
+                auctioneerPlayerId = "seller",
+                highestBid = 20,
+                highestBidder = buyer,
+                buyerPlayerId = "buyer",
+                sellerPlayerId = "seller",
+            )
+
+        val state =
+            GameStateMapper.toGameState(
+                game = game,
+                players = listOf(buyer, seller),
+                animalsByPlayer = emptyMap(),
+                moneyByPlayer = emptyMap(),
+                deck = emptyList(),
+                auction = auction,
+                trade = null,
+            )
+
+        assertEquals("buyer", state.auctionState?.buyerId)
+        assertEquals("seller", state.auctionState?.sellerId)
     }
 
     @Test

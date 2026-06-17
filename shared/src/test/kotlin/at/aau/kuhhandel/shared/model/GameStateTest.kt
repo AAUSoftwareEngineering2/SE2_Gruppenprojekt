@@ -263,4 +263,38 @@ class GameStateTest {
     fun test_updatePlayer_throws_ifPlayerDoesNotExist() {
         assertThrows<IllegalStateException> { baseState.updatePlayer("player-4") { it } }
     }
+
+    @Test
+    fun test_isFinished_returnsTrue_ifGameIsFinished() {
+        val finishedState = baseState.copy(phase = GamePhase.FINISHED)
+
+        assertTrue(finishedState.isFinished())
+    }
+
+    @Test
+    fun test_isFinished_returnsFalse_ifGameIsNotFinished() {
+        assertFalse(baseState.isFinished())
+    }
+
+    @Test
+    fun test_hasPlayer_returnsTrue_ifStateContainsPlayer() {
+        assertTrue(baseState.hasPlayer("player-1"))
+    }
+
+    @Test
+    fun test_hasPlayer_returnsFalse_ifStateDoesNotContainPlayer() {
+        assertFalse(baseState.hasPlayer("player-4"))
+    }
+
+    @Test
+    fun test_hasNoPlayers_returnsTrue_ifStateContainsNoPlayers() {
+        val emptyState = baseState.copy(players = emptyList())
+
+        assertTrue(emptyState.hasNoPlayers())
+    }
+
+    @Test
+    fun test_hasNoPlayers_returnsFalse_ifStateContainsAtLeastOnePlayer() {
+        assertFalse(baseState.hasNoPlayers())
+    }
 }

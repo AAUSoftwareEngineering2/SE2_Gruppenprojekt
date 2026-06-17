@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.audio.LocalButtonClickSound
-import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
@@ -37,6 +36,8 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
+    onLeaderboard: () -> Unit,
+    onPingServer: suspend () -> Result<Boolean>,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -107,6 +108,20 @@ fun MainMenuScreen(
             }
         }
 
+        // Leaderboard
+        Button(
+            onClick = {
+                playClickSound()
+                onLeaderboard()
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+        ) {
+            Text("Leaderboard")
+        }
+
         // DEBUG: Navigation & Ping Buttons
         Row(
             modifier =
@@ -119,7 +134,7 @@ fun MainMenuScreen(
                 onClick = {
                     playClickSound()
                     scope.launch {
-                        val result = PingService().isServerReachable()
+                        val result = onPingServer()
                         result
                             .onSuccess {
                                 Toast

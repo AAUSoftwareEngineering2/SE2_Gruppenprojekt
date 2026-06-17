@@ -35,6 +35,7 @@ fun RoomCreationScreen(
 
     LaunchedEffect(uiState.isCreated, uiState.gameId) {
         if (uiState.isCreated && uiState.gameId != null) {
+            kotlinx.coroutines.delay(500)
             onLobbyCreated(uiState.gameId)
         }
     }
