@@ -8,4 +8,5 @@ data class Opponent(
     val name: String,
     val animals: List<AnimalCard>,
     val moneyCardCount: Int,
+    val isConnected: Boolean,
 )

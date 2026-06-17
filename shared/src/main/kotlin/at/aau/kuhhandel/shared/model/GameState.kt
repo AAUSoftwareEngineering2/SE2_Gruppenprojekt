@@ -43,6 +43,7 @@ data class GameState(
                     name = player.name,
                     animals = player.animals,
                     moneyCardCount = player.moneyCards.size,
+                    isConnected = player.isConnected,
                 )
             }
 
