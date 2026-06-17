@@ -151,7 +151,7 @@ class GameSession(
                 event =
                     GameEvent.MoneyBonus(
                         amount = bonusValue,
-                        message = "Golden Donkey! Everyone receives $bonusValue€.",
+                        message = "Goldesel! Jeder erhält $bonusValue€.",
                     )
             }
         }
