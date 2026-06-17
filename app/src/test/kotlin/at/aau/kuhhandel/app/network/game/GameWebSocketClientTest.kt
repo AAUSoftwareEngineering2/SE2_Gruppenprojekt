@@ -3,7 +3,6 @@ package at.aau.kuhhandel.app.network.game
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
-import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -197,15 +196,6 @@ class GameWebSocketClientTest {
     }
 
     @Test
-    fun `submitAuctionPayment without connect throws`() {
-        runBlocking {
-            assertFailsWith<IllegalStateException> {
-                client.submitAuctionPayment(setOf("m1"))
-            }
-        }
-    }
-
-    @Test
     fun `joinGame without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.joinGame("g1", "Player1") }
@@ -368,28 +358,6 @@ class GameWebSocketClientTest {
                 )
 
             assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, sent.type)
-            assertEquals(requestId, sent.requestId)
-            assertEquals(cardIds, payload.moneyCardIds)
-
-            connection.disconnect()
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment sends envelope with payload`() {
-        runBlocking {
-            val connection = connectClient()
-            val cardIds = setOf("m1", "m2")
-
-            val requestId = client.submitAuctionPayment(cardIds)
-            val sent = connection.session.onlySentEnvelope()
-            val payload =
-                WebSocketJson.json.decodeFromJsonElement(
-                    SubmitAuctionPaymentPayload.serializer(),
-                    assertNotNull(sent.payload),
-                )
-
-            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, sent.type)
             assertEquals(requestId, sent.requestId)
             assertEquals(cardIds, payload.moneyCardIds)
 

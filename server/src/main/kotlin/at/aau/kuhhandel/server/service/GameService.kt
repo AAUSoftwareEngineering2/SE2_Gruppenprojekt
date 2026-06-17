@@ -220,23 +220,6 @@ class GameService(
         executeAction(gameId) { session -> session.resolveAuction(actorId, auctioneerBuysCard) }
 
     /**
-     * Submits the auction buyer's selected money cards as payment.
-     *
-     * Expects a valid [gameId].
-     */
-    suspend fun submitAuctionPayment(
-        gameId: String,
-        actorId: String,
-        moneyCardIds: Set<String>,
-    ): GameState =
-        executeAction(gameId) { session ->
-            session.submitAuctionPayment(
-                actorId,
-                moneyCardIds,
-            )
-        }
-
-    /**
      * Starts a trade against an opponent.
      *
      * Expects a valid [gameId].

@@ -16,7 +16,6 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
-import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -65,10 +64,6 @@ class GameRepositoryTest {
 
         suspend fun buyBack(buyBack: Boolean) {
             repository.buyBack(buyBack)
-        }
-
-        suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
-            repository.submitAuctionPayment(moneyCardIds)
         }
 
         suspend fun initiateTrade(
@@ -330,26 +325,6 @@ class GameRepositoryTest {
             harness.repository.submitTradeMoney(setOf("m1"))
 
             assertEquals(WebSocketType.SUBMIT_TRADE_MONEY, harness.sentTypes().last())
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment sends request`() {
-        runBlocking {
-            val harness = createHarness()
-            val cardIds = setOf("m1", "m2")
-            harness.createGame()
-
-            harness.submitAuctionPayment(cardIds)
-
-            val envelope = harness.session.sentEnvelopes().last()
-            val payload =
-                WebSocketJson.json.decodeFromJsonElement(
-                    SubmitAuctionPaymentPayload.serializer(),
-                    assertNotNull(envelope.payload),
-                )
-            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, envelope.type)
-            assertEquals(cardIds, payload.moneyCardIds)
         }
     }
 

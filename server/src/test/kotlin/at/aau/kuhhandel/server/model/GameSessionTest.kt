@@ -629,28 +629,7 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", resolutionState)
 
         // Act: Auctioneer decides NOT to buy
-        val paymentState = session.resolveAuction("player-1", auctioneerBuysCard = false)
-
-        // Assert: Transitions to the payment phase with buyer/seller recorded, no money moved yet
-        assertEquals(GamePhase.AUCTION_PAYMENT, paymentState.phase)
-        assertValidTimeout(
-            expectedDuration = PhaseDurations.AUCTION_PAYMENT_MS,
-            state = paymentState,
-        )
-        val paymentAuction = paymentState.auctionState
-        assertNotNull(paymentAuction)
-        assertEquals("player-2", paymentAuction.buyerId)
-        assertEquals("player-1", paymentAuction.sellerId)
-        assertEquals(20, paymentState.players.find { it.id == "player-2" }!!.totalMoney())
-
-        // Act: Buyer pays with both 10 cards
-        val buyerCardIds =
-            paymentState.players
-                .find { it.id == "player-2" }!!
-                .moneyCards
-                .map { it.id }
-                .toSet()
-        val updatedState = session.submitAuctionPayment("player-2", buyerCardIds)
+        val updatedState = session.resolveAuction("player-1", auctioneerBuysCard = false)
 
         val seller = updatedState.players.find { it.id == "player-1" }!!
         val buyer = updatedState.players.find { it.id == "player-2" }!!
@@ -698,23 +677,7 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", resolutionState)
 
         // Act: Auctioneer buys the card
-        val paymentState = session.resolveAuction("player-1", auctioneerBuysCard = true)
-
-        // Assert: Transitions to the payment phase with the auctioneer as buyer
-        assertEquals(GamePhase.AUCTION_PAYMENT, paymentState.phase)
-        val paymentAuction = paymentState.auctionState
-        assertNotNull(paymentAuction)
-        assertEquals("player-1", paymentAuction.buyerId)
-        assertEquals("player-2", paymentAuction.sellerId)
-
-        // Act: Auctioneer pays with their 50 card
-        val buyerCardIds =
-            paymentState.players
-                .find { it.id == "player-1" }!!
-                .moneyCards
-                .map { it.id }
-                .toSet()
-        val updatedState = session.submitAuctionPayment("player-1", buyerCardIds)
+        val updatedState = session.resolveAuction("player-1", auctioneerBuysCard = true)
 
         val buyer = updatedState.players.find { it.id == "player-1" }!!
         val seller = updatedState.players.find { it.id == "player-2" }!!
@@ -1832,14 +1795,13 @@ class GameSessionTest {
         // Act: Execute via the master timeout gateway
         val updatedState = session.handleTimeoutExpiration()
 
-        // Assert: Cascades to resolveAuction, which prompts the high bidder to pay
-        assertEquals(GamePhase.AUCTION_PAYMENT, updatedState.phase)
+        // Assert: Natively cascades to resolveAuction to force card sale to high bidder
+        assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
         assertValidTimeout(
-            expectedDuration = PhaseDurations.AUCTION_PAYMENT_MS,
+            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
             state = updatedState,
         )
         assertEquals("player-2", updatedState.auctionState?.buyerId)
-        assertEquals("player-1", updatedState.auctionState?.sellerId)
     }
 
     @Test
@@ -1852,96 +1814,6 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", brokenState)
 
         assertThrows<IllegalStateException> { session.handleTimeoutExpiration() }
-    }
-
-    /**
-     * Builds an auction state parked in [GamePhase.AUCTION_PAYMENT] where player-2 (the buyer)
-     * owes 20 to player-1 (the seller) and holds two 10 money cards.
-     */
-    private fun auctionPaymentState() =
-        baselineState.copy(
-            phase = GamePhase.AUCTION_PAYMENT,
-            auctionState =
-                AuctionState(
-                    auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                    auctioneerId = "player-1",
-                    highestBid = 20,
-                    highestBidderId = "player-2",
-                    buyerId = "player-2",
-                    sellerId = "player-1",
-                ),
-            players =
-                baselineState.players.withPlayerAssets(
-                    "player-2",
-                    moneyValues = listOf(10, 10),
-                ),
-        )
-
-    @Test
-    fun `submitAuctionPayment transfers selected cards and awards the animal`() {
-        val session = GameSession.fromState("game-1", auctionPaymentState())
-        val buyerCardIds =
-            session.state.players
-                .find { it.id == "player-2" }!!
-                .moneyCards
-                .map { it.id }
-                .toSet()
-
-        val updatedState = session.submitAuctionPayment("player-2", buyerCardIds)
-
-        val seller = updatedState.players.find { it.id == "player-1" }!!
-        val buyer = updatedState.players.find { it.id == "player-2" }!!
-        assertTrue(buyer.animals.any { it.id == "cow-1" })
-        assertTrue(buyer.moneyCards.isEmpty())
-        assertEquals(20, seller.totalMoney())
-        assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
-        assertValidTimeout(
-            expectedDuration = PhaseDurations.AUCTION_RESULT_MS,
-            state = updatedState,
-        )
-    }
-
-    @Test
-    fun `submitAuctionPayment fails when the selection does not cover the bid`() {
-        val session = GameSession.fromState("game-1", auctionPaymentState())
-        val singleCardId =
-            session.state.players
-                .find { it.id == "player-2" }!!
-                .moneyCards
-                .first()
-                .id
-
-        assertActionFailsWithReason(auctionPaymentState(), GameErrorReason.NOT_ENOUGH_MONEY) {
-            it.submitAuctionPayment("player-2", setOf(singleCardId))
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment fails if actor is not the buyer`() {
-        assertActionFailsWithReason(auctionPaymentState(), GameErrorReason.NOT_AUCTIONEER) {
-            it.submitAuctionPayment("player-1", emptySet())
-        }
-    }
-
-    @Test
-    fun `submitAuctionPayment fails if phase is invalid`() {
-        assertFailsWithInvalidPhase(baselineState.copy(phase = GamePhase.AUCTIONEER_DECISION)) {
-            it.submitAuctionPayment("player-2", emptySet())
-        }
-    }
-
-    @Test
-    fun `auction payment timeout auto-selects the buyer's money cards`() {
-        val session = GameSession.fromState("game-1", auctionPaymentState())
-
-        val updatedState = session.handleTimeoutExpiration()
-
-        val seller = updatedState.players.find { it.id == "player-1" }!!
-        val buyer = updatedState.players.find { it.id == "player-2" }!!
-        assertTrue(buyer.animals.any { it.id == "cow-1" })
-        assertEquals(20, seller.totalMoney())
-        assertEquals(0, buyer.totalMoney())
-        assertEquals(GamePhase.AUCTION_RESULT, updatedState.phase)
     }
 
     @Test
@@ -2141,17 +2013,7 @@ class GameSessionTest {
         val session = GameSession.fromState("game-1", decisionState)
 
         // Act: Auctioneer manually executes buy-back to claim the final quartet card
-        val paymentState = session.resolveAuction("player-1", auctioneerBuysCard = true)
-        assertEquals(GamePhase.AUCTION_PAYMENT, paymentState.phase)
-
-        // Act: Auctioneer pays for the card, entering the result phase
-        val buyerCardIds =
-            paymentState.players
-                .find { it.id == "player-1" }!!
-                .moneyCards
-                .map { it.id }
-                .toSet()
-        val stateAfterResolution = session.submitAuctionPayment("player-1", buyerCardIds)
+        val stateAfterResolution = session.resolveAuction("player-1", auctioneerBuysCard = true)
 
         // Assert: Verify the game enters the result phase successfully
         assertEquals(GamePhase.AUCTION_RESULT, stateAfterResolution.phase)
@@ -2191,9 +2053,8 @@ class GameSessionTest {
             )
         val session = GameSession.fromState("game-1", resolutionState)
 
-        // Act: Resolve the auction, then let the payment timer expire so the server auto-picks
-        session.resolveAuction("player-2", auctioneerBuysCard = false)
-        val updatedState = session.handleTimeoutExpiration()
+        // Act: Resolve the auction phase
+        val updatedState = session.resolveAuction("player-2", auctioneerBuysCard = false)
 
         val buyer = updatedState.players.find { it.id == "player-1" }!!
         val seller = updatedState.players.find { it.id == "player-2" }!!

@@ -6,11 +6,6 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
 import io.mockk.mockk
 import io.mockk.verify
@@ -243,7 +238,6 @@ class GameServiceTest
                     { service.chooseAuction("99999", "p") },
                     { service.placeBid("99999", "p", 10) },
                     { service.resolveAuction("99999", "p", auctioneerBuysCard = false) },
-                    { service.submitAuctionPayment("99999", "p", emptySet()) },
                     { service.chooseTrade("99999", "p", "q", AnimalType.COW) },
                     { service.submitTradeMoney("99999", "p", emptySet()) },
                     { service.respondToTrade("99999", "p", emptySet()) },
@@ -313,67 +307,6 @@ class GameServiceTest
 
                 assertEquals(emptyList(), advanced)
                 verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
-            }
-
-        @Test
-        fun `submitAuctionPayment completes a persisted payment phase after reload`() =
-            runTest {
-                val service = service(codes = listOf("11111"))
-                persistenceService.saveGameState(
-                    "11111",
-                    GameState(
-                        phase = GamePhase.AUCTION_PAYMENT,
-                        players =
-                            listOf(
-                                Player(
-                                    id = "player-1",
-                                    name = "Seller",
-                                ),
-                                Player(
-                                    id = "player-2",
-                                    name = "Buyer",
-                                    moneyCards =
-                                        listOf(
-                                            MoneyCard("m10-a", 10),
-                                            MoneyCard("m10-b", 10),
-                                        ),
-                                ),
-                            ),
-                        hostPlayerId = "player-1",
-                        auctionState =
-                            AuctionState(
-                                auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                                auctioneerId = "player-1",
-                                highestBid = 20,
-                                highestBidderId = "player-2",
-                                buyerId = "player-2",
-                                sellerId = "player-1",
-                            ),
-                    ),
-                )
-                val reloaded = assertNotNull(persistenceService.loadGameState("11111"))
-                val paymentCardIds =
-                    reloaded.players
-                        .single { it.id == "player-2" }
-                        .moneyCards
-                        .mapTo(mutableSetOf()) { it.id }
-
-                val updated =
-                    service.submitAuctionPayment(
-                        "11111",
-                        "player-2",
-                        paymentCardIds,
-                    )
-
-                val seller = updated.players.single { it.id == "player-1" }
-                val buyer = updated.players.single { it.id == "player-2" }
-                assertEquals(GamePhase.AUCTION_RESULT, updated.phase)
-                assertEquals(20, seller.totalMoney())
-                assertTrue(buyer.animals.any { it.type == AnimalType.COW })
-                assertEquals(
-                    GamePhase.AUCTION_RESULT,
-                    persistenceService.loadGameState("11111")?.phase,
-                )
             }
 
         @Test

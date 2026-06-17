@@ -44,7 +44,6 @@ object GameStateMapper {
         when (phase) {
             GamePhase.AUCTION_BIDDING,
             GamePhase.AUCTIONEER_DECISION,
-            GamePhase.AUCTION_PAYMENT,
             GamePhase.AUCTION_RESULT,
             -> GameStatus.AUCTION
 
@@ -274,7 +273,6 @@ object GameStateMapper {
             timerEndTime = entity.timerEndTime,
             excludedPlayerIds = decodeStringList(entity.passedPlayersJson).toSet(),
             buyerId = entity.buyerPlayerId,
-            sellerId = entity.sellerPlayerId,
         )
     }
 

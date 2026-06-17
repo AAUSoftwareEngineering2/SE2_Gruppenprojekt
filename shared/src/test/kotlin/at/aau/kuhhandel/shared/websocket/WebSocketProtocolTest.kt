@@ -187,19 +187,6 @@ class WebSocketProtocolTest {
     }
 
     @Test
-    fun `SubmitAuctionPaymentPayload round-trips`() {
-        val payload =
-            SubmitAuctionPaymentPayload(
-                moneyCardIds = setOf("m1", "m2"),
-            )
-
-        val encoded = json.encodeToString(SubmitAuctionPaymentPayload.serializer(), payload)
-        val decoded = json.decodeFromString(SubmitAuctionPaymentPayload.serializer(), encoded)
-
-        assertEquals(payload, decoded)
-    }
-
-    @Test
     fun `RespondToTradePayload round-trips`() {
         val payload =
             RespondToTradePayload(

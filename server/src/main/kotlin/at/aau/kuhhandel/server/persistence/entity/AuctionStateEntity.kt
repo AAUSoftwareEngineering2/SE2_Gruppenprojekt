@@ -44,8 +44,6 @@ class AuctionStateEntity(
     var isClosed: Boolean = false,
     @Column(name = "buyer_player_id", length = 64)
     var buyerPlayerId: String? = null,
-    @Column(name = "seller_player_id", length = 64)
-    var sellerPlayerId: String? = null,
     @Id
     @Column(name = "game_id")
     var gameId: Long? = null,
