@@ -3,7 +3,9 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
+import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.ReconnectResult
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.AnimalType
@@ -23,6 +25,7 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
+import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
@@ -373,6 +376,7 @@ class GameWebSocketHandlerTest {
                 RoomActionResult(
                     "game-1",
                     "player-1",
+                    "token-from-service",
                     createdSession.state,
                 )
 
@@ -399,10 +403,11 @@ class GameWebSocketHandlerTest {
             val payload = decodePayload(response, GameCreatedPayload.serializer())
 
             assertEquals("game-1", payload.gameId)
+            assertEquals("token-from-service", payload.reconnectToken)
             assertEquals(createdSession.state, payload.state)
             assertEquals(createdSession.state.createViewForPlayer("player-1"), payload.stateView)
             verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
-            verify(gameService).storeReconnectToken("game-1", "player-1", payload.reconnectToken)
+            verify(gameService, never()).storeReconnectToken(any(), any(), any())
         }
 
     @Test
@@ -434,6 +439,7 @@ class GameWebSocketHandlerTest {
                 RoomActionResult(
                     "game-1",
                     "player-1",
+                    "token-from-service",
                     state,
                 )
 
@@ -470,10 +476,11 @@ class GameWebSocketHandlerTest {
 
             assertEquals("game-1", payload1.gameId)
             assertEquals("player-1", payload1.playerId)
+            assertEquals("token-from-service", payload1.reconnectToken)
             assertEquals(state, payload1.state)
             assertEquals(state.createViewForPlayer("player-1"), payload1.stateView)
             verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
-            verify(gameService).storeReconnectToken("game-1", "player-1", payload1.reconnectToken)
+            verify(gameService, never()).storeReconnectToken(any(), any(), any())
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -592,10 +599,8 @@ class GameWebSocketHandlerTest {
                     session2,
                 ),
             )
-            whenever(gameService.reconnectPlayer("game-1", "player-1"))
-                .thenReturn(runningState)
-            whenever(gameService.isReconnectTokenValid("game-1", "player-1", "token-1"))
-                .thenReturn(true)
+            whenever(gameService.getStateForReconnection("game-1", "player-1", "token-1"))
+                .thenReturn(ReconnectResult("token-2", runningState))
 
             sendEnvelope(
                 session = session1,
@@ -607,6 +612,12 @@ class GameWebSocketHandlerTest {
                         ReconnectPayload("game-1", "player-1", "token-1"),
                     ),
             )
+
+            val response1 = captureResponse(session1)
+            assertEquals(WebSocketType.SNAPSHOT, response1.type)
+            val payload1 = decodePayload(response1, SnapshotPayload.serializer())
+            assertEquals("token-2", payload1.reconnectToken)
+            assertEquals(runningState, payload1.state)
 
             val response2 = captureResponse(session2)
             assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
@@ -661,17 +672,9 @@ class GameWebSocketHandlerTest {
     @Test
     fun `RECONNECT with invalid reconnection token sends ERROR`() =
         runTest(testDispatcher.scheduler) {
-            val returnedState =
-                GameState(
-                    players = listOf(Player("player-1", "Player1")),
-                    hostPlayerId = "player-1",
-                )
-
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.reconnectPlayer("game-1", "player-1"))
-                .thenReturn(returnedState)
-            whenever(gameService.isReconnectTokenValid("game-1", "player-1", "invalid-token"))
-                .thenReturn(false)
+            whenever(gameService.getStateForReconnection("game-1", "player-1", "invalid-token"))
+                .thenThrow(GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN))
 
             sendEnvelope(
                 session = session1,

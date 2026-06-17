@@ -2,7 +2,9 @@ package at.aau.kuhhandel.server.persistence.repository
 
 import at.aau.kuhhandel.server.persistence.entity.GameEntity
 import at.aau.kuhhandel.server.persistence.entity.GamePlayerEntity
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -16,6 +18,15 @@ interface GamePlayerRepository : JpaRepository<GamePlayerEntity, Long> {
         "SELECT gp FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.playerId = :playerId",
     )
     fun findByGameIdAndPlayerId(
+        @Param("gameId") gameId: Long,
+        @Param("playerId") playerId: String,
+    ): GamePlayerEntity?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        "SELECT gp FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.playerId = :playerId",
+    )
+    fun findLockedByGameIdAndPlayerId(
         @Param("gameId") gameId: Long,
         @Param("playerId") playerId: String,
     ): GamePlayerEntity?

@@ -4,8 +4,10 @@ import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.model.GameSession
+import at.aau.kuhhandel.server.model.ReconnectResult
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import at.aau.kuhhandel.server.persistence.ReconnectTokenMutationResult
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
@@ -60,8 +62,18 @@ class GameService(
             val session = gameSessionFactory(gameId, playerId, playerName)
 
             try {
-                persistenceService.saveGameState(gameId, session.state)
-                return RoomActionResult(gameId, playerId, session.state)
+                val reconnectToken = generateReconnectToken()
+                check(
+                    persistenceService.saveGameStateWithReconnectToken(
+                        gameId = gameId,
+                        state = session.state,
+                        playerId = playerId,
+                        token = reconnectToken,
+                    ),
+                ) {
+                    "Could not store reconnect token for player $playerId in game $gameId"
+                }
+                return RoomActionResult(gameId, playerId, reconnectToken, session.state)
             } catch (e: DataIntegrityViolationException) {
                 logger.info("Game code $gameId collided on insert, retrying", e)
             }
@@ -97,9 +109,12 @@ class GameService(
     ): RoomActionResult {
         val playerId = generatePlayerId()
         val playerName = resolvePlayerName(rawPlayerName)
+        val reconnectToken = generateReconnectToken()
         val newState =
-            executeAction(gameId) { session -> session.addPlayer(playerId, playerName) }
-        return RoomActionResult(gameId, playerId, newState)
+            executeActionWithIssuedReconnectToken(gameId, playerId, reconnectToken) { session ->
+                session.addPlayer(playerId, playerName)
+            }
+        return RoomActionResult(gameId, playerId, reconnectToken, newState)
     }
 
     /**
@@ -108,13 +123,10 @@ class GameService(
     suspend fun leaveGame(
         gameId: String,
         playerId: String,
-    ): GameState {
-        val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
-        if (newState.hasNoPlayers()) {
-            withContext(ioDispatcher) { purgeGame(gameId) }
+    ): GameState =
+        executeAction(gameId, deleteIfEmpty = true) { session ->
+            session.removePlayer(playerId)
         }
-        return newState
-    }
 
     /**
      * Disconnects a player from a game and deletes the game if it has no players.
@@ -124,14 +136,10 @@ class GameService(
     suspend fun disconnectPlayer(
         gameId: String,
         playerId: String,
-    ): GameState {
-        val newState = executeAction(gameId) { session -> session.disconnectPlayer(playerId) }
-        if (!newState.hasPlayer(playerId)) {
-            withContext(ioDispatcher) { purgeGame(gameId) }
+    ): GameState =
+        executeAction(gameId, deleteIfEmpty = true) { session ->
+            session.disconnectPlayer(playerId)
         }
-
-        return newState
-    }
 
     /**
      * Reconnects a player to a game.
@@ -142,6 +150,39 @@ class GameService(
         gameId: String,
         playerId: String,
     ): GameState = executeAction(gameId) { session -> session.reconnectPlayer(playerId) }
+
+    /**
+     * Validates a reconnect token, reconnects the player, and returns a rotated token.
+     */
+    suspend fun getStateForReconnection(
+        gameId: String,
+        playerId: String,
+        token: String,
+    ): ReconnectResult {
+        val newToken = generateReconnectToken()
+        val result =
+            withContext(ioDispatcher) {
+                persistenceService.mutateGameStateForReconnect(
+                    gameId = gameId,
+                    playerId = playerId,
+                    token = token,
+                    newToken = newToken,
+                ) { current ->
+                    GameSession.fromState(gameId, current).reconnectPlayer(playerId)
+                }
+            } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
+        val newState =
+            when (result) {
+                is ReconnectTokenMutationResult.Success -> result.state
+                ReconnectTokenMutationResult.InvalidToken ->
+                    throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
+            }
+
+        checkAndStoreLeaderboard(newState)
+        clusterNotifier?.gameUpdated(gameId)
+        return ReconnectResult(newToken, newState)
+    }
 
     /**
      * Persists the reconnect token (hashed) for later validation.
@@ -412,11 +453,40 @@ class GameService(
      */
     private suspend fun executeAction(
         gameId: String,
+        deleteIfEmpty: Boolean = false,
         action: (GameSession) -> GameState,
     ): GameState {
         val newState =
             withContext(ioDispatcher) {
-                persistenceService.mutateGameState(gameId) { current ->
+                val mutate: (GameState) -> GameState = { current ->
+                    action(GameSession.fromState(gameId, current))
+                }
+                if (deleteIfEmpty) {
+                    persistenceService.mutateGameStateDeletingEmpty(gameId, mutate = mutate)
+                } else {
+                    persistenceService.mutateGameState(gameId, mutate = mutate)
+                }
+            } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
+
+        checkAndStoreLeaderboard(newState)
+
+        clusterNotifier?.gameUpdated(gameId)
+        return newState
+    }
+
+    private suspend fun executeActionWithIssuedReconnectToken(
+        gameId: String,
+        playerId: String,
+        token: String,
+        action: (GameSession) -> GameState,
+    ): GameState {
+        val newState =
+            withContext(ioDispatcher) {
+                persistenceService.mutateGameStateWithIssuedReconnectToken(
+                    gameId = gameId,
+                    playerId = playerId,
+                    token = token,
+                ) { current ->
                     action(GameSession.fromState(gameId, current))
                 }
             } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
@@ -467,6 +537,8 @@ class GameService(
      * Generates a unique player identifier.
      */
     private fun generatePlayerId(): String = UUID.randomUUID().toString()
+
+    private fun generateReconnectToken(): String = UUID.randomUUID().toString()
 
     companion object {
         private const val GAME_CODE_MIN = 10000
