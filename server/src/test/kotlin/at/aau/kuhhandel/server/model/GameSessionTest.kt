@@ -2032,6 +2032,36 @@ class GameSessionTest {
     }
 
     @Test
+    fun `calculateTimeoutForActor selects shorter timeout when actor is disconnected`() {
+        // Setup: Active turn state with Player 2 disconnected
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                players =
+                    listOf(
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2", isConnected = false),
+                        Player(id = "player-3", name = "Player 3"),
+                    ),
+                currentPlayerIndex = 0,
+                roundNumber = 5,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Advances loop to next seat and sets a shorter timeout for the disconnected player
+        assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
+        assertEquals(1, updatedState.currentPlayerIndex)
+        assertEquals(6, updatedState.roundNumber)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.DISCONNECTED_TURN_DURATION_MS,
+            state = updatedState,
+        )
+    }
+
+    @Test
     fun `selectMoneyCardsForPayment chooses optimal overpayment`() {
         // Setup: Player 1 has 50, 10, 10 and needs to satisfy a bid of 15. Optimal combo is 10+10=20.
         val auctionState =

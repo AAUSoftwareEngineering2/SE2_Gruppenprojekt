@@ -86,7 +86,10 @@ class GameSession(
         ensurePhase(GamePhase.NOT_STARTED)
         ensureEnoughPlayers()
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
+        val nextPlayerIndex = 0
+        val firstPlayer = state.players[nextPlayerIndex]
+        val calculatedTimeout =
+            calculateTimeoutForActor(firstPlayer, PhaseDurations.PLAYER_CHOICE_MS)
 
         state =
             state.copy(
@@ -101,7 +104,7 @@ class GameSession(
                             moneyCards = createInitialMoney(player.id),
                         )
                     },
-                currentPlayerIndex = 0,
+                currentPlayerIndex = nextPlayerIndex,
             )
 
         return state
@@ -156,7 +159,7 @@ class GameSession(
             }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
         state =
             state.copy(
@@ -198,7 +201,7 @@ class GameSession(
         ensureBidNotTooLow(auctionState, amount)
         ensureBidNotTooHigh(amount)
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
         state =
             state.copy(
@@ -250,8 +253,7 @@ class GameSession(
         } else {
             // Bluff Check: If the winner cannot pay the auctioneer, they bluffed
             if (highestBidder.totalMoney() < auctionState.highestBid) {
-                val calculatedTimeout =
-                    System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+                val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
                 state =
                     state.copy(
@@ -286,7 +288,7 @@ class GameSession(
         val updatedPlayers =
             addAnimalToPlayer(playersAfterPayment, receiver.id, auctionState.auctionCard)
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_RESULT_MS)
 
         state =
             state.copy(
@@ -326,7 +328,7 @@ class GameSession(
         val initiatorAnimals = initiatorMatchingAnimals.take(animalsToMoveCount).toSet()
         val targetAnimals = targetMatchingAnimals.take(animalsToMoveCount).toSet()
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_OFFER_MS
+        val calculatedTimeout = calculateTimeoutForActor(initiator, PhaseDurations.TRADE_OFFER_MS)
 
         // Remove the animal cards from the players, transition
         // the phase, and store the trade information
@@ -378,14 +380,19 @@ class GameSession(
         if (offeredMoneyCardIds.isNotEmpty()) {
             offeredMoneyCards = requireOwnsMoneyCards(initiator, offeredMoneyCardIds)
 
-            // Remove the money cards from the player safely via your utility extension
+            // Remove the money cards from the player safely via the utility extension
             state =
                 state.updatePlayer(initiator.id) { player ->
                     player.copy(moneyCards = initiator.moneyCards - offeredMoneyCards)
                 }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESPONSE_MS
+        val target =
+            checkNotNull(state.players.find { it.id == tradeState.targetId }) {
+                "Missing trade target during trade offer phase"
+            }
+
+        val calculatedTimeout = calculateTimeoutForActor(target, PhaseDurations.TRADE_RESPONSE_MS)
 
         // Transition the phase and update the trade information
         state =
@@ -480,7 +487,7 @@ class GameSession(
                     )
                 }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESULT_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.TRADE_RESULT_MS)
 
         // Transition the phase and update the trade information
         state =
@@ -520,7 +527,7 @@ class GameSession(
                 .take(SPYING_CARDS_REVEALED)
                 .toSet()
 
-        val expiresAt = System.currentTimeMillis() + PhaseDurations.SPY_WINDOW_MS
+        val expiresAt = calculateExpirationTime(PhaseDurations.SPY_WINDOW_MS)
 
         val newSpy =
             SpyAction(
@@ -625,7 +632,7 @@ class GameSession(
                     auctionState.auctionCard,
                 )
 
-            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
+            val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_RESULT_MS)
 
             state =
                 state.copy(
@@ -643,7 +650,13 @@ class GameSession(
         }
 
         // If a bid exists, proceed to the auctioneer decision phase
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTIONEER_DECISION_MS
+        val auctioneer =
+            checkNotNull(state.players.find { it.id == auctionState.auctioneerId }) {
+                "Missing auctioneer during auction closure"
+            }
+
+        val calculatedTimeout =
+            calculateTimeoutForActor(auctioneer, PhaseDurations.AUCTIONEER_DECISION_MS)
 
         state =
             state.copy(
@@ -768,20 +781,44 @@ class GameSession(
                     finalRanking = ranking,
                 )
         } else {
-            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
+            val nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.size
+            val nextPlayerId = state.players[nextPlayerIndex]
+
+            val calculatedTimeout =
+                calculateTimeoutForActor(nextPlayerId, PhaseDurations.PLAYER_CHOICE_MS)
 
             state =
                 state.copy(
                     phase = GamePhase.PLAYER_CHOICE,
                     timerEnd = calculatedTimeout,
                     roundNumber = state.roundNumber + 1,
-                    currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.size,
+                    currentPlayerIndex = nextPlayerIndex,
                     lastEvent = null,
                 )
         }
 
         return state
     }
+
+    /**
+     * Resolves the target duration for a phase that requires an action from a specific player.
+     * If the actor is offline, overrides the time with a short grace period.
+     */
+    private fun calculateTimeoutForActor(
+        actor: Player,
+        standardDurationMs: Long,
+    ): Long =
+        if (actor.isConnected) {
+            calculateExpirationTime(standardDurationMs)
+        } else {
+            calculateExpirationTime(PhaseDurations.DISCONNECTED_TURN_DURATION_MS)
+        }
+
+    /**
+     * Calculates the absolute expiration timestamp.
+     */
+    private fun calculateExpirationTime(durationMs: Long): Long =
+        System.currentTimeMillis() + durationMs
 
     /**
      * Compiles and shuffles a new deck using the structural maximum allocation per animal type.

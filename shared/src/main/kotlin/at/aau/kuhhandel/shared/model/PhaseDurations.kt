@@ -10,4 +10,6 @@ object PhaseDurations {
     const val TRADE_RESULT_MS = 10_000L
 
     const val SPY_WINDOW_MS = 1_000L
+
+    const val DISCONNECTED_TURN_DURATION_MS = 5_000L
 }
