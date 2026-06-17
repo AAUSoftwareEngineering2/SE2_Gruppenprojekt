@@ -111,6 +111,19 @@ class GamePersistenceService(
         return gameRepository.existsById(gameKey)
     }
 
+    @Transactional
+    fun saveGameStateWithReconnectToken(
+        gameId: String,
+        state: GameState,
+        playerId: String,
+        token: String,
+        activityAt: Long? = System.currentTimeMillis(),
+    ): Boolean {
+        val gameKey = gameId.toLongOrNull() ?: return false
+        saveGameState(gameId, state, activityAt)
+        return storeReconnectTokenHash(gameKey, playerId, token)
+    }
+
     /**
      * Runs [mutate] on the current persisted state inside one transaction that holds the game's
      * row lock (lock, load, mutate, save). Concurrent mutations from other pods wait on the lock,
@@ -156,6 +169,59 @@ class GamePersistenceService(
     }
 
     /**
+     * Applies a state mutation and stores a newly issued reconnect token in one transaction.
+     */
+    @Transactional
+    fun mutateGameStateWithIssuedReconnectToken(
+        gameId: String,
+        playerId: String,
+        token: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): GameState? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        gameRepository.findWithLockById(gameKey) ?: return null
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        saveGameState(gameId, next, activityAt)
+        check(storeReconnectTokenHash(gameKey, playerId, token)) {
+            "Could not store reconnect token for player $playerId in game $gameId"
+        }
+        return next
+    }
+
+    /**
+     * Validates the old reconnect token, applies the reconnect mutation, and rotates the token while
+     * holding the game/player row locks.
+     */
+    @Transactional
+    fun mutateGameStateForReconnect(
+        gameId: String,
+        playerId: String,
+        token: String,
+        newToken: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): ReconnectTokenMutationResult? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        gameRepository.findWithLockById(gameKey) ?: return null
+        val player =
+            gamePlayerRepository.findLockedByGameIdAndPlayerId(gameKey, playerId)
+                ?: return ReconnectTokenMutationResult.InvalidToken
+        val storedHash = player.reconnectTokenHash ?: return ReconnectTokenMutationResult.InvalidToken
+        if (!tokenMatches(storedHash, token)) {
+            return ReconnectTokenMutationResult.InvalidToken
+        }
+
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        saveGameState(gameId, next, activityAt)
+        player.reconnectTokenHash = hashToken(newToken)
+        gamePlayerRepository.save(player)
+        return ReconnectTokenMutationResult.Success(next)
+    }
+
+    /**
      * Game ids whose phase timer expired (timer_end <= now).
      */
     @Transactional(readOnly = true)
@@ -197,10 +263,7 @@ class GamePersistenceService(
         token: String,
     ): Boolean {
         val gameKey = gameId.toLongOrNull() ?: return false
-        val player = gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId) ?: return false
-        player.reconnectTokenHash = hashToken(token)
-        gamePlayerRepository.save(player)
-        return true
+        return storeReconnectTokenHash(gameKey, playerId, token)
     }
 
     /**
@@ -229,8 +292,24 @@ class GamePersistenceService(
         val stored =
             gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId)?.reconnectTokenHash
                 ?: return false
-        return MessageDigest.isEqual(stored.toByteArray(), hashToken(token).toByteArray())
+        return tokenMatches(stored, token)
     }
+
+    private fun storeReconnectTokenHash(
+        gameKey: Long,
+        playerId: String,
+        token: String,
+    ): Boolean {
+        val player = gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId) ?: return false
+        player.reconnectTokenHash = hashToken(token)
+        gamePlayerRepository.save(player)
+        return true
+    }
+
+    private fun tokenMatches(
+        storedHash: String,
+        token: String,
+    ): Boolean = MessageDigest.isEqual(storedHash.toByteArray(), hashToken(token).toByteArray())
 
     private fun hashToken(token: String): String =
         MessageDigest
@@ -551,4 +630,12 @@ class GamePersistenceService(
 
     private fun GamePlayerEntity.persistedPlayerId(): String =
         playerId ?: user.passwordHash.ifBlank { user.username }
+}
+
+sealed class ReconnectTokenMutationResult {
+    data class Success(
+        val state: GameState,
+    ) : ReconnectTokenMutationResult()
+
+    object InvalidToken : ReconnectTokenMutationResult()
 }

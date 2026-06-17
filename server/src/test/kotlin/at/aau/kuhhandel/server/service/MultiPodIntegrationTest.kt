@@ -86,10 +86,9 @@ class MultiPodIntegrationTest
                 val podB = pod()
 
                 val created = podA.createGame("Alice")
-                podA.storeReconnectToken("42222", created.playerId, "token-from-pod-a")
 
                 assertTrue(
-                    podB.isReconnectTokenValid("42222", created.playerId, "token-from-pod-a"),
+                    podB.isReconnectTokenValid("42222", created.playerId, created.reconnectToken),
                 )
                 assertEquals(
                     false,

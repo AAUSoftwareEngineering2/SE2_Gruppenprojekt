@@ -37,7 +37,6 @@ import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
-import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -187,9 +186,6 @@ class GameWebSocketHandler(
         val gameId = result.gameId
         val playerId = result.playerId
 
-        val token = generateReconnectToken()
-        gameService.storeReconnectToken(gameId, playerId, token)
-
         connectionRegistry.bindPlayerSession(session.id, gameId, playerId)
 
         send(
@@ -203,7 +199,7 @@ class GameWebSocketHandler(
                         GameCreatedPayload(
                             gameId = gameId,
                             playerId = playerId,
-                            reconnectToken = token,
+                            reconnectToken = result.reconnectToken,
                             state = result.gameState,
                             stateView = result.gameState.createViewForPlayer(playerId),
                         ),
@@ -230,9 +226,6 @@ class GameWebSocketHandler(
         val playerId = result.playerId
         val state = result.gameState
 
-        val token = generateReconnectToken()
-        gameService.storeReconnectToken(joinedGameId, playerId, token)
-
         connectionRegistry.bindPlayerSession(session.id, joinedGameId, playerId)
 
         send(
@@ -246,7 +239,7 @@ class GameWebSocketHandler(
                         GameJoinedPayload(
                             gameId = joinedGameId,
                             playerId = playerId,
-                            reconnectToken = token,
+                            reconnectToken = result.reconnectToken,
                             state = state,
                             stateView = state.createViewForPlayer(playerId),
                         ),
@@ -290,17 +283,14 @@ class GameWebSocketHandler(
     ) {
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
-        if (!gameService.isReconnectTokenValid(payload.gameId, payload.playerId, payload.token)) {
-            throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
-        }
-
-        val newToken = generateReconnectToken()
-        gameService.storeReconnectToken(payload.gameId, payload.playerId, newToken)
-
+        val result =
+            gameService.getStateForReconnection(
+                payload.gameId,
+                payload.playerId,
+                payload.token,
+            )
+        val state = result.gameState
         connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId)
-
-        // Reconnect the player to the game
-        val state = gameService.reconnectPlayer(payload.gameId, payload.playerId)
 
         send(
             session,
@@ -311,7 +301,7 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         SnapshotPayload.serializer(),
                         SnapshotPayload(
-                            reconnectToken = newToken,
+                            reconnectToken = result.reconnectToken,
                             state = state,
                             stateView = state.createViewForPlayer(payload.playerId),
                         ),
@@ -654,8 +644,4 @@ class GameWebSocketHandler(
         send(session, envelope)
     }
 
-    /**
-     * Generates a cryptographically secure token used to authenticate a player during reconnection.
-     */
-    private fun generateReconnectToken(): String = UUID.randomUUID().toString()
 }

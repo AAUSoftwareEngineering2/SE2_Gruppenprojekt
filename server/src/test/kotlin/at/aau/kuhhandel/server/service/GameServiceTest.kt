@@ -107,6 +107,14 @@ class GameServiceTest
                     .single()
                     .id,
             )
+            assertTrue(result.reconnectToken.isNotBlank())
+            assertTrue(
+                persistenceService.isReconnectTokenValid(
+                    result.gameId,
+                    result.playerId,
+                    result.reconnectToken,
+                ),
+            )
             // The lobby snapshot lands in the database immediately.
             assertNotNull(persistenceService.loadGameState(result.gameId))
         }
@@ -145,6 +153,13 @@ class GameServiceTest
 
                 assertEquals("11111", joinResult.gameId)
                 assertEquals(2, joinResult.gameState.players.size)
+                assertTrue(
+                    service.isReconnectTokenValid(
+                        "11111",
+                        joinResult.playerId,
+                        joinResult.reconnectToken,
+                    ),
+                )
                 assertEquals(
                     listOf("Player1", "Player2"),
                     persistenceService.loadGameState("11111")?.players?.map { it.name },
@@ -267,6 +282,47 @@ class GameServiceTest
                 // Verify stateless database reload round-trip
                 val dbState = assertNotNull(persistenceService.loadGameState("11111"))
                 assertTrue(dbState.players.first { it.id == guest.playerId }.isConnected)
+            }
+
+        @Test
+        fun `getStateForReconnection validates and rotates reconnect token`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", host.playerId)
+                service.disconnectPlayer("11111", guest.playerId)
+
+                val result =
+                    service.getStateForReconnection(
+                        "11111",
+                        guest.playerId,
+                        guest.reconnectToken,
+                    )
+
+                assertTrue(result.gameState.players.first { it.id == guest.playerId }.isConnected)
+                assertNotEquals(guest.reconnectToken, result.reconnectToken)
+                assertEquals(
+                    false,
+                    service.isReconnectTokenValid("11111", guest.playerId, guest.reconnectToken),
+                )
+                assertTrue(
+                    service.isReconnectTokenValid("11111", guest.playerId, result.reconnectToken),
+                )
+            }
+
+        @Test
+        fun `getStateForReconnection rejects invalid reconnect token`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+
+                val exception =
+                    assertThrows<GameException> {
+                        service.getStateForReconnection("11111", created.playerId, "wrong-token")
+                    }
+                assertEquals(GameErrorReason.INVALID_RECONNECTION_TOKEN, exception.reason)
             }
 
         @Test
