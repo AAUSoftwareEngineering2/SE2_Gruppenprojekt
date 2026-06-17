@@ -96,11 +96,27 @@ fun AuctionPhaseContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         if (phase == GamePhase.AUCTION_RESULT) {
+                            val isMe = buyerId == uiState.myPlayerId
                             val resultText =
                                 when {
-                                    highestBidderId == null -> "$buyerName got the animal for free!"
-                                    buyerId == auctioneerId -> "$buyerName bought back!"
-                                    else -> "$buyerName won the auction!"
+                                    highestBidderId == null ->
+                                        if (isMe) {
+                                            "You got the animal for free!"
+                                        } else {
+                                            "$buyerName got the animal for free!"
+                                        }
+                                    buyerId == auctioneerId ->
+                                        if (isMe) {
+                                            "You bought back!"
+                                        } else {
+                                            "$buyerName bought back!"
+                                        }
+                                    else ->
+                                        if (isMe) {
+                                            "You won the auction!"
+                                        } else {
+                                            "$buyerName won the auction!"
+                                        }
                                 }
                             GameStatusText(
                                 text = resultText,
