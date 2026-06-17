@@ -136,14 +136,10 @@ class GameService(
     suspend fun disconnectPlayer(
         gameId: String,
         playerId: String,
-    ): GameState {
-        val newState = executeAction(gameId) { session -> session.disconnectPlayer(playerId) }
-        if (!newState.hasPlayer(playerId)) {
-            withContext(ioDispatcher) { purgeGame(gameId) }
+    ): GameState =
+        executeAction(gameId, deleteIfEmpty = true) { session ->
+            session.disconnectPlayer(playerId)
         }
-
-        return newState
-    }
 
     /**
      * Reconnects a player to a game.

@@ -241,6 +241,11 @@ class GameServiceTest
 
                 assertEquals(1, state.players.size)
                 assertTrue(state.players.none { it.id == guest.playerId })
+                // Other players remain, so the game must survive. (Regression: the old two-step
+                // disconnect purged the whole game whenever the disconnecting player was gone,
+                // even with players left.)
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertEquals(1, dbState.players.size)
             }
 
         @Test
