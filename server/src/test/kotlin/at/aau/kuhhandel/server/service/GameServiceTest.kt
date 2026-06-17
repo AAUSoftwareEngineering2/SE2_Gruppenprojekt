@@ -345,6 +345,10 @@ class GameServiceTest
 
                 service.storeReconnectToken("11111", created.playerId, "token-1")
 
+                val firstFingerprint =
+                    assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertEquals(64, firstFingerprint.length)
+                assertNotEquals("token-1", firstFingerprint)
                 assertTrue(service.isReconnectTokenValid("11111", created.playerId, "token-1"))
                 assertEquals(
                     false,
@@ -353,6 +357,10 @@ class GameServiceTest
 
                 // Token rotation invalidates the previous token.
                 service.storeReconnectToken("11111", created.playerId, "token-2")
+                val secondFingerprint =
+                    assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNotEquals(firstFingerprint, secondFingerprint)
+                assertNotEquals("token-2", secondFingerprint)
                 assertEquals(
                     false,
                     service.isReconnectTokenValid("11111", created.playerId, "token-1"),

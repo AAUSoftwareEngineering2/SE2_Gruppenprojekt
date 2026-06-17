@@ -186,8 +186,9 @@ class GamePersistenceService(
     }
 
     /**
-     * Stores the SHA-256 hash of [token] on the player's row. Returns false when the game or
-     * player is unknown.
+     * Stores only a SHA-256 hash of [token] on the player's row. Reconnect tokens are bearer
+     * credentials; hashing keeps a database dump from exposing immediately reusable tokens.
+     * Returns false when the game or player is unknown.
      */
     @Transactional
     fun storeReconnectToken(
