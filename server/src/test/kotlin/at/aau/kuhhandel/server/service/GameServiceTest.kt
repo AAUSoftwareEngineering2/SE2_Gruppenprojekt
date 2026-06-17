@@ -1,5 +1,6 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
@@ -14,8 +15,10 @@ import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
 import at.aau.kuhhandel.shared.utils.GameRankEntry
 import at.aau.kuhhandel.shared.utils.ScoreCalculator
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -53,16 +56,25 @@ class GameServiceTest
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
 
-        private fun service(codes: List<String> = emptyList()): GameService {
+        private fun service(
+            codes: List<String> = emptyList(),
+            clusterNotifier: ClusterUpdateNotifier? = null,
+        ): GameService {
             val queue = ArrayDeque(codes)
             usedGameIds += codes
             return if (codes.isEmpty()) {
-                GameService(eventPublisher, persistenceService, leaderboardService)
+                GameService(
+                    eventPublisher,
+                    persistenceService,
+                    leaderboardService,
+                    clusterNotifier = clusterNotifier,
+                )
             } else {
                 GameService(
                     eventPublisher,
                     persistenceService,
                     leaderboardService,
+                    clusterNotifier = clusterNotifier,
                     gameCodeGenerator = { queue.removeFirst() },
                 )
             }
@@ -161,6 +173,34 @@ class GameServiceTest
 
                 service.leaveGame("11111", created.playerId)
                 // Last player gone -> game fully purged from the database.
+                assertNull(persistenceService.loadGameState("11111"))
+            }
+
+        @Test
+        fun `leaveGame rejects joins after the last player leaves`() =
+            runTest {
+                lateinit var service: GameService
+                var joinAttemptReason: GameErrorReason? = null
+                var attemptedJoin = false
+                val notifier = mockk<ClusterUpdateNotifier>()
+                every { notifier.gameUpdated("11111") } answers {
+                    if (!attemptedJoin) {
+                        attemptedJoin = true
+                        joinAttemptReason =
+                            runCatching {
+                                runBlocking { service.joinGame("11111", "Player2") }
+                            }.exceptionOrNull()
+                                ?.let { it as GameException }
+                                ?.reason
+                    }
+                }
+
+                service = service(codes = listOf("11111"), clusterNotifier = notifier)
+                val created = service.createGame("Player1")
+
+                service.leaveGame("11111", created.playerId)
+
+                assertEquals(GameErrorReason.GAME_NOT_FOUND, joinAttemptReason)
                 assertNull(persistenceService.loadGameState("11111"))
             }
 

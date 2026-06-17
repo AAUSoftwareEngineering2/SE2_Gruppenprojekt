@@ -134,6 +134,28 @@ class GamePersistenceService(
     }
 
     /**
+     * Runs [mutate] under the game row lock and deletes the game in the same transaction if the
+     * resulting state is empty. This avoids a join landing between "last player left" and purge.
+     */
+    @Transactional
+    fun mutateGameStateDeletingEmpty(
+        gameId: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): GameState? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        val game = gameRepository.findWithLockById(gameKey) ?: return null
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        if (next.hasNoPlayers()) {
+            deleteGameData(gameKey, game)
+        } else {
+            saveGameState(gameId, next, activityAt)
+        }
+        return next
+    }
+
+    /**
      * Game ids whose phase timer expired (timer_end <= now).
      */
     @Transactional(readOnly = true)
@@ -220,6 +242,13 @@ class GamePersistenceService(
         logger.info("[DB DELETE] Deleting game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return
         val game = gameRepository.findById(gameKey).orElse(null) ?: return
+        deleteGameData(gameKey, game)
+    }
+
+    private fun deleteGameData(
+        gameKey: Long,
+        game: GameEntity,
+    ) {
         auctionStateRepository.deleteById(gameKey)
         tradeStateRepository.deleteById(gameKey)
         deckCardRepository.deleteByGame(game)

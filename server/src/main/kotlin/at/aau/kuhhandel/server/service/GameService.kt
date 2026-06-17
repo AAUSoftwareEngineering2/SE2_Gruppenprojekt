@@ -108,13 +108,10 @@ class GameService(
     suspend fun leaveGame(
         gameId: String,
         playerId: String,
-    ): GameState {
-        val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
-        if (newState.hasNoPlayers()) {
-            withContext(ioDispatcher) { purgeGame(gameId) }
+    ): GameState =
+        executeAction(gameId, deleteIfEmpty = true) { session ->
+            session.removePlayer(playerId)
         }
-        return newState
-    }
 
     /**
      * Disconnects a player from a game and deletes the game if it has no players.
@@ -412,12 +409,18 @@ class GameService(
      */
     private suspend fun executeAction(
         gameId: String,
+        deleteIfEmpty: Boolean = false,
         action: (GameSession) -> GameState,
     ): GameState {
         val newState =
             withContext(ioDispatcher) {
-                persistenceService.mutateGameState(gameId) { current ->
+                val mutate: (GameState) -> GameState = { current ->
                     action(GameSession.fromState(gameId, current))
+                }
+                if (deleteIfEmpty) {
+                    persistenceService.mutateGameStateDeletingEmpty(gameId, mutate = mutate)
+                } else {
+                    persistenceService.mutateGameState(gameId, mutate = mutate)
                 }
             } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
