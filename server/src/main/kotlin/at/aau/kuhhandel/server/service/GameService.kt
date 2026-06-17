@@ -36,6 +36,7 @@ import kotlin.random.Random
 class GameService(
     private val eventPublisher: ApplicationEventPublisher,
     private val persistenceService: GamePersistenceService,
+    private val leaderboardService: LeaderboardService,
     private val gameSessionFactory: (String, String, String) -> GameSession = ::GameSession,
     private val clusterNotifier: ClusterUpdateNotifier? = null,
     private val gameCodeGenerator: () -> String = {
@@ -109,7 +110,7 @@ class GameService(
         playerId: String,
     ): GameState {
         val newState = executeAction(gameId) { session -> session.removePlayer(playerId) }
-        if (newState.players.isEmpty()) {
+        if (newState.hasNoPlayers()) {
             withContext(ioDispatcher) { purgeGame(gameId) }
         }
         return newState
@@ -129,7 +130,7 @@ class GameService(
             withContext(ioDispatcher) { persistenceService.loadGameState(gameId) }
                 ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
-        if (state.players.none { it.id == playerId }) {
+        if (!state.hasPlayer(playerId)) {
             throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
         }
 
@@ -320,6 +321,7 @@ class GameService(
                 }
                 advancedState?.let { newState ->
                     advancedGames += gameId
+                    checkAndStoreLeaderboard(newState)
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
                     clusterNotifier?.gameUpdated(gameId)
                 }
@@ -353,6 +355,7 @@ class GameService(
                 }
                 clearedState?.let { newState ->
                     clearedGames += gameId
+                    checkAndStoreLeaderboard(newState)
                     eventPublisher.publishEvent(GameStateChangedEvent(gameId, newState))
                     clusterNotifier?.gameUpdated(gameId)
                 }
@@ -395,8 +398,21 @@ class GameService(
                 }
             } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
+        checkAndStoreLeaderboard(newState)
+
         clusterNotifier?.gameUpdated(gameId)
         return newState
+    }
+
+    /**
+     * Stores final player rankings in the leaderboard if a game is finished.
+     */
+    private fun checkAndStoreLeaderboard(newState: GameState) {
+        if (newState.isFinished()) {
+            val rankings = newState.finalRanking
+            checkNotNull(rankings) { "Final ranking is null in a finished game" }
+            leaderboardService.storeScores(rankings)
+        }
     }
 
     /**

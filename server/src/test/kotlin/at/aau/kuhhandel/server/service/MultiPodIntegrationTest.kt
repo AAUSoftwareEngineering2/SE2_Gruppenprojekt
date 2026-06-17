@@ -27,12 +27,13 @@ import kotlin.test.assertTrue
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(GamePersistenceService::class)
+@Import(GamePersistenceService::class, LeaderboardService::class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class MultiPodIntegrationTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
+        private val leaderboardService: LeaderboardService,
     ) {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
@@ -41,11 +42,12 @@ class MultiPodIntegrationTest
             val queue = ArrayDeque(codes.toList())
             usedGameIds += codes
             return if (codes.isEmpty()) {
-                GameService(eventPublisher, persistenceService)
+                GameService(eventPublisher, persistenceService, leaderboardService)
             } else {
                 GameService(
                     eventPublisher,
                     persistenceService,
+                    leaderboardService,
                     gameCodeGenerator = { queue.removeFirst() },
                 )
             }

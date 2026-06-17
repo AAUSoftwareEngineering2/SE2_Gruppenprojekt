@@ -28,23 +28,25 @@ import kotlin.test.assertNull
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(GamePersistenceService::class)
+@Import(GamePersistenceService::class, LeaderboardService::class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 class GameServicePersistenceTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
+        private val leaderboardService: LeaderboardService,
     ) : PostgresDataJpaTest() {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
         @Test
         fun `a fresh service instance reloads the game from the persisted snapshot`() {
-            val service = GameService(eventPublisher, persistenceService)
+            val service = GameService(eventPublisher, persistenceService, leaderboardService)
             val created = service.createGame("player1")
 
             // A fresh service instance simulates a pod restart: no shared memory, only the DB.
-            val restartedService = GameService(eventPublisher, persistenceService)
+            val restartedService =
+                GameService(eventPublisher, persistenceService, leaderboardService)
 
             val reloaded = assertNotNull(restartedService.getGame(created.gameId))
             assertEquals(created.gameId, reloaded.gameId)
@@ -55,7 +57,7 @@ class GameServicePersistenceTest
 
         @Test
         fun `purgeGame removes the persisted record`() {
-            val service = GameService(eventPublisher, persistenceService)
+            val service = GameService(eventPublisher, persistenceService, leaderboardService)
             val created = service.createGame("player1")
 
             service.purgeGame(created.gameId)
@@ -66,7 +68,7 @@ class GameServicePersistenceTest
 
         @Test
         fun `createGame writes a LOBBY snapshot the moment the game is created`() {
-            val service = GameService(eventPublisher, persistenceService)
+            val service = GameService(eventPublisher, persistenceService, leaderboardService)
             val created = service.createGame("player1")
 
             val loaded = assertNotNull(persistenceService.loadGameState(created.gameId))
@@ -80,6 +82,7 @@ class GameServicePersistenceTest
                 GameService(
                     eventPublisher = eventPublisher,
                     persistenceService = persistenceService,
+                    leaderboardService = leaderboardService,
                     gameCodeGenerator = { "12345" },
                 )
             firstService.createGame("player1")
@@ -89,6 +92,7 @@ class GameServicePersistenceTest
                 GameService(
                     eventPublisher = eventPublisher,
                     persistenceService = persistenceService,
+                    leaderboardService = leaderboardService,
                     gameCodeGenerator = { generatedCodes.removeFirst() },
                 )
 
@@ -136,7 +140,7 @@ class GameServicePersistenceTest
 
             // The sweeping instance never saw this game in memory, it finds the expired timer
             // in the database.
-            val sweeperService = GameService(eventPublisher, persistenceService)
+            val sweeperService = GameService(eventPublisher, persistenceService, leaderboardService)
             val advanced = sweeperService.sweepExpiredTimeouts()
 
             assertEquals(listOf("34567"), advanced)
