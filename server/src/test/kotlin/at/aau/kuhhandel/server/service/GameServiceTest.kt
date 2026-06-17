@@ -6,7 +6,14 @@ import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.model.AnimalCard
+import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
+import at.aau.kuhhandel.shared.utils.GameRankEntry
+import at.aau.kuhhandel.shared.utils.ScoreCalculator
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
@@ -32,7 +39,7 @@ import kotlin.test.assertTrue
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(GamePersistenceService::class)
+@Import(GamePersistenceService::class, LeaderboardService::class)
 // No test transaction: the service commits its row-locked transactions on Dispatchers.IO
 // threads anyway, so we clean up explicitly instead.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -40,6 +47,7 @@ class GameServiceTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
+        private val leaderboardService: LeaderboardService,
     ) {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
@@ -48,11 +56,12 @@ class GameServiceTest
             val queue = ArrayDeque(codes)
             usedGameIds += codes
             return if (codes.isEmpty()) {
-                GameService(eventPublisher, persistenceService)
+                GameService(eventPublisher, persistenceService, leaderboardService)
             } else {
                 GameService(
                     eventPublisher,
                     persistenceService,
+                    leaderboardService,
                     gameCodeGenerator = { queue.removeFirst() },
                 )
             }
@@ -238,6 +247,7 @@ class GameServiceTest
                     { service.chooseAuction("99999", "p") },
                     { service.placeBid("99999", "p", 10) },
                     { service.resolveAuction("99999", "p", auctioneerBuysCard = false) },
+                    { service.submitAuctionPayment("99999", "p", emptySet()) },
                     { service.chooseTrade("99999", "p", "q", AnimalType.COW) },
                     { service.submitTradeMoney("99999", "p", emptySet()) },
                     { service.respondToTrade("99999", "p", emptySet()) },
@@ -307,6 +317,67 @@ class GameServiceTest
 
                 assertEquals(emptyList(), advanced)
                 verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
+            }
+
+        @Test
+        fun `submitAuctionPayment completes a persisted payment phase after reload`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                persistenceService.saveGameState(
+                    "11111",
+                    GameState(
+                        phase = GamePhase.AUCTION_PAYMENT,
+                        players =
+                            listOf(
+                                Player(
+                                    id = "player-1",
+                                    name = "Seller",
+                                ),
+                                Player(
+                                    id = "player-2",
+                                    name = "Buyer",
+                                    moneyCards =
+                                        listOf(
+                                            MoneyCard("m10-a", 10),
+                                            MoneyCard("m10-b", 10),
+                                        ),
+                                ),
+                            ),
+                        hostPlayerId = "player-1",
+                        auctionState =
+                            AuctionState(
+                                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                                auctioneerId = "player-1",
+                                highestBid = 20,
+                                highestBidderId = "player-2",
+                                buyerId = "player-2",
+                                sellerId = "player-1",
+                            ),
+                    ),
+                )
+                val reloaded = assertNotNull(persistenceService.loadGameState("11111"))
+                val paymentCardIds =
+                    reloaded.players
+                        .single { it.id == "player-2" }
+                        .moneyCards
+                        .mapTo(mutableSetOf()) { it.id }
+
+                val updated =
+                    service.submitAuctionPayment(
+                        "11111",
+                        "player-2",
+                        paymentCardIds,
+                    )
+
+                val seller = updated.players.single { it.id == "player-1" }
+                val buyer = updated.players.single { it.id == "player-2" }
+                assertEquals(GamePhase.AUCTION_RESULT, updated.phase)
+                assertEquals(20, seller.totalMoney())
+                assertTrue(buyer.animals.any { it.type == AnimalType.COW })
+                assertEquals(
+                    GamePhase.AUCTION_RESULT,
+                    persistenceService.loadGameState("11111")?.phase,
+                )
             }
 
         @Test
@@ -408,5 +479,65 @@ class GameServiceTest
                         .activeSpies
                         .any { it.spyId == spyId },
                 )
+            }
+
+        @Test
+        fun `sweepExpiredTimeouts stores final rankings when game finishes`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                val lobby = assertNotNull(persistenceService.loadGameState("11111"))
+
+                // Create full quartets for all animal types to trigger the game-end condition
+                val allCompletedQuartets =
+                    AnimalType.entries.flatMap { type ->
+                        // Simulating 4 cards per animal type to make a full quartet
+                        List(4) { AnimalCard(id = "${type.name}-$it", type = type) }
+                    }
+
+                // Put all completed quartets on Player1
+                val playersWithFinishedGame =
+                    lobby.players.map { player ->
+                        if (player.id == created.playerId) {
+                            player.copy(animals = allCompletedQuartets)
+                        } else {
+                            player
+                        }
+                    }
+
+                val mockRankings =
+                    listOf(
+                        GameRankEntry(
+                            playerId = created.playerId,
+                            playerName = "Player1",
+                            points = 500,
+                            quartetCount = AnimalType.entries.size,
+                            totalMoney = 0,
+                            isWinner = true,
+                        ),
+                    )
+
+                // Simulate being in the trade result phase with an expired timer deadline
+                val stateReadyToFinish =
+                    lobby.copy(
+                        phase = GamePhase.TRADE_RESULT,
+                        players = playersWithFinishedGame,
+                        timerEnd = 1000L,
+                        finalRanking = mockRankings,
+                    )
+                persistenceService.saveGameState("11111", stateReadyToFinish)
+
+                // Trigger the automatic timeout sweep past the deadline
+                service.sweepExpiredTimeouts(now = 2000L)
+
+                // Verify that the GameService caught the transition to the finished phase and saved it
+                val storedEntries = leaderboardService.getAllEntries()
+
+                // Calculate the exact expected score dynamically
+                val expectedScore = ScoreCalculator.calculateScore(playersWithFinishedGame.first())
+
+                assertEquals(1, storedEntries.size)
+                assertEquals("Player1", storedEntries.single().playerName)
+                assertEquals(expectedScore, storedEntries.single().score)
             }
     }

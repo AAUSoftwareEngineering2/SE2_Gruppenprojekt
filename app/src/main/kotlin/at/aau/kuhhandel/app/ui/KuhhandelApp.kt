@@ -17,8 +17,11 @@ import at.aau.kuhhandel.app.audio.ButtonClickSoundProvider
 import at.aau.kuhhandel.app.audio.GameMusicPlayer
 import at.aau.kuhhandel.app.audio.MenuMusicPlayer
 import at.aau.kuhhandel.app.data.TokenStorage
+import at.aau.kuhhandel.app.network.NetworkClientFactory
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameWebSocketClient
+import at.aau.kuhhandel.app.network.leaderboard.LeaderboardService
+import at.aau.kuhhandel.app.network.ping.PingService
 import at.aau.kuhhandel.app.ui.game.GameScreen
 import at.aau.kuhhandel.app.ui.game.GameViewModel
 import at.aau.kuhhandel.app.ui.game.TradeActions
@@ -27,6 +30,8 @@ import at.aau.kuhhandel.app.ui.menu.creation.LobbyCreationViewModel
 import at.aau.kuhhandel.app.ui.menu.creation.RoomCreationScreen
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
 import at.aau.kuhhandel.app.ui.menu.joining.RoomJoiningScreen
+import at.aau.kuhhandel.app.ui.menu.leaderboard.LeaderboardScreen
+import at.aau.kuhhandel.app.ui.menu.leaderboard.LeaderboardViewModel
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyScreen
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.app.ui.menu.main.MainMenuScreen
@@ -41,6 +46,11 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val tokenStorage = remember(context) { TokenStorage(context) }
+
+    val sharedHttpClient = remember { NetworkClientFactory.create() }
+    val leaderboardService = remember(sharedHttpClient) { LeaderboardService(sharedHttpClient) }
+    val pingService = remember(sharedHttpClient) { PingService(sharedHttpClient) }
+
     val repository =
         remember(scope) {
             GameRepository(
@@ -55,7 +65,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val isGameScreenActive = navBackStackEntry?.destination?.route?.endsWith(".Game") == true
 
-    // Musiksteuerung
+    // Music Control
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
     val shouldUseGameMusic = isGameStarted || isGameScreenActive
     val isAuctionActive = currentPhase == GamePhase.AUCTION_BIDDING
@@ -84,9 +94,12 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
     }
 
-    MenuMusicPlayer(isGameStarted = shouldUseGameMusic) {
-        val appContent: @Composable () -> Unit = {
-            ButtonClickSoundProvider {
+    ButtonClickSoundProvider {
+        MenuMusicPlayer(isGameStarted = shouldUseGameMusic) {
+            GameMusicPlayer(
+                isGameStarted = shouldUseGameMusic,
+                isAuctionActive = isAuctionActive,
+            ) {
                 NavHost(
                     navController = navController,
                     startDestination = Screen.Main,
@@ -97,6 +110,8 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             onCreateLobby = { navController.navigate(Screen.RoomCreation) },
                             onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                             onRules = { navController.navigate(Screen.Rules) },
+                            onLeaderboard = { navController.navigate(Screen.Leaderboard) },
+                            onPingServer = { pingService.isServerReachable() },
                         )
                     }
 
@@ -200,6 +215,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             onRevealCard = gameViewModel::revealCard,
                             onPlaceBid = gameViewModel::placeBid,
                             onBuyBack = gameViewModel::buyBack,
+                            onSubmitAuctionPayment = gameViewModel::submitAuctionPayment,
                             tradeActions = tradeActions,
                             onToggleMoneyCard = gameViewModel::toggleMoneyCardSelection,
                             onToggleHandFanned = gameViewModel::toggleHandFanned,
@@ -226,19 +242,27 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
                             },
                         )
                     }
+
+                    composable<Screen.Leaderboard> {
+                        val leaderboardViewModel =
+                            remember(leaderboardService, scope) {
+                                LeaderboardViewModel(
+                                    service = leaderboardService,
+                                    scope = scope,
+                                )
+                            }
+                        val leaderboardUiState by leaderboardViewModel.uiState.collectAsState()
+
+                        LeaderboardScreen(
+                            uiState = leaderboardUiState,
+                            onRefresh = leaderboardViewModel::loadLeaderboard,
+                            onBack = {
+                                navController.popBackStack(Screen.Main, inclusive = false)
+                            },
+                        )
+                    }
                 }
             }
-        }
-
-        if (shouldUseGameMusic) {
-            GameMusicPlayer(
-                isGameStarted = true,
-                isAuctionActive = isAuctionActive,
-            ) {
-                appContent()
-            }
-        } else {
-            appContent()
         }
     }
 }

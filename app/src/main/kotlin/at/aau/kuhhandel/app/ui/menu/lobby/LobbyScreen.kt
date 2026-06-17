@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.ui.menu.lobby
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,10 @@ import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.DefaultPurple
+import at.aau.kuhhandel.app.ui.theme.LightPurple
+import at.aau.kuhhandel.app.ui.theme.WhitePurple
 
 @Composable
 fun LobbyScreen(
@@ -199,8 +204,23 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
             Modifier
                 .fillMaxWidth()
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color =
+                        if (player.isMe) {
+                            WhitePurple
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
                     shape = RoundedCornerShape(24.dp),
+                ).then(
+                    if (player.isMe) {
+                        Modifier.border(
+                            width = 2.dp,
+                            color = DefaultPurple,
+                            shape = RoundedCornerShape(24.dp),
+                        )
+                    } else {
+                        Modifier
+                    },
                 ).padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -214,7 +234,7 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
                     Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(DefaultPurple),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -227,10 +247,29 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
             Spacer(modifier = Modifier.size(12.dp))
 
             Column {
-                Text(
-                    player.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        player.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (player.isMe) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Box(
+                            modifier =
+                                Modifier
+                                    .background(
+                                        color = LightPurple,
+                                        shape = RoundedCornerShape(8.dp),
+                                    ).padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                "(You)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DarkPurple,
+                            )
+                        }
+                    }
+                }
                 Text(
                     if (player.isHost) "Host" else "Player",
                     style = MaterialTheme.typography.bodySmall,

@@ -37,6 +37,8 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
+    onLeaderboard: () -> Unit,
+    onPingServer: suspend () -> Result<Boolean>,
 ) {
     // ==========================================================
     // PARAMETERS
@@ -107,6 +109,17 @@ fun MainMenuScreen(
             }
         }
 
+        // Leaderboard
+        Button(
+            onClick = onLeaderboard,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+        ) {
+            Text("Leaderboard")
+        }
+
         // DEBUG: Navigation & Ping Buttons
         Row(
             modifier =
@@ -119,7 +132,7 @@ fun MainMenuScreen(
                 onClick = {
                     playClickSound()
                     scope.launch {
-                        val result = PingService().isServerReachable()
+                        val result = onPingServer()
                         result
                             .onSuccess {
                                 Toast
