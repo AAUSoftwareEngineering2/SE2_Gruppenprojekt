@@ -20,7 +20,11 @@ data class LobbyCreationUiState(
     val isCreating: Boolean = false,
 ) {
     val canSubmit: Boolean
-        get() = PlayerNameRules.isValid(playerName) && !isConnecting && !isCreating && gameId == null
+        get() =
+            PlayerNameRules.isValid(playerName) &&
+                !isConnecting &&
+                !isCreating &&
+                gameId == null
 }
 
 class LobbyCreationViewModel(
