@@ -239,6 +239,7 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         GameJoinedPayload.serializer(),
                         GameJoinedPayload(
+                            gameId = joinedGameId,
                             playerId = playerId,
                             reconnectToken = token,
                             state = state,
