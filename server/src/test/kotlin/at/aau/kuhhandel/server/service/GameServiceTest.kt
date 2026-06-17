@@ -425,6 +425,22 @@ class GameServiceTest
             }
 
         @Test
+        fun `purgeGame deletes reconnect tokens with player rows`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                val joined = service.joinGame("11111", "Player2")
+
+                assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNotNull(service.reconnectTokenFingerprint("11111", joined.playerId))
+
+                service.purgeGame("11111")
+
+                assertNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNull(service.reconnectTokenFingerprint("11111", joined.playerId))
+            }
+
+        @Test
         fun `sweepExpiredTimeouts advances an expired phase and publishes the update`() =
             runTest {
                 val service = service(codes = listOf("11111"))

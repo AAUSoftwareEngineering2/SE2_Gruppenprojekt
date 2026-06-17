@@ -338,6 +338,7 @@ class GamePersistenceService(
                 playerMoneyRepository.deleteByPlayer(player)
                 playerAnimalRepository.deleteByPlayer(player)
             }
+        // game_players owns reconnect_token_hash, so deleting these rows removes all player tokens.
         gamePlayerRepository.deleteByGame(game)
         gameRepository.deleteById(gameKey)
     }
