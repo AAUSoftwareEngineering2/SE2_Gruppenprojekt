@@ -76,40 +76,7 @@ fun AuctionPhaseContent(
                 myPlayerId = uiState.myPlayerId,
                 footerContent = {
                     val phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING
-                    if (!uiState.isAuctioneer &&
-                        (phase == GamePhase.AUCTION_BIDDING)
-                    ) {
-                        if (phase == GamePhase.AUCTION_RESULT) {
-                            val isMe = buyerId == uiState.myPlayerId
-                            val resultText =
-                                when {
-                                    highestBidderId == null ->
-                                        if (isMe) {
-                                            "You got the animal for free!"
-                                        } else {
-                                            "$buyerName got the animal for free!"
-                                        }
-                                    buyerId == auctioneerId ->
-                                        if (isMe) {
-                                            "You bought back!"
-                                        } else {
-                                            "$buyerName bought back!"
-                                        }
-                                    else ->
-                                        if (isMe) {
-                                            "You won the auction!"
-                                        } else {
-                                            "$buyerName won the auction!"
-                                        }
-                                }
-                            GameStatusText(
-                                text = resultText,
-                                color = DarkPurple,
-                            )
-                        } else if (uiState.isAuctioneer) {
-                            val statusText =
-                                if (highestBidderId == null) {
-                                    "Auction Closed. No one bid!"
+                    if (!uiState.isAuctioneer && (phase == GamePhase.AUCTION_BIDDING)) {
                         AuctionControls(
                             onBid = onPlaceBid,
                             currentBid = auctionState?.highestBid ?: 0,
@@ -149,12 +116,27 @@ fun AuctionPhaseContent(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             if (phase == GamePhase.AUCTION_RESULT) {
+                                val isMe = buyerId == uiState.myPlayerId
                                 val resultText =
                                     when {
                                         highestBidderId == null ->
-                                            "$buyerName got the animal for free!"
-                                        buyerId == auctioneerId -> "$buyerName bought back!"
-                                        else -> "$buyerName won the auction!"
+                                            if (isMe) {
+                                                "You got the animal for free!"
+                                            } else {
+                                                "$buyerName got the animal for free!"
+                                            }
+                                        buyerId == auctioneerId ->
+                                            if (isMe) {
+                                                "You bought back!"
+                                            } else {
+                                                "$buyerName bought back!"
+                                            }
+                                        else ->
+                                            if (isMe) {
+                                                "You won the auction!"
+                                            } else {
+                                                "$buyerName won the auction!"
+                                            }
                                     }
                                 GameStatusText(
                                     text = resultText,
