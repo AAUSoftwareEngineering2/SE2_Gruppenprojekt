@@ -49,7 +49,7 @@ class LobbyJoiningViewModel(
                 playerNameError = nameError,
                 isLoading = loading || repoState.isConnecting,
                 errorMessage = localError ?: repoState.errorMessage,
-                isJoined = repoState.gameId != null,
+                isJoined = repoState.gameId != null && repoState.gameState != null,
                 joinedLobbyCode = repoState.gameId,
             )
         }.stateIn(

@@ -112,6 +112,35 @@ class LobbyViewModelTest {
     }
 
     @Test
+    fun `isMe flag is set correctly for the local player`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val players =
+                listOf(
+                    Player(id = "p1", name = "Alice"),
+                    Player(id = "p2", name = "Bob"),
+                )
+            val gameState = GameState(players = players, phase = GamePhase.NOT_STARTED)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                    myPlayerId = "p2",
+                )
+
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertFalse(uiState.players[0].isMe) // Alice
+            assertTrue(uiState.players[1].isMe) // Bob
+        }
+    }
+
+    @Test
     fun `canStartGame is true only when host and connected and at least 2 players`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

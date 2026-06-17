@@ -2,6 +2,7 @@ package at.aau.kuhhandel.app.network.game
 
 import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.shared.enums.AnimalType
+import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -76,7 +77,7 @@ class GameRepository(
         playerName: String,
     ) {
         ensureConnected()
-        _state.update { it.copy(gameId = gameId, errorMessage = null) }
+        _state.update { it.copy(errorMessage = null) }
         client.joinGame(gameId, playerName)
     }
 
@@ -401,7 +402,7 @@ class GameRepository(
                     return
                 }
 
-                // 2. Try GameJoinedPayload (includes playerId but NOT gameId)
+                // 2. Try GameJoinedPayload (includes gameId and playerId)
                 val joined =
                     runCatching {
                         WebSocketJson.json.decodeFromJsonElement(
@@ -412,15 +413,14 @@ class GameRepository(
                     }.getOrNull()
 
                 if (joined != null) {
-                    // The repository should already have the game ID
-                    val resolvedGameId = _state.value.gameId ?: ""
                     tokenStorage.saveSession(
-                        resolvedGameId,
+                        joined.gameId,
                         joined.playerId,
                         joined.reconnectToken,
                     )
                     _state.update {
                         it.copy(
+                            gameId = joined.gameId,
                             myPlayerId = it.myPlayerId ?: joined.playerId,
                             gameState = joined.state,
                             gameStateView = joined.stateView,
@@ -508,7 +508,12 @@ class GameRepository(
                         invalidMessage = "Invalid ERROR message",
                     ) ?: return
 
-                _state.update { it.copy(errorMessage = payload.message) }
+                val friendlyMessage =
+                    runCatching {
+                        GameErrorReason.valueOf(payload.message).toUserMessage()
+                    }.getOrDefault(payload.message)
+
+                _state.update { it.copy(errorMessage = friendlyMessage) }
             }
 
             else -> Unit
