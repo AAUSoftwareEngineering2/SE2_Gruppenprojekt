@@ -156,7 +156,7 @@ fun GameScreen(
         if (!isAuctionActive) {
             val playerCount = uiState.gameState?.players?.size ?: 0
             val boardAlignment = if (playerCount > 3) Alignment.BottomCenter else Alignment.Center
-            val boardPadding = if (playerCount > 3) 210.dp else 0.dp
+            val boardPadding = if (playerCount > 3) 220.dp else 0.dp
 
             Box(
                 modifier =
