@@ -455,6 +455,7 @@ class GameWebSocketHandlerTest {
 
             val payload1 = decodePayload(response1, GameJoinedPayload.serializer())
 
+            assertEquals("game-1", payload1.gameId)
             assertEquals("player-1", payload1.playerId)
             assertEquals(state, payload1.state)
             assertEquals(state.createViewForPlayer("player-1"), payload1.stateView)

@@ -13,6 +13,7 @@ data class PlayerDisplayItem(
     val name: String,
     val isHost: Boolean,
     val isReady: Boolean,
+    val isMe: Boolean = false,
 )
 
 data class LobbyUiState(
@@ -41,11 +42,12 @@ class LobbyViewModel(
                                 name = playerState.name.ifBlank { playerState.id },
                                 isHost = index == 0,
                                 isReady = repoState.isConnected,
+                                isMe = playerState.id == repoState.myPlayerId,
                             )
                         }.orEmpty()
                         .ifEmpty {
                             listOf(
-                                PlayerDisplayItem("You", true, repoState.isConnected),
+                                PlayerDisplayItem("You", true, repoState.isConnected, true),
                             )
                         }
 
