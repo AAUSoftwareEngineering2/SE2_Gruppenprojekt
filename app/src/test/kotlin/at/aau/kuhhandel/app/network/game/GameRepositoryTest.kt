@@ -6,8 +6,11 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
+import at.aau.kuhhandel.shared.model.TradeState
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
@@ -170,6 +173,24 @@ class GameRepositoryTest {
             hostPlayerId = "player-1",
         )
 
+    private fun stateViewFor(
+        state: GameState,
+        playerId: String = "me",
+    ): GameStateView {
+        val viewState =
+            if (state.hasPlayer(playerId) && state.hostPlayerId != null) {
+                state
+            } else {
+                state.copy(
+                    players =
+                        listOf(Player(id = playerId, name = playerId)) +
+                            state.players.filterNot { it.id == playerId },
+                    hostPlayerId = state.hostPlayerId ?: playerId,
+                )
+            }
+        return viewState.createViewForPlayer(playerId)
+    }
+
     private fun gameCreatedEnvelope(
         gameId: String,
         state: GameState,
@@ -183,7 +204,7 @@ class GameRepositoryTest {
                         gameId = gameId,
                         playerId = "me",
                         reconnectToken = "test-token",
-                        state = state,
+                        stateView = stateViewFor(state),
                     ),
                 ),
         )
@@ -197,7 +218,7 @@ class GameRepositoryTest {
             payload =
                 WebSocketJson.json.encodeToJsonElement(
                     GameStatePayload.serializer(),
-                    GameStatePayload(state = state),
+                    GameStatePayload(stateView = stateViewFor(state)),
                 ),
         )
 
@@ -233,7 +254,7 @@ class GameRepositoryTest {
             harness.receiveGameCreated("48307", createdState)
 
             assertEquals("48307", harness.state.gameId)
-            assertEquals(createdState, harness.state.gameState)
+            assertEquals(stateViewFor(createdState), harness.state.gameStateView)
             assertNull(harness.state.errorMessage)
         }
     }
@@ -264,7 +285,7 @@ class GameRepositoryTest {
 
             harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, startedState)
 
-            assertEquals(startedState, harness.state.gameState)
+            assertEquals(stateViewFor(startedState), harness.state.gameStateView)
             assertTrue(harness.state.isConnected)
         }
     }
@@ -286,8 +307,126 @@ class GameRepositoryTest {
 
             harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, updatedState)
 
-            assertEquals(updatedState, harness.state.gameState)
-            assertEquals(revealedCard, harness.state.gameState?.currentFaceUpCard)
+            assertEquals(stateViewFor(updatedState), harness.state.gameStateView)
+            assertEquals(1, harness.state.gameStateView?.deckSize)
+        }
+    }
+
+    @Test
+    fun `trade offer update applies player-specific trade state view`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame("Me")
+            val initiator =
+                Player(
+                    id = "me",
+                    name = "Me",
+                    moneyCards = listOf(MoneyCard("m1", 10)),
+                )
+            val target =
+                Player(
+                    id = "other",
+                    name = "Other",
+                    moneyCards = listOf(MoneyCard("m2", 20)),
+                )
+            val animalCards =
+                setOf(
+                    AnimalCard("cow-1", AnimalType.COW),
+                    AnimalCard("cow-2", AnimalType.COW),
+                )
+            val tradeState =
+                GameState(
+                    phase = GamePhase.TRADE_OFFER,
+                    players = listOf(initiator, target),
+                    hostPlayerId = "me",
+                    currentPlayerIndex = 0,
+                    tradeState =
+                        TradeState(
+                            initiatorId = "me",
+                            targetId = "other",
+                            requestedAnimalType = AnimalType.COW,
+                            animalCards = animalCards,
+                        ),
+                )
+
+            harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, tradeState)
+
+            val view = assertNotNull(harness.state.gameStateView)
+            val tradeView = assertNotNull(view.tradeState)
+            assertEquals(GamePhase.TRADE_OFFER, view.phase)
+            assertEquals("me", tradeView.initiatorId)
+            assertEquals("other", tradeView.targetId)
+            assertEquals(AnimalType.COW, tradeView.requestedAnimalType)
+            assertEquals(animalCards, tradeView.animalCards.toSet())
+            assertNull(harness.state.errorMessage)
+        }
+    }
+
+    @Test
+    fun `trade offer update accepts legacy trade state view without requested animal type`() {
+        runBlocking {
+            val harness = createHarness()
+            harness.createGame("Me")
+
+            harness.session.deliverText(
+                """
+                {
+                  "type": "GAME_STATE_UPDATED",
+                  "payload": {
+                    "stateView": {
+                      "phase": "TRADE_OFFER",
+                      "timerEnd": 1781739134848,
+                      "localPlayer": {
+                        "id": "me",
+                        "name": "Me",
+                        "animals": [],
+                        "moneyCards": []
+                      },
+                      "opponents": [
+                        {
+                          "id": "other",
+                          "name": "Other",
+                          "animals": [],
+                          "moneyCardCount": 2
+                        }
+                      ],
+                      "hostPlayerId": "me",
+                      "roundNumber": 8,
+                      "currentPlayerId": "me",
+                      "deckSize": 34,
+                      "auctionState": null,
+                      "tradeState": {
+                        "initiatorId": "me",
+                        "targetId": "other",
+                        "animalCards": [
+                          {
+                            "id": "cow-1",
+                            "type": "COW"
+                          }
+                        ],
+                        "initiatorCardCount": null,
+                        "targetCardCount": null
+                      },
+                      "alreadySpied": false,
+                      "spyingTargetId": null,
+                      "spyingTargetCards": null,
+                      "localPlayerSpiedOn": false,
+                      "spiedOnOpponentIds": [],
+                      "lastEvent": null,
+                      "finalRanking": null
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+            flushRepository()
+
+            val view = assertNotNull(harness.state.gameStateView)
+            val tradeView = assertNotNull(view.tradeState)
+            assertEquals(GamePhase.TRADE_OFFER, view.phase)
+            assertEquals(null, tradeView.requestedAnimalType)
+            assertEquals(AnimalType.COW, tradeView.animalCards.single().type)
+            assertNull(harness.state.errorMessage)
         }
     }
 
@@ -452,13 +591,8 @@ class GameRepositoryTest {
             harness.receiveGameState(WebSocketType.GAME_STATE_UPDATED, updatedState)
 
             // Verify the repository reactively pushed the data straight into the UI flow
-            assertEquals(updatedState, harness.state.gameState)
-            assertEquals(
-                1,
-                harness.state.gameState
-                    ?.activeSpies
-                    ?.size,
-            )
+            assertEquals(stateViewFor(updatedState), harness.state.gameStateView)
+            assertEquals("player-2", harness.state.gameStateView?.spyingTargetId)
             assertNull(harness.state.errorMessage)
         }
     }
@@ -488,7 +622,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
-            val stateView = state.createViewForPlayer("player-1")
+            val stateView = stateViewFor(state)
 
             harness.repository.createGame("me")
 
@@ -502,7 +636,6 @@ class GameRepositoryTest {
                                 gameId = "g1",
                                 playerId = "me",
                                 reconnectToken = "test-token",
-                                state = state,
                                 stateView = stateView,
                             ),
                         ),
@@ -513,7 +646,6 @@ class GameRepositoryTest {
 
             assertEquals("g1", harness.state.gameId)
             assertEquals("me", harness.state.myPlayerId)
-            assertEquals(state, harness.state.gameState)
             assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
@@ -531,7 +663,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
-            val stateView = state.createViewForPlayer("player-1")
+            val stateView = stateViewFor(state)
 
             harness.repository.createGame("me") // Ensure connected and setup
 
@@ -546,7 +678,6 @@ class GameRepositoryTest {
                                 gameId = "g1",
                                 playerId = "me",
                                 reconnectToken = "test-token",
-                                state = state,
                                 stateView = stateView,
                             ),
                         ),
@@ -556,7 +687,6 @@ class GameRepositoryTest {
             flushRepository()
 
             assertEquals("g1", harness.state.gameId)
-            assertEquals(state, harness.state.gameState)
             assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
@@ -574,6 +704,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
+            val stateView = stateViewFor(state, "player-7da6")
 
             harness.repository.joinGame("g1", "me")
 
@@ -588,7 +719,7 @@ class GameRepositoryTest {
                                 gameId = "g1",
                                 playerId = "player-7da6",
                                 reconnectToken = "test-token",
-                                state = state,
+                                stateView = stateView,
                             ),
                         ),
                 )
@@ -598,7 +729,7 @@ class GameRepositoryTest {
 
             assertEquals("g1", harness.state.gameId)
             assertEquals("player-7da6", harness.state.myPlayerId)
-            assertEquals(state, harness.state.gameState)
+            assertEquals(stateView, harness.state.gameStateView)
         }
     }
 
@@ -607,7 +738,7 @@ class GameRepositoryTest {
         runBlocking {
             val harness = createHarness()
             val state = sampleState()
-            val stateView = state.createViewForPlayer("player-1")
+            val stateView = stateViewFor(state)
 
             harness.repository.createGame("me")
 
@@ -619,7 +750,6 @@ class GameRepositoryTest {
                             SnapshotPayload.serializer(),
                             SnapshotPayload(
                                 reconnectToken = "new-token",
-                                state = state,
                                 stateView = stateView,
                             ),
                         ),
@@ -628,7 +758,6 @@ class GameRepositoryTest {
             harness.session.deliverEnvelope(envelope)
             flushRepository()
 
-            assertEquals(state, harness.state.gameState)
             assertEquals(stateView, harness.state.gameStateView)
 
             verify(exactly = 1) {
@@ -660,7 +789,7 @@ class GameRepositoryTest {
             )
             flushRepository()
             assertEquals(
-                "Invalid GameState message (Field 'state' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
+                "Invalid GameState message (Field 'stateView' is required for type with serial name 'at.aau.kuhhandel.shared.websocket.GameStatePayload', but it was missing). Payload: {}",
                 harness.state.errorMessage,
             )
 

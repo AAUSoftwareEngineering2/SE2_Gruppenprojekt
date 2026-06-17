@@ -3,10 +3,10 @@ package at.aau.kuhhandel.app.network.game
 import at.aau.kuhhandel.app.data.TokenStorage
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
 import at.aau.kuhhandel.shared.websocket.GameCreatedPayload
+import at.aau.kuhhandel.shared.websocket.GameJoinedPayload
 import at.aau.kuhhandel.shared.websocket.GameStatePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -33,14 +33,13 @@ data class GameRepositoryState(
     val reconnectAttempt: Int = 0,
     val gameId: String? = null,
     val myPlayerId: String? = null,
-    val gameState: GameState? = null,
     val gameStateView: GameStateView? = null,
     val errorMessage: String? = null,
 )
 
 /**
  * Repository responsible for managing the WebSocket connection and
- * maintaining the raw game state received from the server.
+ * maintaining the player-specific game state view received from the server.
  */
 class GameRepository(
     private val client: GameWebSocketClient,
@@ -48,6 +47,8 @@ class GameRepository(
     private val tokenStorage: TokenStorage,
 ) {
     private companion object {
+        const val LOG_PREFIX = "[WS IN] GAME_STATE_UPDATED"
+        const val LOG_PAYLOAD_SNIPPET_LENGTH = 2_000
         const val CONNECTION_FAILED = "Connection failed"
         const val CONNECTION_LOST = "Connection lost"
 
@@ -394,7 +395,6 @@ class GameRepository(
                         it.copy(
                             gameId = created.gameId,
                             myPlayerId = created.playerId,
-                            gameState = created.state,
                             gameStateView = created.stateView,
                             errorMessage = null,
                         )
@@ -406,8 +406,7 @@ class GameRepository(
                 val joined =
                     runCatching {
                         WebSocketJson.json.decodeFromJsonElement(
-                            at.aau.kuhhandel.shared.websocket.GameJoinedPayload
-                                .serializer(),
+                            GameJoinedPayload.serializer(),
                             payloadJson,
                         )
                     }.getOrNull()
@@ -422,7 +421,6 @@ class GameRepository(
                         it.copy(
                             gameId = joined.gameId,
                             myPlayerId = it.myPlayerId ?: joined.playerId,
-                            gameState = joined.state,
                             gameStateView = joined.stateView,
                             errorMessage = null,
                         )
@@ -430,33 +428,13 @@ class GameRepository(
                     return
                 }
 
-                // 3. Fallback to GameStatePayload if the above fail (try to get at least the state)
-                val gameStatePayload =
-                    runCatching {
-                        WebSocketJson.json.decodeFromJsonElement(
-                            GameStatePayload.serializer(),
-                            payloadJson,
-                        )
-                    }.getOrNull()
-
-                if (gameStatePayload != null) {
-                    _state.update {
-                        it.copy(
-                            gameState = gameStatePayload.state,
-                            gameStateView = gameStatePayload.stateView,
-                            errorMessage = null,
-                        )
-                    }
-                } else {
-                    _state.update {
-                        it.copy(
-                            errorMessage =
-                                "Invalid GAME_CREATED/JOINED message " +
-                                    "(Could not decode as " +
-                                    "GameCreated, GameJoined, or GameState). " +
-                                    "Payload: $payloadJson",
-                        )
-                    }
+                _state.update {
+                    it.copy(
+                        errorMessage =
+                            "Invalid GAME_CREATED/JOINED message " +
+                                "(Could not decode as GameCreated or GameJoined). " +
+                                "Payload: $payloadJson",
+                    )
                 }
             }
 
@@ -468,9 +446,10 @@ class GameRepository(
                         invalidMessage = "Invalid GameState message",
                     ) ?: return
 
+                logGameStateUpdated(envelope, payload)
+
                 _state.update {
                     it.copy(
-                        gameState = payload.state,
                         gameStateView = payload.stateView,
                         errorMessage = null,
                     )
@@ -489,7 +468,6 @@ class GameRepository(
 
                 _state.update {
                     it.copy(
-                        gameState = payload.state,
                         gameStateView = payload.stateView,
                         errorMessage = null,
                     )
@@ -536,6 +514,13 @@ class GameRepository(
                 runCatching { envelope.payload.toString() }.getOrDefault(
                     "unavailable",
                 )
+            if (envelope.type == WebSocketType.GAME_STATE_UPDATED) {
+                val payloadSnippet = payloadString.take(LOG_PAYLOAD_SNIPPET_LENGTH)
+                println(
+                    "$LOG_PREFIX decode failed requestId=${envelope.requestId} " +
+                        "error=${throwable.message} payload=$payloadSnippet",
+                )
+            }
             _state.update {
                 it.copy(
                     errorMessage =
@@ -545,6 +530,41 @@ class GameRepository(
             }
             null
         }
+
+    private fun logGameStateUpdated(
+        envelope: WebSocketEnvelope,
+        payload: GameStatePayload,
+    ) {
+        val view = payload.stateView
+        val trade = view.tradeState
+        val tradeSummary =
+            if (trade == null) {
+                "none"
+            } else {
+                val animalType = trade.requestedAnimalType ?: trade.animalCards.firstOrNull()?.type
+                "${trade.initiatorId}->${trade.targetId} " +
+                    "animal=$animalType " +
+                    "animalCount=${trade.animalCards.size} " +
+                    "initiatorCardCount=${trade.initiatorCardCount} " +
+                    "targetCardCount=${trade.targetCardCount} " +
+                    "visibleInitiatorCards=${trade.visibleInitiatorCards?.size} " +
+                    "visibleTargetCards=${trade.visibleTargetCards?.size} " +
+                    "winner=${trade.winnerId}"
+            }
+        val payloadSize =
+            runCatching { envelope.payload.toString().length }
+                .getOrDefault(-1)
+
+        println(
+            "$LOG_PREFIX decoded requestId=${envelope.requestId} " +
+                "payloadChars=$payloadSize " +
+                "localPlayer=${view.localPlayer.id} " +
+                "phase=${view.phase} " +
+                "currentPlayer=${view.currentPlayerId} " +
+                "timerEnd=${view.timerEnd} " +
+                "trade=[$tradeSummary]",
+        )
+    }
 
     private fun formatThrowable(
         prefix: String,

@@ -41,8 +41,8 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
 
 @Composable
@@ -69,8 +69,8 @@ fun GameScreen(
     val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
 
-    LaunchedEffect(uiState.gameState?.lastEvent) {
-        val event = uiState.gameState?.lastEvent
+    LaunchedEffect(uiState.lastEvent) {
+        val event = uiState.lastEvent
         if (event != null) {
             snackbarHostState.showSnackbar(
                 message = event.message,
@@ -130,8 +130,8 @@ fun GameScreen(
         // --- TOP: OPPONENTS (Hidden during auctions) ---
         if (!isAuctionActive) {
             OpponentList(
-                players = uiState.gameState?.players ?: emptyList(),
-                myId = uiState.myPlayerId,
+                opponents = uiState.opponents,
+                hasLocalMoney = uiState.myMoneyCards.isNotEmpty(),
                 onTradeTargetSelected = tradeActions.selectTargetPlayer,
                 currentPhase = uiState.currentPhase,
                 canSelectTradeTarget = uiState.canSelectTradeTarget,
@@ -169,7 +169,7 @@ fun GameScreen(
                             }
                         } else {
                             val message =
-                                if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
+                                if (uiState.hostPlayerId == uiState.myPlayerId) {
                                     "Waiting for players (min. 3)..."
                                 } else {
                                     "Waiting for host to start..."
@@ -205,7 +205,7 @@ fun GameScreen(
 
         // --- BOTTOM: PLAYER'S OWN AREA ---
         PlayerFarm(
-            player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
+            player = uiState.localPlayer,
             isHandFanned = uiState.isHandFanned,
             onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
@@ -222,7 +222,7 @@ fun GameScreen(
         )
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
-        val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
+        val myPlayer = uiState.localPlayer
         if (myPlayer != null && !isTradeActive) {
             val handTranslationY by animateDpAsState(
                 targetValue = if (isAuctionActive) 115.dp else 0.dp,
@@ -236,7 +236,7 @@ fun GameScreen(
             )
 
             MoneyHand(
-                cards = myPlayer.moneyCards,
+                cards = uiState.myMoneyCards,
                 selectedCardIds = uiState.selectedMoneyCardIds,
                 onCardClick = { onToggleMoneyCard(it.id) },
                 isFanned = uiState.isHandFanned,
@@ -402,19 +402,23 @@ fun GameScreenPreview() {
                     ),
             ),
         )
-    val gameState =
-        GameState(
-            phase = GamePhase.PLAYER_CHOICE,
-            players = players,
-            currentPlayerIndex = 4,
-        )
     val uiState =
         GameUiState(
-            gameState = gameState,
             myPlayerId = "5",
             currentPhase = GamePhase.PLAYER_CHOICE,
             deckCountText = "5",
             activeCardLabel = "No card revealed",
+            localPlayer = players[4],
+            opponents =
+                players.take(4).map { player ->
+                    Opponent(
+                        id = player.id,
+                        name = player.name,
+                        animals = player.animals,
+                        moneyCardCount = player.moneyCards.size,
+                    )
+                },
+            currentPlayerId = "5",
             isConnected = true,
             canRevealCard = true,
             canStartGame = false,
