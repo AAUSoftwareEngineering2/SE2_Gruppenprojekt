@@ -137,6 +137,7 @@ object GameStateMapper {
                             playerKey,
                             moneyByPlayer[playerKey].orEmpty(),
                         ),
+                    isConnected = player.isConnected,
                 )
             }
 

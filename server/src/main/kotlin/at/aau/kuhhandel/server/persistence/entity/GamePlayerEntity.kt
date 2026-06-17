@@ -35,6 +35,8 @@ class GamePlayerEntity(
     // SHA-256 hex of the current reconnect token, stored here so any pod can validate it.
     @Column(name = "reconnect_token_hash", length = 64)
     var reconnectTokenHash: String? = null,
+    @Column(name = "is_connected", nullable = false)
+    var isConnected: Boolean = true,
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

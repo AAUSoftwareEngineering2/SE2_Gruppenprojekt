@@ -323,6 +323,7 @@ class GamePersistenceService(
                                 playerId = player.id,
                                 displayName = player.name,
                                 seatOrder = index,
+                                isConnected = player.isConnected,
                             ),
                         )
                     } else {
@@ -330,6 +331,7 @@ class GamePersistenceService(
                         playerEntity.playerId = player.id
                         playerEntity.displayName = player.name
                         playerEntity.seatOrder = index
+                        playerEntity.isConnected = player.isConnected
                         playerEntity
                     }
                 player.id to saved
