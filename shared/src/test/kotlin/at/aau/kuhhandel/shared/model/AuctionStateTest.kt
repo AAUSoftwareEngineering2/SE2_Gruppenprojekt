@@ -28,6 +28,8 @@ class AuctionStateTest {
                 highestBid = 10,
                 highestBidderId = "p1",
                 timerEndTime = endTime,
+                buyerId = "p1",
+                sellerId = "p3",
             )
 
         assertEquals(card, state.auctionCard)
@@ -35,5 +37,7 @@ class AuctionStateTest {
         assertEquals(10, state.highestBid)
         assertEquals("p1", state.highestBidderId)
         assertEquals(endTime, state.timerEndTime)
+        assertEquals("p1", state.buyerId)
+        assertEquals("p3", state.sellerId)
     }
 }

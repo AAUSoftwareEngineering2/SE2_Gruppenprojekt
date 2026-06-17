@@ -92,6 +92,15 @@ data class ResolveAuctionPayload(
 )
 
 /**
+ * Payload used by [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+ * Sent by the auction buyer to pay for the auctioned card with the selected money cards.
+ */
+@Serializable
+data class SubmitAuctionPaymentPayload(
+    val moneyCardIds: Set<String>,
+)
+
+/**
  * Payload used by [WebSocketType.CHOOSE_TRADE] commands.
  * Sent by the active player to start a trade challenge against another player.
  */
