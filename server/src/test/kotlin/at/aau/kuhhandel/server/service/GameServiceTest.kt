@@ -11,6 +11,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -165,33 +166,72 @@ class GameServiceTest
             }
 
         @Test
-        fun `getStateForReconnection returns state for a known player`() =
+        fun `disconnectPlayer removes player from room in lobby phase`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+
+                // Player is connected, so guard passes. Hits lobby block -> removes player.
+                val state = service.disconnectPlayer("11111", guest.playerId)
+
+                assertEquals(1, state.players.size)
+                assertTrue(state.players.none { it.id == guest.playerId })
+            }
+
+        @Test
+        fun `disconnectPlayer marks player as disconnected`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", host.playerId)
+
+                // Player is connected, guard passes. Hits active game block -> flags false.
+                val state = service.disconnectPlayer("11111", guest.playerId)
+
+                assertFalse(state.players.first { it.id == guest.playerId }.isConnected)
+
+                // Verify stateless database reload round-trip
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertFalse(dbState.players.first { it.id == guest.playerId }.isConnected)
+            }
+
+        @Test
+        fun `reconnectPlayer reconnects disconnected player`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", host.playerId)
+
+                // Disconnect the player first so their flag is false
+                service.disconnectPlayer("11111", guest.playerId)
+
+                // Reconnect the player. Flag is false, guard passes -> flags true.
+                val state = service.reconnectPlayer("11111", guest.playerId)
+
+                assertTrue(state.players.first { it.id == guest.playerId }.isConnected)
+
+                // Verify stateless database reload round-trip
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertTrue(dbState.players.first { it.id == guest.playerId }.isConnected)
+            }
+
+        @Test
+        fun `reconnectPlayer fails when player is already connected`() =
             runTest {
                 val service = service(codes = listOf("11111"))
                 val created = service.createGame("Player1")
 
-                val state = service.getStateForReconnection("11111", created.playerId)
-
-                assertEquals(GamePhase.NOT_STARTED, state.phase)
-            }
-
-        @Test
-        fun `getStateForReconnection throws for unknown game and unknown player`() =
-            runTest {
-                val service = service(codes = listOf("11111"))
-                service.createGame("Player1")
-
-                val unknownGame =
+                // In lobby phase, player is already connected. Guard at top throws immediately.
+                val exception =
                     assertThrows<GameException> {
-                        service.getStateForReconnection("99999", "player-1")
+                        service.reconnectPlayer("11111", created.playerId)
                     }
-                assertEquals(GameErrorReason.GAME_NOT_FOUND, unknownGame.reason)
-
-                val unknownPlayer =
-                    assertThrows<GameException> {
-                        service.getStateForReconnection("11111", "stranger")
-                    }
-                assertEquals(GameErrorReason.PLAYER_NOT_IN_GAME, unknownPlayer.reason)
+                assertEquals(GameErrorReason.ALREADY_CONNECTED, exception.reason)
             }
 
         @Test

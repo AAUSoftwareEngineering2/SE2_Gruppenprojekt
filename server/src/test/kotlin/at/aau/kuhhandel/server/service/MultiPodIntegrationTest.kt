@@ -86,9 +86,6 @@ class MultiPodIntegrationTest
                 val created = podA.createGame("Alice")
                 podA.storeReconnectToken("42222", created.playerId, "token-from-pod-a")
 
-                // The new connection lands on pod B.
-                val state = podB.getStateForReconnection("42222", created.playerId)
-                assertEquals(GamePhase.NOT_STARTED, state.phase)
                 assertTrue(
                     podB.isReconnectTokenValid("42222", created.playerId, "token-from-pod-a"),
                 )

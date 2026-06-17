@@ -78,6 +78,36 @@ class GameSession(
     }
 
     /**
+     * Disconnects a player.
+     *
+     * If the game has not started, removes the player from the room.
+     * If the game is running, marks the player as disconnected.
+     */
+    fun disconnectPlayer(playerId: String): GameState {
+        val player = requirePlayerInRoom(playerId)
+        ensurePlayerIsNotDisconnected(player)
+
+        return if (state.phase == GamePhase.NOT_STARTED) {
+            removePlayer(playerId)
+        } else {
+            state = state.updatePlayer(playerId) { it.copy(isConnected = false) }
+            state
+        }
+    }
+
+    /**
+     * Reconnects a player into the game session by marking them as connected.
+     */
+    fun reconnectPlayer(playerId: String): GameState {
+        val player = requirePlayerInRoom(playerId)
+        ensurePlayerIsNotConnected(player)
+
+        state = state.updatePlayer(playerId) { it.copy(isConnected = true) }
+
+        return state
+    }
+
+    /**
      * Starts a game with a simple initial deck.
      */
     fun startGame(actorId: String): GameState {
@@ -864,6 +894,18 @@ class GameSession(
     private fun requireActorInRoom(actorId: String): Player =
         state.players.find { it.id == actorId }
             ?: throw GameException(GameErrorReason.UNKNOWN_ACTOR)
+
+    private fun requirePlayerInRoom(playerId: String): Player =
+        state.players.find { it.id == playerId }
+            ?: throw GameException(GameErrorReason.UNKNOWN_PLAYER)
+
+    private fun ensurePlayerIsNotConnected(player: Player) {
+        if (player.isConnected) throw GameException(GameErrorReason.ALREADY_CONNECTED)
+    }
+
+    private fun ensurePlayerIsNotDisconnected(player: Player) {
+        if (!player.isConnected) throw GameException(GameErrorReason.ALREADY_DISCONNECTED)
+    }
 
     private fun ensureHost(playerId: String) {
         if (state.hostPlayerId != playerId) throw GameException(GameErrorReason.NOT_HOST)

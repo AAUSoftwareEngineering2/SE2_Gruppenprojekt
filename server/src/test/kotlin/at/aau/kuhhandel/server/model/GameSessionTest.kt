@@ -181,6 +181,83 @@ class GameSessionTest {
     }
 
     @Test
+    fun `disconnectPlayer removes player from room if phase is NOT_STARTED`() {
+        val session = GameSession.fromState("game-1", baselineState)
+
+        val updatedState = session.disconnectPlayer("player-2")
+
+        assertEquals(2, updatedState.players.size)
+        assertTrue(updatedState.players.none { it.id == "player-2" })
+        assertEquals("player-1", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun `disconnectPlayer marks player as disconnected if game is running`() {
+        val activeGameState = baselineState.copy(phase = GamePhase.PLAYER_CHOICE)
+        val session = GameSession.fromState("game-1", activeGameState)
+
+        val updatedState = session.disconnectPlayer("player-2")
+
+        assertEquals(3, updatedState.players.size)
+        val targetPlayer = updatedState.players.first { it.id == "player-2" }
+        assertFalse(targetPlayer.isConnected)
+    }
+
+    @Test
+    fun `disconnectPlayer fails if player is not in room`() {
+        assertActionFailsWithReason(
+            baselineState,
+            GameErrorReason.UNKNOWN_PLAYER,
+        ) { it.disconnectPlayer("nonexistent player") }
+    }
+
+    @Test
+    fun `disconnectPlayer fails if player is already marked as disconnected`() {
+        val disconnectedInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = false) }
+
+        assertActionFailsWithReason(disconnectedInGameState, GameErrorReason.ALREADY_DISCONNECTED) {
+            it.disconnectPlayer("player-2")
+        }
+    }
+
+    @Test
+    fun `reconnectPlayer marks player as connected`() {
+        val offlineInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = false) }
+        val session = GameSession.fromState("game-1", offlineInGameState)
+
+        val updatedState = session.reconnectPlayer("player-2")
+
+        val targetPlayer = updatedState.players.first { it.id == "player-2" }
+        assertTrue(targetPlayer.isConnected)
+    }
+
+    @Test
+    fun `reconnectPlayer fails if player is already marked as connected`() {
+        val connectedInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = true) }
+
+        assertActionFailsWithReason(connectedInGameState, GameErrorReason.ALREADY_CONNECTED) {
+            it.reconnectPlayer("player-2")
+        }
+    }
+
+    @Test
+    fun `reconnectPlayer fails if player is not in room`() {
+        assertActionFailsWithReason(
+            baselineState,
+            GameErrorReason.UNKNOWN_PLAYER,
+        ) { it.reconnectPlayer("nonexistent player") }
+    }
+
+    @Test
     fun `startGame shuffles players, distributes initial money, and transitions phase`() {
         val session = GameSession.fromState("game-1", baselineState)
 

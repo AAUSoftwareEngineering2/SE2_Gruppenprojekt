@@ -23,7 +23,6 @@ import at.aau.kuhhandel.shared.websocket.PlaceBidPayload
 import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
-import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
@@ -286,10 +285,11 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `afterConnectionClosed removes player and broadcasts GAME_STATE_UPDATED`() =
+    fun `afterConnectionClosed processes disconnection and broadcasts GAME_STATE_UPDATED`() =
         runTest(testDispatcher.scheduler) {
             val returnedState =
                 GameState(
+                    phase = GamePhase.PLAYER_CHOICE,
                     players = listOf(Player("player-2", "Player2")),
                     hostPlayerId = "player-2",
                 )
@@ -299,12 +299,12 @@ class GameWebSocketHandlerTest {
             // Fingerprint unchanged across the grace period, so the player really left.
             whenever(gameService.reconnectTokenFingerprint("game-1", "player-1"))
                 .thenReturn("fingerprint-1")
-            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(returnedState)
+            whenever(gameService.disconnectPlayer("game-1", "player-1")).thenReturn(returnedState)
 
             handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
             advanceUntilIdle()
 
-            verify(gameService).leaveGame("game-1", "player-1")
+            verify(gameService).disconnectPlayer("game-1", "player-1")
             verify(connectionRegistry).unbind("session-1")
 
             val response2 = captureResponse(session2)
@@ -331,18 +331,31 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
-    fun `afterConnectionClosed still removes the player when no reconnect token was ever stored`() =
+    fun `afterConnectionClosed processes disconnection when no reconnect token was ever stored`() =
         runTest(testDispatcher.scheduler) {
-            // Both fingerprints are null (token never persisted / write failed). The player did
-            // NOT reconnect, so the grace period must still end in a leave. Regression guard for
-            // the null fingerprint being misread as "already gone".
+            // Both fingerprints are null (token never persisted). The player did
+            // NOT reconnect, so the grace period must still delegate.
             whenever(gameService.reconnectTokenFingerprint("game-1", "player-1")).thenReturn(null)
-            whenever(gameService.leaveGame("game-1", "player-1")).thenReturn(baseState)
+            whenever(gameService.disconnectPlayer("game-1", "player-1")).thenReturn(baseState)
 
             handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
             advanceUntilIdle()
 
-            verify(gameService).leaveGame("game-1", "player-1")
+            verify(gameService).disconnectPlayer("game-1", "player-1")
+        }
+
+    @Test
+    fun `afterConnectionClosed skips processing if player reconnected during the grace period`() =
+        runTest(testDispatcher.scheduler) {
+            // Token rotated during the grace period (fingerprint changed), so the player reconnected somewhere
+            whenever(gameService.reconnectTokenFingerprint("game-1", "player-1"))
+                .thenReturn("fingerprint-1", "fingerprint-2")
+
+            handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
+            advanceUntilIdle()
+
+            verify(connectionRegistry).unbind("session-1")
+            verify(gameService, never()).disconnectPlayer(any(), any())
         }
 
     @Test
@@ -561,17 +574,24 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
-    fun `RECONNECT reconnects session and sends SNAPSHOT`() =
+    fun `RECONNECT broadcasts GAME_STATE_UPDATED to active game opponents on player return`() =
         runTest(testDispatcher.scheduler) {
-            val returnedState =
+            val runningState =
                 GameState(
-                    players = listOf(Player("player-1", "Player1")),
+                    phase = GamePhase.PLAYER_CHOICE,
+                    players = listOf(Player("player-1", "Player1"), Player("player-2", "Player2")),
                     hostPlayerId = "player-1",
                 )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getStateForReconnection("game-1", "player-1"))
-                .thenReturn(returnedState)
+            whenever(connectionRegistry.connectionsFor("game-1")).thenReturn(
+                setOf(
+                    session1,
+                    session2,
+                ),
+            )
+            whenever(gameService.reconnectPlayer("game-1", "player-1"))
+                .thenReturn(runningState)
             whenever(gameService.isReconnectTokenValid("game-1", "player-1", "token-1"))
                 .thenReturn(true)
 
@@ -586,16 +606,11 @@ class GameWebSocketHandlerTest {
                     ),
             )
 
-            val response = captureResponse(session1)
-            assertEquals(WebSocketType.SNAPSHOT, response.type)
-            assertEquals("req-1", response.requestId)
+            val response2 = captureResponse(session2)
+            assertEquals(WebSocketType.GAME_STATE_UPDATED, response2.type)
 
-            val payload = decodePayload(response, SnapshotPayload.serializer())
-
-            assertEquals(returnedState, payload.state)
-            assertEquals(returnedState.createViewForPlayer("player-1"), payload.stateView)
-            verify(connectionRegistry).bindPlayerSession("session-1", "game-1", "player-1")
-            verify(gameService).storeReconnectToken("game-1", "player-1", payload.reconnectToken)
+            val payload2 = decodePayload(response2, GameStatePayload.serializer())
+            assertEquals(runningState, payload2.state)
         }
 
     @Test
@@ -651,7 +666,7 @@ class GameWebSocketHandlerTest {
                 )
 
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getStateForReconnection("game-1", "player-1"))
+            whenever(gameService.reconnectPlayer("game-1", "player-1"))
                 .thenReturn(returnedState)
             whenever(gameService.isReconnectTokenValid("game-1", "player-1", "invalid-token"))
                 .thenReturn(false)

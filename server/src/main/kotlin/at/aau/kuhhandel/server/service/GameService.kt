@@ -116,25 +116,31 @@ class GameService(
     }
 
     /**
-     * Retrieves the state of the game with the given game ID if
-     * the provided player ID corresponds to one of the players.
+     * Disconnects a player from a game and deletes the game if it has no players.
      *
-     * Fails with a client-facing error if the game does not exist or if the player ID is invalid.
+     * Expects a valid [gameId].
      */
-    suspend fun getStateForReconnection(
+    suspend fun disconnectPlayer(
         gameId: String,
         playerId: String,
     ): GameState {
-        val state =
-            withContext(ioDispatcher) { persistenceService.loadGameState(gameId) }
-                ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
-
-        if (state.players.none { it.id == playerId }) {
-            throw GameException(GameErrorReason.PLAYER_NOT_IN_GAME)
+        val newState = executeAction(gameId) { session -> session.disconnectPlayer(playerId) }
+        if (newState.players.isEmpty()) {
+            withContext(ioDispatcher) { purgeGame(gameId) }
         }
 
-        return state
+        return newState
     }
+
+    /**
+     * Reconnects a player to a game.
+     *
+     * Expects a valid [gameId].
+     */
+    suspend fun reconnectPlayer(
+        gameId: String,
+        playerId: String,
+    ): GameState = executeAction(gameId) { session -> session.reconnectPlayer(playerId) }
 
     /**
      * Persists the reconnect token (hashed) for later validation.

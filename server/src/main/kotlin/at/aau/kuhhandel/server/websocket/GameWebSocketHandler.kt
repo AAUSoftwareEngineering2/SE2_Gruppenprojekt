@@ -146,18 +146,20 @@ class GameWebSocketHandler(
                         return@launch
                     }
 
-                    val state = gameService.leaveGame(playerSession.gameId, playerSession.playerId)
+                    // Disconnect the player from the game
+                    val state =
+                        gameService.disconnectPlayer(playerSession.gameId, playerSession.playerId)
                     broadcastStateUpdate(playerSession.gameId, state)
                 } catch (e: GameException) {
                     logger.info(
-                        "Player {} could not leave game {} on disconnect. Reason: {}",
+                        "Player {} could not be disconnected from game {}. Reason: {}",
                         playerSession.playerId,
                         playerSession.gameId,
                         e.reason,
                     )
                 } catch (e: Exception) {
                     logger.error(
-                        "Unexpected system error when removing player {} from game {} on disconnect",
+                        "Unexpected system error when disconnecting player {} from game {}",
                         playerSession.playerId,
                         playerSession.gameId,
                         e,
@@ -284,11 +286,6 @@ class GameWebSocketHandler(
     ) {
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
-
-        // Intentional order (#278): resolve the reconnect target first so failures stay specific
-        // (GAME_NOT_FOUND / PLAYER_NOT_IN_GAME), then validate the token against the database.
-        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
-
         if (!gameService.isReconnectTokenValid(payload.gameId, payload.playerId, payload.token)) {
             throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
         }
@@ -297,6 +294,9 @@ class GameWebSocketHandler(
         gameService.storeReconnectToken(payload.gameId, payload.playerId, newToken)
 
         connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId)
+
+        // Reconnect the player to the game
+        val state = gameService.reconnectPlayer(payload.gameId, payload.playerId)
 
         send(
             session,
@@ -314,6 +314,8 @@ class GameWebSocketHandler(
                     ),
             ),
         )
+
+        broadcastStateUpdate(payload.gameId, state, session)
     }
 
     /**
