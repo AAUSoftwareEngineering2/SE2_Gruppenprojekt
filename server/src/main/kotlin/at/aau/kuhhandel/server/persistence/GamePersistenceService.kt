@@ -208,7 +208,8 @@ class GamePersistenceService(
         val player =
             gamePlayerRepository.findLockedByGameIdAndPlayerId(gameKey, playerId)
                 ?: return ReconnectTokenMutationResult.InvalidToken
-        val storedHash = player.reconnectTokenHash ?: return ReconnectTokenMutationResult.InvalidToken
+        val storedHash =
+            player.reconnectTokenHash ?: return ReconnectTokenMutationResult.InvalidToken
         if (!tokenMatches(storedHash, token)) {
             return ReconnectTokenMutationResult.InvalidToken
         }

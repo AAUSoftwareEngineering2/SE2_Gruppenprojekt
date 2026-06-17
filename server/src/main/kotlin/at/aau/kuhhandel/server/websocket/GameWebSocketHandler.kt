@@ -643,5 +643,4 @@ class GameWebSocketHandler(
             )
         send(session, envelope)
     }
-
 }

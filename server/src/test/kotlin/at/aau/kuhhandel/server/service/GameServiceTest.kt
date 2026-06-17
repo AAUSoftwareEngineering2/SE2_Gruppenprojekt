@@ -306,7 +306,11 @@ class GameServiceTest
                         guest.reconnectToken,
                     )
 
-                assertTrue(result.gameState.players.first { it.id == guest.playerId }.isConnected)
+                assertTrue(
+                    result.gameState.players
+                        .first { it.id == guest.playerId }
+                        .isConnected,
+                )
                 assertNotEquals(guest.reconnectToken, result.reconnectToken)
                 assertEquals(
                     false,
