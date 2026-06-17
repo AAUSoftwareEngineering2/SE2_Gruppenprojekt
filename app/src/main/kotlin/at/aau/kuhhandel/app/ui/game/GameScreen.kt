@@ -158,8 +158,9 @@ fun GameScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .align(Alignment.Center),
-                contentAlignment = Alignment.Center,
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 280.dp),
+                contentAlignment = Alignment.BottomCenter,
             ) {
                 when (uiState.currentPhase) {
                     GamePhase.NOT_STARTED -> {
