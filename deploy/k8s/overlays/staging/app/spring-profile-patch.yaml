@@ -1,8 +1,11 @@
 # Staging-spezifische Deployment-Overrides gegenüber der gemeinsamen App-Basis:
 #   - SPRING_PROFILES_ACTIVE=staging
 #   - eigene erlaubte WebSocket-Origins
-#   - eigenes Postgres-Schema `staging` (staging teilt die DB mit prod, schreibt aber
-#     in ein getrenntes Schema, damit sich beide nicht auf denselben Zeilen stören)
+#   - eigenes Postgres-Schema `staging`: gesetzt via `currentSchema=staging` in der
+#     staging-eigenen `kuhhandel-db` Secret-URL (nicht hier — die URL lebt im Secret).
+#     staging teilt die DB-Instanz mit prod, schreibt aber in ein getrenntes Schema;
+#     prod bleibt auf `public`. (`spring.datasource.hikari.schema` geht in Spring Boot 4
+#     NICHT — der Hikari-Pool ist beim Property-Binding schon sealed -> Startup-Crash.)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,7 +20,3 @@ spec:
               value: staging
             - name: KUHHANDEL_WEBSOCKET_ALLOWED_ORIGINS
               value: "https://staging-k3s-api.se-aau.com,https://staging-api.se-aau.com"
-            # Staging teilt sich die Supabase-DB mit prod. Eigenes Postgres-Schema, damit
-            # beide nicht auf denselben Zeilen kollidieren (prod bleibt auf `public`).
-            - name: SPRING_DATASOURCE_HIKARI_SCHEMA
-              value: staging
