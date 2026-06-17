@@ -9,6 +9,7 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -695,6 +696,127 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `auction payment ui state tracks buyer and selected money total`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+            assertTrue(viewModel.uiState.value.isAuctionBuyer)
+            assertEquals(25, viewModel.uiState.value.auctionBidToPay)
+            assertEquals(10, viewModel.uiState.value.selectedMoneyTotal)
+            assertFalse(viewModel.uiState.value.canSubmitAuctionPayment)
+            assertTrue(viewModel.uiState.value.canAuctioneerBuyBack)
+
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            assertEquals(30, viewModel.uiState.value.selectedMoneyTotal)
+            assertTrue(viewModel.uiState.value.canSubmitAuctionPayment)
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment sends selected money and clears selection`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment ignores non buyers and underfunded selections`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "observer",
+                    gameState = auctionPaymentGameState(buyerId = "me", highestBid = 20),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify(exactly = 0) { mockRepository.submitAuctionPayment(any()) }
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment releases submitting state when repository fails`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            coEvery {
+                mockRepository.submitAuctionPayment(setOf("m10", "m20"))
+            } throws RuntimeException("Network error")
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertFalse(viewModel.uiState.value.isTradeActionSubmitting)
+        }
+    }
+
+    @Test
     fun `takeTradeOffer sends empty response`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -1055,4 +1177,34 @@ class GameViewModelTest {
             assertNull(viewModel.uiState.value.auctionTimerSeconds)
         }
     }
+
+    private fun auctionPaymentGameState(
+        buyerId: String = "me",
+        highestBid: Int,
+    ) = GameState(
+        phase = GamePhase.AUCTION_PAYMENT,
+        auctionState =
+            AuctionState(
+                auctioneerId = "seller",
+                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                highestBid = highestBid,
+                highestBidderId = buyerId,
+                buyerId = buyerId,
+                sellerId = "seller",
+            ),
+        players =
+            listOf(
+                Player(
+                    id = "me",
+                    name = "Me",
+                    moneyCards =
+                        listOf(
+                            MoneyCard("m10", 10),
+                            MoneyCard("m20", 20),
+                        ),
+                ),
+                Player(id = "seller", name = "Seller"),
+                Player(id = "observer", name = "Observer"),
+            ),
+    )
 }

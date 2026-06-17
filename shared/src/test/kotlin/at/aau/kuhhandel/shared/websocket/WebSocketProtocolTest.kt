@@ -102,6 +102,7 @@ class WebSocketProtocolTest {
     fun `GameJoinedPayload round-trips`() {
         val payload =
             GameJoinedPayload(
+                gameId = "game-1",
                 playerId = "player-1",
                 reconnectToken = "token-1",
                 state = GameState(),
@@ -182,6 +183,19 @@ class WebSocketProtocolTest {
 
         val encoded = json.encodeToString(SubmitTradeMoneyPayload.serializer(), payload)
         val decoded = json.decodeFromString(SubmitTradeMoneyPayload.serializer(), encoded)
+
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `SubmitAuctionPaymentPayload round-trips`() {
+        val payload =
+            SubmitAuctionPaymentPayload(
+                moneyCardIds = setOf("m1", "m2"),
+            )
+
+        val encoded = json.encodeToString(SubmitAuctionPaymentPayload.serializer(), payload)
+        val decoded = json.decodeFromString(SubmitAuctionPaymentPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
     }

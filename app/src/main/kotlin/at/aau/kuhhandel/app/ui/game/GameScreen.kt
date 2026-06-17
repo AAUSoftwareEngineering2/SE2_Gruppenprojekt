@@ -52,6 +52,7 @@ fun GameScreen(
     onRevealCard: () -> Unit,
     onPlaceBid: (Int) -> Unit,
     onBuyBack: (Boolean) -> Unit,
+    onSubmitAuctionPayment: () -> Unit,
     tradeActions: TradeActions,
     onToggleMoneyCard: (String) -> Unit,
     onToggleHandFanned: () -> Unit,
@@ -310,6 +311,8 @@ fun GameScreen(
                     uiState = uiState,
                     onPlaceBid = onPlaceBid,
                     onBuyBack = onBuyBack,
+                    onToggleMoneyCard = onToggleMoneyCard,
+                    onSubmitAuctionPayment = onSubmitAuctionPayment,
                 )
             }
         }
@@ -429,6 +432,7 @@ fun GameScreenPreview() {
         onRevealCard = {},
         onPlaceBid = {},
         onBuyBack = {},
+        onSubmitAuctionPayment = {},
         tradeActions =
             TradeActions(
                 selectTargetPlayer = {},

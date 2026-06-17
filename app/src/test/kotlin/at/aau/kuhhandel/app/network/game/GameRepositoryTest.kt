@@ -16,6 +16,7 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SnapshotPayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
 import at.aau.kuhhandel.shared.websocket.WebSocketType
@@ -64,6 +65,10 @@ class GameRepositoryTest {
 
         suspend fun buyBack(buyBack: Boolean) {
             repository.buyBack(buyBack)
+        }
+
+        suspend fun submitAuctionPayment(moneyCardIds: Set<String>) {
+            repository.submitAuctionPayment(moneyCardIds)
         }
 
         suspend fun initiateTrade(
@@ -329,6 +334,26 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `submitAuctionPayment sends request`() {
+        runBlocking {
+            val harness = createHarness()
+            val cardIds = setOf("m1", "m2")
+            harness.createGame()
+
+            harness.submitAuctionPayment(cardIds)
+
+            val envelope = harness.session.sentEnvelopes().last()
+            val payload =
+                WebSocketJson.json.decodeFromJsonElement(
+                    SubmitAuctionPaymentPayload.serializer(),
+                    assertNotNull(envelope.payload),
+                )
+            assertEquals(WebSocketType.SUBMIT_AUCTION_PAYMENT, envelope.type)
+            assertEquals(cardIds, payload.moneyCardIds)
+        }
+    }
+
+    @Test
     fun `leaveGame sends request and disconnects`() {
         runBlocking {
             val harness = createHarness()
@@ -442,14 +467,19 @@ class GameRepositoryTest {
     fun `error envelopes update the state and can be cleared`() {
         runBlocking {
             val harness = createHarness()
+            val reason = at.aau.kuhhandel.shared.enums.GameErrorReason.GAME_NOT_FOUND
+            val technicalName = reason.name
+            val expectedFriendly = "Game not found. Please check the code."
 
+            // Must call an action first to ensure connection is open and collector is running
             harness.createGame()
-            harness.receiveError("Invalid move")
 
-            assertEquals("Invalid move", harness.state.errorMessage)
+            harness.receiveError(technicalName)
+
+            assertEquals(expectedFriendly, harness.state.errorMessage)
 
             harness.clearError()
-            assertNull(harness.state.errorMessage)
+            assertEquals(null, harness.state.errorMessage)
         }
     }
 
@@ -555,6 +585,7 @@ class GameRepositoryTest {
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload
                                 .serializer(),
                             at.aau.kuhhandel.shared.websocket.GameJoinedPayload(
+                                gameId = "g1",
                                 playerId = "player-7da6",
                                 reconnectToken = "test-token",
                                 state = state,

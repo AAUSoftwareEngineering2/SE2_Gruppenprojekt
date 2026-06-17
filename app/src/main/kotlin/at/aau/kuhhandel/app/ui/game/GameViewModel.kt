@@ -63,7 +63,30 @@ data class GameUiState(
         get() =
             currentPhase == GamePhase.AUCTION_BIDDING ||
                 currentPhase == GamePhase.AUCTIONEER_DECISION ||
+                currentPhase == GamePhase.AUCTION_PAYMENT ||
                 currentPhase == GamePhase.AUCTION_RESULT
+
+    /** The amount the auction buyer must pay (the winning bid). */
+    val auctionBidToPay: Int
+        get() = gameState?.auctionState?.highestBid ?: 0
+
+    /** Whether the local player is the one who must pay for the auctioned card. */
+    val isAuctionBuyer: Boolean
+        get() =
+            currentPhase == GamePhase.AUCTION_PAYMENT &&
+                gameState?.auctionState?.buyerId == myPlayerId
+
+    /** The total value of the money cards the local player has currently selected. */
+    val selectedMoneyTotal: Int
+        get() = myMoneyCards.filter { it.id in selectedMoneyCardIds }.sumOf { it.value }
+
+    /** The buyer may only submit once their selection covers the winning bid. */
+    val canSubmitAuctionPayment: Boolean
+        get() = selectedMoneyTotal >= auctionBidToPay
+
+    /** The auctioneer may only buy back if they can afford the winning bid. */
+    val canAuctioneerBuyBack: Boolean
+        get() = myMoneyCards.sumOf { it.value } >= auctionBidToPay
 
     /** Shows the trading overlay for a local selection or an active server trade phase. */
     val isTradeActive: Boolean
@@ -473,6 +496,27 @@ class GameViewModel(
         }
     }
 
+    /** Submits the auction buyer's selected money cards as payment. */
+    fun submitAuctionPayment() {
+        val state = uiState.value
+        if (!state.isAuctionBuyer ||
+            !state.canSubmitAuctionPayment ||
+            isTradeActionSubmitting.value
+        ) {
+            return
+        }
+
+        isTradeActionSubmitting.value = true
+        scope.launch {
+            try {
+                repository.submitAuctionPayment(selectedMoneyCardIds.value)
+                clearSelection()
+            } catch (_: Exception) {
+                isTradeActionSubmitting.value = false
+            }
+        }
+    }
+
     /** Reveals the challenged player's money hand for a counter-offer. */
     fun chooseCounterOffer() {
         val state = uiState.value
@@ -733,6 +777,11 @@ class GameViewModel(
                 clearSelection()
                 isTradeHandFanned.value = false
                 isCounterOfferSelected.value = false
+                isTradeActionSubmitting.value = false
+            }
+
+            GamePhase.AUCTION_PAYMENT -> {
+                clearSelection()
                 isTradeActionSubmitting.value = false
             }
 
