@@ -1,7 +1,8 @@
-# Diese Datei überschreibt nur das Spring-Profil für Staging.
-#
-# Die App-Basis bleibt gleich, aber der Container startet mit
-# `SPRING_PROFILES_ACTIVE=staging`.
+# Staging-spezifische Deployment-Overrides gegenüber der gemeinsamen App-Basis:
+#   - SPRING_PROFILES_ACTIVE=staging
+#   - eigene erlaubte WebSocket-Origins
+#   - eigenes Postgres-Schema `staging` (staging teilt die DB mit prod, schreibt aber
+#     in ein getrenntes Schema, damit sich beide nicht auf denselben Zeilen stören)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,3 +17,7 @@ spec:
               value: staging
             - name: KUHHANDEL_WEBSOCKET_ALLOWED_ORIGINS
               value: "https://staging-k3s-api.se-aau.com,https://staging-api.se-aau.com"
+            # Staging teilt sich die Supabase-DB mit prod. Eigenes Postgres-Schema, damit
+            # beide nicht auf denselben Zeilen kollidieren (prod bleibt auf `public`).
+            - name: SPRING_DATASOURCE_HIKARI_SCHEMA
+              value: staging
