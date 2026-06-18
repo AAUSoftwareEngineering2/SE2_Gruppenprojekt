@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
 import at.aau.kuhhandel.shared.enums.AnimalType
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import kotlinx.serialization.Serializable
 
@@ -21,8 +20,7 @@ data class GameCreatedPayload(
     val gameId: String,
     val playerId: String,
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -30,8 +28,7 @@ data class GameCreatedPayload(
  */
 @Serializable
 data class GameStatePayload(
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -51,8 +48,7 @@ data class GameJoinedPayload(
     val gameId: String,
     val playerId: String,
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -71,8 +67,7 @@ data class ReconnectPayload(
 @Serializable
 data class SnapshotPayload(
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**

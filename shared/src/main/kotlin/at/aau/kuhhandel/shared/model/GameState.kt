@@ -67,6 +67,7 @@ data class GameState(
                 TradeStateView(
                     initiatorId = tradeState.initiatorId,
                     targetId = tradeState.targetId,
+                    requestedAnimalType = tradeState.requestedAnimalType,
                     animalCards = tradeState.animalCards.toList(),
                     initiatorCardCount = tradeState.offeredMoneyCards?.size,
                     targetCardCount = tradeState.counterOfferedMoneyCards?.size,
