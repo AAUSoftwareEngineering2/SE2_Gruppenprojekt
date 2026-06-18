@@ -486,29 +486,32 @@ private data class CompletedAnimalSet(
 }
 
 private fun GameUiState.completedAnimalSets(): Set<CompletedAnimalSet> {
-    val allPlayers = listOfNotNull(localPlayer) + opponents.map { opponent ->
-        Player(
-            id = opponent.id,
-            name = opponent.name,
-            animals = opponent.animals,
-            moneyCards = emptyList() // Not needed for set calculation
-        )
-    }
-
-    return allPlayers.flatMap { player ->
-        player.animals
-            .groupingBy { it.type }
-            .eachCount()
-            .filterValues { count -> count >= 4 }
-            .keys
-            .map { animalType ->
-                CompletedAnimalSet(
-                    playerId = player.id,
-                    playerName = player.name,
-                    animalType = animalType,
+    val allPlayers =
+        listOfNotNull(localPlayer) +
+            opponents.map { opponent ->
+                Player(
+                    id = opponent.id,
+                    name = opponent.name,
+                    animals = opponent.animals,
+                    moneyCards = emptyList(), // Not needed for set calculation
                 )
             }
-    }.toSet()
+
+    return allPlayers
+        .flatMap { player ->
+            player.animals
+                .groupingBy { it.type }
+                .eachCount()
+                .filterValues { count -> count >= 4 }
+                .keys
+                .map { animalType ->
+                    CompletedAnimalSet(
+                        playerId = player.id,
+                        playerName = player.name,
+                        animalType = animalType,
+                    )
+                }
+        }.toSet()
 }
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
