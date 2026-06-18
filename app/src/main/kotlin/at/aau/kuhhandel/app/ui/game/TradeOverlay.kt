@@ -799,6 +799,7 @@ private fun TradeOverlayPreview(
                         name = "Counter Player",
                         animals = emptyList(),
                         moneyCardCount = 6,
+                        isConnected = true,
                     ),
                 ),
             tradeState =
