@@ -181,6 +181,83 @@ class GameSessionTest {
     }
 
     @Test
+    fun `disconnectPlayer removes player from room if phase is NOT_STARTED`() {
+        val session = GameSession.fromState("game-1", baselineState)
+
+        val updatedState = session.disconnectPlayer("player-2")
+
+        assertEquals(2, updatedState.players.size)
+        assertTrue(updatedState.players.none { it.id == "player-2" })
+        assertEquals("player-1", updatedState.hostPlayerId)
+    }
+
+    @Test
+    fun `disconnectPlayer marks player as disconnected if game is running`() {
+        val activeGameState = baselineState.copy(phase = GamePhase.PLAYER_CHOICE)
+        val session = GameSession.fromState("game-1", activeGameState)
+
+        val updatedState = session.disconnectPlayer("player-2")
+
+        assertEquals(3, updatedState.players.size)
+        val targetPlayer = updatedState.players.first { it.id == "player-2" }
+        assertFalse(targetPlayer.isConnected)
+    }
+
+    @Test
+    fun `disconnectPlayer fails if player is not in room`() {
+        assertActionFailsWithReason(
+            baselineState,
+            GameErrorReason.UNKNOWN_PLAYER,
+        ) { it.disconnectPlayer("nonexistent player") }
+    }
+
+    @Test
+    fun `disconnectPlayer fails if player is already marked as disconnected`() {
+        val disconnectedInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = false) }
+
+        assertActionFailsWithReason(disconnectedInGameState, GameErrorReason.ALREADY_DISCONNECTED) {
+            it.disconnectPlayer("player-2")
+        }
+    }
+
+    @Test
+    fun `reconnectPlayer marks player as connected`() {
+        val offlineInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = false) }
+        val session = GameSession.fromState("game-1", offlineInGameState)
+
+        val updatedState = session.reconnectPlayer("player-2")
+
+        val targetPlayer = updatedState.players.first { it.id == "player-2" }
+        assertTrue(targetPlayer.isConnected)
+    }
+
+    @Test
+    fun `reconnectPlayer fails if player is already marked as connected`() {
+        val connectedInGameState =
+            baselineState
+                .copy(phase = GamePhase.PLAYER_CHOICE)
+                .updatePlayer("player-2") { it.copy(isConnected = true) }
+
+        assertActionFailsWithReason(connectedInGameState, GameErrorReason.ALREADY_CONNECTED) {
+            it.reconnectPlayer("player-2")
+        }
+    }
+
+    @Test
+    fun `reconnectPlayer fails if player is not in room`() {
+        assertActionFailsWithReason(
+            baselineState,
+            GameErrorReason.UNKNOWN_PLAYER,
+        ) { it.reconnectPlayer("nonexistent player") }
+    }
+
+    @Test
     fun `startGame shuffles players, distributes initial money, and transitions phase`() {
         val session = GameSession.fromState("game-1", baselineState)
 
@@ -1774,13 +1851,16 @@ class GameSessionTest {
     }
 
     @Test
-    fun `makeDefaultPlayerChoice skips player turn when player choice phase expires`() {
-        // Setup: Active turn state with Player 1 frozen at the wheel
+    fun `makeDefaultPlayerChoice starts an auction when deck is not empty`() {
+        // Setup: Ensure the deck has cards so the auction path is taken
+        val testDeck = AnimalDeck(listOf(AnimalCard("cow-1", AnimalType.COW)))
+
         val activeState =
             baselineState.copy(
                 phase = GamePhase.PLAYER_CHOICE,
-                currentPlayerIndex = 0,
+                currentPlayerIndex = 0, // Player 1 is active
                 roundNumber = 5,
+                deck = testDeck,
                 activeSpies =
                     setOf(
                         SpyAction(
@@ -1797,13 +1877,70 @@ class GameSessionTest {
         // Act: Execute via the master timeout gateway
         val updatedState = session.handleTimeoutExpiration()
 
-        // Assert: Advances loop to next seat and stays in player choice room with an automated clock
+        // Assert: Correctly starts an auction for Player 1
+        assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
+        assertEquals(0, updatedState.currentPlayerIndex)
+        assertNotNull(updatedState.auctionState)
+        assertEquals("player-1", updatedState.auctionState?.auctioneerId)
+
+        // Expirations are cleaned up as before
+        assertEquals(emptySet(), updatedState.activeSpies)
+        assertEquals(emptySet(), updatedState.spiedThisTurn)
+    }
+
+    @Test
+    fun `makeDefaultPlayerChoice forces a trade challenge when deck is empty`() {
+        // Setup: Deck is empty. Player1 and Player2 both have a Pig.
+        val player1 =
+            Player("player-1", "Player1", animals = listOf(AnimalCard("pig-1", AnimalType.PIG)))
+        val player2 =
+            Player("player-2", "Player2", animals = listOf(AnimalCard("pig-2", AnimalType.PIG)))
+        val player3 = Player("player-3", "Player3", animals = emptyList())
+
+        val emptyDeckState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                deck = AnimalDeck(emptyList()), // Empty pile
+                players = listOf(player1, player2, player3),
+            )
+        val session = GameSession.fromState("game-1", emptyDeckState)
+
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Transitions to trade offer phase targeting the player holding the matching card
+        assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
+        assertNotNull(updatedState.tradeState)
+        assertEquals("player-1", updatedState.tradeState?.initiatorId)
+        assertEquals("player-2", updatedState.tradeState?.targetId)
+        assertEquals(AnimalType.PIG, updatedState.tradeState?.requestedAnimalType)
+    }
+
+    @Test
+    fun `makeDefaultPlayerChoice skips player turn when no valid trade target exists`() {
+        // Setup: Deck is empty. Player1 has a Pig, but Player2 has a Cow. Zero intersection.
+        val player1 =
+            Player("player-1", "Player1", animals = listOf(AnimalCard("pig-1", AnimalType.PIG)))
+        val player2 =
+            Player("player-2", "Player2", animals = listOf(AnimalCard("cow-1", AnimalType.COW)))
+        val player3 = Player("player-3", "Player3", animals = emptyList())
+
+        val deadlockedHandState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                currentPlayerIndex = 0,
+                roundNumber = 5,
+                deck = AnimalDeck(emptyList()),
+                players = listOf(player1, player2, player3),
+            )
+        val session = GameSession.fromState("game-1", deadlockedHandState)
+
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Skips over Player1 and moves turn to Player2 (index 1)
         assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
         assertEquals(1, updatedState.currentPlayerIndex)
         assertEquals(6, updatedState.roundNumber)
-        assertValidTimeout(expectedDuration = PhaseDurations.PLAYER_CHOICE_MS, state = updatedState)
-        assertEquals(emptySet(), updatedState.activeSpies)
-        assertEquals(emptySet(), updatedState.spiedThisTurn)
     }
 
     @Test
@@ -2167,6 +2304,36 @@ class GameSessionTest {
         assertEquals(GamePhase.FINISHED, updatedState.phase)
         assertNull(updatedState.timerEnd)
         assertNull(updatedState.lastEvent)
+    }
+
+    @Test
+    fun `calculateTimeoutForActor selects shorter timeout when actor is disconnected`() {
+        // Setup: Active turn state with Player 2 disconnected
+        val activeState =
+            baselineState.copy(
+                phase = GamePhase.PLAYER_CHOICE,
+                players =
+                    listOf(
+                        Player(id = "player-1", name = "Player 1"),
+                        Player(id = "player-2", name = "Player 2", isConnected = false),
+                        Player(id = "player-3", name = "Player 3"),
+                    ),
+                currentPlayerIndex = 0,
+                roundNumber = 5,
+            )
+        val session = GameSession.fromState("game-1", activeState)
+
+        // Act: Execute via the master timeout gateway
+        val updatedState = session.handleTimeoutExpiration()
+
+        // Assert: Advances loop to next seat and sets a shorter timeout for the disconnected player
+        assertEquals(GamePhase.PLAYER_CHOICE, updatedState.phase)
+        assertEquals(1, updatedState.currentPlayerIndex)
+        assertEquals(6, updatedState.roundNumber)
+        assertValidTimeout(
+            expectedDuration = PhaseDurations.DISCONNECTED_TURN_DURATION_MS,
+            state = updatedState,
+        )
     }
 
     @Test

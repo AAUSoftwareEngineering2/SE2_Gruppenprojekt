@@ -86,13 +86,9 @@ class MultiPodIntegrationTest
                 val podB = pod()
 
                 val created = podA.createGame("Alice")
-                podA.storeReconnectToken("42222", created.playerId, "token-from-pod-a")
 
-                // The new connection lands on pod B.
-                val state = podB.getStateForReconnection("42222", created.playerId)
-                assertEquals(GamePhase.NOT_STARTED, state.phase)
                 assertTrue(
-                    podB.isReconnectTokenValid("42222", created.playerId, "token-from-pod-a"),
+                    podB.isReconnectTokenValid("42222", created.playerId, created.reconnectToken),
                 )
                 assertEquals(
                     false,
@@ -152,12 +148,15 @@ class MultiPodIntegrationTest
                 val started = podA.startGame("44444", created.playerId)
                 val deadline = assertNotNull(started.timerEnd)
 
-                // Pod B (which never touched this game) sweeps after the deadline.
+                // 1. Pod B sweeps after the deadline and schedules an automated auction
                 val advancedByB = podB.sweepExpiredTimeouts(now = deadline + 1)
                 assertEquals(listOf("44444"), advancedByB)
 
-                // Pod A sweeping at the same instant must not advance the game a second time.
-                val advancedByA = podA.sweepExpiredTimeouts(now = deadline + 1)
+                val postSweepState = assertNotNull(persistenceService.loadGameState("44444"))
+                val auctionTimer = assertNotNull(postSweepState.timerEnd)
+
+                // 2. Pod A sweeping before the auction ends must find nothing to advance
+                val advancedByA = podA.sweepExpiredTimeouts(now = auctionTimer - 1000L)
                 assertEquals(emptyList(), advancedByA)
             }
     }

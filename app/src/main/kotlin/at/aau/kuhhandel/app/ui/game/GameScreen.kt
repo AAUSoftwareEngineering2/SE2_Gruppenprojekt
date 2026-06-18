@@ -430,6 +430,7 @@ fun GameScreenPreview() {
                         name = player.name,
                         animals = player.animals,
                         moneyCardCount = player.moneyCards.size,
+                        isConnected = true,
                     )
                 },
             currentPlayerId = "5",
