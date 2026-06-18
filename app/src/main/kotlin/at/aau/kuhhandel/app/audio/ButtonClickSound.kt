@@ -60,9 +60,19 @@ fun rememberSoundEffect(
         }
     }
 
+    val lastPlayTimeRef =
+        remember {
+            object {
+                var value = 0L
+            }
+        }
+    val debounceInterval = 300L
+
     return remember(soundPool, soundId, isLoaded) {
         {
-            if (isLoaded) {
+            val currentTime = System.currentTimeMillis()
+            if (isLoaded && (currentTime - lastPlayTimeRef.value) > debounceInterval) {
+                lastPlayTimeRef.value = currentTime
                 soundPool.play(soundId, 1f, 1f, 1, 0, 1f)
             }
         }

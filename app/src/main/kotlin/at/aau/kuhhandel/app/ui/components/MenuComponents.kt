@@ -21,8 +21,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
 import at.aau.kuhhandel.app.audio.LocalButtonClickSound
+import kotlinx.coroutines.delay
 
 /**
  * This file also includes UI Elements which may also be used in the Game Views.
@@ -152,13 +156,21 @@ fun MenuButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val playClickSound = LocalButtonClickSound.current
+    var isClicked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isClicked) {
+        if (isClicked) {
+            delay(1000)
+            isClicked = false
+        }
+    }
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
         label = "buttonScale",
     )
     val alpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.7f else 1f,
+        targetValue = if (isPressed || isClicked) 0.7f else 1f,
         label = "buttonAlpha",
     )
 
@@ -191,9 +203,13 @@ fun MenuButton(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
+                        enabled = !isClicked,
                         onClick = {
-                            playClickSound()
-                            onClick()
+                            if (!isClicked) {
+                                isClicked = true
+                                playClickSound()
+                                onClick()
+                            }
                         },
                     ),
         )
@@ -206,12 +222,24 @@ fun BackButton(
     modifier: Modifier = Modifier,
 ) {
     val playClickSound = LocalButtonClickSound.current
+    var isClicked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isClicked) {
+        if (isClicked) {
+            delay(1000)
+            isClicked = false
+        }
+    }
 
     IconButton(
         onClick = {
-            playClickSound()
-            onClick()
+            if (!isClicked) {
+                isClicked = true
+                playClickSound()
+                onClick()
+            }
         },
+        enabled = !isClicked,
         modifier = modifier.size(64.dp),
     ) {
         Image(

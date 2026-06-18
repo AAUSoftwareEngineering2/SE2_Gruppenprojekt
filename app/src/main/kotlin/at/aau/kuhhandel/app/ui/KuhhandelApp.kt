@@ -68,7 +68,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val isGameScreenActive = navBackStackEntry?.destination?.hasRoute<Screen.Game>() == true
 
-    // Musiksteuerung
+    // Music Control
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
     val shouldUseGameMusic = isGameStarted || isGameScreenActive
     val isAuctionActive = currentPhase == GamePhase.AUCTION_BIDDING
