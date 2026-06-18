@@ -349,20 +349,6 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
-    fun `afterConnectionClosed skips processing if player reconnected during the grace period`() =
-        runTest(testDispatcher.scheduler) {
-            // Token rotated during the grace period (fingerprint changed), so the player reconnected somewhere
-            whenever(gameService.reconnectTokenFingerprint("game-1", "player-1"))
-                .thenReturn("fingerprint-1", "fingerprint-2")
-
-            handler.afterConnectionClosed(session1, CloseStatus.NORMAL)
-            advanceUntilIdle()
-
-            verify(connectionRegistry).unbind("session-1")
-            verify(gameService, never()).disconnectPlayer(any(), any())
-        }
-
-    @Test
     fun `CREATE_GAME binds session and sends GAME_CREATED`() =
         runTest(testDispatcher.scheduler) {
             val createdSession =
@@ -599,7 +585,7 @@ class GameWebSocketHandlerTest {
                     session2,
                 ),
             )
-            whenever(gameService.getStateForReconnection("game-1", "player-1", "token-1"))
+            whenever(gameService.reconnectPlayer("game-1", "player-1", "token-1"))
                 .thenReturn(ReconnectResult("token-2", runningState))
 
             sendEnvelope(
@@ -673,7 +659,7 @@ class GameWebSocketHandlerTest {
     fun `RECONNECT with invalid reconnection token sends ERROR`() =
         runTest(testDispatcher.scheduler) {
             whenever(connectionRegistry.playerSessionFor("session-1")).thenReturn(null)
-            whenever(gameService.getStateForReconnection("game-1", "player-1", "invalid-token"))
+            whenever(gameService.reconnectPlayer("game-1", "player-1", "invalid-token"))
                 .thenThrow(GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN))
 
             sendEnvelope(

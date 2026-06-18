@@ -142,19 +142,9 @@ class GameService(
         }
 
     /**
-     * Reconnects a player to a game.
-     *
-     * Expects a valid [gameId].
-     */
-    suspend fun reconnectPlayer(
-        gameId: String,
-        playerId: String,
-    ): GameState = executeAction(gameId) { session -> session.reconnectPlayer(playerId) }
-
-    /**
      * Validates a reconnect token, reconnects the player, and returns a rotated token.
      */
-    suspend fun getStateForReconnection(
+    suspend fun reconnectPlayer(
         gameId: String,
         playerId: String,
         token: String,

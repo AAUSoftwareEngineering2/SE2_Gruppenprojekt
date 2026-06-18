@@ -274,23 +274,44 @@ class GameServiceTest
                 val host = service.createGame("Player1")
                 val guest = service.joinGame("11111", "Player2")
                 service.joinGame("11111", "Player3")
+
+                // Set up an initial valid reconnect token for the guest player
+                val initialToken = "token-for-guest"
+                service.storeReconnectToken("11111", guest.playerId, initialToken)
+
                 service.startGame("11111", host.playerId)
 
                 // Disconnect the player first so their flag is false
                 service.disconnectPlayer("11111", guest.playerId)
 
-                // Reconnect the player. Flag is false, guard passes -> flags true.
-                val state = service.reconnectPlayer("11111", guest.playerId)
+                // Act: Reconnect passing their token. Flag is false, guard passes.
+                // Under the hood, this validates the token, rotates it, and flips isConnected to true.
+                val result = service.reconnectPlayer("11111", guest.playerId, initialToken)
 
-                assertTrue(state.players.first { it.id == guest.playerId }.isConnected)
+                // Assert against the reconnect result fields
+                assertTrue(
+                    result.gameState.players
+                        .first { it.id == guest.playerId }
+                        .isConnected,
+                )
 
-                // Verify stateless database reload round-trip
+                // Verify stateless database reload round-trip reflects the online state
                 val dbState = assertNotNull(persistenceService.loadGameState("11111"))
                 assertTrue(dbState.players.first { it.id == guest.playerId }.isConnected)
+
+                // Confirm the old token was rotated out and the new token is valid
+                assertFalse(service.isReconnectTokenValid("11111", guest.playerId, initialToken))
+                assertTrue(
+                    service.isReconnectTokenValid(
+                        "11111",
+                        guest.playerId,
+                        result.reconnectToken,
+                    ),
+                )
             }
 
         @Test
-        fun `getStateForReconnection validates and rotates reconnect token`() =
+        fun `reconnectPlayer validates and rotates reconnect token`() =
             runTest {
                 val service = service(codes = listOf("11111"))
                 val host = service.createGame("Player1")
@@ -300,7 +321,7 @@ class GameServiceTest
                 service.disconnectPlayer("11111", guest.playerId)
 
                 val result =
-                    service.getStateForReconnection(
+                    service.reconnectPlayer(
                         "11111",
                         guest.playerId,
                         guest.reconnectToken,
@@ -322,14 +343,14 @@ class GameServiceTest
             }
 
         @Test
-        fun `getStateForReconnection rejects invalid reconnect token`() =
+        fun `reconnectPlayer rejects invalid reconnect token`() =
             runTest {
                 val service = service(codes = listOf("11111"))
                 val created = service.createGame("Player1")
 
                 val exception =
                     assertThrows<GameException> {
-                        service.getStateForReconnection("11111", created.playerId, "wrong-token")
+                        service.reconnectPlayer("11111", created.playerId, "wrong-token")
                     }
                 assertEquals(GameErrorReason.INVALID_RECONNECTION_TOKEN, exception.reason)
             }
@@ -340,12 +361,19 @@ class GameServiceTest
                 val service = service(codes = listOf("11111"))
                 val created = service.createGame("Player1")
 
-                // In lobby phase, player is already connected. Guard at top throws immediately.
+                val activeToken = "token-for-host"
+                service.storeReconnectToken("11111", created.playerId, activeToken)
+
+                // In lobby phase, player is already connected by default.
+                // Guard at top throws error inside the lock before token rotation happens.
                 val exception =
                     assertThrows<GameException> {
-                        service.reconnectPlayer("11111", created.playerId)
+                        service.reconnectPlayer("11111", created.playerId, activeToken)
                     }
                 assertEquals(GameErrorReason.ALREADY_CONNECTED, exception.reason)
+
+                // Verify that the transaction rolled back and the token remains valid
+                assertTrue(service.isReconnectTokenValid("11111", created.playerId, activeToken))
             }
 
         @Test

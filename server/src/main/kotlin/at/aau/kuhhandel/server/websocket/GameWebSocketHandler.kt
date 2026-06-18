@@ -26,7 +26,6 @@ import at.aau.kuhhandel.shared.websocket.WebSocketType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import org.slf4j.LoggerFactory
@@ -87,6 +86,7 @@ class GameWebSocketHandler(
                     WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
                     WebSocketType.SUBMIT_AUCTION_PAYMENT ->
                         handleSubmitAuctionPayment(session, envelope)
+
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
@@ -112,43 +112,17 @@ class GameWebSocketHandler(
 
     /**
      * Cleans up or disconnects an existing active socket connection.
-     *
-     * The player is only removed after a grace period, so a pod replacement or short network
-     * drop does not kick them out of the game. If the persisted token changed during the grace
-     * period the player has already reconnected (maybe on another pod) and stays in.
      */
     override fun afterConnectionClosed(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
         val playerSession = connectionRegistry.playerSessionFor(session.id)
-
         connectionRegistry.unbind(session.id)
 
         if (playerSession != null) {
             handlerScope.launch {
                 try {
-                    val fingerprintAtClose =
-                        gameService.reconnectTokenFingerprint(
-                            playerSession.gameId,
-                            playerSession.playerId,
-                        )
-
-                    delay(disconnectGraceMs)
-
-                    val fingerprintNow =
-                        gameService.reconnectTokenFingerprint(
-                            playerSession.gameId,
-                            playerSession.playerId,
-                        )
-                    // Only the fingerprint *changing* means the player reconnected (token rotated)
-                    // or the game is gone. A still-null fingerprint (token never stored) must NOT
-                    // skip the leave, otherwise the player would linger forever.
-                    if (fingerprintNow != fingerprintAtClose) {
-                        return@launch
-                    }
-
-                    // Disconnect the player from the game
                     val state =
                         gameService.disconnectPlayer(playerSession.gameId, playerSession.playerId)
                     broadcastStateUpdate(playerSession.gameId, state)
@@ -284,7 +258,7 @@ class GameWebSocketHandler(
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
         val result =
-            gameService.getStateForReconnection(
+            gameService.reconnectPlayer(
                 payload.gameId,
                 payload.playerId,
                 payload.token,
