@@ -491,6 +491,53 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `rejoinFromStorage reads tokens from storage and triggers connection`() {
+        runBlocking {
+            val harness = createHarness()
+            val expectedGameId = "44444"
+            val expectedPlayerId = "player-xyz"
+
+            // Arrange: Program the local token storage mock instance
+            every { harness.tokenStorage.getGameId() } returns expectedGameId
+            every { harness.tokenStorage.getPlayerId() } returns expectedPlayerId
+
+            // Act: Invoke the storage lookup function
+            harness.repository.rejoinFromStorage()
+
+            // Assert: Confirm that state variables were updated successfully
+            assertEquals(expectedGameId, harness.state.gameId)
+            assertEquals(expectedPlayerId, harness.state.myPlayerId)
+
+            // Assert: verify a connection loop block was initiated
+            assertTrue(
+                harness.state.isConnecting ||
+                    harness.state.isConnected ||
+                    harness.state.isReconnecting,
+            )
+        }
+    }
+
+    @Test
+    fun `rejoinFromStorage exits early if game or player information is missing`() {
+        runBlocking {
+            val harness = createHarness()
+
+            // Arrange: Simulate a missing storage profile where fields yield null
+            every { harness.tokenStorage.getGameId() } returns null
+            every { harness.tokenStorage.getPlayerId() } returns "player-xyz"
+
+            // Act: Invoke the target storage lookup function
+            harness.repository.rejoinFromStorage()
+
+            // Assert: Verify values remain unmutated (null) and no connecting sequence runs
+            assertNull(harness.state.gameId)
+            assertNull(harness.state.myPlayerId)
+            assertFalse(harness.state.isConnecting)
+            assertFalse(harness.state.isConnected)
+        }
+    }
+
+    @Test
     fun `leaveGame sends request and disconnects`() {
         runBlocking {
             val harness = createHarness()
