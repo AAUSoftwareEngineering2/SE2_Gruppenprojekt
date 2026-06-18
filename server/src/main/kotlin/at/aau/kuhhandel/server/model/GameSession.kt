@@ -204,7 +204,6 @@ class GameSession(
                         auctioneerId = actorId,
                         highestBid = 0,
                         highestBidderId = null,
-                        timerEndTime = calculatedTimeout,
                     ),
                 activeSpies = emptySet(),
                 spiedThisTurn = emptySet(),
@@ -241,7 +240,6 @@ class GameSession(
                     auctionState.copy(
                         highestBid = amount,
                         highestBidderId = actorId,
-                        timerEndTime = calculatedTimeout,
                     ),
             )
 
@@ -293,7 +291,6 @@ class GameSession(
                             auctionState.copy(
                                 highestBid = 0,
                                 highestBidderId = null,
-                                timerEndTime = calculatedTimeout,
                                 excludedPlayerIds =
                                     auctionState.excludedPlayerIds + highestBidderId,
                             ),
@@ -320,7 +317,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 auctionState =
                     auctionState.copy(
-                        timerEndTime = calculatedTimeout,
                         buyerId = receiver.id,
                         sellerId = seller.id,
                     ),
@@ -395,10 +391,7 @@ class GameSession(
                         TradeState(
                             initiatorId = initiator.id,
                             targetId = target.id,
-                            requestedAnimalType = animalType,
                             animalCards = initiatorAnimals + targetAnimals,
-                            offeredMoneyCardIds = emptySet(),
-                            counterOfferedMoneyCardIds = emptySet(),
                             offeredMoneyCards = null,
                             counterOfferedMoneyCards = null,
                         ),
@@ -451,8 +444,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 tradeState =
                     tradeState.copy(
-                        offeredMoneyCardIds = offeredMoneyCardIds,
-                        offeredMoney = offeredMoneyCards.sumOf { it.value },
                         offeredMoneyCards = offeredMoneyCards,
                     ),
             )
@@ -546,8 +537,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 tradeState =
                     tradeState.copy(
-                        counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-                        counterOfferedMoney = counterOfferedMoneyCards.sumOf { it.value },
                         counterOfferedMoneyCards = counterOfferedMoneyCards,
                         winnerId = winnerId,
                     ),
@@ -721,7 +710,6 @@ class GameSession(
                     players = updatedPlayers,
                     auctionState =
                         auctionState.copy(
-                            timerEndTime = null,
                             buyerId = auctionState.auctioneerId,
                         ),
                 )
@@ -742,7 +730,6 @@ class GameSession(
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
                 timerEnd = calculatedTimeout,
-                auctionState = auctionState.copy(timerEndTime = null),
             )
 
         return state
@@ -810,10 +797,6 @@ class GameSession(
                 phase = GamePhase.AUCTION_RESULT,
                 timerEnd = calculatedTimeout,
                 players = updatedPlayers,
-                auctionState =
-                    auctionState.copy(
-                        timerEndTime = null,
-                    ),
             )
 
         return state

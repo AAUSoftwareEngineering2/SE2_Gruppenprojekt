@@ -44,8 +44,6 @@ class TradeStateEntity(
     var defenderOfferCardsJson: String? = null,
     @Column(name = "winner_player_id", length = 64)
     var winnerPlayerId: String? = null,
-    @Column(name = "is_resolved")
-    var isResolved: Boolean? = null,
     @Id
     @Column(name = "game_id")
     var gameId: Long? = null,

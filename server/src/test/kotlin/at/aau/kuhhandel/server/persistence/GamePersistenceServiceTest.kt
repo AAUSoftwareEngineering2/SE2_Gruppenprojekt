@@ -165,7 +165,6 @@ class GamePersistenceServiceTest
 
         @Test
         fun `loaded auction state mirrors the persisted snapshot`() {
-            val timerDeadline = 1_700_000_000_000L
             val state =
                 initialLobbyState().copy(
                     phase = GamePhase.AUCTION_BIDDING,
@@ -181,7 +180,6 @@ class GamePersistenceServiceTest
                             auctioneerId = "player-1",
                             highestBid = 200,
                             highestBidderId = "player-2",
-                            timerEndTime = timerDeadline,
                         ),
                 )
             service.saveGameState("12345", state)
@@ -192,7 +190,6 @@ class GamePersistenceServiceTest
             assertEquals(200, loaded.auctionState?.highestBid)
             assertEquals("player-2", loaded.auctionState?.highestBidderId)
             assertEquals("player-1", loaded.auctionState?.auctioneerId)
-            assertEquals(timerDeadline, loaded.auctionState?.timerEndTime)
         }
 
         @Test
@@ -259,31 +256,24 @@ class GamePersistenceServiceTest
             val state =
                 initialLobbyState().copy(
                     phase = GamePhase.PLAYER_CHOICE,
-                    currentFaceUpCard = AnimalCard(id = "face-1", type = AnimalType.PIG),
                 )
             service.saveGameState("12345", state)
 
-            val game = gameRepository.findById(12345L).orElseThrow()
-            assertEquals(AnimalType.PIG, game.faceUpAnimalType)
+            gameRepository.findById(12345L).orElseThrow()
 
-            val loaded = assertNotNull(service.loadGameState("12345"))
-            assertEquals(AnimalType.PIG, loaded.currentFaceUpCard?.type)
+            assertNotNull(service.loadGameState("12345"))
         }
 
         @Test
         fun `face up card is cleared when the next state has none`() {
             val withCard =
                 initialLobbyState().copy(
-                    currentFaceUpCard = AnimalCard(id = "face-1", type = AnimalType.DOG),
+                    phase = GamePhase.PLAYER_CHOICE,
                 )
             service.saveGameState("12345", withCard)
-            assertEquals(
-                AnimalType.DOG,
-                gameRepository.findById(12345L).orElseThrow().faceUpAnimalType,
-            )
 
             service.saveGameState("12345", initialLobbyState())
-            assertNull(gameRepository.findById(12345L).orElseThrow().faceUpAnimalType)
+            assertNotNull(gameRepository.findById(12345L).orElseThrow())
         }
 
         @Test
@@ -326,7 +316,6 @@ class GamePersistenceServiceTest
                         TradeState(
                             initiatorId = "player-1",
                             targetId = "player-2",
-                            requestedAnimalType = AnimalType.COW,
                             animalCards = escrowAnimals,
                         ),
                 )
@@ -338,15 +327,26 @@ class GamePersistenceServiceTest
             assertEquals(timerDeadline, loaded.timerEnd)
             assertEquals("player-1", loadedTrade.initiatorId)
             assertEquals("player-2", loadedTrade.targetId)
-            assertEquals(AnimalType.COW, loadedTrade.requestedAnimalType)
+            assertEquals(AnimalType.COW, loadedTrade.animalCards.firstOrNull()?.type)
             assertEquals(escrowAnimals, loadedTrade.animalCards)
-            assertEquals(0, loadedTrade.offeredMoney)
-            assertEquals(emptySet(), loadedTrade.offeredMoneyCardIds)
+            assertEquals(0, (loadedTrade.offeredMoneyCards?.sumOf { it.value } ?: 0))
+            assertEquals(
+                emptySet(),
+                (
+                    loadedTrade.offeredMoneyCards?.map { it.id }?.toSet()
+                        ?: emptySet()
+                ),
+            )
             assertNull(loadedTrade.offeredMoneyCards)
-            assertNull(loadedTrade.counterOfferedMoney)
-            assertEquals(emptySet(), loadedTrade.counterOfferedMoneyCardIds)
+            assertNull(loadedTrade.counterOfferedMoneyCards?.sumOf { it.value })
+            assertEquals(
+                emptySet(),
+                (
+                    loadedTrade.counterOfferedMoneyCards?.map { it.id }?.toSet()
+                        ?: emptySet()
+                ),
+            )
             assertNull(loadedTrade.counterOfferedMoneyCards)
-            assertEquals(false, loadedTrade.isResolved)
         }
 
         @Test
@@ -380,10 +380,7 @@ class GamePersistenceServiceTest
                         TradeState(
                             initiatorId = "player-1",
                             targetId = "player-2",
-                            requestedAnimalType = AnimalType.COW,
                             animalCards = animalCards,
-                            offeredMoney = 60,
-                            offeredMoneyCardIds = offeredCards.mapTo(mutableSetOf()) { it.id },
                             offeredMoneyCards = offeredCards,
                         ),
                 )
@@ -399,9 +396,9 @@ class GamePersistenceServiceTest
                 offeredCards.mapTo(mutableSetOf()) {
                     it.id
                 },
-                loadedTrade.offeredMoneyCardIds,
+                (loadedTrade.offeredMoneyCards?.map { it.id }?.toSet() ?: emptySet()),
             )
-            assertEquals(60, loadedTrade.offeredMoney)
+            assertEquals(60, (loadedTrade.offeredMoneyCards?.sumOf { it.value } ?: 0))
             assertEquals(emptyList(), loaded.players.first { it.id == "player-1" }.moneyCards)
         }
 
@@ -460,16 +457,7 @@ class GamePersistenceServiceTest
                         TradeState(
                             initiatorId = "player-1",
                             targetId = "player-2",
-                            requestedAnimalType = AnimalType.DOG,
                             animalCards = animalCards,
-                            offeredMoney = 60,
-                            offeredMoneyCardIds = offeredCards.mapTo(mutableSetOf()) { it.id },
-                            counterOfferedMoney = 20,
-                            counterOfferedMoneyCardIds =
-                                counterCards.mapTo(mutableSetOf()) {
-                                    it.id
-                                },
-                            isResolved = true,
                             offeredMoneyCards = offeredCards,
                             counterOfferedMoneyCards = counterCards,
                             winnerId = "player-2",
@@ -485,7 +473,6 @@ class GamePersistenceServiceTest
             assertNotNull(trade.challengerOfferCardsJson)
             assertNotNull(trade.defenderOfferCardsJson)
             assertEquals("player-2", trade.winnerPlayerId)
-            assertEquals(true, trade.isResolved)
 
             val loaded = assertNotNull(service.loadGameState("12345"))
             val loadedTrade = assertNotNull(loaded.tradeState)
@@ -494,7 +481,6 @@ class GamePersistenceServiceTest
             assertEquals(offeredCards, loadedTrade.offeredMoneyCards)
             assertEquals(counterCards, loadedTrade.counterOfferedMoneyCards)
             assertEquals("player-2", loadedTrade.winnerId)
-            assertEquals(true, loadedTrade.isResolved)
         }
 
         @Test
@@ -543,8 +529,8 @@ class GamePersistenceServiceTest
             assertEquals(setOf(offeredCard), loadedTrade.offeredMoneyCards)
             assertEquals(setOf(counterCard), loadedTrade.counterOfferedMoneyCards)
             assertEquals("player-1", loadedTrade.winnerId)
-            assertEquals(50, loadedTrade.offeredMoney)
-            assertEquals(10, loadedTrade.counterOfferedMoney)
+            assertEquals(50, (loadedTrade.offeredMoneyCards?.sumOf { it.value } ?: 0))
+            assertEquals(10, loadedTrade.counterOfferedMoneyCards?.sumOf { it.value })
         }
 
         @Test

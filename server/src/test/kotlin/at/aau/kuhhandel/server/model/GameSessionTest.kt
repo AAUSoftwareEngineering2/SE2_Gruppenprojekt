@@ -56,7 +56,7 @@ class GameSessionTest {
         assertEquals(GamePhase.NOT_STARTED, initialState.phase)
         assertEquals(0, initialState.roundNumber)
         assertEquals(-1, initialState.currentPlayerIndex)
-        assertNull(initialState.currentFaceUpCard)
+        assertNull(initialState.auctionState?.auctionCard)
         assertNull(initialState.auctionState)
         assertNull(initialState.tradeState)
 
@@ -1001,7 +1001,7 @@ class GameSessionTest {
         assertNotNull(trade)
         assertEquals("player-1", trade.initiatorId)
         assertEquals("player-2", trade.targetId)
-        assertEquals(AnimalType.COW, trade.requestedAnimalType)
+        assertEquals(AnimalType.COW, trade.animalCards.firstOrNull()?.type)
         assertEquals(setOf(cow1, cow2), trade.animalCards)
         assertNull(trade.offeredMoneyCards)
         assertNull(trade.counterOfferedMoneyCards)
@@ -1152,7 +1152,6 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
                 animalCards = setOf(AnimalCard("c1", AnimalType.COW)),
             )
         val initialSetup =
@@ -1187,7 +1186,7 @@ class GameSessionTest {
         assertNotNull(trade)
         val offeredCards = checkNotNull(trade.offeredMoneyCards)
         assertEquals(1, offeredCards.size)
-        assertEquals(10, trade.offeredMoney)
+        assertEquals(10, (trade.offeredMoneyCards?.sumOf { it.value } ?: 0))
         assertTrue(offeredCards.any { it.id == targetCardId })
     }
 
@@ -1198,7 +1197,6 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
                 animalCards = setOf(AnimalCard("c1", AnimalType.COW)),
             )
         val initialSetup =
@@ -1233,7 +1231,7 @@ class GameSessionTest {
         assertNotNull(trade)
         val offeredCards = checkNotNull(trade.offeredMoneyCards)
         assertTrue(offeredCards.isEmpty())
-        assertEquals(0, trade.offeredMoney)
+        assertEquals(0, (trade.offeredMoneyCards?.sumOf { it.value } ?: 0))
     }
 
     @Test
@@ -1242,7 +1240,7 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
             )
         val initialSetup =
             baselineState.copy(
@@ -1261,7 +1259,7 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
             )
         val brokenState =
             baselineState.copy(
@@ -1281,7 +1279,7 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
             )
         val initialSetup =
             baselineState.copy(phase = GamePhase.TRADE_OFFER, tradeState = activeTrade)
@@ -1299,7 +1297,7 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
             )
         val initialSetup =
             baselineState.copy(
@@ -1484,7 +1482,7 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
+                animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                 offeredMoneyCards = null, // Breaking constraint trigger
             )
         val activeState =
@@ -1913,7 +1911,13 @@ class GameSessionTest {
         assertNotNull(updatedState.tradeState)
         assertEquals("player-1", updatedState.tradeState?.initiatorId)
         assertEquals("player-2", updatedState.tradeState?.targetId)
-        assertEquals(AnimalType.PIG, updatedState.tradeState?.requestedAnimalType)
+        assertEquals(
+            AnimalType.PIG,
+            updatedState.tradeState
+                ?.animalCards
+                ?.firstOrNull()
+                ?.type,
+        )
     }
 
     @Test
@@ -2110,7 +2114,6 @@ class GameSessionTest {
             TradeState(
                 initiatorId = "player-1",
                 targetId = "player-2",
-                requestedAnimalType = AnimalType.COW,
                 animalCards = setOf(AnimalCard("c1", AnimalType.COW)),
             )
         val activeState =
@@ -2593,10 +2596,6 @@ class GameSessionTest {
         return TradeState(
             initiatorId = initiatorId,
             targetId = targetId,
-            requestedAnimalType =
-                animalCards.firstOrNull()?.type
-                    ?: AnimalType.DONKEY,
-            // Legacy field
             animalCards = animalCards,
             offeredMoneyCards = offeredSet,
             counterOfferedMoneyCards = counterSet,

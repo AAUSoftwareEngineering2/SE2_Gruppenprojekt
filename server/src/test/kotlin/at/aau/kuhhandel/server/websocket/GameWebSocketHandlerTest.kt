@@ -1073,7 +1073,6 @@ class GameWebSocketHandlerTest {
                         TradeState(
                             initiatorId = "player-1",
                             targetId = "player-2",
-                            requestedAnimalType = AnimalType.COW,
                             animalCards = tradeAnimalCards,
                         ),
                 )

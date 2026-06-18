@@ -242,7 +242,7 @@ class GameViewModel(
 
     private val auctionTimerSeconds =
         repository.state
-            .map { it.gameStateView?.auctionState?.timerEndTime }
+            .map { it.gameStateView?.takeIf { view -> view.auctionState != null }?.timerEnd }
             .distinctUntilChanged()
             .flatMapLatest { endTime ->
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)

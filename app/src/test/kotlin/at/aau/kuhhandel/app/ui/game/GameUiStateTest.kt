@@ -152,7 +152,6 @@ class GameUiStateTest {
     ) = TradeStateView(
         initiatorId = "initiator",
         targetId = "target",
-        requestedAnimalType = AnimalType.COW,
         animalCards = emptyList(),
         initiatorCardCount = initiatorCardCount,
         targetCardCount = targetCardCount,

@@ -543,7 +543,7 @@ class GameRepository(
             if (trade == null) {
                 "none"
             } else {
-                val animalType = trade.requestedAnimalType ?: trade.animalCards.firstOrNull()?.type
+                val animalType = trade.animalCards.firstOrNull()?.type
                 "${trade.initiatorId}->${trade.targetId} " +
                     "animal=$animalType " +
                     "animalCount=${trade.animalCards.size} " +

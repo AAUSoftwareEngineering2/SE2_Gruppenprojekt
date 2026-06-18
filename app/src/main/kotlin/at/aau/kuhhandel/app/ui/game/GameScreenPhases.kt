@@ -70,6 +70,7 @@ fun AuctionPhaseContent(
             AuctionView(
                 auction = auctionState,
                 timerSeconds = uiState.auctionTimerSeconds,
+                timerEndMillis = uiState.gameStateView?.timerEnd,
                 phase = uiState.currentPhase,
                 myPlayerId = uiState.myPlayerId,
                 playerName = uiState::playerName,
