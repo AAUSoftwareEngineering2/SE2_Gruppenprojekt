@@ -103,7 +103,6 @@ data class SubmitAuctionPaymentPayload(
 data class ChooseTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
-    val moneyCardIds: Set<String>? = null,
 )
 
 /**
