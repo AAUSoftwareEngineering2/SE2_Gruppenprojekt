@@ -50,10 +50,10 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.model.TradeStateView
 import kotlinx.coroutines.delay
 
 private val TRADE_OFFER_CARDS_OFFSET_X = (70).dp
@@ -109,9 +109,11 @@ private data class TradeCardPresentation(
 )
 
 private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
-    val tradeState = gameState?.tradeState ?: return null
-    val animalType = tradeState.animalCards.firstOrNull()?.type ?: tradeState.requestedAnimalType
-    val players = gameState.players
+    val tradeState = tradeState ?: return null
+    val animalType =
+        tradeState.animalCards.firstOrNull()?.type
+            ?: tradeState.requestedAnimalType
+            ?: return null
 
     return TradeCardPresentation(
         offerCount = tradeOfferCardCount,
@@ -125,12 +127,8 @@ private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
         initiatorId = tradeState.initiatorId,
         targetId = tradeState.targetId,
         winnerId = tradeState.winnerId,
-        initiatorName =
-            players.find { it.id == tradeState.initiatorId }?.name
-                ?: tradeState.initiatorId,
-        targetName =
-            players.find { it.id == tradeState.targetId }?.name
-                ?: tradeState.targetId,
+        initiatorName = playerName(tradeState.initiatorId),
+        targetName = playerName(tradeState.targetId),
     )
 }
 
@@ -167,7 +165,7 @@ fun TradeOverlay(
             retainedPresentation = null
         }
     }
-    LaunchedEffect(uiState.currentPhase, uiState.gameState?.tradeState) {
+    LaunchedEffect(uiState.currentPhase, uiState.tradeState) {
         if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
             resultStage = TradeResultStage.STACKS
             delay(TRADE_CARD_TRAVEL_DURATION_MS.toLong())
@@ -791,48 +789,56 @@ private fun TradeOverlayPreview(
         )
     val previewState =
         GameUiState(
-            gameState =
-                GameState(
-                    phase = phase,
-                    players =
-                        listOf(
-                            Player(id = "initiator", name = "Offer Player"),
-                            Player(id = "target", name = "Counter Player"),
-                        ),
-                    tradeState =
-                        TradeState(
-                            initiatorId = "initiator",
-                            targetId = "target",
-                            requestedAnimalType = AnimalType.COW,
-                            animalCards =
-                                (1..animalCount)
-                                    .map { index ->
-                                        AnimalCard("cow-$index", AnimalType.COW)
-                                    }.toSet(),
-                            offeredMoneyCards =
-                                listOf(0, 10, 50, 100)
-                                    .mapIndexed { index, value ->
-                                        MoneyCard("offer-$index", value)
-                                    }.toSet(),
-                            counterOfferedMoneyCards =
-                                if (phase == GamePhase.TRADE_RESULT) {
-                                    listOf(0, 10, 10, 50, 100, 200)
-                                        .mapIndexed { index, value ->
-                                            MoneyCard("counter-$index", value)
-                                        }.toSet()
-                                } else {
-                                    null
-                                },
-                            winnerId =
-                                if (phase == GamePhase.TRADE_RESULT) {
-                                    "initiator"
-                                } else {
-                                    null
-                                },
-                        ),
-                ),
             myPlayerId = myPlayerId,
             currentPhase = phase,
+            localPlayer = Player(id = "initiator", name = "Offer Player"),
+            opponents =
+                listOf(
+                    Opponent(
+                        id = "target",
+                        name = "Counter Player",
+                        animals = emptyList(),
+                        moneyCardCount = 6,
+                        isConnected = true,
+                    ),
+                ),
+            tradeState =
+                TradeStateView(
+                    initiatorId = "initiator",
+                    targetId = "target",
+                    requestedAnimalType = AnimalType.COW,
+                    animalCards =
+                        (1..animalCount)
+                            .map { index ->
+                                AnimalCard("cow-$index", AnimalType.COW)
+                            },
+                    initiatorCardCount = 4,
+                    targetCardCount = if (phase == GamePhase.TRADE_RESULT) 6 else null,
+                    visibleInitiatorCards =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            listOf(0, 10, 50, 100)
+                                .mapIndexed { index, value ->
+                                    MoneyCard("offer-$index", value)
+                                }
+                        } else {
+                            null
+                        },
+                    visibleTargetCards =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            listOf(0, 10, 10, 50, 100, 200)
+                                .mapIndexed { index, value ->
+                                    MoneyCard("counter-$index", value)
+                                }
+                        } else {
+                            null
+                        },
+                    winnerId =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            "initiator"
+                        } else {
+                            null
+                        },
+                ),
             myMoneyCards = moneyCards,
             selectedMoneyCardIds = setOf("m3"),
             isTradeHandFanned = isTradeHandFanned,

@@ -5,6 +5,7 @@ import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -174,7 +175,6 @@ class GameWebSocketHandler(
                             gameId = gameId,
                             playerId = playerId,
                             reconnectToken = result.reconnectToken,
-                            state = result.gameState,
                             stateView = result.gameState.createViewForPlayer(playerId),
                         ),
                     ),
@@ -214,7 +214,6 @@ class GameWebSocketHandler(
                             gameId = joinedGameId,
                             playerId = playerId,
                             reconnectToken = result.reconnectToken,
-                            state = state,
                             stateView = state.createViewForPlayer(playerId),
                         ),
                     ),
@@ -276,7 +275,6 @@ class GameWebSocketHandler(
                         SnapshotPayload.serializer(),
                         SnapshotPayload(
                             reconnectToken = result.reconnectToken,
-                            state = state,
                             stateView = state.createViewForPlayer(payload.playerId),
                         ),
                     ),
@@ -517,6 +515,20 @@ class GameWebSocketHandler(
         state: GameState,
         playerId: String,
     ) {
+        val stateView = state.createViewForPlayer(playerId)
+        val gameId =
+            connectionRegistry
+                .playerSessionFor(session.id)
+                ?.gameId
+                ?: "unknown"
+        logGameStateUpdatedOutbound(
+            gameId = gameId,
+            sessionId = session.id,
+            playerId = playerId,
+            requestId = requestId,
+            stateView = stateView,
+            delivery = "direct",
+        )
         send(
             session,
             WebSocketEnvelope(
@@ -526,8 +538,7 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         GameStatePayload.serializer(),
                         GameStatePayload(
-                            state = state,
-                            stateView = state.createViewForPlayer(playerId),
+                            stateView = stateView,
                         ),
                     ),
             ),
@@ -550,6 +561,15 @@ class GameWebSocketHandler(
             val (_, playerId) = connectionRegistry.playerSessionFor(session.id) ?: return@forEach
 
             try {
+                val stateView = state.createViewForPlayer(playerId)
+                logGameStateUpdatedOutbound(
+                    gameId = gameId,
+                    sessionId = session.id,
+                    playerId = playerId,
+                    requestId = null,
+                    stateView = stateView,
+                    delivery = "broadcast",
+                )
                 val envelope =
                     WebSocketEnvelope(
                         type = WebSocketType.GAME_STATE_UPDATED,
@@ -558,8 +578,7 @@ class GameWebSocketHandler(
                             WebSocketJson.json.encodeToJsonElement(
                                 GameStatePayload.serializer(),
                                 GameStatePayload(
-                                    state = state,
-                                    stateView = state.createViewForPlayer(playerId),
+                                    stateView = stateView,
                                 ),
                             ),
                     )
@@ -579,6 +598,45 @@ class GameWebSocketHandler(
                 )
             }
         }
+    }
+
+    private fun logGameStateUpdatedOutbound(
+        gameId: String,
+        sessionId: String,
+        playerId: String,
+        requestId: String?,
+        stateView: GameStateView,
+        delivery: String,
+    ) {
+        val trade = stateView.tradeState
+        val tradeSummary =
+            if (trade == null) {
+                "none"
+            } else {
+                val animalType = trade.requestedAnimalType ?: trade.animalCards.firstOrNull()?.type
+                "${trade.initiatorId}->${trade.targetId} " +
+                    "animal=$animalType " +
+                    "animalCount=${trade.animalCards.size} " +
+                    "initiatorCardCount=${trade.initiatorCardCount} " +
+                    "targetCardCount=${trade.targetCardCount} " +
+                    "visibleInitiatorCards=${trade.visibleInitiatorCards?.size} " +
+                    "visibleTargetCards=${trade.visibleTargetCards?.size} " +
+                    "winner=${trade.winnerId}"
+            }
+
+        logger.info(
+            "[WS OUT] GAME_STATE_UPDATED {} game={} session={} player={} requestId={} " +
+                "phase={} currentPlayer={} timerEnd={} trade=[{}]",
+            delivery,
+            gameId,
+            sessionId,
+            playerId,
+            requestId,
+            stateView.phase,
+            stateView.currentPlayerId,
+            stateView.timerEnd,
+            tradeSummary,
+        )
     }
 
     /**

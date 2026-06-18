@@ -58,7 +58,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
     val repositoryState by repository.state.collectAsState()
-    val currentPhase = repositoryState.gameState?.phase
+    val currentPhase = repositoryState.gameStateView?.phase
 
     // Musiksteuerung
     val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
