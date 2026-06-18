@@ -30,7 +30,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -48,8 +47,6 @@ class GameWebSocketHandler(
     private val connectionRegistry: ConnectionRegistry,
     // Used in tests
     handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
-    @Value("\${kuhhandel.websocket.disconnect-grace-ms:30000}")
-    private val disconnectGraceMs: Long = 30_000L,
 ) : TextWebSocketHandler() {
     private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
     private val handlerScope = CoroutineScope(handlerContext)
