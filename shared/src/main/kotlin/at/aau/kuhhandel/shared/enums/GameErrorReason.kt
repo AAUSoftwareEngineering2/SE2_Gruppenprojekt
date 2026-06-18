@@ -17,12 +17,14 @@ enum class GameErrorReason {
     CONNECTION_ALREADY_BOUND,
     CONNECTION_NOT_BOUND,
     GAME_NOT_FOUND,
-    PLAYER_NOT_IN_GAME,
     INVALID_RECONNECTION_TOKEN,
 
     // Game flow
     INVALID_PHASE,
     UNKNOWN_ACTOR,
+    UNKNOWN_PLAYER,
+    ALREADY_CONNECTED,
+    ALREADY_DISCONNECTED,
     NOT_YOUR_TURN,
 
     ALREADY_IN_ROOM,
@@ -63,13 +65,16 @@ enum class GameErrorReason {
             INTERNAL_SERVER_ERROR -> "An unexpected server error occurred."
             INVALID_MESSAGE_FORMAT, UNSUPPORTED_MESSAGE_TYPE, MISSING_PAYLOAD, INVALID_PAYLOAD ->
                 "Invalid communication with server."
+
             CONNECTION_ALREADY_BOUND -> "You are already connected to a game."
             CONNECTION_NOT_BOUND -> "Connection lost. Please try again."
             GAME_NOT_FOUND -> "Game not found. Please check the code."
-            PLAYER_NOT_IN_GAME -> "You are not a member of this game."
             INVALID_RECONNECTION_TOKEN -> "Session expired. Please rejoin."
             INVALID_PHASE -> "This action is not allowed right now."
             UNKNOWN_ACTOR -> "Invalid player action."
+            UNKNOWN_PLAYER -> "You are not a player in this game."
+            ALREADY_CONNECTED -> "You are already connected to the game."
+            ALREADY_DISCONNECTED -> "You have already been disconnected from the game."
             NOT_YOUR_TURN -> "It is not your turn."
             ALREADY_IN_ROOM -> "You are already in this room."
             NOT_ENOUGH_PLAYERS -> "Not enough players to start."

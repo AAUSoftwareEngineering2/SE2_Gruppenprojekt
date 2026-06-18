@@ -1,7 +1,11 @@
-# Diese Datei überschreibt nur das Spring-Profil für Staging.
-#
-# Die App-Basis bleibt gleich, aber der Container startet mit
-# `SPRING_PROFILES_ACTIVE=staging`.
+# Staging-spezifische Deployment-Overrides gegenüber der gemeinsamen App-Basis:
+#   - SPRING_PROFILES_ACTIVE=staging
+#   - eigene erlaubte WebSocket-Origins
+#   - eigenes Postgres-Schema `staging`: gesetzt via `currentSchema=staging` in der
+#     staging-eigenen `kuhhandel-db` Secret-URL (nicht hier — die URL lebt im Secret).
+#     staging teilt die DB-Instanz mit prod, schreibt aber in ein getrenntes Schema;
+#     prod bleibt auf `public`. (`spring.datasource.hikari.schema` geht in Spring Boot 4
+#     NICHT — der Hikari-Pool ist beim Property-Binding schon sealed -> Startup-Crash.)
 apiVersion: apps/v1
 kind: Deployment
 metadata:

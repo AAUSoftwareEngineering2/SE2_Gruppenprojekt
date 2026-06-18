@@ -387,7 +387,8 @@ class GameRepositoryTest {
                           "id": "other",
                           "name": "Other",
                           "animals": [],
-                          "moneyCardCount": 2
+                          "moneyCardCount": 2,
+                          "isConnected": true
                         }
                       ],
                       "hostPlayerId": "me",
