@@ -134,6 +134,15 @@ class GameRepository(
         client.submitAuctionPayment(moneyCardIds)
     }
 
+    /** Reconnects to a game session stored in tokenStorage (e.g. after app restart). */
+    suspend fun rejoinFromStorage() {
+        val gameId = tokenStorage.getGameId() ?: return
+        val playerId = tokenStorage.getPlayerId() ?: return
+        // Pre-populate state so ensureConnected's reconnect logic can fire
+        _state.update { it.copy(gameId = gameId, myPlayerId = playerId) }
+        ensureConnected()
+    }
+
     /** Disconnects from the current game and resets local state. */
     suspend fun leaveGame() {
         ensureConnected()

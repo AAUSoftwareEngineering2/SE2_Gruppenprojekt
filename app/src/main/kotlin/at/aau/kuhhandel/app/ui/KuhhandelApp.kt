@@ -4,10 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -61,23 +64,37 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
     val currentPhase = repositoryState.gameStateView?.phase
 
     // Musiksteuerung
-    val isGameStarted = currentPhase != null && currentPhase != GamePhase.NOT_STARTED
+    val isGameStarted = (currentPhase != null) && (currentPhase != GamePhase.NOT_STARTED)
 
     // Handle Game State transitions via Navigation
-    LaunchedEffect(currentPhase) {
+    LaunchedEffect(currentPhase, repositoryState.gameId) {
+        val gameId = repositoryState.gameId
         when (currentPhase) {
-            GamePhase.NOT_STARTED -> Unit
+            GamePhase.NOT_STARTED -> {
+                if (
+                    gameId != null &&
+                    navController.currentDestination?.hasRoute<Screen.Lobby>() != true
+                ) {
+                    navController.navigate(Screen.Lobby(gameId)) {
+                        popUpTo(Screen.Main) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+
             GamePhase.FINISHED -> {
-                navController.navigate(Screen.Win) {
-                    // Pop up to Game to clear it from backstack
-                    popUpTo(Screen.Game) { inclusive = true }
-                    launchSingleTop = true
+                if (navController.currentDestination?.hasRoute<Screen.Win>() != true) {
+                    navController.navigate(Screen.Win) {
+                        // Pop up to Game to clear it from backstack
+                        popUpTo(Screen.Game) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             }
 
             null -> Unit
             else -> {
-                if (navController.currentDestination?.route != Screen.Game::class.qualifiedName) {
+                if (navController.currentDestination?.hasRoute<Screen.Game>() != true) {
                     navController.navigate(Screen.Game) {
                         popUpTo(Screen.Main) { inclusive = false }
                         launchSingleTop = true
@@ -94,12 +111,27 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
             modifier = modifier,
         ) {
             composable<Screen.Main> {
+                var showRejoinDialog by remember {
+                    mutableStateOf(
+                        tokenStorage.getReconnectToken() != null &&
+                            tokenStorage.getGameId() != null,
+                    )
+                }
                 MainMenuScreen(
                     onCreateLobby = { navController.navigate(Screen.RoomCreation) },
                     onJoinLobby = { navController.navigate(Screen.RoomJoining) },
                     onRules = { navController.navigate(Screen.Rules) },
                     onLeaderboard = { navController.navigate(Screen.Leaderboard) },
                     onPingServer = { pingService.isServerReachable() },
+                    showRejoinDialog = showRejoinDialog,
+                    onRejoin = {
+                        showRejoinDialog = false
+                        scope.launch { repository.rejoinFromStorage() }
+                    },
+                    onDismissRejoin = {
+                        showRejoinDialog = false
+                        repository.disconnect()
+                    },
                 )
             }
 

@@ -42,7 +42,7 @@ class LobbyCreationViewModel(
             isCreating,
             repository.state,
         ) { name, nameError, creating, repoState ->
-            val isCreated = repoState.gameId != null && repoState.gameState != null
+            val isCreated = repoState.gameId != null && repoState.gameStateView != null
             if (isCreated || repoState.errorMessage != null) {
                 isCreating.value = false
             }

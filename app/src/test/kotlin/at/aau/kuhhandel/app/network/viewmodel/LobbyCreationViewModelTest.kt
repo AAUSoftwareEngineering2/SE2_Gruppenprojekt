@@ -147,7 +147,7 @@ class LobbyCreationViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     gameId = "ABCDE",
-                    gameState = mockk(),
+                    gameStateView = mockk(),
                     isConnecting = false,
                 )
             advanceUntilIdle()
@@ -183,7 +183,7 @@ class LobbyCreationViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     gameId = "12345",
-                    gameState = mockk(),
+                    gameStateView = mockk(),
                 )
             advanceUntilIdle()
 
