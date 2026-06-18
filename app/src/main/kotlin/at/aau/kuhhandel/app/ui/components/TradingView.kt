@@ -3,7 +3,6 @@ package at.aau.kuhhandel.app.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInCubic
 import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideOut
@@ -59,14 +58,6 @@ fun TradingView(
     onBackgroundClick: () -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {},
 ) {
-    val visibilityState =
-        remember {
-            MutableTransitionState(false).apply {
-                targetState = visible
-            }
-        }
-    visibilityState.targetState = visible
-
     val travelDistancePx = with(LocalDensity.current) { travelDistance.roundToPx() }
     val angleRadians = Math.toRadians(TABLE_TRAVEL_ANGLE_DEGREES)
     val entryOffset =
@@ -75,14 +66,13 @@ fun TradingView(
             y = (-sin(angleRadians) * travelDistancePx).roundToInt(),
         )
     val exitOffset = IntOffset(x = -entryOffset.x, y = -entryOffset.y)
-    val blocksInput = visibilityState.currentState || visibilityState.targetState
     val backgroundInteractionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        if (blocksInput) {
+        if (visible) {
             Box(
                 modifier =
                     Modifier
@@ -96,7 +86,7 @@ fun TradingView(
         }
 
         AnimatedVisibility(
-            visibleState = visibilityState,
+            visible = visible,
             enter =
                 slideIn(
                     animationSpec =

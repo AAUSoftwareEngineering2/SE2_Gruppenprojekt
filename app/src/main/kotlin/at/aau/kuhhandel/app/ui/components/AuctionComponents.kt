@@ -52,7 +52,6 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
 
 private const val DEFAULT_AUCTION_TIMER_MILLIS = 5000L
@@ -215,8 +214,8 @@ fun AuctionView(
     auction: AuctionState?,
     timerSeconds: Int? = null,
     phase: GamePhase = GamePhase.AUCTION_BIDDING,
-    players: List<Player> = emptyList(),
     myPlayerId: String? = null,
+    playerName: (String) -> String = { it },
     footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
@@ -340,7 +339,7 @@ fun AuctionView(
                             if (bidderId == myPlayerId) {
                                 "You"
                             } else {
-                                players.find { it.id == bidderId }?.name ?: bidderId
+                                playerName(bidderId)
                             }
                         Text(
                             "from $bidderName",
