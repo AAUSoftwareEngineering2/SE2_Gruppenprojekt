@@ -61,7 +61,7 @@ fun KuhhandelApp(modifier: Modifier = Modifier) {
         }
 
     val repositoryState by repository.state.collectAsState()
-    val currentPhase = repositoryState.gameState?.phase
+    val currentPhase = repositoryState.gameStateView?.phase
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val isGameScreenActive = navBackStackEntry?.destination?.route?.endsWith(".Game") == true
 
