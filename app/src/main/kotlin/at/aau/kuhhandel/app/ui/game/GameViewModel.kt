@@ -614,16 +614,6 @@ class GameViewModel(
         initiateTrade(targetPlayerId, animalType)
     }
 
-    /** Signals that the trade reveal animation has finished. */
-    fun finishTradeReveal() {
-        scope.launch {
-            try {
-                repository.finishTradeReveal()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
     /** Sets the opponent player targeted by the local eye icon selection and runs its timer. */
     fun selectEyeTargetPlayer(targetPlayerId: String) {
         val state = uiState.value

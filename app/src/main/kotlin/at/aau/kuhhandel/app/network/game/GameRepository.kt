@@ -157,13 +157,6 @@ class GameRepository(
         client.respondToTrade(counterOfferedMoneyCardIds)
     }
 
-    /** Informs the server that the trade reveal animation is complete. */
-    suspend fun finishTradeReveal() {
-        ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
-        client.finishTradeReveal()
-    }
-
     /** Requests to spy on a targeted opponent player's money cards. */
     suspend fun spy(targetPlayerId: String) {
         ensureConnected()

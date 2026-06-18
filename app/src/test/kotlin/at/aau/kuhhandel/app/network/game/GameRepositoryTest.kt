@@ -520,15 +520,6 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `finishTradeReveal sends request`() {
-        runBlocking {
-            val harness = createHarness()
-            harness.repository.finishTradeReveal()
-            assertEquals(WebSocketType.FINISH_TRADE_REVEAL, harness.sentEnvelope().type)
-        }
-    }
-
-    @Test
     fun `initiateTrade sends request`() {
         runBlocking {
             val harness = createHarness()

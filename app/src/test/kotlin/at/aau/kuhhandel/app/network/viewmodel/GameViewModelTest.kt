@@ -1047,15 +1047,6 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `finishTradeReveal calls repository`() {
-        runTest {
-            viewModel.finishTradeReveal()
-            advanceUntilIdle()
-            coVerify { mockRepository.finishTradeReveal() }
-        }
-    }
-
-    @Test
     fun `money card selection logic works correctly`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
