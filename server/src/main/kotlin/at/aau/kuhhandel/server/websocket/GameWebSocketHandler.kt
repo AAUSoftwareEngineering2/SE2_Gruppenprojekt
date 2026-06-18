@@ -1,10 +1,11 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
+import at.aau.kuhhandel.shared.exception.GameException
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
 import at.aau.kuhhandel.shared.websocket.CreateGamePayload
 import at.aau.kuhhandel.shared.websocket.ErrorPayload
@@ -26,18 +27,15 @@ import at.aau.kuhhandel.shared.websocket.WebSocketType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
-import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -49,8 +47,6 @@ class GameWebSocketHandler(
     private val connectionRegistry: ConnectionRegistry,
     // Used in tests
     handlerContext: CoroutineContext = Dispatchers.Default + SupervisorJob(),
-    @Value("\${kuhhandel.websocket.disconnect-grace-ms:30000}")
-    private val disconnectGraceMs: Long = 30_000L,
 ) : TextWebSocketHandler() {
     private val logger = LoggerFactory.getLogger(GameWebSocketHandler::class.java)
     private val handlerScope = CoroutineScope(handlerContext)
@@ -88,6 +84,7 @@ class GameWebSocketHandler(
                     WebSocketType.RESOLVE_AUCTION -> handleResolveAuction(session, envelope)
                     WebSocketType.SUBMIT_AUCTION_PAYMENT ->
                         handleSubmitAuctionPayment(session, envelope)
+
                     WebSocketType.CHOOSE_TRADE -> handleChooseTrade(session, envelope)
                     WebSocketType.SUBMIT_TRADE_MONEY -> handleSubmitTradeMoney(session, envelope)
                     WebSocketType.RESPOND_TO_TRADE -> handleRespondToTrade(session, envelope)
@@ -113,54 +110,30 @@ class GameWebSocketHandler(
 
     /**
      * Cleans up or disconnects an existing active socket connection.
-     *
-     * The player is only removed after a grace period, so a pod replacement or short network
-     * drop does not kick them out of the game. If the persisted token changed during the grace
-     * period the player has already reconnected (maybe on another pod) and stays in.
      */
     override fun afterConnectionClosed(
         session: WebSocketSession,
         status: CloseStatus,
     ) {
         val playerSession = connectionRegistry.playerSessionFor(session.id)
-
         connectionRegistry.unbind(session.id)
 
         if (playerSession != null) {
             handlerScope.launch {
                 try {
-                    val fingerprintAtClose =
-                        gameService.reconnectTokenFingerprint(
-                            playerSession.gameId,
-                            playerSession.playerId,
-                        )
-
-                    delay(disconnectGraceMs)
-
-                    val fingerprintNow =
-                        gameService.reconnectTokenFingerprint(
-                            playerSession.gameId,
-                            playerSession.playerId,
-                        )
-                    // Only the fingerprint *changing* means the player reconnected (token rotated)
-                    // or the game is gone. A still-null fingerprint (token never stored) must NOT
-                    // skip the leave, otherwise the player would linger forever.
-                    if (fingerprintNow != fingerprintAtClose) {
-                        return@launch
-                    }
-
-                    val state = gameService.leaveGame(playerSession.gameId, playerSession.playerId)
+                    val state =
+                        gameService.disconnectPlayer(playerSession.gameId, playerSession.playerId)
                     broadcastStateUpdate(playerSession.gameId, state)
                 } catch (e: GameException) {
                     logger.info(
-                        "Player {} could not leave game {} on disconnect. Reason: {}",
+                        "Player {} could not be disconnected from game {}. Reason: {}",
                         playerSession.playerId,
                         playerSession.gameId,
                         e.reason,
                     )
                 } catch (e: Exception) {
                     logger.error(
-                        "Unexpected system error when removing player {} from game {} on disconnect",
+                        "Unexpected system error when disconnecting player {} from game {}",
                         playerSession.playerId,
                         playerSession.gameId,
                         e,
@@ -185,9 +158,6 @@ class GameWebSocketHandler(
         val gameId = result.gameId
         val playerId = result.playerId
 
-        val token = generateReconnectToken()
-        gameService.storeReconnectToken(gameId, playerId, token)
-
         connectionRegistry.bindPlayerSession(session.id, gameId, playerId)
 
         send(
@@ -201,8 +171,7 @@ class GameWebSocketHandler(
                         GameCreatedPayload(
                             gameId = gameId,
                             playerId = playerId,
-                            reconnectToken = token,
-                            state = result.gameState,
+                            reconnectToken = result.reconnectToken,
                             stateView = result.gameState.createViewForPlayer(playerId),
                         ),
                     ),
@@ -228,9 +197,6 @@ class GameWebSocketHandler(
         val playerId = result.playerId
         val state = result.gameState
 
-        val token = generateReconnectToken()
-        gameService.storeReconnectToken(joinedGameId, playerId, token)
-
         connectionRegistry.bindPlayerSession(session.id, joinedGameId, playerId)
 
         send(
@@ -244,8 +210,7 @@ class GameWebSocketHandler(
                         GameJoinedPayload(
                             gameId = joinedGameId,
                             playerId = playerId,
-                            reconnectToken = token,
-                            state = state,
+                            reconnectToken = result.reconnectToken,
                             stateView = state.createViewForPlayer(playerId),
                         ),
                     ),
@@ -288,18 +253,13 @@ class GameWebSocketHandler(
     ) {
         ensureNoBoundPlayerSession(session.id)
         val payload = decodePayload(envelope, ReconnectPayload.serializer())
-
-        // Intentional order (#278): resolve the reconnect target first so failures stay specific
-        // (GAME_NOT_FOUND / PLAYER_NOT_IN_GAME), then validate the token against the database.
-        val state = gameService.getStateForReconnection(payload.gameId, payload.playerId)
-
-        if (!gameService.isReconnectTokenValid(payload.gameId, payload.playerId, payload.token)) {
-            throw GameException(GameErrorReason.INVALID_RECONNECTION_TOKEN)
-        }
-
-        val newToken = generateReconnectToken()
-        gameService.storeReconnectToken(payload.gameId, payload.playerId, newToken)
-
+        val result =
+            gameService.reconnectPlayer(
+                payload.gameId,
+                payload.playerId,
+                payload.token,
+            )
+        val state = result.gameState
         connectionRegistry.bindPlayerSession(session.id, payload.gameId, payload.playerId)
 
         send(
@@ -311,13 +271,14 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         SnapshotPayload.serializer(),
                         SnapshotPayload(
-                            reconnectToken = newToken,
-                            state = state,
+                            reconnectToken = result.reconnectToken,
                             stateView = state.createViewForPlayer(payload.playerId),
                         ),
                     ),
             ),
         )
+
+        broadcastStateUpdate(payload.gameId, state, session)
     }
 
     /**
@@ -551,6 +512,20 @@ class GameWebSocketHandler(
         state: GameState,
         playerId: String,
     ) {
+        val stateView = state.createViewForPlayer(playerId)
+        val gameId =
+            connectionRegistry
+                .playerSessionFor(session.id)
+                ?.gameId
+                ?: "unknown"
+        logGameStateUpdatedOutbound(
+            gameId = gameId,
+            sessionId = session.id,
+            playerId = playerId,
+            requestId = requestId,
+            stateView = stateView,
+            delivery = "direct",
+        )
         send(
             session,
             WebSocketEnvelope(
@@ -560,8 +535,7 @@ class GameWebSocketHandler(
                     WebSocketJson.json.encodeToJsonElement(
                         GameStatePayload.serializer(),
                         GameStatePayload(
-                            state = state,
-                            stateView = state.createViewForPlayer(playerId),
+                            stateView = stateView,
                         ),
                     ),
             ),
@@ -584,6 +558,15 @@ class GameWebSocketHandler(
             val (_, playerId) = connectionRegistry.playerSessionFor(session.id) ?: return@forEach
 
             try {
+                val stateView = state.createViewForPlayer(playerId)
+                logGameStateUpdatedOutbound(
+                    gameId = gameId,
+                    sessionId = session.id,
+                    playerId = playerId,
+                    requestId = null,
+                    stateView = stateView,
+                    delivery = "broadcast",
+                )
                 val envelope =
                     WebSocketEnvelope(
                         type = WebSocketType.GAME_STATE_UPDATED,
@@ -592,8 +575,7 @@ class GameWebSocketHandler(
                             WebSocketJson.json.encodeToJsonElement(
                                 GameStatePayload.serializer(),
                                 GameStatePayload(
-                                    state = state,
-                                    stateView = state.createViewForPlayer(playerId),
+                                    stateView = stateView,
                                 ),
                             ),
                     )
@@ -613,6 +595,45 @@ class GameWebSocketHandler(
                 )
             }
         }
+    }
+
+    private fun logGameStateUpdatedOutbound(
+        gameId: String,
+        sessionId: String,
+        playerId: String,
+        requestId: String?,
+        stateView: GameStateView,
+        delivery: String,
+    ) {
+        val trade = stateView.tradeState
+        val tradeSummary =
+            if (trade == null) {
+                "none"
+            } else {
+                val animalType = trade.animalCards.firstOrNull()?.type
+                "${trade.initiatorId}->${trade.targetId} " +
+                    "animal=$animalType " +
+                    "animalCount=${trade.animalCards.size} " +
+                    "initiatorCardCount=${trade.initiatorCardCount} " +
+                    "targetCardCount=${trade.targetCardCount} " +
+                    "visibleInitiatorCards=${trade.visibleInitiatorCards?.size} " +
+                    "visibleTargetCards=${trade.visibleTargetCards?.size} " +
+                    "winner=${trade.winnerId}"
+            }
+
+        logger.info(
+            "[WS OUT] GAME_STATE_UPDATED {} game={} session={} player={} requestId={} " +
+                "phase={} currentPlayer={} timerEnd={} trade=[{}]",
+            delivery,
+            gameId,
+            sessionId,
+            playerId,
+            requestId,
+            stateView.phase,
+            stateView.currentPlayerId,
+            stateView.timerEnd,
+            tradeSummary,
+        )
     }
 
     /**
@@ -651,9 +672,4 @@ class GameWebSocketHandler(
             )
         send(session, envelope)
     }
-
-    /**
-     * Generates a cryptographically secure token used to authenticate a player during reconnection.
-     */
-    private fun generateReconnectToken(): String = UUID.randomUUID().toString()
 }

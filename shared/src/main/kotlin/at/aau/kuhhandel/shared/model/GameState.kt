@@ -10,7 +10,6 @@ data class GameState(
     val timerEnd: Long? = null,
     val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
-    val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = -1,
     val players: List<Player> = emptyList(),
     val hostPlayerId: String? = null,
@@ -43,6 +42,7 @@ data class GameState(
                     name = player.name,
                     animals = player.animals,
                     moneyCardCount = player.moneyCards.size,
+                    isConnected = player.isConnected,
                 )
             }
 
@@ -133,7 +133,6 @@ data class GameState(
                 timerEnd = null,
                 roundNumber = 0,
                 deck = AnimalDeck(),
-                currentFaceUpCard = null,
                 currentPlayerIndex = -1,
                 players =
                     listOf(

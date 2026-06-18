@@ -316,13 +316,6 @@ class GameWebSocketClient(
         return requestId
     }
 
-    /** Completes the visual reveal phase of a trade. */
-    suspend fun finishTradeReveal(): String {
-        val requestId = UUID.randomUUID().toString()
-        send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
-        return requestId
-    }
-
     /** Initiates a spying action against an opponent player. */
     suspend fun spy(targetPlayerId: String): String {
         val requestId = UUID.randomUUID().toString()

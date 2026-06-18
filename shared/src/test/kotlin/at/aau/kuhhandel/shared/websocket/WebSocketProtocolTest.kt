@@ -2,10 +2,10 @@ package at.aau.kuhhandel.shared.websocket
 
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.model.Player
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -68,7 +68,6 @@ class WebSocketProtocolTest {
                 gameId = "Id",
                 playerId = "P1",
                 reconnectToken = "token-1",
-                state = GameState(),
                 stateView = testGameStateView(),
             )
 
@@ -76,16 +75,18 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameCreatedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
+        assertFalse(encoded.contains("\"state\":"))
     }
 
     @Test
     fun `GameStatePayload round-trips`() {
-        val payload = GameStatePayload(state = GameState(), stateView = testGameStateView())
+        val payload = GameStatePayload(stateView = testGameStateView())
 
         val encoded = json.encodeToString(GameStatePayload.serializer(), payload)
         val decoded = json.decodeFromString(GameStatePayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
+        assertFalse(encoded.contains("\"state\":"))
     }
 
     @Test
@@ -105,7 +106,6 @@ class WebSocketProtocolTest {
                 gameId = "game-1",
                 playerId = "player-1",
                 reconnectToken = "token-1",
-                state = GameState(),
                 stateView = testGameStateView(),
             )
 
@@ -113,6 +113,7 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(GameJoinedPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
+        assertFalse(encoded.contains("\"state\":"))
     }
 
     @Test
@@ -130,7 +131,6 @@ class WebSocketProtocolTest {
         val payload =
             SnapshotPayload(
                 reconnectToken = "token-1",
-                state = GameState(),
                 stateView = testGameStateView(),
             )
 
@@ -138,6 +138,7 @@ class WebSocketProtocolTest {
         val decoded = json.decodeFromString(SnapshotPayload.serializer(), encoded)
 
         assertEquals(payload, decoded)
+        assertFalse(encoded.contains("\"state\":"))
     }
 
     @Test

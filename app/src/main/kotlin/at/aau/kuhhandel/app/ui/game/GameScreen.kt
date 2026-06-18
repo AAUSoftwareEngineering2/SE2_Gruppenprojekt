@@ -53,8 +53,8 @@ import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
 
@@ -88,8 +88,8 @@ fun GameScreen(
     val playCheatingEyeSound = rememberMediaSoundEffect(R.raw.cheating_eye)
     val playSpyMoneyRevealedSound = rememberMediaSoundEffect(R.raw.spy_money_revealed)
     val playSpyExposedSound = rememberMediaSoundEffect(R.raw.spy_exposed)
-    val auctionCard = uiState.gameState?.auctionState?.auctionCard
-    val completedAnimalSets = uiState.gameState.completedAnimalSets()
+    val auctionCard = uiState.auctionState?.auctionCard
+    val completedAnimalSets = uiState.completedAnimalSets()
     var previousPhase by remember { mutableStateOf<GamePhase?>(null) }
     var previousCompletedAnimalSets by remember {
         mutableStateOf<Set<CompletedAnimalSet>?>(null)
@@ -98,8 +98,8 @@ fun GameScreen(
     var previousSpyingTargetId by remember { mutableStateOf<String?>(null) }
     var animalSetNotification by remember { mutableStateOf<CompletedAnimalSet?>(null) }
 
-    LaunchedEffect(uiState.gameState?.lastEvent) {
-        val event = uiState.gameState?.lastEvent
+    LaunchedEffect(uiState.lastEvent) {
+        val event = uiState.lastEvent
         if (event != null) {
             snackbarHostState.showSnackbar(
                 message = event.message,
@@ -177,10 +177,19 @@ fun GameScreen(
             Modifier
                 .fillMaxSize()
                 .clickable(
-                    enabled = uiState.isHandFanned && !isTradeActive,
+                    enabled =
+                        (uiState.isHandFanned && !isTradeActive) ||
+                            uiState.selectedTargetPlayerId != null,
                     interactionSource = gameBackgroundInteractionSource,
                     indication = null,
-                    onClick = onCollapseHand,
+                    onClick = {
+                        if (uiState.isHandFanned) onCollapseHand()
+                        if (uiState.selectedTargetPlayerId !=
+                            null
+                        ) {
+                            tradeActions.selectTargetPlayer(null)
+                        }
+                    },
                 ),
     ) {
         // --- DECOR ---
@@ -208,8 +217,8 @@ fun GameScreen(
         // --- TOP: OPPONENTS (Hidden during auctions) ---
         if (!isAuctionActive) {
             OpponentList(
-                players = uiState.gameState?.players ?: emptyList(),
-                myId = uiState.myPlayerId,
+                opponents = uiState.opponents,
+                hasLocalMoney = uiState.myMoneyCards.isNotEmpty(),
                 onTradeTargetSelected = { playerId ->
                     playPickFarmSound()
                     tradeActions.selectTargetPlayer(playerId)
@@ -241,12 +250,17 @@ fun GameScreen(
 
         // --- CENTER: THE BOARD ---
         if (!isAuctionActive) {
+            val playerCount = uiState.opponents.size + 1
+            val boardAlignment = if (playerCount > 3) Alignment.BottomCenter else Alignment.Center
+            val boardPadding = if (playerCount > 3) 220.dp else 0.dp
+
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .align(Alignment.Center),
-                contentAlignment = Alignment.Center,
+                        .align(boardAlignment)
+                        .padding(bottom = boardPadding),
+                contentAlignment = boardAlignment,
             ) {
                 when (uiState.currentPhase) {
                     GamePhase.NOT_STARTED -> {
@@ -256,7 +270,7 @@ fun GameScreen(
                             }
                         } else {
                             val message =
-                                if (uiState.gameState?.hostPlayerId == uiState.myPlayerId) {
+                                if (uiState.hostPlayerId == uiState.myPlayerId) {
                                     "Waiting for players (min. 3)..."
                                 } else {
                                     "Waiting for host to start..."
@@ -292,7 +306,7 @@ fun GameScreen(
 
         // --- BOTTOM: PLAYER'S OWN AREA ---
         PlayerFarm(
-            player = uiState.gameState?.players?.find { it.id == uiState.myPlayerId },
+            player = uiState.localPlayer,
             isHandFanned = uiState.isHandFanned,
             onToggleHandFanned = onToggleHandFanned,
             selectedMoneyCardIds = uiState.selectedMoneyCardIds,
@@ -309,7 +323,7 @@ fun GameScreen(
         )
 
         // --- TOP LAYER: PLAYER'S MONEY HAND ---
-        val myPlayer = uiState.gameState?.players?.find { it.id == uiState.myPlayerId }
+        val myPlayer = uiState.localPlayer
         if (myPlayer != null && !isTradeActive) {
             val handTranslationY by animateDpAsState(
                 targetValue = if (isAuctionActive) 115.dp else 0.dp,
@@ -323,7 +337,7 @@ fun GameScreen(
             )
 
             MoneyHand(
-                cards = myPlayer.moneyCards,
+                cards = uiState.myMoneyCards,
                 selectedCardIds = uiState.selectedMoneyCardIds,
                 onCardClick = { onToggleMoneyCard(it.id) },
                 isFanned = uiState.isHandFanned,
@@ -485,10 +499,19 @@ private data class CompletedAnimalSet(
     val animalName: String = animalType.name.lowercase().replaceFirstChar { it.titlecase() }
 }
 
-private fun GameState?.completedAnimalSets(): Set<CompletedAnimalSet> =
-    this
-        ?.players
-        ?.flatMap { player ->
+private fun GameUiState.completedAnimalSets(): Set<CompletedAnimalSet> {
+    val players =
+        listOfNotNull(localPlayer) +
+            opponents.map { opponent ->
+                Player(
+                    id = opponent.id,
+                    name = opponent.name,
+                    animals = opponent.animals,
+                )
+            }
+
+    return players
+        .flatMap { player ->
             player.animals
                 .groupingBy { it.type }
                 .eachCount()
@@ -501,8 +524,8 @@ private fun GameState?.completedAnimalSets(): Set<CompletedAnimalSet> =
                         animalType = animalType,
                     )
                 }
-        }?.toSet()
-        ?: emptySet()
+        }.toSet()
+}
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
@@ -581,19 +604,24 @@ fun GameScreenPreview() {
                     ),
             ),
         )
-    val gameState =
-        GameState(
-            phase = GamePhase.PLAYER_CHOICE,
-            players = players,
-            currentPlayerIndex = 4,
-        )
     val uiState =
         GameUiState(
-            gameState = gameState,
             myPlayerId = "5",
             currentPhase = GamePhase.PLAYER_CHOICE,
             deckCountText = "5",
             activeCardLabel = "No card revealed",
+            localPlayer = players[4],
+            opponents =
+                players.take(4).map { player ->
+                    Opponent(
+                        id = player.id,
+                        name = player.name,
+                        animals = player.animals,
+                        moneyCardCount = player.moneyCards.size,
+                        isConnected = true,
+                    )
+                },
+            currentPlayerId = "5",
             isConnected = true,
             canRevealCard = true,
             canStartGame = false,

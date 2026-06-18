@@ -1,6 +1,5 @@
 package at.aau.kuhhandel.server.persistence.entity
 
-import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -43,9 +42,6 @@ class GameEntity(
     var hostPlayerId: String? = null,
     @Column(name = "round_number", nullable = false)
     var roundNumber: Int = 0,
-    @Enumerated(EnumType.STRING)
-    @Column(name = "face_up_animal_type", length = 16)
-    var faceUpAnimalType: AnimalType? = null,
     // Last time a real player acted on this game (create / join / gameplay). Timeout sweeps do
     // NOT bump it, so an abandoned game goes stale and the StaleGameReaper can purge it instead
     // of the sweeper advancing it forever. Nullable so ddl-auto can add the column to old rows.

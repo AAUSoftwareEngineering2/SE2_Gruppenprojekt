@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.server.exception
+package at.aau.kuhhandel.shared.exception
 
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 

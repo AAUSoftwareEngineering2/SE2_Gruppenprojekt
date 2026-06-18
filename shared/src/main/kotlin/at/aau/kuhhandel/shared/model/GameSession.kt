@@ -1,19 +1,9 @@
-package at.aau.kuhhandel.server.model
+package at.aau.kuhhandel.shared.model
 
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.AnimalDeck
-import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.GameEvent
-import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PhaseDurations
-import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.model.SpyAction
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.exception.GameException
 import at.aau.kuhhandel.shared.utils.ScoreCalculator
 
 /**
@@ -78,6 +68,36 @@ class GameSession(
     }
 
     /**
+     * Disconnects a player.
+     *
+     * If the game has not started, removes the player from the room.
+     * If the game is running, marks the player as disconnected.
+     */
+    fun disconnectPlayer(playerId: String): GameState {
+        val player = requirePlayerInRoom(playerId)
+        ensurePlayerIsNotDisconnected(player)
+
+        return if (state.phase == GamePhase.NOT_STARTED) {
+            removePlayer(playerId)
+        } else {
+            state = state.updatePlayer(playerId) { it.copy(isConnected = false) }
+            state
+        }
+    }
+
+    /**
+     * Reconnects a player into the game session by marking them as connected.
+     */
+    fun reconnectPlayer(playerId: String): GameState {
+        val player = requirePlayerInRoom(playerId)
+        ensurePlayerIsNotConnected(player)
+
+        state = state.updatePlayer(playerId) { it.copy(isConnected = true) }
+
+        return state
+    }
+
+    /**
      * Starts a game with a simple initial deck.
      */
     fun startGame(actorId: String): GameState {
@@ -86,7 +106,10 @@ class GameSession(
         ensurePhase(GamePhase.NOT_STARTED)
         ensureEnoughPlayers()
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
+        val nextPlayerIndex = 0
+        val firstPlayer = state.players[nextPlayerIndex]
+        val calculatedTimeout =
+            calculateTimeoutForActor(firstPlayer, PhaseDurations.PLAYER_CHOICE_MS)
 
         state =
             state.copy(
@@ -101,7 +124,7 @@ class GameSession(
                             moneyCards = createInitialMoney(player.id),
                         )
                     },
-                currentPlayerIndex = 0,
+                currentPlayerIndex = nextPlayerIndex,
             )
 
         return state
@@ -151,12 +174,12 @@ class GameSession(
                 event =
                     GameEvent.MoneyBonus(
                         amount = bonusValue,
-                        message = "Goldesel! Jeder erhält $bonusValue€.",
+                        message = "Golden Donkey! Everyone receives $bonusValue€.",
                     )
             }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
         state =
             state.copy(
@@ -171,7 +194,6 @@ class GameSession(
                         auctioneerId = actorId,
                         highestBid = 0,
                         highestBidderId = null,
-                        timerEndTime = calculatedTimeout,
                     ),
                 activeSpies = emptySet(),
                 spiedThisTurn = emptySet(),
@@ -198,7 +220,7 @@ class GameSession(
         ensureBidNotTooLow(auctionState, amount)
         ensureBidNotTooHigh(amount)
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
         state =
             state.copy(
@@ -208,7 +230,6 @@ class GameSession(
                     auctionState.copy(
                         highestBid = amount,
                         highestBidderId = actorId,
-                        timerEndTime = calculatedTimeout,
                     ),
             )
 
@@ -250,8 +271,7 @@ class GameSession(
         } else {
             // Bluff Check: If the winner cannot pay the auctioneer, they bluffed
             if (highestBidder.totalMoney() < auctionState.highestBid) {
-                val calculatedTimeout =
-                    System.currentTimeMillis() + PhaseDurations.AUCTION_BIDDING_MS
+                val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_BIDDING_MS)
 
                 state =
                     state.copy(
@@ -261,7 +281,6 @@ class GameSession(
                             auctionState.copy(
                                 highestBid = 0,
                                 highestBidderId = null,
-                                timerEndTime = calculatedTimeout,
                                 excludedPlayerIds =
                                     auctionState.excludedPlayerIds + highestBidderId,
                             ),
@@ -280,7 +299,7 @@ class GameSession(
         }
 
         // Record who pays and who is paid, then prompt the buyer to select their money cards.
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_PAYMENT_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_PAYMENT_MS)
 
         state =
             state.copy(
@@ -288,7 +307,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 auctionState =
                     auctionState.copy(
-                        timerEndTime = calculatedTimeout,
                         buyerId = receiver.id,
                         sellerId = seller.id,
                     ),
@@ -346,7 +364,7 @@ class GameSession(
         val initiatorAnimals = initiatorMatchingAnimals.take(animalsToMoveCount).toSet()
         val targetAnimals = targetMatchingAnimals.take(animalsToMoveCount).toSet()
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_OFFER_MS
+        val calculatedTimeout = calculateTimeoutForActor(initiator, PhaseDurations.TRADE_OFFER_MS)
 
         // Remove the animal cards from the players, transition
         // the phase, and store the trade information
@@ -363,10 +381,7 @@ class GameSession(
                         TradeState(
                             initiatorId = initiator.id,
                             targetId = target.id,
-                            requestedAnimalType = animalType,
                             animalCards = initiatorAnimals + targetAnimals,
-                            offeredMoneyCardIds = emptySet(),
-                            counterOfferedMoneyCardIds = emptySet(),
                             offeredMoneyCards = null,
                             counterOfferedMoneyCards = null,
                         ),
@@ -398,14 +413,19 @@ class GameSession(
         if (offeredMoneyCardIds.isNotEmpty()) {
             offeredMoneyCards = requireOwnsMoneyCards(initiator, offeredMoneyCardIds)
 
-            // Remove the money cards from the player safely via your utility extension
+            // Remove the money cards from the player safely via the utility extension
             state =
                 state.updatePlayer(initiator.id) { player ->
                     player.copy(moneyCards = initiator.moneyCards - offeredMoneyCards)
                 }
         }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESPONSE_MS
+        val target =
+            checkNotNull(state.players.find { it.id == tradeState.targetId }) {
+                "Missing trade target during trade offer phase"
+            }
+
+        val calculatedTimeout = calculateTimeoutForActor(target, PhaseDurations.TRADE_RESPONSE_MS)
 
         // Transition the phase and update the trade information
         state =
@@ -414,8 +434,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 tradeState =
                     tradeState.copy(
-                        offeredMoneyCardIds = offeredMoneyCardIds,
-                        offeredMoney = offeredMoneyCards.sumOf { it.value },
                         offeredMoneyCards = offeredMoneyCards,
                     ),
             )
@@ -500,7 +518,7 @@ class GameSession(
                     )
                 }
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.TRADE_RESULT_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.TRADE_RESULT_MS)
 
         // Transition the phase and update the trade information
         state =
@@ -509,8 +527,6 @@ class GameSession(
                 timerEnd = calculatedTimeout,
                 tradeState =
                     tradeState.copy(
-                        counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-                        counterOfferedMoney = counterOfferedMoneyCards.sumOf { it.value },
                         counterOfferedMoneyCards = counterOfferedMoneyCards,
                         winnerId = winnerId,
                     ),
@@ -540,7 +556,7 @@ class GameSession(
                 .take(SPYING_CARDS_REVEALED)
                 .toSet()
 
-        val expiresAt = System.currentTimeMillis() + PhaseDurations.SPY_WINDOW_MS
+        val expiresAt = calculateExpirationTime(PhaseDurations.SPY_WINDOW_MS)
 
         val newSpy =
             SpyAction(
@@ -617,15 +633,44 @@ class GameSession(
         }
 
     /**
-     * Skip the player's turn.
+     * Handles an automated time-out choice for the active player.
      */
     private fun makeDefaultPlayerChoice(): GameState {
-        state =
-            state.copy(
-                activeSpies = emptySet(),
-                spiedThisTurn = emptySet(),
-            )
-        return advanceTurnAndCheckGameEnd()
+        // If there are cards left in the pile, start an auction
+        if (!state.deck.isEmpty()) {
+            return chooseAuction(state.players[state.currentPlayerIndex].id)
+        }
+
+        // If the deck is empty, start a trade to prevent a softlock
+        val activePlayer = state.players[state.currentPlayerIndex]
+
+        // Find an opponent who shares an animal type with the active player
+        val validTradeTargetPair =
+            state.players
+                .filter { it.id != activePlayer.id }
+                .firstNotNullOfOrNull { opponent ->
+                    val sharedType =
+                        activePlayer.animals
+                            .map { it.type }
+                            .intersect(opponent.animals.map { it.type }.toSet())
+                            .firstOrNull()
+
+                    if (sharedType != null) opponent.id to sharedType else null
+                }
+
+        return if (validTradeTargetPair != null) {
+            // Initiate a trade automatically
+            val (targetId, animalType) = validTradeTargetPair
+            chooseTrade(activePlayer.id, targetId, animalType)
+        } else {
+            // Skip the turn if neither auction nor trade is possible
+            state =
+                state.copy(
+                    activeSpies = emptySet(),
+                    spiedThisTurn = emptySet(),
+                )
+            advanceTurnAndCheckGameEnd()
+        }
     }
 
     /**
@@ -646,7 +691,7 @@ class GameSession(
                     auctionState.auctionCard,
                 )
 
-            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
+            val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_RESULT_MS)
 
             state =
                 state.copy(
@@ -655,7 +700,6 @@ class GameSession(
                     players = updatedPlayers,
                     auctionState =
                         auctionState.copy(
-                            timerEndTime = null,
                             buyerId = auctionState.auctioneerId,
                         ),
                 )
@@ -664,13 +708,18 @@ class GameSession(
         }
 
         // If a bid exists, proceed to the auctioneer decision phase
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTIONEER_DECISION_MS
+        val auctioneer =
+            checkNotNull(state.players.find { it.id == auctionState.auctioneerId }) {
+                "Missing auctioneer during auction closure"
+            }
+
+        val calculatedTimeout =
+            calculateTimeoutForActor(auctioneer, PhaseDurations.AUCTIONEER_DECISION_MS)
 
         state =
             state.copy(
                 phase = GamePhase.AUCTIONEER_DECISION,
                 timerEnd = calculatedTimeout,
-                auctionState = auctionState.copy(timerEndTime = null),
             )
 
         return state
@@ -731,17 +780,13 @@ class GameSession(
         val updatedPlayers =
             addAnimalToPlayer(playersAfterPayment, buyer.id, auctionState.auctionCard)
 
-        val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.AUCTION_RESULT_MS
+        val calculatedTimeout = calculateExpirationTime(PhaseDurations.AUCTION_RESULT_MS)
 
         state =
             state.copy(
                 phase = GamePhase.AUCTION_RESULT,
                 timerEnd = calculatedTimeout,
                 players = updatedPlayers,
-                auctionState =
-                    auctionState.copy(
-                        timerEndTime = null,
-                    ),
             )
 
         return state
@@ -848,20 +893,44 @@ class GameSession(
                     finalRanking = ranking,
                 )
         } else {
-            val calculatedTimeout = System.currentTimeMillis() + PhaseDurations.PLAYER_CHOICE_MS
+            val nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.size
+            val nextPlayerId = state.players[nextPlayerIndex]
+
+            val calculatedTimeout =
+                calculateTimeoutForActor(nextPlayerId, PhaseDurations.PLAYER_CHOICE_MS)
 
             state =
                 state.copy(
                     phase = GamePhase.PLAYER_CHOICE,
                     timerEnd = calculatedTimeout,
                     roundNumber = state.roundNumber + 1,
-                    currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.size,
+                    currentPlayerIndex = nextPlayerIndex,
                     lastEvent = null,
                 )
         }
 
         return state
     }
+
+    /**
+     * Resolves the target duration for a phase that requires an action from a specific player.
+     * If the actor is offline, overrides the time with a short grace period.
+     */
+    private fun calculateTimeoutForActor(
+        actor: Player,
+        standardDurationMs: Long,
+    ): Long =
+        if (actor.isConnected) {
+            calculateExpirationTime(standardDurationMs)
+        } else {
+            calculateExpirationTime(PhaseDurations.DISCONNECTED_TURN_DURATION_MS)
+        }
+
+    /**
+     * Calculates the absolute expiration timestamp.
+     */
+    private fun calculateExpirationTime(durationMs: Long): Long =
+        System.currentTimeMillis() + durationMs
 
     /**
      * Compiles and shuffles a new deck using the structural maximum allocation per animal type.
@@ -907,6 +976,18 @@ class GameSession(
     private fun requireActorInRoom(actorId: String): Player =
         state.players.find { it.id == actorId }
             ?: throw GameException(GameErrorReason.UNKNOWN_ACTOR)
+
+    private fun requirePlayerInRoom(playerId: String): Player =
+        state.players.find { it.id == playerId }
+            ?: throw GameException(GameErrorReason.UNKNOWN_PLAYER)
+
+    private fun ensurePlayerIsNotConnected(player: Player) {
+        if (player.isConnected) throw GameException(GameErrorReason.ALREADY_CONNECTED)
+    }
+
+    private fun ensurePlayerIsNotDisconnected(player: Player) {
+        if (!player.isConnected) throw GameException(GameErrorReason.ALREADY_DISCONNECTED)
+    }
 
     private fun ensureHost(playerId: String) {
         if (state.hostPlayerId != playerId) throw GameException(GameErrorReason.NOT_HOST)

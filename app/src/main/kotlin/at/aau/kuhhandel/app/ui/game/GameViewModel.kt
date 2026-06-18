@@ -3,8 +3,14 @@ package at.aau.kuhhandel.app.ui.game
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameEvent
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
+import at.aau.kuhhandel.shared.model.Player
+import at.aau.kuhhandel.shared.model.TradeStateView
+import at.aau.kuhhandel.shared.utils.GameRankEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -26,18 +32,25 @@ import kotlinx.coroutines.launch
  * Contains everything needed to render the board and player actions.
  */
 data class GameUiState(
-    val gameState: GameState? = null,
+    val gameStateView: GameStateView? = null,
     val myPlayerId: String? = null,
     val currentPhase: GamePhase = GamePhase.NOT_STARTED,
     val deckCountText: String = "0",
     val activeCardLabel: String = "No card revealed",
+    val localPlayer: Player? = null,
+    val opponents: List<Opponent> = emptyList(),
+    val hostPlayerId: String? = null,
+    val currentPlayerId: String? = null,
+    val auctionState: AuctionState? = null,
+    val tradeState: TradeStateView? = null,
+    val lastEvent: GameEvent? = null,
     val isConnected: Boolean = false,
     val isReconnecting: Boolean = false,
     val canRevealCard: Boolean = false,
     val canStartGame: Boolean = false,
     val auctionTimerSeconds: Int? = null,
     val errorMessage: String? = null,
-    val myMoneyCards: List<at.aau.kuhhandel.shared.model.MoneyCard> = emptyList(),
+    val myMoneyCards: List<MoneyCard> = emptyList(),
     val selectedMoneyCardIds: Set<String> = emptySet(),
     val sharedAnimalsWithSelectedPlayer: List<AnimalType> = emptyList(),
     val selectedTargetPlayerId: String? = null,
@@ -48,7 +61,7 @@ data class GameUiState(
     val isTradeHandFanned: Boolean = false,
     val isCounterOfferSelected: Boolean = false,
     val isTradeActionSubmitting: Boolean = false,
-    val finalRanking: List<at.aau.kuhhandel.shared.utils.GameRankEntry> = emptyList(),
+    val finalRanking: List<GameRankEntry> = emptyList(),
     val eyeIconPlayerId: String? = null,
     val eyeIconTimerSeconds: Int? = null,
     val alreadySpied: Boolean = false,
@@ -68,13 +81,13 @@ data class GameUiState(
 
     /** The amount the auction buyer must pay (the winning bid). */
     val auctionBidToPay: Int
-        get() = gameState?.auctionState?.highestBid ?: 0
+        get() = auctionState?.highestBid ?: 0
 
     /** Whether the local player is the one who must pay for the auctioned card. */
     val isAuctionBuyer: Boolean
         get() =
             currentPhase == GamePhase.AUCTION_PAYMENT &&
-                gameState?.auctionState?.buyerId == myPlayerId
+                auctionState?.buyerId == myPlayerId
 
     /** The total value of the money cards the local player has currently selected. */
     val selectedMoneyTotal: Int
@@ -88,29 +101,24 @@ data class GameUiState(
     val canAuctioneerBuyBack: Boolean
         get() = myMoneyCards.sumOf { it.value } >= auctionBidToPay
 
-    /** Shows the trading overlay for a local selection or an active server trade phase. */
+    /** Shows the trading overlay only after the server confirms an active trade phase. */
     val isTradeActive: Boolean
         get() =
-            pendingTradeAnimalType != null ||
-                currentPhase == GamePhase.TRADE_OFFER ||
+            currentPhase == GamePhase.TRADE_OFFER ||
                 currentPhase == GamePhase.TRADE_RESPONSE ||
                 currentPhase == GamePhase.TRADE_RESULT
 
     val isMyTurn: Boolean
-        get() =
-            gameState?.currentPlayerIndex?.let {
-                gameState.players.getOrNull(it)?.id == myPlayerId
-            } ?: false
+        get() = currentPlayerId == myPlayerId && myPlayerId != null
 
     val isAuctioneer: Boolean
-        get() =
-            gameState?.auctionState?.auctioneerId == myPlayerId
+        get() = auctionState?.auctioneerId == myPlayerId
 
     val isTradeInitiator: Boolean
-        get() = gameState?.tradeState?.initiatorId == myPlayerId
+        get() = tradeState?.initiatorId == myPlayerId
 
     val isTradeTarget: Boolean
-        get() = gameState?.tradeState?.targetId == myPlayerId
+        get() = tradeState?.targetId == myPlayerId
 
     val showsTradeOfferHand: Boolean
         get() = currentPhase == GamePhase.TRADE_OFFER && isTradeInitiator
@@ -128,24 +136,16 @@ data class GameUiState(
                 isCounterOfferSelected
 
     val tradeOfferCardCount: Int?
-        get() =
-            gameState?.tradeState?.let { trade ->
-                trade.offeredMoneyCards?.size
-                    ?: trade.offeredMoneyCardIds.size.takeIf { it > 0 }
-            }
+        get() = tradeState?.initiatorCardCount
 
     val tradeCounterOfferCardCount: Int?
-        get() =
-            gameState?.tradeState?.let { trade ->
-                trade.counterOfferedMoneyCards?.size
-                    ?: trade.counterOfferedMoneyCardIds.size.takeIf { it > 0 }
-            }
+        get() = tradeState?.targetCardCount
 
     val tradeResultOfferCards: List<MoneyCard>
-        get() = resultCards(gameState?.tradeState?.offeredMoneyCards)
+        get() = resultCards(tradeState?.visibleInitiatorCards)
 
     val tradeResultCounterOfferCards: List<MoneyCard>
-        get() = resultCards(gameState?.tradeState?.counterOfferedMoneyCards)
+        get() = resultCards(tradeState?.visibleTargetCards)
 
     val tradeResultOfferTotal: Int
         get() = tradeResultOfferCards.sumOf { it.value }
@@ -159,15 +159,19 @@ data class GameUiState(
     val canShowEyeIconOnOpponents: Boolean
         get() =
             currentPhase == GamePhase.PLAYER_CHOICE &&
-                gameState?.players?.getOrNull(gameState.currentPlayerIndex)?.id != myPlayerId
+                currentPlayerId != null &&
+                currentPlayerId != myPlayerId
 
     val activePlayerName: String
-        get() =
-            gameState?.let {
-                it.players.getOrNull(it.currentPlayerIndex)?.name
-            } ?: "Unknown"
+        get() = playerName(currentPlayerId)
 
-    private fun resultCards(cards: Set<MoneyCard>?): List<MoneyCard> =
+    fun playerName(playerId: String?): String {
+        if (playerId == null) return "Unknown"
+        if (localPlayer?.id == playerId) return localPlayer.name
+        return opponents.find { it.id == playerId }?.name ?: playerId
+    }
+
+    private fun resultCards(cards: List<MoneyCard>?): List<MoneyCard> =
         if (currentPhase == GamePhase.TRADE_RESULT) {
             cards.orEmpty().sortedWith(compareBy<MoneyCard> { it.value }.thenBy { it.id })
         } else {
@@ -210,27 +214,23 @@ class GameViewModel(
             repository.state
                 .map { repoState ->
                     TradeServerState(
-                        phase = repoState.gameState?.phase,
+                        phase = repoState.gameStateView?.phase,
                         myPlayerId = repoState.myPlayerId,
-                        initiatorId = repoState.gameState?.tradeState?.initiatorId,
+                        currentPlayerId = repoState.gameStateView?.currentPlayerId,
+                        initiatorId = repoState.gameStateView?.tradeState?.initiatorId,
                         errorMessage = repoState.errorMessage,
                     )
                 }.distinctUntilChanged()
                 .collect(::synchronizeTradeUi)
         }
 
-        // Listen exclusively to turn index changes to clear the eye icon when your turn starts
+        // Listen exclusively to turn changes to clear the eye icon when your turn starts.
         scope.launch {
             repository.state
-                .map { it.gameState?.currentPlayerIndex }
+                .map { it.gameStateView?.currentPlayerId }
                 .distinctUntilChanged()
-                .collect { index ->
+                .collect { activePlayerId ->
                     val state = repository.state.value
-                    val activePlayerId =
-                        state.gameState
-                            ?.players
-                            ?.getOrNull(index ?: -1)
-                            ?.id
 
                     // If the turn moves onto us, clear out our local eye icon variables instantly
                     if (activePlayerId == state.myPlayerId && activePlayerId != null) {
@@ -242,7 +242,7 @@ class GameViewModel(
 
     private val auctionTimerSeconds =
         repository.state
-            .map { it.gameState?.auctionState?.timerEndTime }
+            .map { it.gameStateView?.takeIf { view -> view.auctionState != null }?.timerEnd }
             .distinctUntilChanged()
             .flatMapLatest { endTime ->
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
@@ -301,33 +301,22 @@ class GameViewModel(
                 LocalUiStateBundle(fanned, eyePlayerId, eyeTimer, eyeHighlighted)
             },
         ) { repoState, timer, selectedIds, tradeLocalState, uiBundle ->
-            val gameState = repoState.gameState
             val view = repoState.gameStateView
-            val currentPhase = gameState?.phase ?: GamePhase.NOT_STARTED
-            val activePlayerId =
-                gameState
-                    ?.players
-                    ?.getOrNull(gameState.currentPlayerIndex)
-                    ?.id
+            val currentPhase = view?.phase ?: GamePhase.NOT_STARTED
+            val activePlayerId = view?.currentPlayerId
             val isMyTurn = activePlayerId == repoState.myPlayerId && repoState.myPlayerId != null
             val canSelectTradeTarget = currentPhase == GamePhase.PLAYER_CHOICE && isMyTurn
             val tradeSelection = tradeLocalState.selection
             val targetId = tradeSelection.activeTargetPlayerId.takeIf { canSelectTradeTarget }
 
             val sharedAnimals =
-                if (targetId != null &&
-                    gameState != null &&
-                    repoState.myPlayerId != null
-                ) {
+                if (targetId != null && view != null) {
                     val myAnimals =
-                        gameState.players
-                            .find { it.id == repoState.myPlayerId }
-                            ?.animals
-                            ?.map { it.type }
-                            ?.toSet()
-                            ?: emptySet()
+                        view.localPlayer.animals
+                            .map { it.type }
+                            .toSet()
                     val targetAnimals =
-                        gameState.players
+                        view.opponents
                             .find { it.id == targetId }
                             ?.animals
                             ?.map { it.type }
@@ -339,39 +328,35 @@ class GameViewModel(
                 }
 
             GameUiState(
-                gameState = gameState,
+                gameStateView = view,
                 myPlayerId = repoState.myPlayerId,
                 currentPhase = currentPhase,
-                deckCountText = "${gameState?.deck?.size() ?: 0}",
+                deckCountText = "${view?.deckSize ?: 0}",
                 activeCardLabel =
-                    gameState?.currentFaceUpCard?.let { card ->
+                    view?.auctionState?.auctionCard?.let { card ->
                         "${card.type.name} (#${card.id})"
                     } ?: "No card revealed",
+                localPlayer = view?.localPlayer,
+                opponents = view?.opponents.orEmpty(),
+                hostPlayerId = view?.hostPlayerId,
+                currentPlayerId = view?.currentPlayerId,
+                auctionState = view?.auctionState,
+                tradeState = view?.tradeState,
+                lastEvent = view?.lastEvent,
                 isConnected = repoState.isConnected,
                 isReconnecting = repoState.isReconnecting,
                 canRevealCard =
-                    (
-                        repoState.isConnected &&
-                            currentPhase == GamePhase.PLAYER_CHOICE &&
-                            (
-                                gameState
-                                    ?.players
-                                    ?.getOrNull(
-                                        gameState.currentPlayerIndex,
-                                    )?.id ==
-                                    repoState.myPlayerId
-                            )
-                    ),
+                    repoState.isConnected &&
+                        currentPhase == GamePhase.PLAYER_CHOICE &&
+                        isMyTurn,
                 canStartGame =
                     repoState.isConnected &&
                         currentPhase == GamePhase.NOT_STARTED &&
-                        (gameState?.players?.size ?: 0) >= 3 &&
-                        gameState?.hostPlayerId == repoState.myPlayerId,
+                        (view?.let { 1 + it.opponents.size } ?: 0) >= 3 &&
+                        view?.hostPlayerId == repoState.myPlayerId,
                 errorMessage = repoState.errorMessage,
                 auctionTimerSeconds = timer,
-                myMoneyCards =
-                    gameState?.players?.find { it.id == repoState.myPlayerId }?.moneyCards
-                        ?: emptyList(),
+                myMoneyCards = view?.localPlayer?.moneyCards ?: emptyList(),
                 selectedMoneyCardIds = selectedIds,
                 sharedAnimalsWithSelectedPlayer = sharedAnimals,
                 selectedTargetPlayerId = targetId,
@@ -382,7 +367,7 @@ class GameViewModel(
                 isTradeHandFanned = tradeLocalState.isHandFanned,
                 isCounterOfferSelected = tradeLocalState.isCounterOfferSelected,
                 isTradeActionSubmitting = tradeLocalState.isSubmitting,
-                finalRanking = gameState?.finalRanking ?: emptyList(),
+                finalRanking = view?.finalRanking ?: emptyList(),
                 eyeIconPlayerId = uiBundle.eyePlayerId,
                 eyeIconTimerSeconds = uiBundle.eyeTimer,
                 alreadySpied = view?.alreadySpied ?: false,
@@ -598,15 +583,14 @@ class GameViewModel(
         }
 
         val repoState = repository.state.value
-        val gameState = repoState.gameState ?: return
+        val view = repoState.gameStateView ?: return
         val myPlayerId = repoState.myPlayerId ?: return
-        val activePlayerId = gameState.players.getOrNull(gameState.currentPlayerIndex)?.id
 
-        if (gameState.phase != GamePhase.PLAYER_CHOICE || activePlayerId != myPlayerId) {
+        if (view.phase != GamePhase.PLAYER_CHOICE || view.currentPlayerId != myPlayerId) {
             return
         }
 
-        if (playerId == myPlayerId || gameState.players.none { it.id == playerId }) {
+        if (playerId == myPlayerId || view.opponents.none { it.id == playerId }) {
             return
         }
 
@@ -628,16 +612,6 @@ class GameViewModel(
         pendingTradeAnimalType.value = animalType
         selectedTargetPlayerId.value = null
         initiateTrade(targetPlayerId, animalType)
-    }
-
-    /** Signals that the trade reveal animation has finished. */
-    fun finishTradeReveal() {
-        scope.launch {
-            try {
-                repository.finishTradeReveal()
-            } catch (_: Exception) {
-            }
-        }
     }
 
     /** Sets the opponent player targeted by the local eye icon selection and runs its timer. */
@@ -737,6 +711,7 @@ class GameViewModel(
     private data class TradeServerState(
         val phase: GamePhase?,
         val myPlayerId: String?,
+        val currentPlayerId: String?,
         val initiatorId: String?,
         val errorMessage: String?,
     )
@@ -748,6 +723,12 @@ class GameViewModel(
         val isEyeHighlighted: Boolean,
     )
 
+    private fun clearPendingTrade() {
+        pendingTradeTargetPlayerId.value = null
+        pendingTradeAnimalType.value = null
+        isTradeActionSubmitting.value = false
+    }
+
     private fun synchronizeTradeUi(serverState: TradeServerState) {
         if (serverState.phase != GamePhase.PLAYER_CHOICE) {
             eyeTimerJob?.cancel()
@@ -758,39 +739,33 @@ class GameViewModel(
 
         when (serverState.phase) {
             GamePhase.TRADE_OFFER -> {
-                pendingTradeTargetPlayerId.value = null
-                pendingTradeAnimalType.value = null
+                clearPendingTrade()
                 clearSelection()
                 isTradeHandFanned.value = serverState.initiatorId == serverState.myPlayerId
                 isCounterOfferSelected.value = false
-                isTradeActionSubmitting.value = false
             }
 
             GamePhase.TRADE_RESPONSE -> {
+                clearPendingTrade()
                 clearSelection()
                 isTradeHandFanned.value = false
                 isCounterOfferSelected.value = false
-                isTradeActionSubmitting.value = false
             }
 
             GamePhase.TRADE_RESULT -> {
+                clearPendingTrade()
                 clearSelection()
                 isTradeHandFanned.value = false
                 isCounterOfferSelected.value = false
-                isTradeActionSubmitting.value = false
             }
 
             GamePhase.AUCTION_PAYMENT -> {
+                clearPendingTrade()
                 clearSelection()
-                isTradeActionSubmitting.value = false
             }
 
             else -> {
-                if (serverState.errorMessage != null) {
-                    pendingTradeTargetPlayerId.value = null
-                    pendingTradeAnimalType.value = null
-                    isTradeActionSubmitting.value = false
-                }
+                clearPendingTrade()
                 isTradeHandFanned.value = false
                 isCounterOfferSelected.value = false
             }

@@ -37,6 +37,7 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
 import kotlin.math.cos
 import kotlin.math.sin
@@ -44,7 +45,7 @@ import kotlin.math.sin
 /** Displays a summary of an opponent's farm, including their name and money card count. */
 @Composable
 fun OtherFarm(
-    player: Player,
+    player: Opponent,
     farmColor: FarmColor,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -116,13 +117,13 @@ fun OtherFarm(
                 Image(
                     painter =
                         painterResource(
-                            id = getHiddenMoneyDiagonalDrawable(player.moneyCards.size),
+                            id = getHiddenMoneyDiagonalDrawable(player.moneyCardCount),
                         ),
                     contentDescription = null,
                     modifier = Modifier.size(width = 58.dp, height = 48.dp),
                 )
                 Text(
-                    text = player.moneyCards.size.toString(),
+                    text = player.moneyCardCount.toString(),
                     style =
                         MaterialTheme.typography.titleSmall.copy(
                             shadow =
@@ -206,8 +207,8 @@ fun OtherFarm(
 /** Renders a grid of all opponents in the game. */
 @Composable
 fun OpponentList(
-    players: List<Player>,
-    myId: String?,
+    opponents: List<Opponent>,
+    hasLocalMoney: Boolean,
     onTradeTargetSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     currentPhase: GamePhase = GamePhase.NOT_STARTED,
@@ -224,7 +225,6 @@ fun OpponentList(
     hasSpiedThisTurn: Boolean = false,
     spiedOnOpponentIds: List<String> = emptyList(),
 ) {
-    val opponents = players.filter { it.id != myId }
     val isChoicePhase = currentPhase == GamePhase.PLAYER_CHOICE
 
     Column(
@@ -242,10 +242,7 @@ fun OpponentList(
 
                     val isSelectedForEye = eyeIconPlayerId == player.id
 
-                    val myPlayer = players.find { it.id == myId }
-                    val hasNoMoney = myPlayer?.moneyCards?.isEmpty() ?: true
-
-                    val isGreyedOut = hasSpiedThisTurn || isCurrentlySpying || hasNoMoney
+                    val isGreyedOut = hasSpiedThisTurn || isCurrentlySpying || !hasLocalMoney
                     val anyoneElseSpiedOnThem = spiedOnOpponentIds.contains(player.id)
 
                     OtherFarm(

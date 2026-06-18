@@ -61,9 +61,8 @@ fun AuctionPhaseContent(
     onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val gameState = uiState.gameState
-    val auctionState = gameState?.auctionState
     val playClickSound = LocalButtonClickSound.current
+    val auctionState = uiState.auctionState
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -73,11 +72,12 @@ fun AuctionPhaseContent(
             AuctionView(
                 auction = auctionState,
                 timerSeconds = uiState.auctionTimerSeconds,
-                phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING,
-                players = gameState?.players ?: emptyList(),
+                timerEndMillis = uiState.gameStateView?.timerEnd,
+                phase = uiState.currentPhase,
                 myPlayerId = uiState.myPlayerId,
+                playerName = uiState::playerName,
                 footerContent = {
-                    val phase = gameState?.phase ?: GamePhase.AUCTION_BIDDING
+                    val phase = uiState.currentPhase
                     if (!uiState.isAuctioneer &&
                         (phase == GamePhase.AUCTION_BIDDING)
                     ) {
@@ -92,7 +92,7 @@ fun AuctionPhaseContent(
                     } else if (phase == GamePhase.AUCTION_PAYMENT) {
                         val buyerName =
                             auctionState?.buyerId?.let { buyerId ->
-                                gameState.players.find { it.id == buyerId }?.name
+                                uiState.playerName(buyerId)
                             } ?: "the buyer"
                         GameStatusText(
                             text =
@@ -111,7 +111,7 @@ fun AuctionPhaseContent(
                         val auctioneerId = auctionState?.auctioneerId
                         val buyerName =
                             if (buyerId != null) {
-                                gameState.players.find { it.id == buyerId }?.name ?: "Unknown"
+                                uiState.playerName(buyerId)
                             } else {
                                 ""
                             }
@@ -120,12 +120,27 @@ fun AuctionPhaseContent(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             if (phase == GamePhase.AUCTION_RESULT) {
+                                val isMe = buyerId == uiState.myPlayerId
                                 val resultText =
                                     when {
                                         highestBidderId == null ->
-                                            "$buyerName got the animal for free!"
-                                        buyerId == auctioneerId -> "$buyerName bought back!"
-                                        else -> "$buyerName won the auction!"
+                                            if (isMe) {
+                                                "You got the animal for free!"
+                                            } else {
+                                                "$buyerName got the animal for free!"
+                                            }
+                                        buyerId == auctioneerId ->
+                                            if (isMe) {
+                                                "You bought back!"
+                                            } else {
+                                                "$buyerName bought back!"
+                                            }
+                                        else ->
+                                            if (isMe) {
+                                                "You won the auction!"
+                                            } else {
+                                                "$buyerName won the auction!"
+                                            }
                                     }
                                 GameStatusText(
                                     text = resultText,

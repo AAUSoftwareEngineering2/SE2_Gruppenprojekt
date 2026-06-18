@@ -4,9 +4,8 @@ import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.model.TradeStateView
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -17,19 +16,10 @@ class GameUiStateTest {
     fun `trade table counts use submitted money cards`() {
         val uiState =
             GameUiState(
-                gameState =
-                    GameState(
-                        tradeState =
-                            tradeState(
-                                offeredMoneyCards =
-                                    List(9) { index ->
-                                        MoneyCard("offer-$index", 10)
-                                    }.toSet(),
-                                counterOfferedMoneyCards =
-                                    List(3) { index ->
-                                        MoneyCard("counter-$index", 50)
-                                    }.toSet(),
-                            ),
+                tradeState =
+                    tradeStateView(
+                        initiatorCardCount = 9,
+                        targetCardCount = 3,
                     ),
             )
 
@@ -38,48 +28,32 @@ class GameUiStateTest {
     }
 
     @Test
-    fun `trade table counts support legacy submitted card ids`() {
+    fun `trade table counts are null before submitted money is visible`() {
         val uiState =
             GameUiState(
-                gameState =
-                    GameState(
-                        tradeState =
-                            tradeState(
-                                offeredMoneyCardIds = setOf("offer-1", "offer-2"),
-                                counterOfferedMoneyCardIds =
-                                    setOf(
-                                        "counter-1",
-                                        "counter-2",
-                                        "counter-3",
-                                        "counter-4",
-                                    ),
-                            ),
-                    ),
+                tradeState = tradeStateView(),
             )
 
-        assertEquals(2, uiState.tradeOfferCardCount)
-        assertEquals(4, uiState.tradeCounterOfferCardCount)
+        assertEquals(null, uiState.tradeOfferCardCount)
+        assertEquals(null, uiState.tradeCounterOfferCardCount)
     }
 
     @Test
     fun `trade result cards are ordered and totals are calculated`() {
         val uiState =
             GameUiState(
-                gameState =
-                    GameState(
-                        tradeState =
-                            tradeState(
-                                offeredMoneyCards =
-                                    setOf(
-                                        MoneyCard("offer-100", 100),
-                                        MoneyCard("offer-10-b", 10),
-                                        MoneyCard("offer-10-a", 10),
-                                    ),
-                                counterOfferedMoneyCards =
-                                    setOf(
-                                        MoneyCard("counter-200", 200),
-                                        MoneyCard("counter-0", 0),
-                                    ),
+                tradeState =
+                    tradeStateView(
+                        visibleInitiatorCards =
+                            listOf(
+                                MoneyCard("offer-100", 100),
+                                MoneyCard("offer-10-b", 10),
+                                MoneyCard("offer-10-a", 10),
+                            ),
+                        visibleTargetCards =
+                            listOf(
+                                MoneyCard("counter-200", 200),
+                                MoneyCard("counter-0", 0),
                             ),
                     ),
                 currentPhase = GamePhase.TRADE_RESULT,
@@ -101,13 +75,10 @@ class GameUiStateTest {
     fun `blind acceptance has an empty counter offer with total zero`() {
         val uiState =
             GameUiState(
-                gameState =
-                    GameState(
-                        tradeState =
-                            tradeState(
-                                offeredMoneyCards = setOf(MoneyCard("offer-50", 50)),
-                                counterOfferedMoneyCards = emptySet(),
-                            ),
+                tradeState =
+                    tradeStateView(
+                        visibleInitiatorCards = listOf(MoneyCard("offer-50", 50)),
+                        visibleTargetCards = emptyList(),
                     ),
                 currentPhase = GamePhase.TRADE_RESULT,
             )
@@ -120,7 +91,7 @@ class GameUiStateTest {
     fun `auction payment values use buyer and selected money cards`() {
         val uiState =
             GameUiState(
-                gameState = auctionPaymentGameState(buyerId = "me", highestBid = 15),
+                auctionState = auctionPaymentState(buyerId = "me", highestBid = 15),
                 myPlayerId = "me",
                 currentPhase = GamePhase.AUCTION_PAYMENT,
                 myMoneyCards =
@@ -144,7 +115,7 @@ class GameUiStateTest {
     fun `auction payment submission is disabled when selected money is too low`() {
         val uiState =
             GameUiState(
-                gameState = auctionPaymentGameState(buyerId = "me", highestBid = 20),
+                auctionState = auctionPaymentState(buyerId = "me", highestBid = 20),
                 myPlayerId = "me",
                 currentPhase = GamePhase.AUCTION_PAYMENT,
                 myMoneyCards =
@@ -165,7 +136,7 @@ class GameUiStateTest {
     fun `auction payment buyer flag is false outside the payment phase`() {
         val uiState =
             GameUiState(
-                gameState = auctionPaymentGameState(buyerId = "me", highestBid = 20),
+                auctionState = auctionPaymentState(buyerId = "me", highestBid = 20),
                 myPlayerId = "me",
                 currentPhase = GamePhase.AUCTIONEER_DECISION,
             )
@@ -173,34 +144,30 @@ class GameUiStateTest {
         assertFalse(uiState.isAuctionBuyer)
     }
 
-    private fun tradeState(
-        offeredMoneyCardIds: Set<String> = emptySet(),
-        counterOfferedMoneyCardIds: Set<String> = emptySet(),
-        offeredMoneyCards: Set<MoneyCard>? = null,
-        counterOfferedMoneyCards: Set<MoneyCard>? = null,
-    ) = TradeState(
+    private fun tradeStateView(
+        initiatorCardCount: Int? = null,
+        targetCardCount: Int? = null,
+        visibleInitiatorCards: List<MoneyCard>? = null,
+        visibleTargetCards: List<MoneyCard>? = null,
+    ) = TradeStateView(
         initiatorId = "initiator",
         targetId = "target",
-        requestedAnimalType = AnimalType.COW,
-        offeredMoneyCardIds = offeredMoneyCardIds,
-        counterOfferedMoneyCardIds = counterOfferedMoneyCardIds,
-        offeredMoneyCards = offeredMoneyCards,
-        counterOfferedMoneyCards = counterOfferedMoneyCards,
+        animalCards = emptyList(),
+        initiatorCardCount = initiatorCardCount,
+        targetCardCount = targetCardCount,
+        visibleInitiatorCards = visibleInitiatorCards,
+        visibleTargetCards = visibleTargetCards,
     )
 
-    private fun auctionPaymentGameState(
+    private fun auctionPaymentState(
         buyerId: String,
         highestBid: Int,
-    ) = GameState(
-        phase = GamePhase.AUCTION_PAYMENT,
-        auctionState =
-            AuctionState(
-                auctionCard = AnimalCard("cow-1", AnimalType.COW),
-                auctioneerId = "seller",
-                highestBid = highestBid,
-                highestBidderId = buyerId,
-                buyerId = buyerId,
-                sellerId = "seller",
-            ),
+    ) = AuctionState(
+        auctionCard = AnimalCard("cow-1", AnimalType.COW),
+        auctioneerId = "seller",
+        highestBid = highestBid,
+        highestBidderId = buyerId,
+        buyerId = buyerId,
+        sellerId = "seller",
     )
 }
