@@ -168,7 +168,6 @@ class GameRepositoryTest {
                         AnimalCard(id = "deck-$index", type = AnimalType.CHICKEN)
                     },
                 ),
-            currentFaceUpCard = currentCard,
             players = players,
             hostPlayerId = "player-1",
         )
@@ -344,7 +343,6 @@ class GameRepositoryTest {
                         TradeState(
                             initiatorId = "me",
                             targetId = "other",
-                            requestedAnimalType = AnimalType.COW,
                             animalCards = animalCards,
                         ),
                 )
@@ -356,7 +354,7 @@ class GameRepositoryTest {
             assertEquals(GamePhase.TRADE_OFFER, view.phase)
             assertEquals("me", tradeView.initiatorId)
             assertEquals("other", tradeView.targetId)
-            assertEquals(AnimalType.COW, tradeView.requestedAnimalType)
+            assertEquals(AnimalType.COW, tradeView.animalCards.firstOrNull()?.type)
             assertEquals(animalCards, tradeView.animalCards.toSet())
             assertNull(harness.state.errorMessage)
         }
@@ -425,7 +423,6 @@ class GameRepositoryTest {
             val view = assertNotNull(harness.state.gameStateView)
             val tradeView = assertNotNull(view.tradeState)
             assertEquals(GamePhase.TRADE_OFFER, view.phase)
-            assertEquals(null, tradeView.requestedAnimalType)
             assertEquals(AnimalType.COW, tradeView.animalCards.single().type)
             assertNull(harness.state.errorMessage)
         }
@@ -494,6 +491,53 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `rejoinFromStorage reads tokens from storage and triggers connection`() {
+        runBlocking {
+            val harness = createHarness()
+            val expectedGameId = "44444"
+            val expectedPlayerId = "player-xyz"
+
+            // Arrange: Program the local token storage mock instance
+            every { harness.tokenStorage.getGameId() } returns expectedGameId
+            every { harness.tokenStorage.getPlayerId() } returns expectedPlayerId
+
+            // Act: Invoke the storage lookup function
+            harness.repository.rejoinFromStorage()
+
+            // Assert: Confirm that state variables were updated successfully
+            assertEquals(expectedGameId, harness.state.gameId)
+            assertEquals(expectedPlayerId, harness.state.myPlayerId)
+
+            // Assert: verify a connection loop block was initiated
+            assertTrue(
+                harness.state.isConnecting ||
+                    harness.state.isConnected ||
+                    harness.state.isReconnecting,
+            )
+        }
+    }
+
+    @Test
+    fun `rejoinFromStorage exits early if game or player information is missing`() {
+        runBlocking {
+            val harness = createHarness()
+
+            // Arrange: Simulate a missing storage profile where fields yield null
+            every { harness.tokenStorage.getGameId() } returns null
+            every { harness.tokenStorage.getPlayerId() } returns "player-xyz"
+
+            // Act: Invoke the target storage lookup function
+            harness.repository.rejoinFromStorage()
+
+            // Assert: Verify values remain unmutated (null) and no connecting sequence runs
+            assertNull(harness.state.gameId)
+            assertNull(harness.state.myPlayerId)
+            assertFalse(harness.state.isConnecting)
+            assertFalse(harness.state.isConnected)
+        }
+    }
+
+    @Test
     fun `leaveGame sends request and disconnects`() {
         runBlocking {
             val harness = createHarness()
@@ -517,15 +561,6 @@ class GameRepositoryTest {
             val harness = createHarness()
             harness.buyBack(true)
             assertEquals(WebSocketType.RESOLVE_AUCTION, harness.sentEnvelope().type)
-        }
-    }
-
-    @Test
-    fun `finishTradeReveal sends request`() {
-        runBlocking {
-            val harness = createHarness()
-            harness.repository.finishTradeReveal()
-            assertEquals(WebSocketType.FINISH_TRADE_REVEAL, harness.sentEnvelope().type)
         }
     }
 

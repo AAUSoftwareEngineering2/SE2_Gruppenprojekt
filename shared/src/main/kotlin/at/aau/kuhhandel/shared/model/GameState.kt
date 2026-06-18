@@ -10,7 +10,6 @@ data class GameState(
     val timerEnd: Long? = null,
     val roundNumber: Int = 0,
     val deck: AnimalDeck = AnimalDeck(),
-    val currentFaceUpCard: AnimalCard? = null,
     val currentPlayerIndex: Int = -1,
     val players: List<Player> = emptyList(),
     val hostPlayerId: String? = null,
@@ -68,7 +67,6 @@ data class GameState(
                 TradeStateView(
                     initiatorId = tradeState.initiatorId,
                     targetId = tradeState.targetId,
-                    requestedAnimalType = tradeState.requestedAnimalType,
                     animalCards = tradeState.animalCards.toList(),
                     initiatorCardCount = tradeState.offeredMoneyCards?.size,
                     targetCardCount = tradeState.counterOfferedMoneyCards?.size,
@@ -135,7 +133,6 @@ data class GameState(
                 timerEnd = null,
                 roundNumber = 0,
                 deck = AnimalDeck(),
-                currentFaceUpCard = null,
                 currentPlayerIndex = -1,
                 players =
                     listOf(

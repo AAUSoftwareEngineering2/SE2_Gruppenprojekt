@@ -121,7 +121,6 @@ class GameViewModelTest {
                 GameState(
                     phase = GamePhase.PLAYER_CHOICE,
                     deck = deck,
-                    currentFaceUpCard = AnimalCard("2", AnimalType.PIG),
                 )
 
             repoStateFlow.value =
@@ -224,7 +223,6 @@ class GameViewModelTest {
                                 AuctionState(
                                     auctioneerId = "me",
                                     auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = 0,
                                 ),
                         ),
                 )
@@ -241,7 +239,6 @@ class GameViewModelTest {
                                 AuctionState(
                                     auctioneerId = "other",
                                     auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = 0,
                                 ),
                         ),
                 )
@@ -347,11 +344,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                 )
 
@@ -525,7 +522,6 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
                                     targetId = "other",
-                                    requestedAnimalType = AnimalType.COW,
                                     animalCards = setOf(AnimalCard("1", AnimalType.COW)),
                                 ),
                         ),
@@ -756,7 +752,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
                                     targetId = "other",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -794,7 +790,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
                                     targetId = "other",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -945,7 +941,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -975,7 +971,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -1015,7 +1011,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -1043,15 +1039,6 @@ class GameViewModelTest {
                 viewModel.uiState.value.selectedMoneyCardIds
                     .isEmpty(),
             )
-        }
-    }
-
-    @Test
-    fun `finishTradeReveal calls repository`() {
-        runTest {
-            viewModel.finishTradeReveal()
-            advanceUntilIdle()
-            coVerify { mockRepository.finishTradeReveal() }
         }
     }
 
@@ -1169,11 +1156,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                     players = listOf(Player(id = "p1", name = "P1")),
                 )
@@ -1212,11 +1199,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                     players = listOf(Player(id = "p1", name = "P1")),
                 )

@@ -68,7 +68,6 @@ class GamePersistenceService(
             state.players.getOrNull(state.currentPlayerIndex)?.let { active ->
                 playerEntities[active.id]?.user
             }
-        game.faceUpAnimalType = state.currentFaceUpCard?.type
         gameRepository.save(game)
         logger.info("[DB WRITE] Saved game $gameId successfully")
     }
@@ -359,7 +358,6 @@ class GamePersistenceService(
                     timerEnd = state.timerEnd,
                     hostPlayerId = state.hostPlayerId,
                     roundNumber = state.roundNumber,
-                    faceUpAnimalType = state.currentFaceUpCard?.type,
                     lastActivityAt = activityAt ?: System.currentTimeMillis(),
                     activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies),
                     spiedThisTurnJson =
@@ -373,7 +371,6 @@ class GamePersistenceService(
             existing.timerEnd = state.timerEnd
             existing.hostPlayerId = state.hostPlayerId
             existing.roundNumber = state.roundNumber
-            existing.faceUpAnimalType = state.currentFaceUpCard?.type
             existing.activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies)
             existing.spiedThisTurnJson =
                 GameStateMapper.encodeStringList(state.spiedThisTurn.toList())
@@ -531,7 +528,6 @@ class GamePersistenceService(
                     highestBid = auction.highestBid,
                     highestBidder = highestBidder,
                     passedPlayersJson = passedJson,
-                    timerEndTime = auction.timerEndTime,
                     buyerPlayerId = auction.buyerId,
                     sellerPlayerId = auction.sellerId,
                 ),
@@ -542,7 +538,6 @@ class GamePersistenceService(
             existing.highestBid = auction.highestBid
             existing.highestBidder = highestBidder
             existing.passedPlayersJson = passedJson
-            existing.timerEndTime = auction.timerEndTime
             existing.buyerPlayerId = auction.buyerId
             existing.sellerPlayerId = auction.sellerId
             auctionStateRepository.save(existing)
@@ -569,20 +564,8 @@ class GamePersistenceService(
             playerEntities[trade.targetId]
                 ?: error("Trade defender ${trade.targetId} not persisted")
 
-        val challengerCards =
-            resolveMoneyCards(
-                state = state,
-                playerId = trade.initiatorId,
-                cardIds = trade.offeredMoneyCardIds,
-                selectedCards = trade.offeredMoneyCards,
-            )
-        val defenderCards =
-            resolveMoneyCards(
-                state = state,
-                playerId = trade.targetId,
-                cardIds = trade.counterOfferedMoneyCardIds,
-                selectedCards = trade.counterOfferedMoneyCards,
-            )
+        val challengerCards = resolveMoneyCards(trade.offeredMoneyCards)
+        val defenderCards = resolveMoneyCards(trade.counterOfferedMoneyCards)
         val challengerValues = challengerCards.map { it.value }
         val defenderValues = defenderCards.map { it.value }
 
@@ -592,43 +575,31 @@ class GamePersistenceService(
                     game = game,
                     challenger = challenger,
                     defender = defender,
-                    animalType = trade.requestedAnimalType,
+                    animalType = trade.animalCards.first().type,
                     challengerOfferJson = GameStateMapper.encodeIntList(challengerValues),
                     defenderOfferJson = GameStateMapper.encodeIntList(defenderValues),
                     animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList()),
                     challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards),
                     defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards),
                     winnerPlayerId = trade.winnerId,
-                    isResolved = trade.isResolved,
                 ),
             )
         } else {
             existing.challenger = challenger
             existing.defender = defender
-            existing.animalType = trade.requestedAnimalType
+            existing.animalType = trade.animalCards.first().type
             existing.challengerOfferJson = GameStateMapper.encodeIntList(challengerValues)
             existing.defenderOfferJson = GameStateMapper.encodeIntList(defenderValues)
             existing.animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList())
             existing.challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards)
             existing.defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards)
             existing.winnerPlayerId = trade.winnerId
-            existing.isResolved = trade.isResolved
             tradeStateRepository.save(existing)
         }
     }
 
-    private fun resolveMoneyCards(
-        state: GameState,
-        playerId: String,
-        cardIds: Set<String>,
-        selectedCards: Set<MoneyCard>?,
-    ): List<MoneyCard> =
-        selectedCards?.toList()
-            ?: state.players
-                .firstOrNull { it.id == playerId }
-                ?.moneyCards
-                ?.filter { it.id in cardIds }
-            ?: emptyList()
+    private fun resolveMoneyCards(selectedCards: Set<MoneyCard>?): List<MoneyCard> =
+        selectedCards?.toList() ?: emptyList()
 
     private fun GamePlayerEntity.persistedPlayerId(): String =
         playerId ?: user.passwordHash.ifBlank { user.username }

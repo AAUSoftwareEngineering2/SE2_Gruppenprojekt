@@ -112,7 +112,6 @@ private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
     val tradeState = tradeState ?: return null
     val animalType =
         tradeState.animalCards.firstOrNull()?.type
-            ?: tradeState.requestedAnimalType
             ?: return null
 
     return TradeCardPresentation(
@@ -806,7 +805,6 @@ private fun TradeOverlayPreview(
                 TradeStateView(
                     initiatorId = "initiator",
                     targetId = "target",
-                    requestedAnimalType = AnimalType.COW,
                     animalCards =
                         (1..animalCount)
                             .map { index ->

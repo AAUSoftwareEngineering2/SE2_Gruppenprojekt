@@ -15,6 +15,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -30,9 +34,12 @@ fun RoomCreationScreen(
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
+    var hasTriggeredNavigation by remember { mutableStateOf(false) }
+
     LaunchedEffect(uiState.isCreated, uiState.gameId) {
-        if (uiState.isCreated && uiState.gameId != null) {
-            kotlinx.coroutines.delay(500)
+        if (uiState.isCreated && uiState.gameId != null && !hasTriggeredNavigation) {
+            kotlinx.coroutines.delay(1000)
+            hasTriggeredNavigation = true
             onLobbyCreated(uiState.gameId)
         }
     }
@@ -85,10 +92,17 @@ fun RoomCreationScreen(
                         )
                     }
 
-                    uiState.isConnecting -> {
+                    uiState.isConnecting || uiState.isCreating -> {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = "Connection to Server...")
+                        Text(
+                            text =
+                                if (uiState.isConnecting) {
+                                    "Connection to Server..."
+                                } else {
+                                    "Creating Lobby..."
+                                },
+                        )
                     }
 
                     else -> {

@@ -134,6 +134,15 @@ class GameRepository(
         client.submitAuctionPayment(moneyCardIds)
     }
 
+    /** Reconnects to a game session stored in tokenStorage (e.g. after app restart). */
+    suspend fun rejoinFromStorage() {
+        val gameId = tokenStorage.getGameId() ?: return
+        val playerId = tokenStorage.getPlayerId() ?: return
+        // Pre-populate state so ensureConnected's reconnect logic can fire
+        _state.update { it.copy(gameId = gameId, myPlayerId = playerId) }
+        ensureConnected()
+    }
+
     /** Disconnects from the current game and resets local state. */
     suspend fun leaveGame() {
         ensureConnected()
@@ -146,13 +155,6 @@ class GameRepository(
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
         client.respondToTrade(counterOfferedMoneyCardIds)
-    }
-
-    /** Informs the server that the trade reveal animation is complete. */
-    suspend fun finishTradeReveal() {
-        ensureConnected()
-        _state.update { it.copy(errorMessage = null) }
-        client.finishTradeReveal()
     }
 
     /** Requests to spy on a targeted opponent player's money cards. */
@@ -541,7 +543,7 @@ class GameRepository(
             if (trade == null) {
                 "none"
             } else {
-                val animalType = trade.requestedAnimalType ?: trade.animalCards.firstOrNull()?.type
+                val animalType = trade.animalCards.firstOrNull()?.type
                 "${trade.initiatorId}->${trade.targetId} " +
                     "animal=$animalType " +
                     "animalCount=${trade.animalCards.size} " +

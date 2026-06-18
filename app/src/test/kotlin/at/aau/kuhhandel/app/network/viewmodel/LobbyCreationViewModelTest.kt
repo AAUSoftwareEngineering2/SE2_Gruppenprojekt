@@ -147,11 +147,13 @@ class LobbyCreationViewModelTest {
             repoStateFlow.value =
                 GameRepositoryState(
                     gameId = "ABCDE",
+                    gameStateView = mockk(),
                     isConnecting = false,
                 )
             advanceUntilIdle()
             assertEquals("ABCDE", viewModel.uiState.value.gameId)
             assertTrue(viewModel.uiState.value.isCreated)
+            assertFalse(viewModel.uiState.value.isCreating)
 
             repoStateFlow.value =
                 GameRepositoryState(
@@ -159,6 +161,34 @@ class LobbyCreationViewModelTest {
                 )
             advanceUntilIdle()
             assertEquals("Error occurred", viewModel.uiState.value.errorMessage)
+            assertFalse(viewModel.uiState.value.isCreating)
+        }
+    }
+
+    @Test
+    fun `isCreating bridges the gap during creation`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            viewModel.onPlayerNameChanged("Felix")
+            advanceUntilIdle()
+
+            viewModel.createLobby()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isCreating)
+
+            // Simulate server response
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameId = "12345",
+                    gameStateView = mockk(),
+                )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isCreating)
+            assertTrue(viewModel.uiState.value.isCreated)
         }
     }
 }

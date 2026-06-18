@@ -2,14 +2,14 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
-import at.aau.kuhhandel.server.exception.GameException
-import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.model.ReconnectResult
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.server.persistence.ReconnectTokenMutationResult
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
+import at.aau.kuhhandel.shared.exception.GameException
+import at.aau.kuhhandel.shared.model.GameSession
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.PlayerNameRules
 import kotlinx.coroutines.CoroutineDispatcher

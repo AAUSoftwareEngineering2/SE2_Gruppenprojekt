@@ -213,6 +213,7 @@ fun AuctionView(
     modifier: Modifier = Modifier,
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    timerEndMillis: Long? = null,
     phase: GamePhase = GamePhase.AUCTION_BIDDING,
     myPlayerId: String? = null,
     playerName: (String) -> String = { it },
@@ -254,9 +255,9 @@ fun AuctionView(
                 .border(4.dp, DarkPurple.copy(alpha = 0.18f), RoundedCornerShape(42.dp)),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            auction.timerEndTime?.let { timerEndTime ->
+            timerEndMillis?.let { endMillis ->
                 PieTimer(
-                    timerEndTimeMillis = timerEndTime,
+                    timerEndTimeMillis = endMillis,
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)

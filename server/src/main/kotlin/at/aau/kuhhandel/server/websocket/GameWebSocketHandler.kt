@@ -1,9 +1,9 @@
 package at.aau.kuhhandel.server.websocket
 
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.service.GameService
 import at.aau.kuhhandel.shared.enums.GameErrorReason
+import at.aau.kuhhandel.shared.exception.GameException
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.websocket.ChooseTradePayload
@@ -610,7 +610,7 @@ class GameWebSocketHandler(
             if (trade == null) {
                 "none"
             } else {
-                val animalType = trade.requestedAnimalType ?: trade.animalCards.firstOrNull()?.type
+                val animalType = trade.animalCards.firstOrNull()?.type
                 "${trade.initiatorId}->${trade.targetId} " +
                     "animal=$animalType " +
                     "animalCount=${trade.animalCards.size} " +

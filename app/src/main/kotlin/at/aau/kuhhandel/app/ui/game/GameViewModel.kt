@@ -242,7 +242,7 @@ class GameViewModel(
 
     private val auctionTimerSeconds =
         repository.state
-            .map { it.gameStateView?.auctionState?.timerEndTime }
+            .map { it.gameStateView?.takeIf { view -> view.auctionState != null }?.timerEnd }
             .distinctUntilChanged()
             .flatMapLatest { endTime ->
                 if (endTime == null) return@flatMapLatest flowOf<Int?>(null)
@@ -612,16 +612,6 @@ class GameViewModel(
         pendingTradeAnimalType.value = animalType
         selectedTargetPlayerId.value = null
         initiateTrade(targetPlayerId, animalType)
-    }
-
-    /** Signals that the trade reveal animation has finished. */
-    fun finishTradeReveal() {
-        scope.launch {
-            try {
-                repository.finishTradeReveal()
-            } catch (_: Exception) {
-            }
-        }
     }
 
     /** Sets the opponent player targeted by the local eye icon selection and runs its timer. */

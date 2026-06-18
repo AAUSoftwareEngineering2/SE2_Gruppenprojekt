@@ -94,7 +94,7 @@ class LobbyViewModel(
             try {
                 repository.startGame()
             } catch (e: Exception) {
-                // Fehlerbehandlung erfolgt über repository.state
+                // Error handling via repository.state
             }
         }
     }

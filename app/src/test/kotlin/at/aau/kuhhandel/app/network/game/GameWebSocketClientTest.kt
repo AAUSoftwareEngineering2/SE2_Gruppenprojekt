@@ -438,19 +438,6 @@ class GameWebSocketClientTest {
     }
 
     @Test
-    fun `finishTradeReveal sends envelope`() {
-        runBlocking {
-            val connection = connectClient()
-            client.finishTradeReveal()
-            assertEquals(
-                WebSocketType.FINISH_TRADE_REVEAL,
-                connection.session.onlySentEnvelope().type,
-            )
-            connection.disconnect()
-        }
-    }
-
-    @Test
     fun `spy sends envelope with payload`() {
         runBlocking {
             // ARRANGE: Build an active channel session
