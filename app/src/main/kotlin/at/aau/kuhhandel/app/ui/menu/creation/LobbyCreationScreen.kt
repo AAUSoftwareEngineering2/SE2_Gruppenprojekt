@@ -15,10 +15,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -30,8 +35,13 @@ fun RoomCreationScreen(
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
+    val playClickSound = LocalButtonClickSound.current
+    var hasTriggeredNavigation by remember { mutableStateOf(false) }
+
     LaunchedEffect(uiState.isCreated, uiState.gameId) {
-        if (uiState.isCreated && uiState.gameId != null) {
+        if (uiState.isCreated && uiState.gameId != null && !hasTriggeredNavigation) {
+            kotlinx.coroutines.delay(1000)
+            hasTriggeredNavigation = true
             onLobbyCreated(uiState.gameId)
         }
     }
@@ -54,7 +64,10 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onBack,
+                            onClick = {
+                                playClickSound()
+                                onBack()
+                            },
                             modifier = Modifier.fillMaxWidth(0.6f),
                         ) {
                             Text("Back")
@@ -84,10 +97,17 @@ fun RoomCreationScreen(
                         )
                     }
 
-                    uiState.isConnecting -> {
+                    uiState.isConnecting || uiState.isCreating -> {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = "Connection to Server...")
+                        Text(
+                            text =
+                                if (uiState.isConnecting) {
+                                    "Connection to Server..."
+                                } else {
+                                    "Creating Lobby..."
+                                },
+                        )
                     }
 
                     else -> {
@@ -125,7 +145,10 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onCreateLobby,
+                            onClick = {
+                                playClickSound()
+                                onCreateLobby()
+                            },
                             enabled = uiState.canSubmit,
                             modifier = Modifier.fillMaxWidth(),
                         ) {

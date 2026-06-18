@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.theme.AlertRed
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
@@ -52,7 +53,6 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.Player
 import kotlinx.coroutines.delay
 
 private const val DEFAULT_AUCTION_TIMER_MILLIS = 5000L
@@ -214,9 +214,10 @@ fun AuctionView(
     modifier: Modifier = Modifier,
     auction: AuctionState?,
     timerSeconds: Int? = null,
+    timerEndMillis: Long? = null,
     phase: GamePhase = GamePhase.AUCTION_BIDDING,
-    players: List<Player> = emptyList(),
     myPlayerId: String? = null,
+    playerName: (String) -> String = { it },
     footerContent: @Composable () -> Unit = {},
 ) {
     if (auction == null) return
@@ -255,9 +256,9 @@ fun AuctionView(
                 .border(4.dp, DarkPurple.copy(alpha = 0.18f), RoundedCornerShape(42.dp)),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            auction.timerEndTime?.let { timerEndTime ->
+            timerEndMillis?.let { endMillis ->
                 PieTimer(
-                    timerEndTimeMillis = timerEndTime,
+                    timerEndTimeMillis = endMillis,
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)
@@ -340,7 +341,7 @@ fun AuctionView(
                             if (bidderId == myPlayerId) {
                                 "You"
                             } else {
-                                players.find { it.id == bidderId }?.name ?: bidderId
+                                playerName(bidderId)
                             }
                         Text(
                             "from $bidderName",
@@ -378,6 +379,8 @@ fun AuctionControls(
     currentBid: Int,
     isExcluded: Boolean = false,
 ) {
+    val playBidHigherSound = rememberSoundEffect(R.raw.auction_bid_higher)
+
     if (isExcluded) {
         Column(
             modifier = modifier.padding(16.dp),
@@ -406,7 +409,10 @@ fun AuctionControls(
         options.forEach { amount ->
             val nextBid = currentBid + amount
             Button(
-                onClick = { onBid(nextBid) },
+                onClick = {
+                    playBidHigherSound()
+                    onBid(nextBid)
+                },
                 shape = RoundedCornerShape(24.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 contentPadding = PaddingValues(0.dp),

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 import at.aau.kuhhandel.app.ui.components.MoneyCardView
@@ -422,6 +423,7 @@ fun RulesScreen(
     var isSpyTutorialOpen by rememberSaveable { mutableStateOf(false) }
     var tutorialSlideIndex by rememberSaveable { mutableStateOf(0) }
     var spyTutorialSlideIndex by rememberSaveable { mutableStateOf(0) }
+    val playClickSound = LocalButtonClickSound.current
     var expandedTopicId by
         rememberSaveable {
             mutableStateOf(
@@ -443,6 +445,7 @@ fun RulesScreen(
         ) {
             MenuCard(
                 onBack = {
+                    playClickSound()
                     if (isSpyTutorialOpen) {
                         isSpyTutorialOpen = false
                     } else if (isTutorialOpen) {
@@ -458,10 +461,12 @@ fun RulesScreen(
                         currentIndex = spyTutorialSlideIndex,
                         totalSlides = spyTutorialSlides.size,
                         onPrevious = {
+                            playClickSound()
                             spyTutorialSlideIndex =
                                 (spyTutorialSlideIndex - 1).coerceAtLeast(0)
                         },
                         onNext = {
+                            playClickSound()
                             if (spyTutorialSlideIndex == spyTutorialSlides.lastIndex) {
                                 isSpyTutorialOpen = false
                                 spyTutorialSlideIndex = 0
@@ -476,9 +481,11 @@ fun RulesScreen(
                         currentIndex = tutorialSlideIndex,
                         totalSlides = tutorialSlides.size,
                         onPrevious = {
+                            playClickSound()
                             tutorialSlideIndex = (tutorialSlideIndex - 1).coerceAtLeast(0)
                         },
                         onNext = {
+                            playClickSound()
                             if (tutorialSlideIndex == tutorialSlides.lastIndex) {
                                 isTutorialOpen = false
                                 tutorialSlideIndex = 0
@@ -501,7 +508,7 @@ fun RulesScreen(
                         }
 
                         item {
-                            FirstGameTips()
+                            FirstGameTips(onRefreshTips = playClickSound)
                         }
 
                         ruleGroups.forEach { group ->
@@ -514,6 +521,7 @@ fun RulesScreen(
                                     topic = topic,
                                     isExpanded = expandedTopicId == topic.id,
                                     onClick = {
+                                        playClickSound()
                                         expandedTopicId =
                                             if (expandedTopicId == topic.id) {
                                                 ""
@@ -532,6 +540,7 @@ fun RulesScreen(
                         item {
                             TutorialTeaser(
                                 onStartTutorial = {
+                                    playClickSound()
                                     tutorialSlideIndex = 0
                                     isTutorialOpen = true
                                 },
@@ -543,6 +552,7 @@ fun RulesScreen(
             if (!isTutorialOpen && !isSpyTutorialOpen) {
                 HiddenSpyTutorialButton(
                     onClick = {
+                        playClickSound()
                         spyTutorialSlideIndex = 0
                         isSpyTutorialOpen = true
                     },
@@ -571,7 +581,7 @@ private fun RuleGroupLabel(title: String) {
 }
 
 @Composable
-private fun FirstGameTips() {
+private fun FirstGameTips(onRefreshTips: () -> Unit) {
     var tipStartIndex by rememberSaveable { mutableStateOf(0) }
     val visibleTips =
         List(FIRST_GAME_TIP_COUNT) { offset ->
@@ -585,6 +595,7 @@ private fun FirstGameTips() {
         ) {
             IconButton(
                 onClick = {
+                    onRefreshTips()
                     tipStartIndex = (tipStartIndex + FIRST_GAME_TIP_COUNT) % firstGameTips.size
                 },
                 modifier = Modifier.size(36.dp),

@@ -10,6 +10,7 @@ enum class GamePhase {
 
     AUCTION_BIDDING,
     AUCTIONEER_DECISION,
+    AUCTION_PAYMENT,
     AUCTION_RESULT,
 
     TRADE_OFFER,

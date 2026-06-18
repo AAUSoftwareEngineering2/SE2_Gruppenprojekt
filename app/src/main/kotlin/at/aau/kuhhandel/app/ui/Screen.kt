@@ -26,4 +26,7 @@ sealed class Screen {
 
     @Serializable
     data object Win : Screen()
+
+    @Serializable
+    data object Leaderboard : Screen()
 }

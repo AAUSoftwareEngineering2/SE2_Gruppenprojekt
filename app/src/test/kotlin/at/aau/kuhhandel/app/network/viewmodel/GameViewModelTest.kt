@@ -9,6 +9,8 @@ import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
+import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -48,6 +50,42 @@ class GameViewModelTest {
 
     private lateinit var viewModel: GameViewModel
 
+    private fun GameRepositoryState(
+        isConnecting: Boolean = false,
+        isConnected: Boolean = false,
+        isReconnecting: Boolean = false,
+        reconnectAttempt: Int = 0,
+        gameId: String? = null,
+        myPlayerId: String? = null,
+        gameState: GameState? = null,
+        gameStateView: GameStateView? = gameState?.toView(myPlayerId ?: "me"),
+        errorMessage: String? = null,
+    ): GameRepositoryState =
+        at.aau.kuhhandel.app.network.game.GameRepositoryState(
+            isConnecting = isConnecting,
+            isConnected = isConnected,
+            isReconnecting = isReconnecting,
+            reconnectAttempt = reconnectAttempt,
+            gameId = gameId,
+            myPlayerId = myPlayerId,
+            gameStateView = gameStateView,
+            errorMessage = errorMessage,
+        )
+
+    private fun GameState.toView(playerId: String): GameStateView {
+        val effectivePlayerId = playerId.takeIf { it.isNotBlank() } ?: "me"
+        val playersWithLocal =
+            if (players.any { it.id == effectivePlayerId }) {
+                players
+            } else {
+                listOf(Player(effectivePlayerId, effectivePlayerId)) + players
+            }
+        return copy(
+            players = playersWithLocal,
+            hostPlayerId = hostPlayerId ?: playersWithLocal.first().id,
+        ).createViewForPlayer(effectivePlayerId)
+    }
+
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -83,7 +121,6 @@ class GameViewModelTest {
                 GameState(
                     phase = GamePhase.PLAYER_CHOICE,
                     deck = deck,
-                    currentFaceUpCard = AnimalCard("2", AnimalType.PIG),
                 )
 
             repoStateFlow.value =
@@ -97,9 +134,9 @@ class GameViewModelTest {
             val uiState = viewModel.uiState.value
             assertEquals(GamePhase.PLAYER_CHOICE, uiState.currentPhase)
             assertEquals("1", uiState.deckCountText)
-            assertEquals("PIG (#2)", uiState.activeCardLabel)
+            assertEquals("No card revealed", uiState.activeCardLabel)
             assertTrue(uiState.isConnected)
-            assertTrue(uiState.canRevealCard)
+            assertFalse(uiState.canRevealCard)
             assertFalse(uiState.canStartGame)
         }
     }
@@ -186,7 +223,6 @@ class GameViewModelTest {
                                 AuctionState(
                                     auctioneerId = "me",
                                     auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = 0,
                                 ),
                         ),
                 )
@@ -203,7 +239,6 @@ class GameViewModelTest {
                                 AuctionState(
                                     auctioneerId = "other",
                                     auctionCard = AnimalCard("1", AnimalType.COW),
-                                    timerEndTime = 0,
                                 ),
                         ),
                 )
@@ -309,11 +344,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                 )
 
@@ -444,7 +479,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `selectTradeAnimal stores pending choice and initiates trade`() {
+    fun `selectTradeAnimal waits for server trade phase before showing table`() {
         runTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.uiState.collect {}
@@ -473,8 +508,82 @@ class GameViewModelTest {
             assertNull(viewModel.uiState.value.selectedTargetPlayerId)
             assertEquals("other", viewModel.uiState.value.pendingTradeTargetPlayerId)
             assertEquals(AnimalType.COW, viewModel.uiState.value.pendingTradeAnimalType)
-            assertTrue(viewModel.uiState.value.isTradeActive)
+            assertFalse(viewModel.uiState.value.isTradeActive)
             coVerify { mockRepository.initiateTrade("other", AnimalType.COW) }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.TRADE_OFFER,
+                            players = listOf(me, other),
+                            tradeState =
+                                at.aau.kuhhandel.shared.model.TradeState(
+                                    initiatorId = "me",
+                                    targetId = "other",
+                                    animalCards = setOf(AnimalCard("1", AnimalType.COW)),
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isTradeActive)
+            assertTrue(viewModel.uiState.value.showsTradeOfferHand)
+            assertTrue(viewModel.uiState.value.isTradeHandFanned)
+        }
+    }
+
+    @Test
+    fun `server non-trade phase clears pending trade overlay state`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val me = Player("me", "Me", animals = listOf(AnimalCard("1", AnimalType.COW)))
+            val other = Player("other", "Other", animals = listOf(AnimalCard("2", AnimalType.COW)))
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.PLAYER_CHOICE,
+                            players = listOf(me, other),
+                            currentPlayerIndex = 0,
+                        ),
+                )
+            advanceUntilIdle()
+
+            viewModel.selectTargetPlayer("other")
+            advanceUntilIdle()
+            viewModel.selectTradeAnimal(AnimalType.COW)
+            advanceUntilIdle()
+
+            assertEquals("other", viewModel.uiState.value.pendingTradeTargetPlayerId)
+            assertFalse(viewModel.uiState.value.isTradeActive)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState =
+                        GameState(
+                            phase = GamePhase.AUCTION_BIDDING,
+                            players = listOf(me, other),
+                            auctionState =
+                                AuctionState(
+                                    auctioneerId = "other",
+                                    auctionCard = AnimalCard("auction", AnimalType.PIG),
+                                ),
+                        ),
+                )
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.pendingTradeTargetPlayerId)
+            assertNull(viewModel.uiState.value.pendingTradeAnimalType)
+            assertFalse(viewModel.uiState.value.isTradeActive)
+            assertFalse(viewModel.uiState.value.isTradeActionSubmitting)
         }
     }
 
@@ -643,7 +752,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
                                     targetId = "other",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -681,7 +790,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "me",
                                     targetId = "other",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -691,6 +800,127 @@ class GameViewModelTest {
             advanceUntilIdle()
 
             coVerify { mockRepository.submitTradeMoney(emptySet()) }
+        }
+    }
+
+    @Test
+    fun `auction payment ui state tracks buyer and selected money total`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isAuctionActive)
+            assertTrue(viewModel.uiState.value.isAuctionBuyer)
+            assertEquals(25, viewModel.uiState.value.auctionBidToPay)
+            assertEquals(10, viewModel.uiState.value.selectedMoneyTotal)
+            assertFalse(viewModel.uiState.value.canSubmitAuctionPayment)
+            assertTrue(viewModel.uiState.value.canAuctioneerBuyBack)
+
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            assertEquals(30, viewModel.uiState.value.selectedMoneyTotal)
+            assertTrue(viewModel.uiState.value.canSubmitAuctionPayment)
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment sends selected money and clears selection`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertTrue(
+                viewModel.uiState.value.selectedMoneyCardIds
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment ignores non buyers and underfunded selections`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "observer",
+                    gameState = auctionPaymentGameState(buyerId = "me", highestBid = 20),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 25),
+                )
+            advanceUntilIdle()
+            viewModel.toggleMoneyCardSelection("m10")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify(exactly = 0) { mockRepository.submitAuctionPayment(any()) }
+        }
+    }
+
+    @Test
+    fun `submitAuctionPayment releases submitting state when repository fails`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            coEvery {
+                mockRepository.submitAuctionPayment(setOf("m10", "m20"))
+            } throws RuntimeException("Network error")
+            repoStateFlow.value =
+                GameRepositoryState(
+                    myPlayerId = "me",
+                    gameState = auctionPaymentGameState(highestBid = 20),
+                )
+            advanceUntilIdle()
+
+            viewModel.toggleMoneyCardSelection("m10")
+            viewModel.toggleMoneyCardSelection("m20")
+            advanceUntilIdle()
+            viewModel.submitAuctionPayment()
+            advanceUntilIdle()
+
+            coVerify { mockRepository.submitAuctionPayment(setOf("m10", "m20")) }
+            assertFalse(viewModel.uiState.value.isTradeActionSubmitting)
         }
     }
 
@@ -711,7 +941,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -741,7 +971,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -781,7 +1011,7 @@ class GameViewModelTest {
                                 at.aau.kuhhandel.shared.model.TradeState(
                                     initiatorId = "other",
                                     targetId = "me",
-                                    requestedAnimalType = AnimalType.COW,
+                                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                                 ),
                         ),
                 )
@@ -809,15 +1039,6 @@ class GameViewModelTest {
                 viewModel.uiState.value.selectedMoneyCardIds
                     .isEmpty(),
             )
-        }
-    }
-
-    @Test
-    fun `finishTradeReveal calls repository`() {
-        runTest {
-            viewModel.finishTradeReveal()
-            advanceUntilIdle()
-            coVerify { mockRepository.finishTradeReveal() }
         }
     }
 
@@ -935,11 +1156,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                     players = listOf(Player(id = "p1", name = "P1")),
                 )
@@ -978,11 +1199,11 @@ class GameViewModelTest {
             val gameState =
                 GameState(
                     phase = GamePhase.AUCTION_BIDDING,
+                    timerEnd = endTime,
                     auctionState =
                         AuctionState(
                             auctioneerId = "p1",
                             auctionCard = AnimalCard("1", AnimalType.COW),
-                            timerEndTime = endTime,
                         ),
                     players = listOf(Player(id = "p1", name = "P1")),
                 )
@@ -1055,4 +1276,34 @@ class GameViewModelTest {
             assertNull(viewModel.uiState.value.auctionTimerSeconds)
         }
     }
+
+    private fun auctionPaymentGameState(
+        buyerId: String = "me",
+        highestBid: Int,
+    ) = GameState(
+        phase = GamePhase.AUCTION_PAYMENT,
+        auctionState =
+            AuctionState(
+                auctioneerId = "seller",
+                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                highestBid = highestBid,
+                highestBidderId = buyerId,
+                buyerId = buyerId,
+                sellerId = "seller",
+            ),
+        players =
+            listOf(
+                Player(
+                    id = "me",
+                    name = "Me",
+                    moneyCards =
+                        listOf(
+                            MoneyCard("m10", 10),
+                            MoneyCard("m20", 20),
+                        ),
+                ),
+                Player(id = "seller", name = "Seller"),
+                Player(id = "observer", name = "Observer"),
+            ),
+    )
 }

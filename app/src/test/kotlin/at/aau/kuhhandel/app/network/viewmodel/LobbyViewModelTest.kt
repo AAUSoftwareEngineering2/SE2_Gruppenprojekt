@@ -5,6 +5,7 @@ import at.aau.kuhhandel.app.network.game.GameRepositoryState
 import at.aau.kuhhandel.app.ui.menu.lobby.LobbyViewModel
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
 import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coVerify
 import io.mockk.every
@@ -37,6 +38,43 @@ class LobbyViewModelTest {
     private val repoStateFlow = MutableStateFlow(GameRepositoryState())
 
     private lateinit var viewModel: LobbyViewModel
+
+    private fun GameRepositoryState(
+        isConnecting: Boolean = false,
+        isConnected: Boolean = false,
+        isReconnecting: Boolean = false,
+        reconnectAttempt: Int = 0,
+        gameId: String? = null,
+        myPlayerId: String? = null,
+        gameState: GameState? = null,
+        gameStateView: GameStateView? =
+            gameState?.toView(myPlayerId ?: gameState.players.firstOrNull()?.id ?: "me"),
+        errorMessage: String? = null,
+    ): GameRepositoryState =
+        at.aau.kuhhandel.app.network.game.GameRepositoryState(
+            isConnecting = isConnecting,
+            isConnected = isConnected,
+            isReconnecting = isReconnecting,
+            reconnectAttempt = reconnectAttempt,
+            gameId = gameId,
+            myPlayerId = myPlayerId,
+            gameStateView = gameStateView,
+            errorMessage = errorMessage,
+        )
+
+    private fun GameState.toView(playerId: String): GameStateView {
+        val playersWithLocal =
+            if (players.any { it.id == playerId }) {
+                players
+            } else {
+                listOf(Player(playerId, playerId)) + players
+            }
+
+        return copy(
+            players = playersWithLocal,
+            hostPlayerId = hostPlayerId ?: playersWithLocal.first().id,
+        ).createViewForPlayer(playerId)
+    }
 
     @BeforeEach
     fun setUp() {
@@ -108,6 +146,37 @@ class LobbyViewModelTest {
             assertTrue(uiState.players[0].isHost)
             assertEquals("Bob", uiState.players[1].name)
             assertFalse(uiState.players[1].isHost)
+        }
+    }
+
+    @Test
+    fun `isMe flag is set correctly for the local player`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val players =
+                listOf(
+                    Player(id = "p1", name = "Alice"),
+                    Player(id = "p2", name = "Bob"),
+                )
+            val gameState = GameState(players = players, phase = GamePhase.NOT_STARTED)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    isConnected = true,
+                    gameState = gameState,
+                    myPlayerId = "p2",
+                )
+
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals("Bob", uiState.players[0].name)
+            assertTrue(uiState.players[0].isMe)
+            assertEquals("Alice", uiState.players[1].name)
+            assertFalse(uiState.players[1].isMe)
         }
     }
 

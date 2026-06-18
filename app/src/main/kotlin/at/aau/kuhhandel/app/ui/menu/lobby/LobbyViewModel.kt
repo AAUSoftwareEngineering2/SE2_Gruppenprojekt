@@ -13,6 +13,7 @@ data class PlayerDisplayItem(
     val name: String,
     val isHost: Boolean,
     val isReady: Boolean,
+    val isMe: Boolean = false,
 )
 
 data class LobbyUiState(
@@ -32,26 +33,37 @@ class LobbyViewModel(
     val uiState: StateFlow<LobbyUiState> =
         repository.state
             .map { repoState ->
-                val gameState = repoState.gameState
+                val view = repoState.gameStateView
+                val playerCount = view?.let { 1 + it.opponents.size } ?: 0
                 val players =
-                    gameState
-                        ?.players
-                        ?.mapIndexed { index, playerState ->
-                            PlayerDisplayItem(
-                                name = playerState.name.ifBlank { playerState.id },
-                                isHost = index == 0,
-                                isReady = repoState.isConnected,
-                            )
+                    view
+                        ?.let {
+                            listOf(
+                                PlayerDisplayItem(
+                                    name = it.localPlayer.name.ifBlank { it.localPlayer.id },
+                                    isHost = it.localPlayer.id == it.hostPlayerId,
+                                    isReady = repoState.isConnected,
+                                    isMe = true,
+                                ),
+                            ) +
+                                it.opponents.map { opponent ->
+                                    PlayerDisplayItem(
+                                        name = opponent.name.ifBlank { opponent.id },
+                                        isHost = opponent.id == it.hostPlayerId,
+                                        isReady = repoState.isConnected,
+                                        isMe = opponent.id == repoState.myPlayerId,
+                                    )
+                                }
                         }.orEmpty()
                         .ifEmpty {
                             listOf(
-                                PlayerDisplayItem("You", true, repoState.isConnected),
+                                PlayerDisplayItem("You", true, repoState.isConnected, true),
                             )
                         }
 
                 val isHost =
-                    gameState?.players?.firstOrNull()?.id == repoState.myPlayerId ||
-                        gameState == null
+                    view?.hostPlayerId == repoState.myPlayerId ||
+                        view == null
 
                 LobbyUiState(
                     lobbyCode = repoState.gameId ?: initialLobbyCode,
@@ -68,8 +80,8 @@ class LobbyViewModel(
                     canStartGame =
                         repoState.isConnected &&
                             isHost &&
-                            (gameState?.phase == GamePhase.NOT_STARTED || gameState == null) &&
-                            (gameState?.players?.size ?: 0) >= 2,
+                            (view?.phase == GamePhase.NOT_STARTED || view == null) &&
+                            playerCount >= 2,
                 )
             }.stateIn(
                 scope = scope,
@@ -82,7 +94,7 @@ class LobbyViewModel(
             try {
                 repository.startGame()
             } catch (e: Exception) {
-                // Fehlerbehandlung erfolgt über repository.state
+                // Error handling via repository.state
             }
         }
     }

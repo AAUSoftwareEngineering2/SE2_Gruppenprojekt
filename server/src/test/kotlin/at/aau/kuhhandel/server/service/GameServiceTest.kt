@@ -1,16 +1,27 @@
 package at.aau.kuhhandel.server.service
 
+import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.exception.GameException
+import at.aau.kuhhandel.shared.model.AnimalCard
+import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Player
 import at.aau.kuhhandel.shared.model.SpyAction
+import at.aau.kuhhandel.shared.utils.GameRankEntry
+import at.aau.kuhhandel.shared.utils.ScoreCalculator
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,7 +43,7 @@ import kotlin.test.assertTrue
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(GamePersistenceService::class)
+@Import(GamePersistenceService::class, LeaderboardService::class)
 // No test transaction: the service commits its row-locked transactions on Dispatchers.IO
 // threads anyway, so we clean up explicitly instead.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -40,19 +51,30 @@ class GameServiceTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
+        private val leaderboardService: LeaderboardService,
     ) {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
 
-        private fun service(codes: List<String> = emptyList()): GameService {
+        private fun service(
+            codes: List<String> = emptyList(),
+            clusterNotifier: ClusterUpdateNotifier? = null,
+        ): GameService {
             val queue = ArrayDeque(codes)
             usedGameIds += codes
             return if (codes.isEmpty()) {
-                GameService(eventPublisher, persistenceService)
+                GameService(
+                    eventPublisher,
+                    persistenceService,
+                    leaderboardService,
+                    clusterNotifier = clusterNotifier,
+                )
             } else {
                 GameService(
                     eventPublisher,
                     persistenceService,
+                    leaderboardService,
+                    clusterNotifier = clusterNotifier,
                     gameCodeGenerator = { queue.removeFirst() },
                 )
             }
@@ -84,6 +106,14 @@ class GameServiceTest
                 result.gameState.players
                     .single()
                     .id,
+            )
+            assertTrue(result.reconnectToken.isNotBlank())
+            assertTrue(
+                persistenceService.isReconnectTokenValid(
+                    result.gameId,
+                    result.playerId,
+                    result.reconnectToken,
+                ),
             )
             // The lobby snapshot lands in the database immediately.
             assertNotNull(persistenceService.loadGameState(result.gameId))
@@ -123,6 +153,13 @@ class GameServiceTest
 
                 assertEquals("11111", joinResult.gameId)
                 assertEquals(2, joinResult.gameState.players.size)
+                assertTrue(
+                    service.isReconnectTokenValid(
+                        "11111",
+                        joinResult.playerId,
+                        joinResult.reconnectToken,
+                    ),
+                )
                 assertEquals(
                     listOf("Player1", "Player2"),
                     persistenceService.loadGameState("11111")?.players?.map { it.name },
@@ -155,6 +192,34 @@ class GameServiceTest
             }
 
         @Test
+        fun `leaveGame rejects joins after the last player leaves`() =
+            runTest {
+                lateinit var service: GameService
+                var joinAttemptReason: GameErrorReason? = null
+                var attemptedJoin = false
+                val notifier = mockk<ClusterUpdateNotifier>()
+                every { notifier.gameUpdated("11111") } answers {
+                    if (!attemptedJoin) {
+                        attemptedJoin = true
+                        joinAttemptReason =
+                            runCatching {
+                                runBlocking { service.joinGame("11111", "Player2") }
+                            }.exceptionOrNull()
+                                ?.let { it as GameException }
+                                ?.reason
+                    }
+                }
+
+                service = service(codes = listOf("11111"), clusterNotifier = notifier)
+                val created = service.createGame("Player1")
+
+                service.leaveGame("11111", created.playerId)
+
+                assertEquals(GameErrorReason.GAME_NOT_FOUND, joinAttemptReason)
+                assertNull(persistenceService.loadGameState("11111"))
+            }
+
+        @Test
         fun `leaveGame throws GAME_NOT_FOUND for unknown games`() =
             runTest {
                 val service = service()
@@ -165,33 +230,150 @@ class GameServiceTest
             }
 
         @Test
-        fun `getStateForReconnection returns state for a known player`() =
+        fun `disconnectPlayer removes player from room in lobby phase`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+
+                // Player is connected, so guard passes. Hits lobby block -> removes player.
+                val state = service.disconnectPlayer("11111", guest.playerId)
+
+                assertEquals(1, state.players.size)
+                assertTrue(state.players.none { it.id == guest.playerId })
+                // Other players remain, so the game must survive. (Regression: the old two-step
+                // disconnect purged the whole game whenever the disconnecting player was gone,
+                // even with players left.)
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertEquals(1, dbState.players.size)
+            }
+
+        @Test
+        fun `disconnectPlayer marks player as disconnected`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", host.playerId)
+
+                // Player is connected, guard passes. Hits active game block -> flags false.
+                val state = service.disconnectPlayer("11111", guest.playerId)
+
+                assertFalse(state.players.first { it.id == guest.playerId }.isConnected)
+
+                // Verify stateless database reload round-trip
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertFalse(dbState.players.first { it.id == guest.playerId }.isConnected)
+            }
+
+        @Test
+        fun `reconnectPlayer reconnects disconnected player`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+
+                // Set up an initial valid reconnect token for the guest player
+                val initialToken = "token-for-guest"
+                service.storeReconnectToken("11111", guest.playerId, initialToken)
+
+                service.startGame("11111", host.playerId)
+
+                // Disconnect the player first so their flag is false
+                service.disconnectPlayer("11111", guest.playerId)
+
+                // Act: Reconnect passing their token. Flag is false, guard passes.
+                // Under the hood, this validates the token, rotates it, and flips isConnected to true.
+                val result = service.reconnectPlayer("11111", guest.playerId, initialToken)
+
+                // Assert against the reconnect result fields
+                assertTrue(
+                    result.gameState.players
+                        .first { it.id == guest.playerId }
+                        .isConnected,
+                )
+
+                // Verify stateless database reload round-trip reflects the online state
+                val dbState = assertNotNull(persistenceService.loadGameState("11111"))
+                assertTrue(dbState.players.first { it.id == guest.playerId }.isConnected)
+
+                // Confirm the old token was rotated out and the new token is valid
+                assertFalse(service.isReconnectTokenValid("11111", guest.playerId, initialToken))
+                assertTrue(
+                    service.isReconnectTokenValid(
+                        "11111",
+                        guest.playerId,
+                        result.reconnectToken,
+                    ),
+                )
+            }
+
+        @Test
+        fun `reconnectPlayer validates and rotates reconnect token`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val host = service.createGame("Player1")
+                val guest = service.joinGame("11111", "Player2")
+                service.joinGame("11111", "Player3")
+                service.startGame("11111", host.playerId)
+                service.disconnectPlayer("11111", guest.playerId)
+
+                val result =
+                    service.reconnectPlayer(
+                        "11111",
+                        guest.playerId,
+                        guest.reconnectToken,
+                    )
+
+                assertTrue(
+                    result.gameState.players
+                        .first { it.id == guest.playerId }
+                        .isConnected,
+                )
+                assertNotEquals(guest.reconnectToken, result.reconnectToken)
+                assertEquals(
+                    false,
+                    service.isReconnectTokenValid("11111", guest.playerId, guest.reconnectToken),
+                )
+                assertTrue(
+                    service.isReconnectTokenValid("11111", guest.playerId, result.reconnectToken),
+                )
+            }
+
+        @Test
+        fun `reconnectPlayer rejects invalid reconnect token`() =
             runTest {
                 val service = service(codes = listOf("11111"))
                 val created = service.createGame("Player1")
 
-                val state = service.getStateForReconnection("11111", created.playerId)
-
-                assertEquals(GamePhase.NOT_STARTED, state.phase)
+                val exception =
+                    assertThrows<GameException> {
+                        service.reconnectPlayer("11111", created.playerId, "wrong-token")
+                    }
+                assertEquals(GameErrorReason.INVALID_RECONNECTION_TOKEN, exception.reason)
             }
 
         @Test
-        fun `getStateForReconnection throws for unknown game and unknown player`() =
+        fun `reconnectPlayer fails when player is already connected`() =
             runTest {
                 val service = service(codes = listOf("11111"))
-                service.createGame("Player1")
+                val created = service.createGame("Player1")
 
-                val unknownGame =
-                    assertThrows<GameException> {
-                        service.getStateForReconnection("99999", "player-1")
-                    }
-                assertEquals(GameErrorReason.GAME_NOT_FOUND, unknownGame.reason)
+                val activeToken = "token-for-host"
+                service.storeReconnectToken("11111", created.playerId, activeToken)
 
-                val unknownPlayer =
+                // In lobby phase, player is already connected by default.
+                // Guard at top throws error inside the lock before token rotation happens.
+                val exception =
                     assertThrows<GameException> {
-                        service.getStateForReconnection("11111", "stranger")
+                        service.reconnectPlayer("11111", created.playerId, activeToken)
                     }
-                assertEquals(GameErrorReason.PLAYER_NOT_IN_GAME, unknownPlayer.reason)
+                assertEquals(GameErrorReason.ALREADY_CONNECTED, exception.reason)
+
+                // Verify that the transaction rolled back and the token remains valid
+                assertTrue(service.isReconnectTokenValid("11111", created.playerId, activeToken))
             }
 
         @Test
@@ -238,6 +420,7 @@ class GameServiceTest
                     { service.chooseAuction("99999", "p") },
                     { service.placeBid("99999", "p", 10) },
                     { service.resolveAuction("99999", "p", auctioneerBuysCard = false) },
+                    { service.submitAuctionPayment("99999", "p", emptySet()) },
                     { service.chooseTrade("99999", "p", "q", AnimalType.COW) },
                     { service.submitTradeMoney("99999", "p", emptySet()) },
                     { service.respondToTrade("99999", "p", emptySet()) },
@@ -255,6 +438,10 @@ class GameServiceTest
 
                 service.storeReconnectToken("11111", created.playerId, "token-1")
 
+                val firstFingerprint =
+                    assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertEquals(64, firstFingerprint.length)
+                assertNotEquals("token-1", firstFingerprint)
                 assertTrue(service.isReconnectTokenValid("11111", created.playerId, "token-1"))
                 assertEquals(
                     false,
@@ -263,11 +450,31 @@ class GameServiceTest
 
                 // Token rotation invalidates the previous token.
                 service.storeReconnectToken("11111", created.playerId, "token-2")
+                val secondFingerprint =
+                    assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNotEquals(firstFingerprint, secondFingerprint)
+                assertNotEquals("token-2", secondFingerprint)
                 assertEquals(
                     false,
                     service.isReconnectTokenValid("11111", created.playerId, "token-1"),
                 )
                 assertTrue(service.isReconnectTokenValid("11111", created.playerId, "token-2"))
+            }
+
+        @Test
+        fun `purgeGame deletes reconnect tokens with player rows`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                val joined = service.joinGame("11111", "Player2")
+
+                assertNotNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNotNull(service.reconnectTokenFingerprint("11111", joined.playerId))
+
+                service.purgeGame("11111")
+
+                assertNull(service.reconnectTokenFingerprint("11111", created.playerId))
+                assertNull(service.reconnectTokenFingerprint("11111", joined.playerId))
             }
 
         @Test
@@ -282,15 +489,17 @@ class GameServiceTest
                 val expired = assertNotNull(persistenceService.loadGameState("11111"))
                 val deadline = assertNotNull(expired.timerEnd)
 
-                // Sweep with a "now" after the deadline.
+                // First sweep starts an auction
                 val advanced = service.sweepExpiredTimeouts(now = deadline + 1)
-
                 assertEquals(listOf("11111"), advanced)
                 verify(exactly = 1) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
 
-                // Second sweep at the same instant must be a no-op (the new deadline is in
-                // the future).
-                val secondSweep = service.sweepExpiredTimeouts(now = deadline + 1)
+                // Fetch the freshly generated auction timer from the database row
+                val auctionState = assertNotNull(persistenceService.loadGameState("11111"))
+                val auctionTimer = assertNotNull(auctionState.timerEnd)
+
+                // Second sweep must happen BEFORE the auction timer runs out
+                val secondSweep = service.sweepExpiredTimeouts(now = auctionTimer - 1000L)
                 assertEquals(emptyList(), secondSweep)
             }
 
@@ -307,6 +516,67 @@ class GameServiceTest
 
                 assertEquals(emptyList(), advanced)
                 verify(exactly = 0) { eventPublisher.publishEvent(any<GameStateChangedEvent>()) }
+            }
+
+        @Test
+        fun `submitAuctionPayment completes a persisted payment phase after reload`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                persistenceService.saveGameState(
+                    "11111",
+                    GameState(
+                        phase = GamePhase.AUCTION_PAYMENT,
+                        players =
+                            listOf(
+                                Player(
+                                    id = "player-1",
+                                    name = "Seller",
+                                ),
+                                Player(
+                                    id = "player-2",
+                                    name = "Buyer",
+                                    moneyCards =
+                                        listOf(
+                                            MoneyCard("m10-a", 10),
+                                            MoneyCard("m10-b", 10),
+                                        ),
+                                ),
+                            ),
+                        hostPlayerId = "player-1",
+                        auctionState =
+                            AuctionState(
+                                auctionCard = AnimalCard("cow-1", AnimalType.COW),
+                                auctioneerId = "player-1",
+                                highestBid = 20,
+                                highestBidderId = "player-2",
+                                buyerId = "player-2",
+                                sellerId = "player-1",
+                            ),
+                    ),
+                )
+                val reloaded = assertNotNull(persistenceService.loadGameState("11111"))
+                val paymentCardIds =
+                    reloaded.players
+                        .single { it.id == "player-2" }
+                        .moneyCards
+                        .mapTo(mutableSetOf()) { it.id }
+
+                val updated =
+                    service.submitAuctionPayment(
+                        "11111",
+                        "player-2",
+                        paymentCardIds,
+                    )
+
+                val seller = updated.players.single { it.id == "player-1" }
+                val buyer = updated.players.single { it.id == "player-2" }
+                assertEquals(GamePhase.AUCTION_RESULT, updated.phase)
+                assertEquals(20, seller.totalMoney())
+                assertTrue(buyer.animals.any { it.type == AnimalType.COW })
+                assertEquals(
+                    GamePhase.AUCTION_RESULT,
+                    persistenceService.loadGameState("11111")?.phase,
+                )
             }
 
         @Test
@@ -408,5 +678,65 @@ class GameServiceTest
                         .activeSpies
                         .any { it.spyId == spyId },
                 )
+            }
+
+        @Test
+        fun `sweepExpiredTimeouts stores final rankings when game finishes`() =
+            runTest {
+                val service = service(codes = listOf("11111"))
+                val created = service.createGame("Player1")
+                val lobby = assertNotNull(persistenceService.loadGameState("11111"))
+
+                // Create full quartets for all animal types to trigger the game-end condition
+                val allCompletedQuartets =
+                    AnimalType.entries.flatMap { type ->
+                        // Simulating 4 cards per animal type to make a full quartet
+                        List(4) { AnimalCard(id = "${type.name}-$it", type = type) }
+                    }
+
+                // Put all completed quartets on Player1
+                val playersWithFinishedGame =
+                    lobby.players.map { player ->
+                        if (player.id == created.playerId) {
+                            player.copy(animals = allCompletedQuartets)
+                        } else {
+                            player
+                        }
+                    }
+
+                val mockRankings =
+                    listOf(
+                        GameRankEntry(
+                            playerId = created.playerId,
+                            playerName = "Player1",
+                            points = 500,
+                            quartetCount = AnimalType.entries.size,
+                            totalMoney = 0,
+                            isWinner = true,
+                        ),
+                    )
+
+                // Simulate being in the trade result phase with an expired timer deadline
+                val stateReadyToFinish =
+                    lobby.copy(
+                        phase = GamePhase.TRADE_RESULT,
+                        players = playersWithFinishedGame,
+                        timerEnd = 1000L,
+                        finalRanking = mockRankings,
+                    )
+                persistenceService.saveGameState("11111", stateReadyToFinish)
+
+                // Trigger the automatic timeout sweep past the deadline
+                service.sweepExpiredTimeouts(now = 2000L)
+
+                // Verify that the GameService caught the transition to the finished phase and saved it
+                val storedEntries = leaderboardService.getAllEntries()
+
+                // Calculate the exact expected score dynamically
+                val expectedScore = ScoreCalculator.calculateScore(playersWithFinishedGame.first())
+
+                assertEquals(1, storedEntries.size)
+                assertEquals("Player1", storedEntries.single().playerName)
+                assertEquals(expectedScore, storedEntries.single().score)
             }
     }

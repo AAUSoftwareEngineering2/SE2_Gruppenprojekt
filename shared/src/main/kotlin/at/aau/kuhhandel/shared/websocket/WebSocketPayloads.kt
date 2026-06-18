@@ -1,7 +1,6 @@
 package at.aau.kuhhandel.shared.websocket
 
 import at.aau.kuhhandel.shared.enums.AnimalType
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.GameStateView
 import kotlinx.serialization.Serializable
 
@@ -21,8 +20,7 @@ data class GameCreatedPayload(
     val gameId: String,
     val playerId: String,
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -30,8 +28,7 @@ data class GameCreatedPayload(
  */
 @Serializable
 data class GameStatePayload(
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -48,10 +45,10 @@ data class JoinGamePayload(
  */
 @Serializable
 data class GameJoinedPayload(
+    val gameId: String,
     val playerId: String,
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -70,8 +67,7 @@ data class ReconnectPayload(
 @Serializable
 data class SnapshotPayload(
     val reconnectToken: String,
-    val state: GameState,
-    val stateView: GameStateView? = null,
+    val stateView: GameStateView,
 )
 
 /**
@@ -91,6 +87,15 @@ data class ResolveAuctionPayload(
 )
 
 /**
+ * Payload used by [WebSocketType.SUBMIT_AUCTION_PAYMENT] commands.
+ * Sent by the auction buyer to pay for the auctioned card with the selected money cards.
+ */
+@Serializable
+data class SubmitAuctionPaymentPayload(
+    val moneyCardIds: Set<String>,
+)
+
+/**
  * Payload used by [WebSocketType.CHOOSE_TRADE] commands.
  * Sent by the active player to start a trade challenge against another player.
  */
@@ -98,7 +103,6 @@ data class ResolveAuctionPayload(
 data class ChooseTradePayload(
     val challengedPlayerId: String,
     val animalType: AnimalType,
-    val moneyCardIds: Set<String>? = null,
 )
 
 /**

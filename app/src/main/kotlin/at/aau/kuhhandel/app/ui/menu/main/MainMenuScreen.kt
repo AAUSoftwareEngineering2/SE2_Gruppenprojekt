@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -24,10 +27,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
-import at.aau.kuhhandel.app.network.ping.PingService
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.LightPurple
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,6 +40,11 @@ fun MainMenuScreen(
     onCreateLobby: () -> Unit,
     onJoinLobby: () -> Unit,
     onRules: () -> Unit,
+    onLeaderboard: () -> Unit,
+    onPingServer: suspend () -> Result<Boolean>,
+    showRejoinDialog: Boolean = false,
+    onRejoin: () -> Unit = {},
+    onDismissRejoin: () -> Unit = {},
 ) {
     // ==========================================================
     // PARAMETERS
@@ -53,6 +62,46 @@ fun MainMenuScreen(
     // ==========================================================
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val playClickSound = LocalButtonClickSound.current
+
+    if (showRejoinDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissRejoin,
+            title = {
+                Text(
+                    text = "Rejoin ongoing game?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkPurple,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onRejoin,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = DarkPurple,
+                        ),
+                ) {
+                    Text(
+                        text = "Yes",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissRejoin) {
+                    Text(
+                        text = "No",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkPurple,
+                    )
+                }
+            },
+            containerColor = LightPurple,
+        )
+    }
 
     MenuBackground(modifier = modifier) {
         // Title
@@ -105,6 +154,20 @@ fun MainMenuScreen(
             }
         }
 
+        // Leaderboard
+        Button(
+            onClick = {
+                playClickSound()
+                onLeaderboard()
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+        ) {
+            Text("Leaderboard")
+        }
+
         // DEBUG: Navigation & Ping Buttons
         Row(
             modifier =
@@ -115,8 +178,9 @@ fun MainMenuScreen(
         ) {
             Button(
                 onClick = {
+                    playClickSound()
                     scope.launch {
-                        val result = PingService().isServerReachable()
+                        val result = onPingServer()
                         result
                             .onSuccess {
                                 Toast

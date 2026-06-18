@@ -44,6 +44,7 @@ object GameStateMapper {
         when (phase) {
             GamePhase.AUCTION_BIDDING,
             GamePhase.AUCTIONEER_DECISION,
+            GamePhase.AUCTION_PAYMENT,
             GamePhase.AUCTION_RESULT,
             -> GameStatus.AUCTION
 
@@ -137,6 +138,7 @@ object GameStateMapper {
                             playerKey,
                             moneyByPlayer[playerKey].orEmpty(),
                         ),
+                    isConnected = player.isConnected,
                 )
             }
 
@@ -184,17 +186,11 @@ object GameStateMapper {
                 toTradeState(gameIdString, phase, entity, sortedPlayers)
             }
 
-        val faceUpCard =
-            game.faceUpAnimalType?.let { animalType ->
-                AnimalCard(id = "faceup-$gameIdString", type = animalType)
-            }
-
         return GameState(
             phase = phase,
             roundNumber = game.roundNumber,
             timerEnd = game.timerEnd,
             deck = animalDeck,
-            currentFaceUpCard = faceUpCard,
             currentPlayerIndex = currentPlayerIndex,
             players = domainPlayers,
             auctionState = auctionDto,
@@ -270,9 +266,9 @@ object GameStateMapper {
             auctioneerId = auctioneerId,
             highestBid = entity.highestBid,
             highestBidderId = highestBidderId,
-            timerEndTime = entity.timerEndTime,
             excludedPlayerIds = decodeStringList(entity.passedPlayersJson).toSet(),
             buyerId = entity.buyerPlayerId,
+            sellerId = entity.sellerPlayerId,
         )
     }
 
@@ -312,14 +308,7 @@ object GameStateMapper {
         return TradeState(
             initiatorId = challengerId,
             targetId = defenderId,
-            requestedAnimalType = entity.animalType,
             animalCards = animalCards,
-            offeredMoney = challengerCards.sumOf { it.value },
-            offeredMoneyCardIds = challengerCards.mapTo(mutableSetOf()) { it.id },
-            counterOfferedMoney =
-                if (hasSubmittedCounter) defenderCards.sumOf { it.value } else null,
-            counterOfferedMoneyCardIds = defenderCards.mapTo(mutableSetOf()) { it.id },
-            isResolved = entity.isResolved == true,
             offeredMoneyCards = if (hasSubmittedOffer) challengerCards.toSet() else null,
             counterOfferedMoneyCards = if (hasSubmittedCounter) defenderCards.toSet() else null,
             winnerId = entity.winnerPlayerId,

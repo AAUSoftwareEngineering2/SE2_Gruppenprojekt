@@ -3,6 +3,9 @@ package at.aau.kuhhandel.app.network.viewmodel
 import at.aau.kuhhandel.app.network.game.GameRepository
 import at.aau.kuhhandel.app.network.game.GameRepositoryState
 import at.aau.kuhhandel.app.ui.menu.joining.LobbyJoiningViewModel
+import at.aau.kuhhandel.shared.model.GameState
+import at.aau.kuhhandel.shared.model.GameStateView
+import at.aau.kuhhandel.shared.model.Player
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -35,6 +38,42 @@ class LobbyJoiningViewModelTest {
     private val repoStateFlow = MutableStateFlow(GameRepositoryState())
 
     private lateinit var viewModel: LobbyJoiningViewModel
+
+    private fun GameRepositoryState(
+        isConnecting: Boolean = false,
+        isConnected: Boolean = false,
+        isReconnecting: Boolean = false,
+        reconnectAttempt: Int = 0,
+        gameId: String? = null,
+        myPlayerId: String? = null,
+        gameState: GameState? = null,
+        gameStateView: GameStateView? = gameState?.toView(myPlayerId ?: "me"),
+        errorMessage: String? = null,
+    ): GameRepositoryState =
+        at.aau.kuhhandel.app.network.game.GameRepositoryState(
+            isConnecting = isConnecting,
+            isConnected = isConnected,
+            isReconnecting = isReconnecting,
+            reconnectAttempt = reconnectAttempt,
+            gameId = gameId,
+            myPlayerId = myPlayerId,
+            gameStateView = gameStateView,
+            errorMessage = errorMessage,
+        )
+
+    private fun GameState.toView(playerId: String): GameStateView {
+        val playersWithLocal =
+            if (players.any { it.id == playerId }) {
+                players
+            } else {
+                listOf(Player(playerId, playerId)) + players
+            }
+
+        return copy(
+            players = playersWithLocal,
+            hostPlayerId = hostPlayerId ?: playersWithLocal.first().id,
+        ).createViewForPlayer(playerId)
+    }
 
     @BeforeEach
     fun setUp() {
@@ -169,7 +208,7 @@ class LobbyJoiningViewModelTest {
                 viewModel.uiState.collect {}
             }
 
-            repoStateFlow.value = GameRepositoryState(gameId = "54321")
+            repoStateFlow.value = GameRepositoryState(gameId = "54321", gameState = GameState())
             advanceUntilIdle()
 
             assertTrue(viewModel.uiState.value.isJoined)

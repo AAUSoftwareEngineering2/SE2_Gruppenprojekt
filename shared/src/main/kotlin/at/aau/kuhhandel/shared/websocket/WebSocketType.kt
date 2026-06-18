@@ -6,9 +6,7 @@ import kotlinx.serialization.Serializable
 enum class WebSocketType {
     // Client commands
     CREATE_GAME,
-    CHANGE_SETTINGS,
     START_GAME,
-    RESET_TO_LOBBY,
     JOIN_GAME,
     LEAVE_GAME,
     CHOOSE_AUCTION,
@@ -18,7 +16,7 @@ enum class WebSocketType {
     RESPOND_TO_TRADE,
     PLACE_BID,
     RESOLVE_AUCTION,
-    FINISH_TRADE_REVEAL,
+    SUBMIT_AUCTION_PAYMENT,
     SPY,
     CATCH_SPY,
 

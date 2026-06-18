@@ -12,10 +12,10 @@ data class AuctionState(
     val highestBid: Int = 0,
     // ID of the player with the highest bid
     val highestBidderId: String? = null,
-    // Epoch milliseconds when the auction timer expires
-    val timerEndTime: Long? = null,
     // IDs of players who bluffed and are excluded from bidding in this auction
     val excludedPlayerIds: Set<String> = emptySet(),
-    // The ID of the player who received the auctioned card in the end
+    // The ID of the player who must pay for and receives the auctioned card
     val buyerId: String? = null,
+    // The ID of the player who receives the payment for the auctioned card
+    val sellerId: String? = null,
 )

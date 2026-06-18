@@ -27,12 +27,13 @@ import kotlin.test.assertTrue
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(GamePersistenceService::class)
+@Import(GamePersistenceService::class, LeaderboardService::class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class MultiPodIntegrationTest
     @Autowired
     constructor(
         private val persistenceService: GamePersistenceService,
+        private val leaderboardService: LeaderboardService,
     ) {
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
@@ -41,11 +42,12 @@ class MultiPodIntegrationTest
             val queue = ArrayDeque(codes.toList())
             usedGameIds += codes
             return if (codes.isEmpty()) {
-                GameService(eventPublisher, persistenceService)
+                GameService(eventPublisher, persistenceService, leaderboardService)
             } else {
                 GameService(
                     eventPublisher,
                     persistenceService,
+                    leaderboardService,
                     gameCodeGenerator = { queue.removeFirst() },
                 )
             }
@@ -84,13 +86,9 @@ class MultiPodIntegrationTest
                 val podB = pod()
 
                 val created = podA.createGame("Alice")
-                podA.storeReconnectToken("42222", created.playerId, "token-from-pod-a")
 
-                // The new connection lands on pod B.
-                val state = podB.getStateForReconnection("42222", created.playerId)
-                assertEquals(GamePhase.NOT_STARTED, state.phase)
                 assertTrue(
-                    podB.isReconnectTokenValid("42222", created.playerId, "token-from-pod-a"),
+                    podB.isReconnectTokenValid("42222", created.playerId, created.reconnectToken),
                 )
                 assertEquals(
                     false,
@@ -150,12 +148,15 @@ class MultiPodIntegrationTest
                 val started = podA.startGame("44444", created.playerId)
                 val deadline = assertNotNull(started.timerEnd)
 
-                // Pod B (which never touched this game) sweeps after the deadline.
+                // 1. Pod B sweeps after the deadline and schedules an automated auction
                 val advancedByB = podB.sweepExpiredTimeouts(now = deadline + 1)
                 assertEquals(listOf("44444"), advancedByB)
 
-                // Pod A sweeping at the same instant must not advance the game a second time.
-                val advancedByA = podA.sweepExpiredTimeouts(now = deadline + 1)
+                val postSweepState = assertNotNull(persistenceService.loadGameState("44444"))
+                val auctionTimer = assertNotNull(postSweepState.timerEnd)
+
+                // 2. Pod A sweeping before the auction ends must find nothing to advance
+                val advancedByA = podA.sweepExpiredTimeouts(now = auctionTimer - 1000L)
                 assertEquals(emptyList(), advancedByA)
             }
     }

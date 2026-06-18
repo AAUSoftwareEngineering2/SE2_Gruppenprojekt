@@ -27,8 +27,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.model.MoneyCard
@@ -209,6 +213,7 @@ fun MoneyCardView(
     modifier: Modifier = Modifier,
     isClickable: Boolean = true,
 ) {
+    val playPickMoneyCardSound = rememberSoundEffect(R.raw.card_pick_money)
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.1f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
@@ -221,7 +226,16 @@ fun MoneyCardView(
                 .size(width = 70.dp, height = 100.dp)
                 .scale(scale)
                 .offset(y = if (isSelected) (-20).dp else 0.dp)
-                .then(if (isClickable) Modifier.clickable { onClick() } else Modifier),
+                .then(
+                    if (isClickable) {
+                        Modifier.clickable {
+                            playPickMoneyCardSound()
+                            onClick()
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -248,6 +262,21 @@ fun o(
     isTradePhase: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val playFanOutSound = rememberSoundEffect(R.raw.card_fan_out)
+    val playFanInSound = rememberSoundEffect(R.raw.card_fan_in)
+    var previousIsFanned by remember { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(isFanned) {
+        val previous = previousIsFanned
+        if (previous != null && previous != isFanned) {
+            if (isFanned) {
+                playFanOutSound()
+            } else {
+                playFanInSound()
+            }
+        }
+        previousIsFanned = isFanned
+    }
 
     Box(
         modifier =

@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.app.ui.menu.lobby
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +24,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
+import at.aau.kuhhandel.app.ui.theme.DarkPurple
+import at.aau.kuhhandel.app.ui.theme.DefaultPurple
+import at.aau.kuhhandel.app.ui.theme.LightPurple
+import at.aau.kuhhandel.app.ui.theme.WhitePurple
 
 @Composable
 fun LobbyScreen(
@@ -38,6 +51,25 @@ fun LobbyScreen(
     onDismissError: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val playClickSound = LocalButtonClickSound.current
+    val playPlayerJoinedSound = rememberSoundEffect(R.raw.lobby_player_joined)
+    val playPlayerLeftSound = rememberSoundEffect(R.raw.lobby_player_left)
+    var previousPlayerCount by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(uiState.players.size) {
+        val currentPlayerCount = uiState.players.size
+        val previousCount = previousPlayerCount
+
+        if (previousCount != null && previousCount > 0) {
+            when {
+                currentPlayerCount > previousCount -> playPlayerJoinedSound()
+                currentPlayerCount < previousCount -> playPlayerLeftSound()
+            }
+        }
+
+        previousPlayerCount = currentPlayerCount
+    }
+
     MenuBackground(modifier = modifier) {
         Box(
             modifier =
@@ -100,7 +132,10 @@ fun LobbyScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = onDismissError,
+                        onClick = {
+                            playClickSound()
+                            onDismissError()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Hide Errors")
@@ -137,7 +172,10 @@ fun LobbyScreen(
                 ) {
                     if (uiState.canStartGame) {
                         Button(
-                            onClick = onStartGame,
+                            onClick = {
+                                playClickSound()
+                                onStartGame()
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Start Game")
@@ -145,7 +183,10 @@ fun LobbyScreen(
                     }
 
                     OutlinedButton(
-                        onClick = onBack,
+                        onClick = {
+                            playClickSound()
+                            onBack()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Cancel")
@@ -163,8 +204,23 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
             Modifier
                 .fillMaxWidth()
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color =
+                        if (player.isMe) {
+                            WhitePurple
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
                     shape = RoundedCornerShape(24.dp),
+                ).then(
+                    if (player.isMe) {
+                        Modifier.border(
+                            width = 2.dp,
+                            color = DefaultPurple,
+                            shape = RoundedCornerShape(24.dp),
+                        )
+                    } else {
+                        Modifier
+                    },
                 ).padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -178,7 +234,7 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
                     Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(DefaultPurple),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -191,10 +247,29 @@ private fun PlayerListItem(player: PlayerDisplayItem) {
             Spacer(modifier = Modifier.size(12.dp))
 
             Column {
-                Text(
-                    player.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        player.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (player.isMe) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Box(
+                            modifier =
+                                Modifier
+                                    .background(
+                                        color = LightPurple,
+                                        shape = RoundedCornerShape(8.dp),
+                                    ).padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                "(You)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DarkPurple,
+                            )
+                        }
+                    }
+                }
                 Text(
                     if (player.isHost) "Host" else "Player",
                     style = MaterialTheme.typography.bodySmall,

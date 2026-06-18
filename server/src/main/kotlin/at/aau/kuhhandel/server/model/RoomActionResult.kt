@@ -5,5 +5,6 @@ import at.aau.kuhhandel.shared.model.GameState
 data class RoomActionResult(
     val gameId: String,
     val playerId: String,
+    val reconnectToken: String,
     val gameState: GameState,
 )

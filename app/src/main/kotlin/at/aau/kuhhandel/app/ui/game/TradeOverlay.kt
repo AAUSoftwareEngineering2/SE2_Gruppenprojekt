@@ -38,6 +38,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberMediaSoundEffect
 import at.aau.kuhhandel.app.ui.components.AnimalStyle
 import at.aau.kuhhandel.app.ui.components.MainBackground
 import at.aau.kuhhandel.app.ui.components.MoneyCardView
@@ -50,10 +52,10 @@ import at.aau.kuhhandel.app.ui.theme.PureWhite
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
+import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.model.TradeStateView
 import kotlinx.coroutines.delay
 
 private val TRADE_OFFER_CARDS_OFFSET_X = (70).dp
@@ -74,11 +76,11 @@ private const val TRADE_ANIMAL_HEADSHOT_SCALE = 4f
 private const val TRADE_RESULT_CARDS_SCALE = 0.6f
 private const val TRADE_CARD_TRAVEL_DURATION_MS = 2_000
 private const val TRADE_RESULT_GRID_DURATION_MS = 1_000L
-private const val TRADE_RESULT_TOTAL_DURATION_MS = 5_000L
 private const val TRADE_RESULT_COUNT_UP_DURATION_MS = 500
 private const val TRADE_RESULT_TOTAL_POP_DURATION_MS = 100
 private const val TRADE_RESULT_TOTAL_SETTLE_DURATION_MS = 120
 private const val TRADE_RESULT_TOTAL_POP_SCALE = 1.1f
+private const val TRADE_CARD_PLACE_SOUND_DELAY_MS = 600L
 private const val TRADE_EXIT_RETENTION_MS = 2_000L
 
 private enum class TradeResultStage {
@@ -109,9 +111,10 @@ private data class TradeCardPresentation(
 )
 
 private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
-    val tradeState = gameState?.tradeState ?: return null
-    val animalType = tradeState.animalCards.firstOrNull()?.type ?: tradeState.requestedAnimalType
-    val players = gameState.players
+    val tradeState = tradeState ?: return null
+    val animalType =
+        tradeState.animalCards.firstOrNull()?.type
+            ?: return null
 
     return TradeCardPresentation(
         offerCount = tradeOfferCardCount,
@@ -125,12 +128,8 @@ private fun GameUiState.tradeCardPresentation(): TradeCardPresentation? {
         initiatorId = tradeState.initiatorId,
         targetId = tradeState.targetId,
         winnerId = tradeState.winnerId,
-        initiatorName =
-            players.find { it.id == tradeState.initiatorId }?.name
-                ?: tradeState.initiatorId,
-        targetName =
-            players.find { it.id == tradeState.targetId }?.name
-                ?: tradeState.targetId,
+        initiatorName = playerName(tradeState.initiatorId),
+        targetName = playerName(tradeState.targetId),
     )
 }
 
@@ -155,30 +154,89 @@ fun TradeOverlay(
     val currentPresentation = uiState.tradeCardPresentation()
     var retainedPresentation by remember { mutableStateOf(currentPresentation) }
     var resultStage by remember { mutableStateOf(TradeResultStage.STACKS) }
+    var previousTradePresentation by remember { mutableStateOf<TradeCardPresentation?>(null) }
+    var previousOfferCount by remember { mutableStateOf<Int?>(null) }
+    var previousCounterOfferCount by remember { mutableStateOf<Int?>(null) }
+    var wasTradeActive by remember { mutableStateOf(uiState.isTradeActive) }
+    val playTradeStartedSound = rememberMediaSoundEffect(R.raw.trade_table_move)
+    val playTradeWonSound = rememberMediaSoundEffect(R.raw.trade_won)
+    val playTradeLostSound = rememberMediaSoundEffect(R.raw.trade_lost)
+    val playPlaceCardOnTableSound = rememberMediaSoundEffect(R.raw.trade_place_cards)
 
     LaunchedEffect(currentPresentation) {
         if (currentPresentation != null) {
             retainedPresentation = currentPresentation
         }
     }
+    LaunchedEffect(currentPresentation, uiState.currentPhase) {
+        if (previousTradePresentation == null &&
+            currentPresentation != null &&
+            uiState.currentPhase == GamePhase.TRADE_OFFER
+        ) {
+            playTradeStartedSound()
+        }
+        previousTradePresentation = currentPresentation
+    }
+    LaunchedEffect(currentPresentation?.offerCount, currentPresentation?.counterOfferCount) {
+        val offerCount = currentPresentation?.offerCount
+        val counterOfferCount = currentPresentation?.counterOfferCount
+        val offerCardsWerePlaced =
+            offerCount != null &&
+                offerCount > 0 &&
+                offerCount != previousOfferCount
+        val counterOfferCardsWerePlaced =
+            counterOfferCount != null &&
+                counterOfferCount > 0 &&
+                counterOfferCount != previousCounterOfferCount
+
+        if (offerCardsWerePlaced || counterOfferCardsWerePlaced) {
+            delay(TRADE_CARD_PLACE_SOUND_DELAY_MS)
+            playPlaceCardOnTableSound()
+        }
+
+        previousOfferCount = offerCount
+        previousCounterOfferCount = counterOfferCount
+    }
     LaunchedEffect(uiState.isTradeActive) {
         if (!uiState.isTradeActive) {
+            if (wasTradeActive) {
+                playTradeStartedSound()
+            }
+            resultStage = TradeResultStage.STACKS
             delay(TRADE_EXIT_RETENTION_MS)
             retainedPresentation = null
+            previousTradePresentation = null
         }
+        wasTradeActive = uiState.isTradeActive
     }
-    LaunchedEffect(uiState.currentPhase, uiState.gameState?.tradeState) {
+    LaunchedEffect(uiState.currentPhase, uiState.tradeState) {
         if (uiState.currentPhase == GamePhase.TRADE_RESULT) {
             resultStage = TradeResultStage.STACKS
             delay(TRADE_CARD_TRAVEL_DURATION_MS.toLong())
             resultStage = TradeResultStage.GRIDS
             delay(TRADE_RESULT_GRID_DURATION_MS)
             resultStage = TradeResultStage.TOTALS
-            delay(TRADE_RESULT_TOTAL_DURATION_MS)
-            resultStage = TradeResultStage.STACKS
         }
     }
-
+    LaunchedEffect(
+        uiState.currentPhase,
+        resultStage,
+        currentPresentation?.winnerId,
+        uiState.myPlayerId,
+    ) {
+        val presentation = currentPresentation
+        if (uiState.currentPhase == GamePhase.TRADE_RESULT &&
+            resultStage == TradeResultStage.TOTALS &&
+            presentation?.winnerId != null
+        ) {
+            when (uiState.myPlayerId) {
+                presentation.winnerId -> playTradeWonSound()
+                presentation.initiatorId,
+                presentation.targetId,
+                -> playTradeLostSound()
+            }
+        }
+    }
     val presentation =
         currentPresentation
             ?: retainedPresentation.takeIf { !uiState.isTradeActive }
@@ -791,48 +849,55 @@ private fun TradeOverlayPreview(
         )
     val previewState =
         GameUiState(
-            gameState =
-                GameState(
-                    phase = phase,
-                    players =
-                        listOf(
-                            Player(id = "initiator", name = "Offer Player"),
-                            Player(id = "target", name = "Counter Player"),
-                        ),
-                    tradeState =
-                        TradeState(
-                            initiatorId = "initiator",
-                            targetId = "target",
-                            requestedAnimalType = AnimalType.COW,
-                            animalCards =
-                                (1..animalCount)
-                                    .map { index ->
-                                        AnimalCard("cow-$index", AnimalType.COW)
-                                    }.toSet(),
-                            offeredMoneyCards =
-                                listOf(0, 10, 50, 100)
-                                    .mapIndexed { index, value ->
-                                        MoneyCard("offer-$index", value)
-                                    }.toSet(),
-                            counterOfferedMoneyCards =
-                                if (phase == GamePhase.TRADE_RESULT) {
-                                    listOf(0, 10, 10, 50, 100, 200)
-                                        .mapIndexed { index, value ->
-                                            MoneyCard("counter-$index", value)
-                                        }.toSet()
-                                } else {
-                                    null
-                                },
-                            winnerId =
-                                if (phase == GamePhase.TRADE_RESULT) {
-                                    "initiator"
-                                } else {
-                                    null
-                                },
-                        ),
-                ),
             myPlayerId = myPlayerId,
             currentPhase = phase,
+            localPlayer = Player(id = "initiator", name = "Offer Player"),
+            opponents =
+                listOf(
+                    Opponent(
+                        id = "target",
+                        name = "Counter Player",
+                        animals = emptyList(),
+                        moneyCardCount = 6,
+                        isConnected = true,
+                    ),
+                ),
+            tradeState =
+                TradeStateView(
+                    initiatorId = "initiator",
+                    targetId = "target",
+                    animalCards =
+                        (1..animalCount)
+                            .map { index ->
+                                AnimalCard("cow-$index", AnimalType.COW)
+                            },
+                    initiatorCardCount = 4,
+                    targetCardCount = if (phase == GamePhase.TRADE_RESULT) 6 else null,
+                    visibleInitiatorCards =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            listOf(0, 10, 50, 100)
+                                .mapIndexed { index, value ->
+                                    MoneyCard("offer-$index", value)
+                                }
+                        } else {
+                            null
+                        },
+                    visibleTargetCards =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            listOf(0, 10, 10, 50, 100, 200)
+                                .mapIndexed { index, value ->
+                                    MoneyCard("counter-$index", value)
+                                }
+                        } else {
+                            null
+                        },
+                    winnerId =
+                        if (phase == GamePhase.TRADE_RESULT) {
+                            "initiator"
+                        } else {
+                            null
+                        },
+                ),
             myMoneyCards = moneyCards,
             selectedMoneyCardIds = setOf("m3"),
             isTradeHandFanned = isTradeHandFanned,

@@ -42,7 +42,7 @@ class GameStateTest {
                 TradeState(
                     initiatorId = "player-1",
                     targetId = "player-2",
-                    requestedAnimalType = AnimalType.COW,
+                    animalCards = setOf(AnimalCard("trade-cow", AnimalType.COW)),
                     offeredMoneyCards = setOf(MoneyCard("money-50-1", 50)),
                     counterOfferedMoneyCards = null,
                 ),
@@ -56,7 +56,7 @@ class GameStateTest {
         assertEquals(GamePhase.NOT_STARTED, state.phase)
         assertEquals(0, state.roundNumber)
         assertEquals(-1, state.currentPlayerIndex)
-        assertNull(state.currentFaceUpCard)
+        assertNull(state.auctionState?.auctionCard)
         assertTrue(state.players.isEmpty())
         assertTrue(state.deck.isEmpty())
         assertNull(state.auctionState)
@@ -71,7 +71,7 @@ class GameStateTest {
             TradeState(
                 initiatorId = "p1",
                 targetId = "p2",
-                requestedAnimalType = AnimalType.DOG,
+                animalCards = setOf(AnimalCard("trade-dog", AnimalType.DOG)),
             )
 
         val state =
@@ -79,7 +79,6 @@ class GameStateTest {
                 phase = GamePhase.AUCTION_BIDDING,
                 roundNumber = 2,
                 deck = AnimalDeck(listOf(card)),
-                currentFaceUpCard = card,
                 currentPlayerIndex = 1,
                 players = emptyList(),
                 auctionState = auctionState,
@@ -88,7 +87,7 @@ class GameStateTest {
 
         assertEquals(GamePhase.AUCTION_BIDDING, state.phase)
         assertEquals(2, state.roundNumber)
-        assertEquals(card, state.currentFaceUpCard)
+        assertEquals(card, state.auctionState?.auctionCard)
         assertEquals(1, state.currentPlayerIndex)
         assertEquals(auctionState, state.auctionState)
         assertEquals(tradeState, state.tradeState)
@@ -262,5 +261,39 @@ class GameStateTest {
     @Test
     fun test_updatePlayer_throws_ifPlayerDoesNotExist() {
         assertThrows<IllegalStateException> { baseState.updatePlayer("player-4") { it } }
+    }
+
+    @Test
+    fun test_isFinished_returnsTrue_ifGameIsFinished() {
+        val finishedState = baseState.copy(phase = GamePhase.FINISHED)
+
+        assertTrue(finishedState.isFinished())
+    }
+
+    @Test
+    fun test_isFinished_returnsFalse_ifGameIsNotFinished() {
+        assertFalse(baseState.isFinished())
+    }
+
+    @Test
+    fun test_hasPlayer_returnsTrue_ifStateContainsPlayer() {
+        assertTrue(baseState.hasPlayer("player-1"))
+    }
+
+    @Test
+    fun test_hasPlayer_returnsFalse_ifStateDoesNotContainPlayer() {
+        assertFalse(baseState.hasPlayer("player-4"))
+    }
+
+    @Test
+    fun test_hasNoPlayers_returnsTrue_ifStateContainsNoPlayers() {
+        val emptyState = baseState.copy(players = emptyList())
+
+        assertTrue(emptyState.hasNoPlayers())
+    }
+
+    @Test
+    fun test_hasNoPlayers_returnsFalse_ifStateContainsAtLeastOnePlayer() {
+        assertFalse(baseState.hasNoPlayers())
     }
 }

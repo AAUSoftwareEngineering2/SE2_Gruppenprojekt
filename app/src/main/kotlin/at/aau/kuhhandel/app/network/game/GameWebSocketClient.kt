@@ -10,6 +10,7 @@ import at.aau.kuhhandel.shared.websocket.ReconnectPayload
 import at.aau.kuhhandel.shared.websocket.ResolveAuctionPayload
 import at.aau.kuhhandel.shared.websocket.RespondToTradePayload
 import at.aau.kuhhandel.shared.websocket.SpyPayload
+import at.aau.kuhhandel.shared.websocket.SubmitAuctionPaymentPayload
 import at.aau.kuhhandel.shared.websocket.SubmitTradeMoneyPayload
 import at.aau.kuhhandel.shared.websocket.WebSocketEnvelope
 import at.aau.kuhhandel.shared.websocket.WebSocketJson
@@ -277,6 +278,18 @@ class GameWebSocketClient(
         return requestId
     }
 
+    /** Submits the auction buyer's selected money cards as payment. */
+    suspend fun submitAuctionPayment(moneyCardIds: Set<String>): String {
+        val requestId = UUID.randomUUID().toString()
+        val payload =
+            WebSocketJson.json.encodeToJsonElement(
+                SubmitAuctionPaymentPayload.serializer(),
+                SubmitAuctionPaymentPayload(moneyCardIds = moneyCardIds),
+            )
+        send(WebSocketEnvelope(WebSocketType.SUBMIT_AUCTION_PAYMENT, requestId, payload))
+        return requestId
+    }
+
     /** Submits the initiator's selected money cards. */
     suspend fun submitTradeMoney(moneyCardIds: Set<String>): String {
         val requestId = UUID.randomUUID().toString()
@@ -300,13 +313,6 @@ class GameWebSocketClient(
                 ),
             )
         send(WebSocketEnvelope(WebSocketType.RESPOND_TO_TRADE, requestId, payload))
-        return requestId
-    }
-
-    /** Completes the visual reveal phase of a trade. */
-    suspend fun finishTradeReveal(): String {
-        val requestId = UUID.randomUUID().toString()
-        send(WebSocketEnvelope(WebSocketType.FINISH_TRADE_REVEAL, requestId))
         return requestId
     }
 

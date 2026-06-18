@@ -68,7 +68,6 @@ class GamePersistenceService(
             state.players.getOrNull(state.currentPlayerIndex)?.let { active ->
                 playerEntities[active.id]?.user
             }
-        game.faceUpAnimalType = state.currentFaceUpCard?.type
         gameRepository.save(game)
         logger.info("[DB WRITE] Saved game $gameId successfully")
     }
@@ -111,6 +110,19 @@ class GamePersistenceService(
         return gameRepository.existsById(gameKey)
     }
 
+    @Transactional
+    fun saveGameStateWithReconnectToken(
+        gameId: String,
+        state: GameState,
+        playerId: String,
+        token: String,
+        activityAt: Long? = System.currentTimeMillis(),
+    ): Boolean {
+        val gameKey = gameId.toLongOrNull() ?: return false
+        saveGameState(gameId, state, activityAt)
+        return storeReconnectTokenHash(gameKey, playerId, token)
+    }
+
     /**
      * Runs [mutate] on the current persisted state inside one transaction that holds the game's
      * row lock (lock, load, mutate, save). Concurrent mutations from other pods wait on the lock,
@@ -131,6 +143,82 @@ class GamePersistenceService(
         val next = mutate(current)
         saveGameState(gameId, next, activityAt)
         return next
+    }
+
+    /**
+     * Runs [mutate] under the game row lock and deletes the game in the same transaction if the
+     * resulting state is empty. This avoids a join landing between "last player left" and purge.
+     */
+    @Transactional
+    fun mutateGameStateDeletingEmpty(
+        gameId: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): GameState? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        val game = gameRepository.findWithLockById(gameKey) ?: return null
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        if (next.hasNoPlayers()) {
+            deleteGameData(gameKey, game)
+        } else {
+            saveGameState(gameId, next, activityAt)
+        }
+        return next
+    }
+
+    /**
+     * Applies a state mutation and stores a newly issued reconnect token in one transaction.
+     */
+    @Transactional
+    fun mutateGameStateWithIssuedReconnectToken(
+        gameId: String,
+        playerId: String,
+        token: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): GameState? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        gameRepository.findWithLockById(gameKey) ?: return null
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        saveGameState(gameId, next, activityAt)
+        check(storeReconnectTokenHash(gameKey, playerId, token)) {
+            "Could not store reconnect token for player $playerId in game $gameId"
+        }
+        return next
+    }
+
+    /**
+     * Validates the old reconnect token, applies the reconnect mutation, and rotates the token while
+     * holding the game/player row locks.
+     */
+    @Transactional
+    fun mutateGameStateForReconnect(
+        gameId: String,
+        playerId: String,
+        token: String,
+        newToken: String,
+        activityAt: Long? = System.currentTimeMillis(),
+        mutate: (GameState) -> GameState,
+    ): ReconnectTokenMutationResult? {
+        val gameKey = gameId.toLongOrNull() ?: return null
+        gameRepository.findWithLockById(gameKey) ?: return null
+        val player =
+            gamePlayerRepository.findLockedByGameIdAndPlayerId(gameKey, playerId)
+                ?: return ReconnectTokenMutationResult.InvalidToken
+        val storedHash =
+            player.reconnectTokenHash ?: return ReconnectTokenMutationResult.InvalidToken
+        if (!tokenMatches(storedHash, token)) {
+            return ReconnectTokenMutationResult.InvalidToken
+        }
+
+        val current = loadGameState(gameId) ?: return null
+        val next = mutate(current)
+        saveGameState(gameId, next, activityAt)
+        player.reconnectTokenHash = hashToken(newToken)
+        gamePlayerRepository.save(player)
+        return ReconnectTokenMutationResult.Success(next)
     }
 
     /**
@@ -164,8 +252,9 @@ class GamePersistenceService(
     }
 
     /**
-     * Stores the SHA-256 hash of [token] on the player's row. Returns false when the game or
-     * player is unknown.
+     * Stores only a SHA-256 hash of [token] on the player's row. Reconnect tokens are bearer
+     * credentials; hashing keeps a database dump from exposing immediately reusable tokens.
+     * Returns false when the game or player is unknown.
      */
     @Transactional
     fun storeReconnectToken(
@@ -174,10 +263,7 @@ class GamePersistenceService(
         token: String,
     ): Boolean {
         val gameKey = gameId.toLongOrNull() ?: return false
-        val player = gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId) ?: return false
-        player.reconnectTokenHash = hashToken(token)
-        gamePlayerRepository.save(player)
-        return true
+        return storeReconnectTokenHash(gameKey, playerId, token)
     }
 
     /**
@@ -206,8 +292,24 @@ class GamePersistenceService(
         val stored =
             gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId)?.reconnectTokenHash
                 ?: return false
-        return MessageDigest.isEqual(stored.toByteArray(), hashToken(token).toByteArray())
+        return tokenMatches(stored, token)
     }
+
+    private fun storeReconnectTokenHash(
+        gameKey: Long,
+        playerId: String,
+        token: String,
+    ): Boolean {
+        val player = gamePlayerRepository.findByGameIdAndPlayerId(gameKey, playerId) ?: return false
+        player.reconnectTokenHash = hashToken(token)
+        gamePlayerRepository.save(player)
+        return true
+    }
+
+    private fun tokenMatches(
+        storedHash: String,
+        token: String,
+    ): Boolean = MessageDigest.isEqual(storedHash.toByteArray(), hashToken(token).toByteArray())
 
     private fun hashToken(token: String): String =
         MessageDigest
@@ -220,6 +322,13 @@ class GamePersistenceService(
         logger.info("[DB DELETE] Deleting game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return
         val game = gameRepository.findById(gameKey).orElse(null) ?: return
+        deleteGameData(gameKey, game)
+    }
+
+    private fun deleteGameData(
+        gameKey: Long,
+        game: GameEntity,
+    ) {
         auctionStateRepository.deleteById(gameKey)
         tradeStateRepository.deleteById(gameKey)
         deckCardRepository.deleteByGame(game)
@@ -229,6 +338,7 @@ class GamePersistenceService(
                 playerMoneyRepository.deleteByPlayer(player)
                 playerAnimalRepository.deleteByPlayer(player)
             }
+        // game_players owns reconnect_token_hash, so deleting these rows removes all player tokens.
         gamePlayerRepository.deleteByGame(game)
         gameRepository.deleteById(gameKey)
     }
@@ -248,7 +358,6 @@ class GamePersistenceService(
                     timerEnd = state.timerEnd,
                     hostPlayerId = state.hostPlayerId,
                     roundNumber = state.roundNumber,
-                    faceUpAnimalType = state.currentFaceUpCard?.type,
                     lastActivityAt = activityAt ?: System.currentTimeMillis(),
                     activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies),
                     spiedThisTurnJson =
@@ -262,7 +371,6 @@ class GamePersistenceService(
             existing.timerEnd = state.timerEnd
             existing.hostPlayerId = state.hostPlayerId
             existing.roundNumber = state.roundNumber
-            existing.faceUpAnimalType = state.currentFaceUpCard?.type
             existing.activeSpiesJson = GameStateMapper.encodeSpies(state.activeSpies)
             existing.spiedThisTurnJson =
                 GameStateMapper.encodeStringList(state.spiedThisTurn.toList())
@@ -323,6 +431,7 @@ class GamePersistenceService(
                                 playerId = player.id,
                                 displayName = player.name,
                                 seatOrder = index,
+                                isConnected = player.isConnected,
                             ),
                         )
                     } else {
@@ -330,6 +439,7 @@ class GamePersistenceService(
                         playerEntity.playerId = player.id
                         playerEntity.displayName = player.name
                         playerEntity.seatOrder = index
+                        playerEntity.isConnected = player.isConnected
                         playerEntity
                     }
                 player.id to saved
@@ -418,8 +528,8 @@ class GamePersistenceService(
                     highestBid = auction.highestBid,
                     highestBidder = highestBidder,
                     passedPlayersJson = passedJson,
-                    timerEndTime = auction.timerEndTime,
                     buyerPlayerId = auction.buyerId,
+                    sellerPlayerId = auction.sellerId,
                 ),
             )
         } else {
@@ -428,8 +538,8 @@ class GamePersistenceService(
             existing.highestBid = auction.highestBid
             existing.highestBidder = highestBidder
             existing.passedPlayersJson = passedJson
-            existing.timerEndTime = auction.timerEndTime
             existing.buyerPlayerId = auction.buyerId
+            existing.sellerPlayerId = auction.sellerId
             auctionStateRepository.save(existing)
         }
     }
@@ -454,20 +564,8 @@ class GamePersistenceService(
             playerEntities[trade.targetId]
                 ?: error("Trade defender ${trade.targetId} not persisted")
 
-        val challengerCards =
-            resolveMoneyCards(
-                state = state,
-                playerId = trade.initiatorId,
-                cardIds = trade.offeredMoneyCardIds,
-                selectedCards = trade.offeredMoneyCards,
-            )
-        val defenderCards =
-            resolveMoneyCards(
-                state = state,
-                playerId = trade.targetId,
-                cardIds = trade.counterOfferedMoneyCardIds,
-                selectedCards = trade.counterOfferedMoneyCards,
-            )
+        val challengerCards = resolveMoneyCards(trade.offeredMoneyCards)
+        val defenderCards = resolveMoneyCards(trade.counterOfferedMoneyCards)
         val challengerValues = challengerCards.map { it.value }
         val defenderValues = defenderCards.map { it.value }
 
@@ -477,44 +575,40 @@ class GamePersistenceService(
                     game = game,
                     challenger = challenger,
                     defender = defender,
-                    animalType = trade.requestedAnimalType,
+                    animalType = trade.animalCards.first().type,
                     challengerOfferJson = GameStateMapper.encodeIntList(challengerValues),
                     defenderOfferJson = GameStateMapper.encodeIntList(defenderValues),
                     animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList()),
                     challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards),
                     defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards),
                     winnerPlayerId = trade.winnerId,
-                    isResolved = trade.isResolved,
                 ),
             )
         } else {
             existing.challenger = challenger
             existing.defender = defender
-            existing.animalType = trade.requestedAnimalType
+            existing.animalType = trade.animalCards.first().type
             existing.challengerOfferJson = GameStateMapper.encodeIntList(challengerValues)
             existing.defenderOfferJson = GameStateMapper.encodeIntList(defenderValues)
             existing.animalCardsJson = GameStateMapper.encodeAnimalCards(trade.animalCards.toList())
             existing.challengerOfferCardsJson = GameStateMapper.encodeMoneyCards(challengerCards)
             existing.defenderOfferCardsJson = GameStateMapper.encodeMoneyCards(defenderCards)
             existing.winnerPlayerId = trade.winnerId
-            existing.isResolved = trade.isResolved
             tradeStateRepository.save(existing)
         }
     }
 
-    private fun resolveMoneyCards(
-        state: GameState,
-        playerId: String,
-        cardIds: Set<String>,
-        selectedCards: Set<MoneyCard>?,
-    ): List<MoneyCard> =
-        selectedCards?.toList()
-            ?: state.players
-                .firstOrNull { it.id == playerId }
-                ?.moneyCards
-                ?.filter { it.id in cardIds }
-            ?: emptyList()
+    private fun resolveMoneyCards(selectedCards: Set<MoneyCard>?): List<MoneyCard> =
+        selectedCards?.toList() ?: emptyList()
 
     private fun GamePlayerEntity.persistedPlayerId(): String =
         playerId ?: user.passwordHash.ifBlank { user.username }
+}
+
+sealed class ReconnectTokenMutationResult {
+    data class Success(
+        val state: GameState,
+    ) : ReconnectTokenMutationResult()
+
+    object InvalidToken : ReconnectTokenMutationResult()
 }
