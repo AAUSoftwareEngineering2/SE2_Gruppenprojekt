@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -34,6 +35,7 @@ fun RoomCreationScreen(
     onBack: () -> Unit,
     onLobbyCreated: (String) -> Unit,
 ) {
+    val playClickSound = LocalButtonClickSound.current
     var hasTriggeredNavigation by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isCreated, uiState.gameId) {
@@ -62,7 +64,10 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onBack,
+                            onClick = {
+                                playClickSound()
+                                onBack()
+                            },
                             modifier = Modifier.fillMaxWidth(0.6f),
                         ) {
                             Text("Back")
@@ -140,7 +145,10 @@ fun RoomCreationScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onCreateLobby,
+                            onClick = {
+                                playClickSound()
+                                onCreateLobby()
+                            },
                             enabled = uiState.canSubmit,
                             modifier = Modifier.fillMaxWidth(),
                         ) {

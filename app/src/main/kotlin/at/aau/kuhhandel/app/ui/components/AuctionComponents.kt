@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.rememberSoundEffect
 import at.aau.kuhhandel.app.ui.theme.AlertRed
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.DefaultPurple
@@ -378,6 +379,8 @@ fun AuctionControls(
     currentBid: Int,
     isExcluded: Boolean = false,
 ) {
+    val playBidHigherSound = rememberSoundEffect(R.raw.auction_bid_higher)
+
     if (isExcluded) {
         Column(
             modifier = modifier.padding(16.dp),
@@ -406,7 +409,10 @@ fun AuctionControls(
         options.forEach { amount ->
             val nextBid = currentBid + amount
             Button(
-                onClick = { onBid(nextBid) },
+                onClick = {
+                    playBidHigherSound()
+                    onBid(nextBid)
+                },
                 shape = RoundedCornerShape(24.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 contentPadding = PaddingValues(0.dp),

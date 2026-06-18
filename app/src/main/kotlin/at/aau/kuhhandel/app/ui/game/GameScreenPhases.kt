@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.AuctionControls
 import at.aau.kuhhandel.app.ui.components.AuctionView
 import at.aau.kuhhandel.app.ui.components.DeckView
@@ -60,6 +61,7 @@ fun AuctionPhaseContent(
     onSubmitAuctionPayment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val playClickSound = LocalButtonClickSound.current
     val auctionState = uiState.auctionState
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -157,18 +159,31 @@ fun AuctionPhaseContent(
                                     color = DarkPurple,
                                 )
                                 if (highestBidderId == null) {
-                                    Button(onClick = { onBuyBack(true) }) {
+                                    Button(
+                                        onClick = {
+                                            playClickSound()
+                                            onBuyBack(true)
+                                        },
+                                    ) {
                                         Text("CONTINUE")
                                     }
                                 } else {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Button(
-                                            onClick = { onBuyBack(true) },
+                                            onClick = {
+                                                playClickSound()
+                                                onBuyBack(true)
+                                            },
                                             enabled = uiState.canAuctioneerBuyBack,
                                         ) {
                                             Text("Buy Back")
                                         }
-                                        Button(onClick = { onBuyBack(false) }) {
+                                        Button(
+                                            onClick = {
+                                                playClickSound()
+                                                onBuyBack(false)
+                                            },
+                                        ) {
                                             Text("Let Winner Buy")
                                         }
                                     }

@@ -27,6 +27,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuButton
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
@@ -61,6 +62,7 @@ fun MainMenuScreen(
     // ==========================================================
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val playClickSound = LocalButtonClickSound.current
 
     if (showRejoinDialog) {
         AlertDialog(
@@ -154,7 +156,10 @@ fun MainMenuScreen(
 
         // Leaderboard
         Button(
-            onClick = onLeaderboard,
+            onClick = {
+                playClickSound()
+                onLeaderboard()
+            },
             modifier =
                 Modifier
                     .align(Alignment.BottomStart)
@@ -173,6 +178,7 @@ fun MainMenuScreen(
         ) {
             Button(
                 onClick = {
+                    playClickSound()
                     scope.launch {
                         val result = onPingServer()
                         result

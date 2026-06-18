@@ -15,7 +15,7 @@ fun MenuMusicPlayer(
 
     val mediaPlayer =
         remember {
-            createMenuMediaPlayer(context)
+            createMenuMediaPlayer(context).also(::registerActiveMenuMediaPlayer)
         }
 
     LaunchedEffect(isGameStarted) {
@@ -24,7 +24,7 @@ fun MenuMusicPlayer(
 
     DisposableEffect(Unit) {
         onDispose {
-            releaseMediaPlayer(mediaPlayer)
+            releaseMenuMediaPlayer(mediaPlayer)
         }
     }
 

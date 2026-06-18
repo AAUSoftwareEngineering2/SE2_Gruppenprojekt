@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.ui.components.MenuBackground
 import at.aau.kuhhandel.app.ui.components.MenuCard
 
@@ -32,6 +33,8 @@ fun RoomJoiningScreen(
     onBack: () -> Unit,
     onLobbyJoined: (String) -> Unit,
 ) {
+    val playClickSound = LocalButtonClickSound.current
+
     LaunchedEffect(uiState.isJoined, uiState.joinedLobbyCode) {
         if (uiState.isJoined && uiState.joinedLobbyCode != null) {
             onLobbyJoined(uiState.joinedLobbyCode)
@@ -119,7 +122,10 @@ fun RoomJoiningScreen(
                     CircularProgressIndicator()
                 } else {
                     Button(
-                        onClick = onJoinLobby,
+                        onClick = {
+                            playClickSound()
+                            onJoinLobby()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = uiState.canSubmit,
                     ) {
