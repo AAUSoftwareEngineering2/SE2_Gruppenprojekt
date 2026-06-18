@@ -1,6 +1,5 @@
 package at.aau.kuhhandel.server.persistence
 
-import at.aau.kuhhandel.server.model.GameSession
 import at.aau.kuhhandel.server.persistence.entity.GameStatus
 import at.aau.kuhhandel.server.persistence.repository.AuctionStateRepository
 import at.aau.kuhhandel.server.persistence.repository.DeckCardRepository
@@ -15,6 +14,7 @@ import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
+import at.aau.kuhhandel.shared.model.GameSession
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Player

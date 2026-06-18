@@ -2,11 +2,11 @@ package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.cluster.ClusterUpdateNotifier
 import at.aau.kuhhandel.server.event.GameStateChangedEvent
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
+import at.aau.kuhhandel.shared.exception.GameException
 import at.aau.kuhhandel.shared.model.AnimalCard
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState

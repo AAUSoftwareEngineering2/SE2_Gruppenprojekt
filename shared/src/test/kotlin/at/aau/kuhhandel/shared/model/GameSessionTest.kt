@@ -1,23 +1,14 @@
-package at.aau.kuhhandel.server.model
+package at.aau.kuhhandel.shared.model
 
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.AnimalDeck
-import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.GameEvent
-import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PhaseDurations
-import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.model.SpyAction
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.exception.GameException
 import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import kotlin.math.abs
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -377,7 +368,7 @@ class GameSessionTest {
         }
         assertNotNull(updatedState.lastEvent)
         assertTrue(updatedState.lastEvent is GameEvent.MoneyBonus)
-        assertEquals(50, (updatedState.lastEvent as GameEvent.MoneyBonus).amount)
+        assertEquals(50, updatedState.lastEvent.amount)
 
         // Assert: The unified countdown timer is initialized on the state
         assertValidTimeout(
@@ -1186,7 +1177,7 @@ class GameSessionTest {
         assertNotNull(trade)
         val offeredCards = checkNotNull(trade.offeredMoneyCards)
         assertEquals(1, offeredCards.size)
-        assertEquals(10, (trade.offeredMoneyCards?.sumOf { it.value } ?: 0))
+        assertEquals(10, trade.offeredMoneyCards.sumOf { it.value })
         assertTrue(offeredCards.any { it.id == targetCardId })
     }
 
@@ -1231,7 +1222,7 @@ class GameSessionTest {
         assertNotNull(trade)
         val offeredCards = checkNotNull(trade.offeredMoneyCards)
         assertTrue(offeredCards.isEmpty())
-        assertEquals(0, (trade.offeredMoneyCards?.sumOf { it.value } ?: 0))
+        assertEquals(0, trade.offeredMoneyCards.sumOf { it.value })
     }
 
     @Test
@@ -1879,7 +1870,7 @@ class GameSessionTest {
         assertEquals(GamePhase.AUCTION_BIDDING, updatedState.phase)
         assertEquals(0, updatedState.currentPlayerIndex)
         assertNotNull(updatedState.auctionState)
-        assertEquals("player-1", updatedState.auctionState?.auctioneerId)
+        assertEquals("player-1", updatedState.auctionState.auctioneerId)
 
         // Expirations are cleaned up as before
         assertEquals(emptySet(), updatedState.activeSpies)
@@ -1909,13 +1900,13 @@ class GameSessionTest {
         // Assert: Transitions to trade offer phase targeting the player holding the matching card
         assertEquals(GamePhase.TRADE_OFFER, updatedState.phase)
         assertNotNull(updatedState.tradeState)
-        assertEquals("player-1", updatedState.tradeState?.initiatorId)
-        assertEquals("player-2", updatedState.tradeState?.targetId)
+        assertEquals("player-1", updatedState.tradeState.initiatorId)
+        assertEquals("player-2", updatedState.tradeState.targetId)
         assertEquals(
             AnimalType.PIG,
             updatedState.tradeState
-                ?.animalCards
-                ?.firstOrNull()
+                .animalCards
+                .firstOrNull()
                 ?.type,
         )
     }
@@ -2138,7 +2129,7 @@ class GameSessionTest {
             state = updatedState,
         )
         assertNotNull(updatedState.tradeState?.offeredMoneyCards)
-        assertTrue(updatedState.tradeState!!.offeredMoneyCards!!.isEmpty())
+        assertTrue(updatedState.tradeState.offeredMoneyCards.isEmpty())
     }
 
     @Test
@@ -2524,7 +2515,7 @@ class GameSessionTest {
 
         checkNotNull(actualTimestamp) { "Expected a phase timeout window, but timerEnd was null" }
         val expectedTime = System.currentTimeMillis() + expectedDuration
-        val diff = kotlin.math.abs(actualTimestamp - expectedTime)
+        val diff = abs(actualTimestamp - expectedTime)
         assertTrue(
             diff <= tolerance,
             "Timeout timestamp $actualTimestamp fell outside window ($expectedTime +/- ${tolerance}ms)",

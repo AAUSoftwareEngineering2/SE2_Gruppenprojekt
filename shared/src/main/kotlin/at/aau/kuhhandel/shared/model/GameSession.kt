@@ -1,19 +1,9 @@
-package at.aau.kuhhandel.server.model
+package at.aau.kuhhandel.shared.model
 
-import at.aau.kuhhandel.server.exception.GameException
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason
 import at.aau.kuhhandel.shared.enums.GamePhase
-import at.aau.kuhhandel.shared.model.AnimalCard
-import at.aau.kuhhandel.shared.model.AnimalDeck
-import at.aau.kuhhandel.shared.model.AuctionState
-import at.aau.kuhhandel.shared.model.GameEvent
-import at.aau.kuhhandel.shared.model.GameState
-import at.aau.kuhhandel.shared.model.MoneyCard
-import at.aau.kuhhandel.shared.model.PhaseDurations
-import at.aau.kuhhandel.shared.model.Player
-import at.aau.kuhhandel.shared.model.SpyAction
-import at.aau.kuhhandel.shared.model.TradeState
+import at.aau.kuhhandel.shared.exception.GameException
 import at.aau.kuhhandel.shared.utils.ScoreCalculator
 
 /**
