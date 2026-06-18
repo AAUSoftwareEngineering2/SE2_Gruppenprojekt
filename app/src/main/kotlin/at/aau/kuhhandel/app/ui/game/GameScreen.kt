@@ -99,10 +99,19 @@ fun GameScreen(
             Modifier
                 .fillMaxSize()
                 .clickable(
-                    enabled = uiState.isHandFanned && !isTradeActive,
+                    enabled =
+                        (uiState.isHandFanned && !isTradeActive) ||
+                            uiState.selectedTargetPlayerId != null,
                     interactionSource = gameBackgroundInteractionSource,
                     indication = null,
-                    onClick = onCollapseHand,
+                    onClick = {
+                        if (uiState.isHandFanned) onCollapseHand()
+                        if (uiState.selectedTargetPlayerId !=
+                            null
+                        ) {
+                            tradeActions.selectTargetPlayer(null)
+                        }
+                    },
                 ),
     ) {
         // --- DECOR ---
