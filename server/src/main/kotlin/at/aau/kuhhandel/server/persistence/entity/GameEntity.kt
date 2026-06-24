@@ -13,6 +13,9 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 
+// JPA-Entity = bildet die Tabelle "games" ab (eine Zeile = ein Spiel): Status, Phase, Timer, Host,
+// roundNumber, lastActivityAt, Spy-Felder, @Version (optimistic locking).
+// Indizes auf timer_end / earliest_spy_expiry, damit die Sweeper schnell pollen können.
 @Entity
 @Table(
     name = "games",

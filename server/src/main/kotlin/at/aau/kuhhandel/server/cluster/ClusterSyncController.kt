@@ -36,10 +36,14 @@ class ClusterSyncController(
 
     @PostMapping("/internal/cluster/game-updated")
     fun gameUpdated(
+        // required = false: fehlt der Header, wirft Spring NICHT automatisch 400 - er kommt als
+        // null rein und wir antworten selbst kontrolliert mit 403 (siehe isAuthorized()).
         @RequestHeader(ClusterUpdateNotifier.SECRET_HEADER, required = false) secret: String?,
         @RequestHeader(ClusterUpdateNotifier.ORIGIN_HEADER, required = false) origin: String?,
         @RequestBody notification: GameUpdatedNotification,
     ): ResponseEntity<Unit> {
+        // 403 nur wenn das Secret fehlt/falsch ist. In allen anderen Fällen 204 No Content
+        // (Erfolg, eigenes Echo, oder unbekanntes Spiel).
         if (!isAuthorized(secret)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
         }
@@ -54,12 +58,17 @@ class ClusterSyncController(
             return ResponseEntity.noContent().build()
         }
 
+        // Internes Spring-Event (NICHT die HTTP-Antwort - die ist nur 204). Es wird vom
+        // @EventListener im GameWebSocketHandler aufgefangen, der den frischen Stand dann an die
+        // WebSocket-Clients dieses Pods pusht.
         eventPublisher.publishEvent(GameStateChangedEvent(notification.gameId, state))
         return ResponseEntity.noContent().build()
     }
 
     private fun isAuthorized(secret: String?): Boolean {
         if (!properties.clusterEnabled || secret.isNullOrBlank()) return false
+        // Vergleich in konstanter Zeit: ein normales == bricht beim ersten falschen Zeichen ab -
+        // dann könnte man das Secret über die Antwortzeit Zeichen für Zeichen erraten (Timing-Angriff).
         return MessageDigest.isEqual(secret.toByteArray(), properties.secret.toByteArray())
     }
 }

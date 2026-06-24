@@ -39,6 +39,8 @@ class WebSocketHeartbeat(
             return
         }
         try {
+            // synchronized = immer nur EIN Thread gleichzeitig in diesem Block (auf die session
+            // gesperrt) -> Heartbeat-Ping und Broadcast schreiben nicht parallel auf denselben Socket.
             synchronized(session) {
                 if (session.isOpen) {
                     session.sendMessage(PingMessage(EMPTY_PAYLOAD))
@@ -52,6 +54,8 @@ class WebSocketHeartbeat(
 
     companion object {
         private const val HEARTBEAT_INTERVAL_MS = 25_000L
+        // leerer Byte-Puffer (0 Bytes): ein Ping braucht technisch einen Payload-Parameter
+        // wollen aber nichts mitschicken -> leer, einmal angelegt und wiederverwendet.
         private val EMPTY_PAYLOAD: ByteBuffer = ByteBuffer.allocate(0)
     }
 }

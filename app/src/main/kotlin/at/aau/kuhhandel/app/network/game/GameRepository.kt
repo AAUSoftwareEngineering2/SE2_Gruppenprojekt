@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+// der EINE Zustand, den die UI beobachtet: verbunden? reconnecting? gameId, mein playerId, Spielsicht, Fehler.
 data class GameRepositoryState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
@@ -66,6 +67,7 @@ class GameRepository(
     private var reconnectAttempts = 0
 
     /** Requests to create a new game room with the given player name. */
+    // Aktions-Bauart (gilt für alle Aktionen): ensureConnected() -> Fehler löschen -> Befehl an den Client geben.
     suspend fun createGame(playerName: String) {
         ensureConnected()
         _state.update { it.copy(errorMessage = null) }
@@ -177,6 +179,7 @@ class GameRepository(
     }
 
     /** Stops active connection jobs and resets the repository state. */
+    // stoppt den Event-Job, trennt den Client, löscht das Token und setzt den State komplett zurück.
     fun disconnect() {
         scope.launch {
             val activeJob = eventsJob
@@ -190,6 +193,8 @@ class GameRepository(
     }
 
     /** Ensures a WebSocket connection is active, initiating it if necessary and handling re-sync. */
+    // Verbindungs-Orchestrator: WS öffnen + Collector-Job starten; waren wir schon in einem Spiel,
+    // automatisch reconnecten (gameId/playerId/Token mitschicken), damit der Server uns wiedererkennt.
     private suspend fun ensureConnected() {
         if (awaitExistingConnection()) {
             return
@@ -251,6 +256,7 @@ class GameRepository(
             }
 
     /** Core loop that collects envelopes from the stream until the connection is closed or fails. */
+    // Kern-Loop: sammelt die Events aus dem Flow und gibt jedes an handleEnvelope; bei echtem Verbindungsfehler -> scheduleReconnect().
     private suspend fun collectEvents(events: Flow<WebSocketEnvelope>) {
         val collectorJob = currentCoroutineContext()[Job]
         try {
@@ -272,6 +278,7 @@ class GameRepository(
      * Schedules the next automatic reconnect attempt with exponential backoff. The attempt is
      * skipped when the user left the game in the meantime (gameId cleared by [disconnect]).
      */
+    // plant den nächsten Auto-Reconnect mit Exponential-Backoff; übersprungen, wenn der User das Spiel verlassen hat.
     private fun scheduleReconnect() {
         val attempt = ++reconnectAttempts
         _state.update { it.copy(isReconnecting = true, reconnectAttempt = attempt) }
@@ -284,6 +291,7 @@ class GameRepository(
         }
     }
 
+    // Backoff-Formel: 1s, 2s, 4s, 8s, dann gedeckelt bei 15s (shl = bit-shift links = jeweils verdoppeln).
     private fun reconnectDelayMs(attempt: Int): Long {
         val shift = (attempt - 1).coerceIn(0, MAX_BACKOFF_SHIFT)
         return (INITIAL_RECONNECT_DELAY_MS shl shift).coerceAtMost(MAX_RECONNECT_DELAY_MS)
@@ -361,6 +369,7 @@ class GameRepository(
         }
 
     /** Central dispatcher for all incoming WebSocket messages, updating state based on message type. */
+    // zentraler Verteiler: je nach Event-Typ (GAME_CREATED/JOINED, GAME_STATE_UPDATED, SNAPSHOT, ERROR) den State aktualisieren.
     private fun handleEnvelope(envelope: WebSocketEnvelope) {
         when (envelope.type) {
             WebSocketType.GAME_CREATED,
@@ -501,6 +510,7 @@ class GameRepository(
     }
 
     /** Safely decodes a JSON payload from an envelope into a typed object. */
+    // JSON-Payload eines Events sicher in ein typisiertes Objekt parsen; bei Fehler Fehlermeldung setzen + null.
     private fun <T> decodePayload(
         envelope: WebSocketEnvelope,
         serializer: kotlinx.serialization.KSerializer<T>,

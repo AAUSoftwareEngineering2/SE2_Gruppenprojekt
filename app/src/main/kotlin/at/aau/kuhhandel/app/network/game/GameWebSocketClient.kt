@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
 
+// dein Wrapper um die Ktor-Session + eine Aufräum-Funktion (z. B. HTTP-Client schließen).
 class OpenedSession(
     val session: WebSocketSession,
     private val extraCleanup: suspend () -> Unit = {},
@@ -54,6 +55,7 @@ class GameWebSocketClient(
     private val openSession: suspend () -> OpenedSession = openSession ?: ::defaultOpenSession
 
     /** Returns the connection Flow. The WebSocket opens when collection starts. */
+    // Herzstück: öffnet die WS (sobald jemand den Flow sammelt) und liefert alle Server-Events als Flow.
     fun connect(): Flow<WebSocketEnvelope> {
         ensureDisconnected()
         val ready = preparePendingConnection()
@@ -74,6 +76,8 @@ class GameWebSocketClient(
         }
     }
 
+    // erzeugt ein "Warte-Handle" (CompletableDeferred = Versprechen, auf das man await()en kann),
+    // auf das awaitConnected() wartet; setzt außerdem die Status-Flags zurück.
     private fun preparePendingConnection(): CompletableDeferred<Unit> =
         CompletableDeferred<Unit>().also { ready ->
             connectionFailure = null
@@ -92,6 +96,8 @@ class GameWebSocketClient(
             throw e
         }
 
+    // Verbindung steht: aktive Session merken (current) und das Warte-Handle erfüllen
+    // (ready.complete) -> alle, die in awaitConnected() warten, werden freigegeben.
     private fun markConnected(
         opened: OpenedSession,
         ready: CompletableDeferred<Unit>,
@@ -102,6 +108,8 @@ class GameWebSocketClient(
     }
 
     /** Continuously reads from the session's incoming channel and emits decoded envelopes. */
+    // FlowCollector = der "Ausgang" des Flows, auf den man per emit() Events legt. Diese Funktion
+    // läuft im Flow, schiebt eingehende Events raus und meldet unerwartetes Schließen als Fehler.
     private suspend fun FlowCollector<WebSocketEnvelope>.emitIncomingEnvelopes(
         opened: OpenedSession,
     ) {
@@ -112,6 +120,7 @@ class GameWebSocketClient(
     }
 
     /** Iterates over incoming frames, handling close messages and extracting text data. */
+    // liest eingehende Frames: Close -> Grund merken; Text -> zu Envelope decodieren und emitten.
     private suspend fun FlowCollector<WebSocketEnvelope>.consumeIncomingFrames(
         opened: OpenedSession,
     ): String? {
@@ -138,6 +147,8 @@ class GameWebSocketClient(
         }
 
     /** Parses a raw text frame into a [WebSocketEnvelope]. */
+    // ein WS-Frame kann Text/Binär/Ping/Close sein. Hier: nur Text-Frames -> JSON zu einem
+    // WebSocketEnvelope parsen; kein Text oder Parse-Fehler -> null (wird übersprungen, kein Absturz).
     private fun decodeEnvelope(frame: Frame): WebSocketEnvelope? {
         val textFrame = frame as? Frame.Text ?: return null
         return runCatching {
@@ -166,6 +177,7 @@ class GameWebSocketClient(
         }
     }
 
+    // wartet, bis die Verbindung wirklich steht (oder wirft den Verbindungsfehler).
     suspend fun awaitConnected() {
         pendingConnection?.await()
             ?: connectionFailure?.let { throw it }
@@ -173,6 +185,7 @@ class GameWebSocketClient(
     }
 
     /** Sends CREATE_GAME. Returns the requestId so the caller can match the server reply well. */
+    // Befehls-Bauart (gilt für alle Befehle): Payload bauen -> in Envelope mit requestId -> send(); requestId zurück.
     suspend fun createGame(playerName: String): String {
         val requestId = UUID.randomUUID().toString()
         val payload =
@@ -338,6 +351,7 @@ class GameWebSocketClient(
     }
 
     /** Closes the current WebSocket connection and stops any active sessions. */
+    // absichtliches Schließen: markiert isIntentionalDisconnect, damit der Flow es nicht als Fehler wertet.
     suspend fun disconnect() {
         isIntentionalDisconnect = true
         pendingConnection = null
@@ -348,6 +362,7 @@ class GameWebSocketClient(
     }
 
     /** Serializes and sends an envelope over the active session. */
+    // serialisiert den Envelope zu JSON und schickt ihn als Text-Frame über die aktive Session.
     private suspend fun send(envelope: WebSocketEnvelope) {
         val active = current?.session ?: error("Not connected. Call connect() first.")
         val text = WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope)
@@ -355,6 +370,8 @@ class GameWebSocketClient(
     }
 
     /** Opens a new WebSocket session using the configured client factory and URL. */
+    // öffnet die ECHTE Verbindung: HTTP-Client bauen -> Ktor-WS-Session zur WS-URL -> in OpenedSession
+    // packen (mit Client-Cleanup). Bei Fehler Client schließen + werfen. (Im Test durch Fake ersetzbar.)
     private suspend fun defaultOpenSession(): OpenedSession {
         val client = clientFactory()
         return try {

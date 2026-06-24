@@ -49,6 +49,7 @@ class GamePersistenceService(
     private val logger = LoggerFactory.getLogger(GamePersistenceService::class.java)
 
     @Transactional
+    // schreibt den GANZEN GameState in die DB (games-Zeile + alle Kind-Tabellen). Ruft jedes mutate*.
     fun saveGameState(
         gameId: String,
         state: GameState,
@@ -73,6 +74,7 @@ class GamePersistenceService(
     }
 
     @Transactional(readOnly = true)
+    // liest alle Zeilen aus der DB und baut daraus das GameState-Objekt (via GameStateMapper).
     fun loadGameState(gameId: String): GameState? {
         logger.info("[DB READ] Loading game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return null
@@ -105,12 +107,14 @@ class GamePersistenceService(
     }
 
     @Transactional(readOnly = true)
+    // gibt es das Spiel in der DB? true/false.
     fun existsGame(gameId: String): Boolean {
         val gameKey = gameId.toLongOrNull() ?: return false
         return gameRepository.existsById(gameKey)
     }
 
     @Transactional
+    // speichert den State UND legt für einen Spieler ein Reconnect-Token an (beim Beitreten).
     fun saveGameStateWithReconnectToken(
         gameId: String,
         state: GameState,
@@ -132,6 +136,7 @@ class GamePersistenceService(
      * roll the transaction back.
      */
     @Transactional
+    // lock (wegen Pods) (FOR UPDATE) -> laden -> mutate anwenden -> speichern, alles in EINER Transaktion.
     fun mutateGameState(
         gameId: String,
         activityAt: Long? = System.currentTimeMillis(),
@@ -140,7 +145,7 @@ class GamePersistenceService(
         val gameKey = gameId.toLongOrNull() ?: return null
         gameRepository.findWithLockById(gameKey) ?: return null
         val current = loadGameState(gameId) ?: return null
-        val next = mutate(current)
+        val next = mutate(current) // änderungen anwenden
         saveGameState(gameId, next, activityAt)
         return next
     }
@@ -150,6 +155,7 @@ class GamePersistenceService(
      * resulting state is empty. This avoids a join landing between "last player left" and purge.
      */
     @Transactional
+    // wie mutateGameState, aber löscht das Spiel, falls danach kein Spieler mehr übrig ist.
     fun mutateGameStateDeletingEmpty(
         gameId: String,
         activityAt: Long? = System.currentTimeMillis(),
@@ -171,6 +177,7 @@ class GamePersistenceService(
      * Applies a state mutation and stores a newly issued reconnect token in one transaction.
      */
     @Transactional
+    // wie mutateGameState + speichert zusätzlich ein neues Reconnect-Token.
     fun mutateGameStateWithIssuedReconnectToken(
         gameId: String,
         playerId: String,
@@ -194,6 +201,7 @@ class GamePersistenceService(
      * holding the game/player row locks.
      */
     @Transactional
+    // prüft altes Token, sperrt auch die Spieler-Zeile, rotiert das Token, dann mutate + save.
     fun mutateGameStateForReconnect(
         gameId: String,
         playerId: String,
@@ -225,6 +233,7 @@ class GamePersistenceService(
      * Game ids whose phase timer expired (timer_end <= now).
      */
     @Transactional(readOnly = true)
+    // liefert dem TimeoutSweeper die Spiele mit abgelaufenem Timer.
     fun findGameIdsWithExpiredTimers(now: Long): List<String> =
         gameRepository.findIdsWithExpiredTimer(now).map { it.toString() }
 
@@ -232,6 +241,7 @@ class GamePersistenceService(
      * Game ids whose last player activity is older than [cutoff] (or was never recorded).
      */
     @Transactional(readOnly = true)
+    // liefert dem StaleGameReaper die verlassenen Spiele.
     fun findStaleGameIds(cutoff: Long): List<String> =
         gameRepository.findIdsByLastActivityBefore(cutoff).map { it.toString() }
 
@@ -239,6 +249,7 @@ class GamePersistenceService(
      * Game ids with at least one active spy whose expiration deadline has passed.
      */
     @Transactional(readOnly = true)
+    // liefert dem Sweeper die Spiele mit abgelaufenem Spy-Reveal.
     fun findGameIdsWithExpiredSpies(now: Long): List<String> =
         gameRepository.findIdsWithExpiredSpies(now).map { it.toString() }
 
@@ -246,6 +257,7 @@ class GamePersistenceService(
      * Last time a real player acted on the game, or null when unknown.
      */
     @Transactional(readOnly = true)
+    // wann zuletzt ein echter Spieler agiert hat (oder null).
     fun lastActivityAt(gameId: String): Long? {
         val gameKey = gameId.toLongOrNull() ?: return null
         return gameRepository.findById(gameKey).orElse(null)?.lastActivityAt
@@ -257,6 +269,7 @@ class GamePersistenceService(
      * Returns false when the game or player is unknown.
      */
     @Transactional
+    // speichert (den Hash von) einem Reconnect-Token für einen Spieler.
     fun storeReconnectToken(
         gameId: String,
         playerId: String,
@@ -271,6 +284,7 @@ class GamePersistenceService(
      * token, so a changed hash means the player already reconnected somewhere.
      */
     @Transactional(readOnly = true)
+    // gibt den gespeicherten Token-Hash zurück; geänderter Hash = Spieler hat sich woanders neu verbunden.
     fun reconnectTokenFingerprint(
         gameId: String,
         playerId: String,
@@ -283,6 +297,7 @@ class GamePersistenceService(
      * Validates a reconnect token against the persisted hash.
      */
     @Transactional(readOnly = true)
+    // prüft ein vorgelegtes Token gegen den gespeicherten Hash (beim Reconnect-Versuch).
     fun isReconnectTokenValid(
         gameId: String,
         playerId: String,
@@ -295,6 +310,7 @@ class GamePersistenceService(
         return tokenMatches(stored, token)
     }
 
+    // Helfer: schreibt den Token-Hash auf die Spieler-Zeile.
     private fun storeReconnectTokenHash(
         gameKey: Long,
         playerId: String,
@@ -306,11 +322,13 @@ class GamePersistenceService(
         return true
     }
 
+    // konstante-Zeit-Vergleich (Timing-Schutz), wie beim Cluster-Secret.
     private fun tokenMatches(
         storedHash: String,
         token: String,
     ): Boolean = MessageDigest.isEqual(storedHash.toByteArray(), hashToken(token).toByteArray())
 
+    // Token -> SHA-256-Hex; es wird NIE das Klartext-Token gespeichert, nur dieser Hash.
     private fun hashToken(token: String): String =
         MessageDigest
             .getInstance("SHA-256")
@@ -318,6 +336,7 @@ class GamePersistenceService(
             .joinToString("") { "%02x".format(it) }
 
     @Transactional
+    // löscht ein Spiel komplett (ruft der StaleGameReaper).
     fun deleteGame(gameId: String) {
         logger.info("[DB DELETE] Deleting game $gameId from database")
         val gameKey = gameId.toLongOrNull() ?: return
@@ -325,6 +344,7 @@ class GamePersistenceService(
         deleteGameData(gameKey, game)
     }
 
+    // räumt ALLE Kind-Zeilen weg (Deck/Geld/Tiere/Auktion/Trade/Spieler+Tokens), dann das Spiel.
     private fun deleteGameData(
         gameKey: Long,
         game: GameEntity,
@@ -343,6 +363,7 @@ class GamePersistenceService(
         gameRepository.deleteById(gameKey)
     }
 
+    // erstellt/aktualisiert die games-Zeile; deins hier: Spy-State, timerEnd, lastActivityAt.
     private fun upsertGame(
         gameKey: Long,
         state: GameState,
@@ -381,6 +402,7 @@ class GamePersistenceService(
         }
     }
 
+    // gleicht die Spieler-Zeilen an den State an: ausgeschiedene weg, neue anlegen, Sitzplatz/Name/connected updaten.
     private fun syncPlayers(
         game: GameEntity,
         players: List<Player>,
@@ -446,6 +468,7 @@ class GamePersistenceService(
             }.toMap()
     }
 
+    // legt den zum Spieler gehörenden User an oder lädt ihn.
     private fun upsertUser(playerId: String): UserEntity {
         val existing = userRepository.findByUsername(playerId)
         return if (existing != null) {
@@ -455,6 +478,7 @@ class GamePersistenceService(
         }
     }
 
+    // löscht das Deck und schreibt es neu (Karten mit Reihenfolge).
     private fun syncDeck(
         game: GameEntity,
         state: GameState,
@@ -471,6 +495,7 @@ class GamePersistenceService(
         }
     }
 
+    // schreibt pro Spieler Geld + Tiere neu (gruppiert nach Wert/Typ mit Anzahl).
     private fun syncPlayerInventories(
         playerEntities: Map<String, GamePlayerEntity>,
         players: List<Player>,
@@ -502,6 +527,7 @@ class GamePersistenceService(
         }
     }
 
+    // schreibt/aktualisiert/löscht die Auktions-Zeile.
     private fun syncAuctionState(
         game: GameEntity,
         playerEntities: Map<String, GamePlayerEntity>,
@@ -544,6 +570,7 @@ class GamePersistenceService(
         }
     }
 
+    // schreibt/aktualisiert/löscht die Trade-Zeile.
     private fun syncTradeState(
         game: GameEntity,
         playerEntities: Map<String, GamePlayerEntity>,
@@ -598,9 +625,11 @@ class GamePersistenceService(
         }
     }
 
+    // Mini-Helfer: nullable Set -> List.
     private fun resolveMoneyCards(selectedCards: Set<MoneyCard>?): List<MoneyCard> =
         selectedCards?.toList() ?: emptyList()
 
+    // Helfer: ermittelt eine stabile Spieler-ID.
     private fun GamePlayerEntity.persistedPlayerId(): String =
         playerId ?: user.passwordHash.ifBlank { user.username }
 }

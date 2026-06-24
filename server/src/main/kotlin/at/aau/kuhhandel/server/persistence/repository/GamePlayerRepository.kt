@@ -11,17 +11,21 @@ import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 
 @Repository
+// JpaRepository = Spring generiert die Implementierung;
 interface GamePlayerRepository : JpaRepository<GamePlayerEntity, Long> {
+    // abgeleitete Query (aus dem Methodennamen): Spieler eines Spiels, nach Sitzplatz sortiert.
     fun findByGameOrderBySeatOrderAsc(game: GameEntity): List<GamePlayerEntity>
 
     @Query(
         "SELECT gp FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.playerId = :playerId",
     )
+    // ein Spieler per game+playerId, OHNE Lock.
     fun findByGameIdAndPlayerId(
         @Param("gameId") gameId: Long,
         @Param("playerId") playerId: String,
     ): GamePlayerEntity?
 
+    // wie oben, aber @Lock(PESSIMISTIC_WRITE) -> sperrt die Spieler-Zeile (beim Reconnect, Token-Rotation).
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
         "SELECT gp FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.playerId = :playerId",
@@ -31,6 +35,7 @@ interface GamePlayerRepository : JpaRepository<GamePlayerEntity, Long> {
         @Param("playerId") playerId: String,
     ): GamePlayerEntity?
 
+    // @Modifying = schreibende Query (kein Select): löscht alle Spieler eines Spiels.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM GamePlayerEntity gp WHERE gp.game = :game")
     fun deleteByGame(

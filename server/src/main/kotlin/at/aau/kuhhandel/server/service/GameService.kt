@@ -53,6 +53,7 @@ class GameService(
      * Creates a new game with a unique 5-digit game id and persists the lobby snapshot.
      * A code collision with another pod fails on the primary key and is retried.
      */
+    // erstellt ein neues Spiel mit eindeutigem 5-stelligen Code (+ Reconnect-Token); bei Code-Kollision Retry.
     fun createGame(rawHostPlayerName: String): RoomActionResult {
         val playerId = generatePlayerId()
         val playerName = resolvePlayerName(rawHostPlayerName)
@@ -85,6 +86,7 @@ class GameService(
      * Returns the game as a [GameSession] around the persisted state, or null when it does
      * not exist.
      */
+    // lädt das Spiel als GameSession (oder null, wenn es nicht existiert).
     fun getGame(gameId: String): GameSession? {
         val state = persistenceService.loadGameState(gameId) ?: return null
         return GameSession.fromState(gameId, state)
@@ -93,6 +95,7 @@ class GameService(
     /**
      * Removes both the persisted snapshot and everything attached to [gameId].
      */
+    // löscht ein Spiel komplett aus der DB.
     fun purgeGame(gameId: String) {
         runCatching { persistenceService.deleteGame(gameId) }
             .onFailure { logger.warn("Failed to purge persisted game $gameId", it) }
@@ -103,6 +106,7 @@ class GameService(
      *
      * Fails with a client-facing error if the game does not exist.
      */
+    // fügt einen Spieler hinzu und stellt ihm ein Reconnect-Token aus.
     suspend fun joinGame(
         gameId: String,
         rawPlayerName: String,
@@ -120,6 +124,7 @@ class GameService(
     /**
      * Removes a player from a game. Deletes the game entirely once the last player left.
      */
+    // entfernt einen Spieler; löscht das Spiel, wenn es danach leer ist.
     suspend fun leaveGame(
         gameId: String,
         playerId: String,
@@ -133,6 +138,7 @@ class GameService(
      *
      * Expects a valid [gameId].
      */
+    // markiert einen Spieler als getrennt; löscht das Spiel, wenn es danach leer ist.
     suspend fun disconnectPlayer(
         gameId: String,
         playerId: String,
@@ -144,14 +150,17 @@ class GameService(
     /**
      * Validates a reconnect token, reconnects the player, and returns a rotated token.
      */
+    // prüft das alte Token, verbindet den Spieler neu und gibt ein rotiertes (neues) Token zurück.
     suspend fun reconnectPlayer(
         gameId: String,
         playerId: String,
         token: String,
     ): ReconnectResult {
+        // schon mal ein neues Token vorbereiten (wird bei erfolgreichem Reconnect gesetzt = Rotation)
         val newToken = generateReconnectToken()
         val result =
             withContext(ioDispatcher) {
+                // unter Row-Lock: altes Token prüfen -> Spieler neu verbinden -> Token auf newToken rotieren
                 persistenceService.mutateGameStateForReconnect(
                     gameId = gameId,
                     playerId = playerId,
@@ -163,6 +172,7 @@ class GameService(
             } ?: throw GameException(GameErrorReason.GAME_NOT_FOUND)
 
         val newState =
+            // Ergebnis auswerten: Token ok -> neuer State; Token falsch -> Fehler werfen
             when (result) {
                 is ReconnectTokenMutationResult.Success -> result.state
                 ReconnectTokenMutationResult.InvalidToken ->
@@ -177,6 +187,7 @@ class GameService(
     /**
      * Persists the reconnect token (hashed) for later validation.
      */
+    // speichert (gehasht) ein Reconnect-Token für spätere Prüfung.
     suspend fun storeReconnectToken(
         gameId: String,
         playerId: String,
@@ -194,6 +205,7 @@ class GameService(
     /**
      * Hash of the player's current reconnect token. Changes whenever the player reconnects.
      */
+    // Hash des aktuellen Tokens (ändert sich bei jedem Reconnect).
     suspend fun reconnectTokenFingerprint(
         gameId: String,
         playerId: String,
@@ -205,6 +217,7 @@ class GameService(
     /**
      * Validates a reconnect token against the database.
      */
+    // prüft ein vorgelegtes Token gegen die DB.
     suspend fun isReconnectTokenValid(
         gameId: String,
         playerId: String,
@@ -333,6 +346,7 @@ class GameService(
      *
      * Expects a valid [gameId].
      */
+    // startet das Ausspionieren eines Zielspielers (deine Spy-Aktion).
     suspend fun spy(
         gameId: String,
         actorId: String,
@@ -344,6 +358,7 @@ class GameService(
      *
      * Expects a valid [gameId].
      */
+    // fängt alle, die gerade den Spieler ausspionieren.
     suspend fun catchSpy(
         gameId: String,
         actorId: String,
@@ -354,6 +369,8 @@ class GameService(
      * pods at once: the advance re-checks the deadline under the row lock, so only the first
      * pod actually advances a game.
      */
+    // Einfach: ein Wecker (läuft alle 250ms) der Spiele mit abgelaufenem Phasen-Timer weiterschaltet.
+    // schaltet alle Spiele mit abgelaufenem Timer weiter (ruft der TimeoutSweeper); Re-Check unterm Row-Lock.
     fun sweepExpiredTimeouts(now: Long = System.currentTimeMillis()): List<String> {
         val dueGameIds = persistenceService.findGameIdsWithExpiredTimers(now)
         val advancedGames = mutableListOf<String>()
@@ -391,6 +408,8 @@ class GameService(
      * can clear it and notify the players. Re-checks under the row lock, so a concurrent clear by
      * another pod is a harmless no-op.
      */
+    // Einfach: derselbe Wecker, nur für Spy-Aufdeckungen - abgelaufene Spy-Reveals werden weggeräumt.
+    // löscht abgelaufene Spy-Reveals (ruft der TimeoutSweeper); Re-Check unterm Row-Lock.
     fun sweepExpiredSpies(now: Long = System.currentTimeMillis()): List<String> {
         val dueGameIds = persistenceService.findGameIdsWithExpiredSpies(now)
         val clearedGames = mutableListOf<String>()
@@ -424,6 +443,7 @@ class GameService(
      * count as activity, see [GameSession.handleTimeoutExpiration] / the sweeper). Safe on every
      * pod: the delete is idempotent, so a pod that loses the race simply finds nothing to delete.
      */
+    // löscht verlassene Spiele (ruft der StaleGameReaper); idempotent, kein Lock nötig.
     fun reapStaleGames(cutoff: Long): List<String> {
         val reaped = mutableListOf<String>()
         persistenceService.findStaleGameIds(cutoff).forEach { gameId ->
@@ -441,6 +461,7 @@ class GameService(
      * Centralized helper for all game mutations: runs the action inside a row-locked
      * transaction and notifies the peer pods afterwards.
      */
+    // zentraler Helfer: führt eine Aktion unter Row-Lock aus (mutateGameState) und benachrichtigt danach die Peers.
     private suspend fun executeAction(
         gameId: String,
         deleteIfEmpty: Boolean = false,
@@ -464,6 +485,7 @@ class GameService(
         return newState
     }
 
+    // wie executeAction, stellt aber zusätzlich ein neues Reconnect-Token aus (beim Join).
     private suspend fun executeActionWithIssuedReconnectToken(
         gameId: String,
         playerId: String,
@@ -513,6 +535,7 @@ class GameService(
     /**
      * Generates a 5-digit game code that is not taken in the database.
      */
+    // erzeugt einen 5-stelligen Code, der in der DB noch nicht vergeben ist.
     private fun generateGameCode(): String {
         var code: String
 
@@ -528,6 +551,7 @@ class GameService(
      */
     private fun generatePlayerId(): String = UUID.randomUUID().toString()
 
+    // erzeugt ein zufälliges Reconnect-Token (UUID).
     private fun generateReconnectToken(): String = UUID.randomUUID().toString()
 
     companion object {

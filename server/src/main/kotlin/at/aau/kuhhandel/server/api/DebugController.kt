@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
+// Endpoint wird NUR erzeugt, wenn kuhhandel.debug.persistence.enabled=true gesetzt ist.
+// Kein matchIfMissing -> standardmäßig AUS (kein offener Debug-Endpoint in Produktion).
 @ConditionalOnProperty(
     prefix = "kuhhandel.debug.persistence",
     name = ["enabled"],
@@ -29,6 +31,8 @@ class DebugController(
             persistenceService.loadGameState("00000") // harmless probe; returns null if not found
             mapOf("status" to "OK", "message" to "Database connection is working")
         } catch (e: Exception) {
+            // Fehler loggen (nur Typ in warn, Details in debug) und generische ERROR-Antwort -
+            // keine internen Details an den Client (kein Info-Leak).
             logger.warn("Debug persistence check failed: {}", e.javaClass.simpleName)
             logger.debug("Debug persistence check failed", e)
             mapOf("status" to "ERROR", "message" to "Database connection check failed")

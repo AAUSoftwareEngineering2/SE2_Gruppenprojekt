@@ -11,6 +11,9 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 
+// JPA-Entity = bildet die Tabelle "game_players" ab (eine Zeile = ein Spieler in einem Spiel):
+// Verweise auf Spiel + User, playerId, Anzeigename, Sitzplatz, Reconnect-Token-Hash, isConnected.
+// Unique-Constraints: pro Spiel ein Sitzplatz nur einmal, und ein User nur einmal.
 @Entity
 @Table(
     name = "game_players",

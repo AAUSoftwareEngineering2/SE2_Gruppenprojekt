@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component
  * deadline re-check under the row lock makes sure only one pod actually advances a game.
  */
 @Component
+// Abschalten ohne Code-Änderung: Property kuhhandel.cluster.timeout-sweeper.enabled=false setzen
+// (z. B. in application.yml) -> dann wird diese Bean gar nicht erst erzeugt.
 @ConditionalOnProperty(
     prefix = "kuhhandel.cluster.timeout-sweeper",
     name = ["enabled"],
@@ -23,11 +25,17 @@ class TimeoutSweeper(
 ) {
     private val logger = LoggerFactory.getLogger(TimeoutSweeper::class.java)
 
+    // fixedDelay = wartet N ms NACH Ende des vorigen Laufs bis zum nächsten (fixedRate wäre von
+    // Start zu Start, egal wie lang der Lauf dauert). initialDelay = Wartezeit vor dem 1. Lauf.
     @Scheduled(
         fixedDelayString = "\${kuhhandel.cluster.timeout-sweeper.interval-ms:250}",
         initialDelayString = "\${kuhhandel.cluster.timeout-sweeper.initial-delay-ms:0}",
     )
     fun sweep() {
+        // Schutz gegen doppeltes Weiterschalten (steckt in sweepExpiredTimeouts): erst eine
+        // lock-freie Query "welche Spiele könnten dran sein", dann pro Spiel ein DB-Row-Lock
+        // (SELECT ... FOR UPDATE) und UNTER dem Lock nochmal prüfen, ob die Deadline noch offen ist.
+        // So schaltet nur der erste Pod weiter; der zweite sieht "schon erledigt" und tut nichts.
         runCatching { gameService.sweepExpiredTimeouts() }
             .onSuccess { advanced ->
                 if (advanced.isNotEmpty()) {

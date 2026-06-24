@@ -36,6 +36,9 @@ object GameStateMapper {
     private val json = Json { ignoreUnknownKeys = true }
     private val intListSerializer = ListSerializer(Int.serializer())
     private val stringListSerializer = ListSerializer(String.serializer())
+    // JSON-Serializer für Tiere/Geld/Spies. Warum JSON? Eine DB-Spalte kann keine Liste speichern;
+    // statt je einer eigenen Tabelle wird die Liste als EIN String in eine Spalte gelegt (Sprint-2-Ansatz).
+    // encode* = Liste -> JSON-String (Speichern), decode* = JSON-String -> Liste (Laden).
     private val animalCardListSerializer = ListSerializer(AnimalCard.serializer())
     private val moneyCardListSerializer = ListSerializer(MoneyCard.serializer())
     private val spyActionListSerializer = ListSerializer(SpyAction.serializer())
@@ -72,15 +75,19 @@ object GameStateMapper {
     fun encodeStringList(values: List<String>): String =
         json.encodeToString(stringListSerializer, values)
 
+    // Tier-Liste -> JSON-String (für die DB-Spalte).
     fun encodeAnimalCards(values: List<AnimalCard>): String =
         json.encodeToString(animalCardListSerializer, values)
 
+    // Geldkarten-Liste -> JSON-String.
     fun encodeMoneyCards(values: List<MoneyCard>): String =
         json.encodeToString(moneyCardListSerializer, values)
 
+    // Spy-Aktionen -> JSON-String.
     fun encodeSpies(values: Set<SpyAction>): String =
         json.encodeToString(spyActionListSerializer, values.toList())
 
+    // JSON-String -> Spy-Aktionen zurück (leer, wenn null/leer).
     fun decodeSpies(payload: String?): Set<SpyAction> =
         if (payload.isNullOrBlank()) {
             emptySet()
@@ -98,11 +105,13 @@ object GameStateMapper {
             )
         }
 
+    // JSON-String -> Tier-Liste (null, wenn leer).
     private fun decodeAnimalCards(payload: String?): List<AnimalCard>? =
         payload?.takeIf { it.isNotBlank() }?.let {
             json.decodeFromString(animalCardListSerializer, it)
         }
 
+    // JSON-String -> Geldkarten-Liste (null, wenn leer).
     private fun decodeMoneyCards(payload: String?): List<MoneyCard>? =
         payload?.takeIf { it.isNotBlank() }?.let {
             json.decodeFromString(moneyCardListSerializer, it)
@@ -290,6 +299,8 @@ object GameStateMapper {
             expandMoneyIds(gameId, challengerEntityId, challengerOfferValues)
         val defenderMoneyIds =
             expandMoneyIds(gameId, defenderEntityId, defenderOfferValues)
+        // Trade-Geldkarten wiederherstellen — gespeicherte Karten nehmen, sonst aus den Werten neu bauen;
+        // + Flags, ob Angebot/Gegenangebot schon abgegeben wurde.
         val challengerCards =
             decodeMoneyCards(entity.challengerOfferCardsJson)
                 ?: expandMoneyCards(challengerMoneyIds, challengerOfferValues)
@@ -335,6 +346,7 @@ object GameStateMapper {
         }
     }
 
+    // aus IDs + Werten echte MoneyCard-Objekte bauen.
     private fun expandMoneyCards(
         ids: List<String>,
         values: List<Int>,
@@ -343,6 +355,7 @@ object GameStateMapper {
             MoneyCard(id = ids[index], value = value)
         }
 
+    // ist der JSON-String eine nicht-leere Liste? (nicht null und nicht "[]").
     private fun hasNonEmptyJsonArray(payload: String?): Boolean =
         !payload.isNullOrBlank() && payload != "[]"
 
@@ -351,8 +364,10 @@ object GameStateMapper {
         all: List<GamePlayerEntity>,
     ): String? = all.firstOrNull { it.id == player.id }?.persistedPlayerId()
 
+    // stabile Spieler-ID (playerId, sonst Fallback auf den User).
     private fun GamePlayerEntity.persistedPlayerId(): String =
         playerId ?: user.passwordHash.ifBlank { user.username }
 
+    // Anzeigename (sonst Username als Fallback).
     private fun GamePlayerEntity.persistedDisplayName(): String = displayName ?: user.username
 }

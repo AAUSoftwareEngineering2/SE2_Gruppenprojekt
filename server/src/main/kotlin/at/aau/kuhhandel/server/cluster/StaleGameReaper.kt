@@ -37,6 +37,9 @@ class StaleGameReaper(
         initialDelayString = "\${kuhhandel.cluster.stale-game-reaper.initial-delay-ms:60000}",
     )
     fun reap() {
+        // Löscht verlassene Spiele (alle Spieler weg), die der Sweeper sonst ewig weiterschalten
+        // würde -> DB-Müll. "Verlassen": Timeout-Advances setzen activityAt=null, frischen den
+        // Aktivitäts-Stempel nicht auf -> Spiel wird stale. Kein Lock nötig.
         runCatching { gameService.reapStaleGames(System.currentTimeMillis() - staleAfterMs) }
             .onFailure { logger.warn("Stale game reap run failed", it) }
     }

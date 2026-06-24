@@ -34,9 +34,12 @@ class ClusterUpdateNotifier(
     private val properties: ClusterProperties,
 ) {
     private val logger = LoggerFactory.getLogger(ClusterUpdateNotifier::class.java)
+    // Eigener Hintergrund-Scope fürs Verschicken. Dispatchers.IO = Thread-Pool für blockierende
+    // Netzwerk-/DNS-Aufrufe. SupervisorJob = schlägt ein Peer-Aufruf fehl, brechen die anderen nicht ab.
     private val notifyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Short timeouts so a hung peer cannot back up the notify pipeline.
+    // (Die 2s sind eine Obergrenze: ein hängender/toter Peer soll die Benachrichtigung nicht aufhalten.)
     private val restClient =
         RestClient
             .builder()
@@ -70,6 +73,8 @@ class ClusterUpdateNotifier(
         baseUrl: String,
         gameId: String,
     ) {
+        // best-effort: schlägt das Senden fehl, wird es unten nur geloggt (kein Retry). Egal, weil
+        // der echte Spielstand in der DB liegt - die nächste Änderung benachrichtigt sowieso wieder.
         runCatching {
             restClient
                 .post()
@@ -88,6 +93,8 @@ class ClusterUpdateNotifier(
     private fun resolvePeerUrls(): List<String> {
         if (properties.effectivePeers.isNotEmpty()) return properties.effectivePeers
         if (properties.peerService.isBlank()) return emptyList()
+        // Hier kommen die Pod-Adressen her: getAllByName löst den DNS-Namen auf und liefert ALLE
+        // IP-Adressen dahinter (= alle Pods). Die Adressen kommen also aus DNS, nicht aus einem Feld.
         return runCatching {
             InetAddress
                 .getAllByName(properties.peerService)
