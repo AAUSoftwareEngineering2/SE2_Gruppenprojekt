@@ -232,6 +232,7 @@ class GameRepositoryTest {
         )
 
     @Test
+    // testet: createGame() sendet CREATE_GAME mit Spielername und uebernimmt anschliessend den GAME_CREATED-Payload in den State (gameId, isConnected)
     fun `createGame sends request and applies GAME_CREATED payload`() {
         runBlocking {
             val harness = createHarness()
@@ -259,6 +260,7 @@ class GameRepositoryTest {
     }
 
     @Test
+    // testet: startGame() oeffnet keine neue Verbindung (openCount==1), sendet CREATE_GAME+START_GAME und uebernimmt den neuen Spielzustand
     fun `startGame reuses the active connection and updates the game state`() {
         runBlocking {
             val session = FakeWebSocketSession()
@@ -290,6 +292,7 @@ class GameRepositoryTest {
     }
 
     @Test
+    // testet: revealCard() sendet CHOOSE_AUCTION und ein eingehendes GAME_STATE_UPDATED aktualisiert die State-View (aufgedeckte Karte, deckSize)
     fun `revealCard updates the current game state`() {
         runBlocking {
             val harness = createHarness()

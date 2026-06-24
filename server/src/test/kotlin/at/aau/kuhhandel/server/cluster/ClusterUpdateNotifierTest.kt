@@ -16,12 +16,14 @@ class ClusterUpdateNotifierTest {
     )
 
     @Test
+    // testet: dass im Single-Pod-Modus (keine Peers, kein Secret) kein HTTP-Aufruf und keine Exception erfolgt.
     fun `gameUpdated does nothing when the cluster is disabled`() {
         // No peers + no secret -> single-pod mode, must be a no-op (no exception, no HTTP).
         ClusterUpdateNotifier(ClusterProperties()).gameUpdated("12345")
     }
 
     @Test
+    // testet: dass die Benachrichtigung mit Secret-, Origin-Header und Spiel-ID an einen konfigurierten Peer gepostet wird.
     fun `gameUpdated posts the notification to a static peer`() {
         val received = CompletableFuture<RecordedRequest>()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -59,6 +61,7 @@ class ClusterUpdateNotifierTest {
     }
 
     @Test
+    // testet: dass ein langsamer Peer die Zustellung an einen schnellen Peer nicht verzoegert (parallele Benachrichtigung).
     fun `slow peer does not delay another peer notification`() {
         val fastReceived = CompletableFuture<RecordedRequest>()
         val slowServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)

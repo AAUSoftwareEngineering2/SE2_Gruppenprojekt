@@ -15,6 +15,7 @@ class DatabaseConnectionVerifierTest {
     private val postgresUrl = "jdbc:postgresql://localhost:5432/kuhhandel"
 
     @Test
+    // testet: dass bei gesunder DB-Verbindung isValid(2) geprueft und die Verbindung danach geschlossen wird.
     fun `run validates and closes connection when database connection is healthy`() {
         val connection = mock(Connection::class.java)
         `when`(connection.isValid(2)).thenReturn(true)
@@ -40,6 +41,7 @@ class DatabaseConnectionVerifierTest {
     }
 
     @Test
+    // testet: dass bei fehlgeschlagener Validierung eine IllegalStateException geworfen und die Verbindung geschlossen wird.
     fun `run throws when database connection validation fails`() {
         val connection = mock(Connection::class.java)
         `when`(connection.isValid(2)).thenReturn(false)
@@ -67,6 +69,7 @@ class DatabaseConnectionVerifierTest {
     }
 
     @Test
+    // testet: dass bei einer Nicht-Postgres-Datenquelle sofort (vor jedem Verbindungsaufbau) eine IllegalArgumentException geworfen wird.
     fun `run refuses to start on a non-Postgres datasource and never opens a connection`() {
         val connectionFactory = mock(JdbcConnectionFactory::class.java)
 

@@ -319,6 +319,7 @@ class GameWebSocketHandlerTest {
         }
 
     @Test
+    // testet: Spieler bleibt im Spiel, wenn sich sein Reconnect-Fingerprint waehrend der Grace-Period aendert (= er hat neu verbunden); kein leaveGame
     fun `afterConnectionClosed keeps the player when they reconnected during the grace period`() =
         runTest(testDispatcher.scheduler) {
             // Token rotated during the grace period, so the player reconnected somewhere

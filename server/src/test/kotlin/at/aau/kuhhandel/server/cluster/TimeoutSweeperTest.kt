@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 class TimeoutSweeperTest {
     // sweep() passes the current time as the (default) argument, so match any value.
     @Test
+    // testet: dass sweep() an gameService.sweepExpiredTimeouts delegiert.
     fun `sweep delegates to the game service`() {
         val gameService = mockk<GameService>()
         every { gameService.sweepExpiredTimeouts(any()) } returns listOf("12345")
@@ -19,6 +20,7 @@ class TimeoutSweeperTest {
     }
 
     @Test
+    // testet: dass sweep() Exceptions schluckt, damit der geplante Task weiterlaeuft.
     fun `sweep swallows exceptions so the schedule keeps firing`() {
         val gameService = mockk<GameService>()
         every { gameService.sweepExpiredTimeouts(any()) } throws RuntimeException("db down")

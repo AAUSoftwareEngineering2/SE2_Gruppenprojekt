@@ -92,6 +92,7 @@ class GameStateMapperTest {
     }
 
     @Test
+    // testet: fehlt in der Auktion die auctioneerPlayerId, fällt der Mapper auf den aktiven Spieler des Spiels als Auktionator zurück
     fun `auction state falls back to active player when auctioneer id is missing`() {
         val activeUser =
             UserEntity(
@@ -199,6 +200,7 @@ class GameStateMapperTest {
     }
 
     @Test
+    // testet: alte Trade-Geldwerte (reine Int-Listen) werden beim Mapping in deterministisch benannte MoneyCards mit stabilen IDs expandiert
     fun `legacy trade money values expand to deterministic money cards`() {
         val game =
             GameEntity(

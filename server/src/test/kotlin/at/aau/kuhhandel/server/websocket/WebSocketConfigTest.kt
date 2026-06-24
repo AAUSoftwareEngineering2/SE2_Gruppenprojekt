@@ -12,6 +12,7 @@ import kotlin.test.assertFailsWith
 
 class WebSocketConfigTest {
     @Test
+    // testet: dass nur die konfigurierten Origins registriert werden und kein Wildcard "*"
     fun `registers only configured websocket origins`() {
         val handler = mockk<GameWebSocketHandler>()
         val registry = mockk<WebSocketHandlerRegistry>()
@@ -29,6 +30,7 @@ class WebSocketConfigTest {
     }
 
     @Test
+    // testet: dass standardmäßig die localhost-Origins (8080, 3000) verwendet werden
     fun `uses localhost websocket origins by default`() {
         assertEquals(
             listOf("http://localhost:8080", "http://localhost:3000"),
@@ -37,6 +39,7 @@ class WebSocketConfigTest {
     }
 
     @Test
+    // testet: dass ein Wildcard-Origin "*" mit IllegalArgumentException abgelehnt wird
     fun `rejects wildcard websocket origins`() {
         assertFailsWith<IllegalArgumentException> {
             WebSocketProperties(allowedOrigins = listOf("*"))
@@ -44,6 +47,7 @@ class WebSocketConfigTest {
     }
 
     @Test
+    // testet: dass eine leere bzw. nur aus Leerzeichen bestehende Origin-Konfiguration abgelehnt wird
     fun `rejects empty websocket origin configuration`() {
         val handler = mockk<GameWebSocketHandler>()
         val registry = mockk<WebSocketHandlerRegistry>(relaxed = true)
@@ -57,6 +61,7 @@ class WebSocketConfigTest {
     }
 
     @Test
+    // testet: dass das Container-Idle-Timeout auf 5 Minuten (5*60*1000 ms) gesetzt wird
     fun `configures websocket container idle timeout`() {
         val config =
             WebSocketConfig(

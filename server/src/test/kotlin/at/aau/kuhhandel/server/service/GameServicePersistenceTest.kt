@@ -77,6 +77,7 @@ class GameServicePersistenceTest
         }
 
         @Test
+        // testet: createGame überspringt einen bereits in der DB existierenden Code und vergibt den nächsten freien Code, ohne das bestehende Spiel zu überschreiben
         fun `createGame retries generated codes that already exist in persistence`() {
             val firstService =
                 GameService(
@@ -116,6 +117,7 @@ class GameServicePersistenceTest
         }
 
         @Test
+        // testet: eine andere GameService-Instanz, die das Spiel nie im Speicher hatte, schaltet einen abgelaufenen Timer anhand des DB-Zustands weiter (Cluster-Tauglichkeit)
         fun `timeout sweep advances an expired timer regardless of which instance runs it`() {
             persistenceService.saveGameState(
                 "34567",

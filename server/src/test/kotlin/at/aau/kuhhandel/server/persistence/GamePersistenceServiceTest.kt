@@ -52,6 +52,7 @@ class GamePersistenceServiceTest
         private val tradeStateRepository: TradeStateRepository,
     ) : PostgresDataJpaTest() {
         @Test
+        // testet: der Persistenz-Slice läuft tatsächlich gegen eine PostgreSQL-Datenbank (JDBC-URL beginnt mit jdbc:postgresql:)
         fun `persistence slice runs against postgres`() {
             dataSource.connection.use { connection ->
                 assertTrue(connection.metaData.url.startsWith("jdbc:postgresql:"))
@@ -193,6 +194,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: loadGameState stellt die exakte Auktionsphase (AUCTIONEER_DECISION) und den Top-Level-Timer wieder her
         fun `loadGameState restores exact auction phase and top-level timer`() {
             val timerDeadline = 1_700_000_000_000L
             val state =
@@ -221,6 +223,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: loadGameState stellt die AUCTION_RESULT-Phase samt Timer, buyerId und auctioneerId aus der Auktion wieder her
         fun `loadGameState restores exact auction result phase and buyer`() {
             val timerDeadline = 1_700_000_000_000L
             val state =
@@ -350,6 +353,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: loadGameState stellt einen laufenden Trade (TRADE_RESPONSE) mit Escrow-Tierkarten und angebotenen Geldkarten korrekt wieder her
         fun `loadGameState restores in-flight trade escrow cards`() {
             val timerDeadline = 1_700_000_000_000L
             val offeredCards =
@@ -422,6 +426,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: saveGameState persistiert die aufgelösten Trade-Escrow-Daten (Tierkarten, angebotene und Gegen-Geldkarten) in der TRADE_RESULT-Phase
         fun `saveGameState persists resolved trade escrow payloads`() {
             val animalCards =
                 setOf(
@@ -484,6 +489,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: der komplette Trade-Ablauf (Auswahl, Abgabe, Antwort) übersteht den Save/Reload-Roundtrip über die DB
         fun `trade flow round trips after choose submit and response`() {
             val offeredCard = MoneyCard(id = "p1-50", value = 50)
             val counterCard = MoneyCard(id = "p2-10", value = 10)
@@ -604,6 +610,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: saveGameState speichert eine umsortierte (rotierte) Spielerliste, ohne die Unique-Constraint der Sitzreihenfolge zu verletzen
         fun `saveGameState persists a reordered player list without seat-order collision`() {
             val alice = Player(id = "p-alice", name = "alice")
             val bob = Player(id = "p-bob", name = "bob")
@@ -632,6 +639,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: zwei Spieler mit identischem Anzeigenamen bleiben über ihre IDs als getrennte Identitäten erhalten
         fun `saveGameState keeps players with the same display name as separate identities`() {
             val firstAlex = Player(id = "player-1", name = "Alex")
             val secondAlex = Player(id = "player-2", name = "Alex")
@@ -651,6 +659,7 @@ class GamePersistenceServiceTest
         }
 
         @Test
+        // testet: gleiche Anzeigenamen in verschiedenen Spielen behalten jeweils ihre eigenen, spielgebundenen Spieler-IDs
         fun `same display names across separate games keep their own player ids`() {
             service.saveGameState(
                 "12345",

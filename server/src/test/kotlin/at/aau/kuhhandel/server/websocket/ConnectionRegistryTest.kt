@@ -91,6 +91,7 @@ class ConnectionRegistryTest {
     }
 
     @Test
+    // testet: allConnections() liefert einen Snapshot aller gebundenen Sessions
     fun `allConnections returns snapshot of all bound sessions`() {
         val session1 = mock(WebSocketSession::class.java)
         whenever(session1.id).thenReturn("session-1")
@@ -109,6 +110,7 @@ class ConnectionRegistryTest {
     }
 
     @Test
+    // testet: nach unbind() taucht die Session nicht mehr in allConnections() auf
     fun `allConnections reflects unbinds`() {
         val session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-1")

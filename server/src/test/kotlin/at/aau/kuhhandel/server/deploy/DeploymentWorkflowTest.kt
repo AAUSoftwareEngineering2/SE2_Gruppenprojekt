@@ -22,6 +22,7 @@ class DeploymentWorkflowTest {
         )
 
     @Test
+    // testet: dass Staging/Production-Workflows das Test-Gate vor dem Image-Push ausführen und denselben Verifizierungsbefehl wie CI nutzen
     fun `deploy workflows run verification before pushing images`() {
         listOf("deploy-staging.yml", "deploy-production.yml").forEach { workflowName ->
             val workflow = workflow(workflowName)
@@ -42,6 +43,7 @@ class DeploymentWorkflowTest {
     }
 
     @Test
+    // testet: dass keiner der Workflows mehr auf veraltete Node-20-GitHub-Actions verweist
     fun `workflows do not use actions pinned to node 20 runtimes`() {
         workflows.forEach { workflowName ->
             val workflow = workflow(workflowName)

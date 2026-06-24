@@ -28,6 +28,7 @@ class ClusterSyncControllerTest {
         ClusterProperties(peers = listOf("http://localhost:9999"), secret = "s3cret")
 
     @Test
+    // testet: dass ClusterProperties mit Peers, aber ohne Secret eine IllegalArgumentException wirft.
     fun `cluster properties reject peers without a secret`() {
         assertThrows<IllegalArgumentException> {
             ClusterProperties(peers = listOf("http://localhost:9999"), secret = "")
@@ -35,6 +36,7 @@ class ClusterSyncControllerTest {
     }
 
     @Test
+    // testet: dass Anfragen mit falschem oder fehlendem Secret mit 403 abgelehnt werden und kein Event gepublished wird.
     fun `rejects requests with a wrong or missing secret`() {
         val (controller, _) = controller(clusterProperties())
 
@@ -53,6 +55,7 @@ class ClusterSyncControllerTest {
     }
 
     @Test
+    // testet: dass bei nicht konfiguriertem Cluster jede Anfrage mit 403 abgelehnt wird.
     fun `rejects everything when the cluster is not configured`() {
         val (controller, _) = controller(ClusterProperties())
 
@@ -62,6 +65,7 @@ class ClusterSyncControllerTest {
     }
 
     @Test
+    // testet: dass eine vom eigenen Pod stammende Benachrichtigung (gleiche instanceId) verworfen wird (204, kein Event).
     fun `drops the echo of its own notification`() {
         val (controller, notifier) = controller(clusterProperties())
 
@@ -73,6 +77,7 @@ class ClusterSyncControllerTest {
     }
 
     @Test
+    // testet: dass der Spielzustand neu geladen und als lokales GameStateChangedEvent erneut gepublished wird.
     fun `reloads the state and republishes it as a local event`() {
         val (controller, _) = controller(clusterProperties())
         val state = GameState()
@@ -86,6 +91,7 @@ class ClusterSyncControllerTest {
     }
 
     @Test
+    // testet: dass Updates fuer ein unbekanntes Spiel (Zustand null) ignoriert werden (204, kein Event).
     fun `ignores updates for unknown games`() {
         val (controller, _) = controller(clusterProperties())
         every { persistenceService.loadGameState("99999") } returns null

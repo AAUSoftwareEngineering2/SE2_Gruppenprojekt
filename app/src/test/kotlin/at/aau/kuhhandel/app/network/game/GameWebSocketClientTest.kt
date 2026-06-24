@@ -125,6 +125,7 @@ class GameWebSocketClientTest {
     // === Negativ-Tests: alles, was Verbindung braucht, muss ohne Connect knallen ===
 
     @Test
+    // testet: zweiter connect()-Aufruf wirft IllegalStateException (keine Doppelverbindung)
     fun `connect twice throws`() {
         runBlocking {
             client.connect()
@@ -134,6 +135,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: awaitConnected() ohne vorheriges connect() wirft IllegalStateException
     fun `awaitConnected without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.awaitConnected() }
@@ -141,6 +143,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: createGame() ohne Verbindung wirft IllegalStateException
     fun `createGame without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.createGame("Fabio") }
@@ -148,6 +151,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: startGame() ohne Verbindung wirft IllegalStateException
     fun `startGame without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.startGame() }
@@ -155,6 +159,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: revealCard() ohne Verbindung wirft IllegalStateException
     fun `revealCard without connect throws`() {
         runBlocking {
             assertFailsWith<IllegalStateException> { client.revealCard() }
@@ -252,6 +257,7 @@ class GameWebSocketClientTest {
     // === Send-Tests: was schickt der Client an den Server? ===
 
     @Test
+    // testet: createGame() sendet ein CREATE_GAME-Envelope mit dem Spielernamen im Payload
     fun `createGame sends envelope with payload`() {
         runBlocking {
             // ARRANGE: Verbindung aufbauen
@@ -276,6 +282,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: startGame() sendet ein START_GAME-Envelope mit passender requestId
     fun `startGame sends envelope`() {
         runBlocking {
             val connection = connectClient()
@@ -291,6 +298,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: revealCard() sendet ein CHOOSE_AUCTION-Envelope mit passender requestId
     fun `revealCard sends envelope`() {
         runBlocking {
             val connection = connectClient()
@@ -480,6 +488,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: disconnect() schliesst die WebSocket-Session (wasClosed == true)
     fun `disconnect closes session`() {
         runBlocking {
             val connection = connectClient()
@@ -493,6 +502,7 @@ class GameWebSocketClientTest {
     // === Receive-Tests: was passiert mit eingehenden Server-Nachrichten? ===
 
     @Test
+    // testet: der connect-Flow emittiert eingehende Server-Envelopes (Typ und Inhalt)
     fun `flow emits incoming envelopes`() {
         runBlocking {
             val events = collectEvents()
@@ -508,6 +518,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: ungueltiges JSON wird ignoriert statt zu crashen (keine Emission)
     fun `flow ignores malformed JSON`() {
         runBlocking {
             val events = collectEvents()
@@ -639,6 +650,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: bei Flow-Ende wird der extraCleanup-Callback genau einmal aufgerufen
     fun `flow completion invokes extra cleanup`() {
         runBlocking {
             var cleanupCalls = 0
@@ -655,6 +667,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: disconnect() ruft den extraCleanup-Callback genau einmal auf
     fun `disconnect invokes extra cleanup`() {
         runBlocking {
             var cleanupCalls = 0
@@ -671,6 +684,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: eine Exception im extraCleanup-Callback wird verschluckt und nicht weitergereicht
     fun `extra cleanup exception does not bubble up`() {
         runBlocking {
             val customClient =
@@ -684,6 +698,7 @@ class GameWebSocketClientTest {
     }
 
     @Test
+    // testet: nach fehlgeschlagenem Verbindungsaufbau ist ein spaeterer erneuter connect() erfolgreich
     fun `failed connection allows a later retry`() {
         runBlocking {
             val retrySession = FakeWebSocketSession()
@@ -719,6 +734,7 @@ class GameWebSocketClientTest {
     // === Default-Code-Pfad: echte HttpClient-Factory mit MockEngine ===
 
     @Test
+    // testet: der Default-Pfad oeffnet tatsaechlich die konfigurierte WebSocket-URL
     fun `defaultOpenSession opens the configured websocket url`() {
         runBlocking {
             val defaultSession = FakeWebSocketSession()

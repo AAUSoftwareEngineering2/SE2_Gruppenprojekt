@@ -14,6 +14,7 @@ class DebugControllerTest {
             .withUserConfiguration(DebugController::class.java)
 
     @Test
+    // testet: dass der DebugController-Bean standardmäßig nicht im Context vorhanden (deaktiviert) ist
     fun `debug persistence endpoint is disabled by default`() {
         contextRunner.run { context ->
             assertNull(context.getBeanProvider(DebugController::class.java).getIfAvailable())
@@ -21,6 +22,7 @@ class DebugControllerTest {
     }
 
     @Test
+    // testet: dass bei einem DB-Fehler nur eine generische Meldung zurückkommt und keine Exception-/Verbindungsdetails durchsickern
     fun `debug persistence endpoint does not expose database exception details`() {
         val persistenceService = mockk<GamePersistenceService>()
         every { persistenceService.loadGameState("00000") } throws

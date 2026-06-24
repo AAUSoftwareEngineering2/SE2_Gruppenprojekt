@@ -87,6 +87,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: createGame erzeugt einen 5-stelligen Code, legt den Host-Spieler an und speichert die Lobby sofort in der DB
         fun `createGame generates a five digit code and persists the lobby`() {
             val service = service()
 
@@ -120,6 +121,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: zwei aufeinanderfolgende createGame-Aufrufe liefern unterschiedliche Spielcodes
         fun `createGame generates different codes`() {
             val service = service()
 
@@ -131,6 +133,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: getGame lädt den persistierten Zustand und gibt null für unbekannte oder nicht-numerische IDs zurück
         fun `getGame loads the persisted state and returns null for unknown ids`() {
             val service = service(codes = listOf("11111"))
             service.createGame("Player1")
@@ -144,6 +147,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: joinGame fügt den Spieler hinzu, vergibt einen gültigen Reconnect-Token und persistiert die geänderte Spielerliste
         fun `joinGame adds the player and persists the change`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -167,6 +171,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: joinGame wirft GameException mit GAME_NOT_FOUND bei unbekanntem Spielcode
         fun `joinGame throws GAME_NOT_FOUND for unknown games`() =
             runTest {
                 val service = service()
@@ -177,6 +182,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: leaveGame entfernt den Spieler und löscht das Spiel vollständig aus der DB, sobald der letzte Spieler geht
         fun `leaveGame removes the player and purges an empty game`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -192,6 +198,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: ein nebenläufiger joinGame-Versuch während des Verlassens des letzten Spielers scheitert mit GAME_NOT_FOUND (Race-Condition-Schutz)
         fun `leaveGame rejects joins after the last player leaves`() =
             runTest {
                 lateinit var service: GameService
@@ -377,6 +384,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: startGame führt die echte State-Machine aus, wechselt nach PLAYER_CHOICE, setzt einen Timer und persistiert die neue Phase
         fun `startGame runs the real state machine against persisted state`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -396,6 +404,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: ein Regelverstoß (startGame mit zu wenigen Spielern) wirft und lässt den persistierten Zustand auf NOT_STARTED unverändert (Rollback)
         fun `game rule violations roll back and leave the persisted state untouched`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -411,6 +420,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: alle Spielaktionen (startGame, Auktion, Gebot, Trade ...) auf einem unbekannten Spiel werfen GAME_NOT_FOUND
         fun `actions on unknown games throw GAME_NOT_FOUND`() =
             runTest {
                 val service = service()
@@ -431,6 +441,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: Reconnect-Tokens werden gehasht (64-stelliger Fingerprint, nicht im Klartext) gespeichert, korrekt validiert und bei Rotation invalidiert
         fun `reconnect tokens are stored hashed and validated from the database`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -462,6 +473,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: purgeGame löscht zusammen mit den Spieler-Zeilen auch deren Reconnect-Tokens
         fun `purgeGame deletes reconnect tokens with player rows`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -478,6 +490,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: sweepExpiredTimeouts schaltet eine abgelaufene Phase weiter, veröffentlicht ein Update-Event und ignoriert noch laufende Timer beim zweiten Sweep
         fun `sweepExpiredTimeouts advances an expired phase and publishes the update`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -504,6 +517,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: sweepExpiredTimeouts ändert nichts und veröffentlicht kein Event, solange der Timer eines Spiels noch läuft
         fun `sweepExpiredTimeouts ignores games whose timer is still running`() =
             runTest {
                 val service = service(codes = listOf("11111"))
@@ -580,6 +594,7 @@ class GameServiceTest
             }
 
         @Test
+        // testet: reapStaleGames löscht Spiele, deren letzte Aktivität vor dem Cutoff liegt, und behält frischere Spiele
         fun `reapStaleGames purges games older than the cutoff and keeps fresh ones`() {
             val service = service(codes = listOf("11111"))
             val created = service.createGame("Player1")
@@ -596,6 +611,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: Spieler-Mutationen aktualisieren den Aktivitäts-Zeitstempel, Timeout-Sweeps (activityAt = null) hingegen nicht
         fun `player mutations refresh activity but timeout sweeps do not`() {
             val service = service(codes = listOf("11111"))
             val created = service.createGame("Player1")
@@ -612,6 +628,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: createGame lehnt einen Spielernamen mit ungültigen Zeichen mit INVALID_PLAYER_NAME ab
         fun `createGame rejects a player name with invalid characters`() {
             val service = service()
 
@@ -620,6 +637,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: aktive Spione überstehen den Save/Reload-Roundtrip und werden vom Ablauf-Sweep (sweepExpiredSpies) wieder entfernt
         fun `active spies are persisted and cleared by the expiry sweep`() {
             val service = service(codes = listOf("11111"))
             val created = service.createGame("Player1")
@@ -655,6 +673,7 @@ class GameServiceTest
         }
 
         @Test
+        // testet: die spy-Aktion legt einen aktiven Spion an, der über den zustandslosen Save/Reload-Roundtrip aus der DB erhalten bleibt
         fun `spy persists the active spy reveal across the stateless round-trip`() =
             runTest {
                 val service = service(codes = listOf("11111"))

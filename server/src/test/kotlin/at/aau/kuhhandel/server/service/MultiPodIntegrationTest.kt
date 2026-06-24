@@ -38,6 +38,7 @@ class MultiPodIntegrationTest
         private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         private val usedGameIds = mutableListOf<String>()
 
+        // baut eine frische GameService-Instanz = simuliert EINEN eigenen Pod (Pods teilen nur die DB).
         private fun pod(vararg codes: String): GameService {
             val queue = ArrayDeque(codes.toList())
             usedGameIds += codes
@@ -60,6 +61,8 @@ class MultiPodIntegrationTest
         }
 
         @Test
+        // testet: Cross-Pod-Sichtbarkeit über die DB - Spiel auf Pod A erstellt, auf Pod B beitreten/starten;
+        // Pod A sieht den gestarteten Stand ohne Pod-zu-Pod-Transfer.
         fun `a game created on pod A can be joined and started on pod B`() =
             runTest {
                 val podA = pod("41111")
@@ -80,6 +83,8 @@ class MultiPodIntegrationTest
             }
 
         @Test
+        // testet: ein auf Pod A ausgestelltes Reconnect-Token gilt auch auf Pod B (liegt in der DB);
+        // ein gefälschtes Token wird abgelehnt.
         fun `a reconnect token issued via pod A validates on pod B`() =
             runTest {
                 val podA = pod("42222")
@@ -97,6 +102,8 @@ class MultiPodIntegrationTest
             }
 
         @Test
+        // testet (DER Row-Lock-Test): gleichzeitige Gebote von zwei Pods -> dank SELECT ... FOR UPDATE
+        // geht kein Update verloren; das höhere Gebot (20) überlebt.
         fun `concurrent bids from two pods cannot lose an update`() =
             runTest {
                 val podA = pod("43333")
@@ -137,6 +144,8 @@ class MultiPodIntegrationTest
             }
 
         @Test
+        // testet: abgelaufener Timer wird vom ersten sweependen Pod (B) weitergeschaltet; der zweite (A)
+        // findet danach nichts mehr -> kein Doppel-Advance.
         fun `expired timers are advanced by whichever pod sweeps first and only once`() =
             runTest {
                 val podA = pod("44444")

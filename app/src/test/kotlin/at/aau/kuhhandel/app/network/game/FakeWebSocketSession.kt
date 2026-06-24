@@ -19,18 +19,22 @@ import kotlin.coroutines.CoroutineContext
  * In-memory stand-in for Ktor's WebSocketSession. No real network, everything is a list or channel.
  * Tests use the helpers below; the `override`s at the bottom exist only because the interface demands them.
  */
+// Test-Helfer: In-Memory-Fake einer Ktor-WebSocketSession ohne echtes Netzwerk; gesendete Frames landen in einer Liste, eingehende in einem Channel
 internal class FakeWebSocketSession : WebSocketSession {
     val sentFrames = mutableListOf<Frame>()
     val wasClosed: Boolean get() = sentFrames.any { it is Frame.Close }
 
+    // Test-Helfer: schiebt einen rohen Text-Frame in den Eingangs-Channel (simuliert Server-Nachricht)
     fun deliverText(text: String) {
         incomingChannel.trySend(Frame.Text(text))
     }
 
+    // Test-Helfer: serialisiert ein Envelope zu JSON und liefert es als eingehende Nachricht aus
     fun deliverEnvelope(envelope: WebSocketEnvelope) {
         deliverText(WebSocketJson.json.encodeToString(WebSocketEnvelope.serializer(), envelope))
     }
 
+    // Test-Helfer: baut aus Typ und requestId ein Envelope und liefert es als eingehende Nachricht aus
     fun deliverEnvelope(
         type: WebSocketType,
         requestId: String?,
@@ -38,6 +42,7 @@ internal class FakeWebSocketSession : WebSocketSession {
         deliverEnvelope(WebSocketEnvelope(type = type, requestId = requestId))
     }
 
+    // Test-Helfer: liefert einen Close-Frame mit Code und Begruendung aus (simuliert Verbindungsabbruch durch Server)
     fun deliverClose(
         code: CloseReason.Codes = CloseReason.Codes.NORMAL,
         message: String = "",
@@ -49,6 +54,7 @@ internal class FakeWebSocketSession : WebSocketSession {
         incomingChannel.trySend(frame)
     }
 
+    // Test-Helfer: schliesst den Eingangs-Channel (simuliert sauberes Ende des Server-Streams)
     fun closeIncoming() {
         incomingChannel.close()
     }
@@ -57,11 +63,13 @@ internal class FakeWebSocketSession : WebSocketSession {
         incomingChannel.close(cause)
     }
 
+    // Test-Helfer: erwartet genau einen gesendeten Text-Frame und gibt ihn als dekodiertes Envelope zurueck
     fun onlySentEnvelope(): WebSocketEnvelope {
         val text = sentFrames.filterIsInstance<Frame.Text>().single()
         return WebSocketJson.json.decodeFromString(WebSocketEnvelope.serializer(), text.readText())
     }
 
+    // Test-Helfer: dekodiert alle gesendeten Text-Frames zu einer Liste von Envelopes
     fun sentEnvelopes(): List<WebSocketEnvelope> =
         sentFrames
             .filterIsInstance<Frame.Text>()
@@ -72,6 +80,7 @@ internal class FakeWebSocketSession : WebSocketSession {
                 )
             }
 
+    // Test-Helfer: liefert nur die WebSocketType-Werte aller gesendeten Envelopes
     fun sentTypes(): List<WebSocketType> = sentEnvelopes().map { it.type }
 
     private val incomingChannel = Channel<Frame>(Channel.UNLIMITED)
@@ -83,6 +92,7 @@ internal class FakeWebSocketSession : WebSocketSession {
     override var maxFrameSize: Long = Long.MAX_VALUE
     override val extensions: List<WebSocketExtension<*>> = emptyList()
 
+    // Test-Helfer: merkt gesendete Frames in der Liste und schliesst bei Close-Frame den Eingangs-Channel
     override suspend fun send(frame: Frame) {
         sentFrames.add(frame)
         if (frame is Frame.Close) incomingChannel.close()

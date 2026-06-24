@@ -22,6 +22,7 @@ class WebSocketHeartbeatTest {
     }
 
     @Test
+    // testet: dass an jede offene WebSocket-Session eine Ping-Nachricht gesendet wird
     fun `sendHeartbeats pings every open session`() {
         val session1 = openSession("session-1")
         val session2 = openSession("session-2")
@@ -35,6 +36,7 @@ class WebSocketHeartbeatTest {
     }
 
     @Test
+    // testet: dass eine geschlossene Session aus der Registry entfernt und nicht angepingt wird
     fun `sendHeartbeats evicts a closed session without pinging`() {
         val session = mock(WebSocketSession::class.java)
         whenever(session.id).thenReturn("session-closed")
@@ -50,6 +52,7 @@ class WebSocketHeartbeatTest {
     }
 
     @Test
+    // testet: dass eine Session, deren Senden eine IOException wirft, aus der Registry entfernt wird
     fun `sendHeartbeats evicts a session that throws IOException on send`() {
         val session = openSession("session-broken")
         whenever(session.sendMessage(any(PingMessage::class.java)))
@@ -64,6 +67,7 @@ class WebSocketHeartbeatTest {
     }
 
     @Test
+    // testet: dass bei leerer Registry keine Aktion erfolgt und keine Exception geworfen wird
     fun `sendHeartbeats with no sessions does nothing and does not throw`() {
         heartbeat.sendHeartbeats()
         // No exception means pass; nothing to verify on an empty registry.

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 class StaleGameReaperTest {
     // reap() passes a computed cutoff timestamp, so match any value.
     @Test
+    // testet: dass reap() an gameService.reapStaleGames mit berechnetem Cutoff delegiert.
     fun `reap delegates to the game service`() {
         val gameService = mockk<GameService>()
         every { gameService.reapStaleGames(any()) } returns listOf("12345")
@@ -19,6 +20,7 @@ class StaleGameReaperTest {
     }
 
     @Test
+    // testet: dass reap() Exceptions schluckt, damit der geplante Task weiterlaeuft.
     fun `reap swallows exceptions so the schedule keeps firing`() {
         val gameService = mockk<GameService>()
         every { gameService.reapStaleGames(any()) } throws RuntimeException("db down")
