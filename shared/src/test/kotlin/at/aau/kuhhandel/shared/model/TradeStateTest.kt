@@ -7,6 +7,7 @@ import kotlin.test.assertNull
 
 class TradeStateTest {
     @Test
+    // testet: TradeState ohne Geldkarten -> Initiator/Target/Tier gesetzt, offered/counter leer bzw. null.
     fun test_defaultTradeState() {
         val state =
             TradeState(
@@ -33,6 +34,7 @@ class TradeStateTest {
     }
 
     @Test
+    // testet: TradeState mit Geld-Angebot + Gegenangebot -> Summen, Karten-IDs und Anzahl stimmen.
     fun test_customTradeState() {
         val state =
             TradeState(

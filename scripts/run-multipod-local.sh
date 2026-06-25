@@ -11,11 +11,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 DB_FILE="/tmp/kuhhandel-multipod-$$"
+# H2-Datei-DB mit AUTO_SERVER: alle drei JVMs teilen sich EINE DB (lokaler Ersatz für die geteilte Prod-DB).
 DB_URL="jdbc:h2:file:${DB_FILE};AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1"
 SECRET="local-dev-secret"
 JAR="server/build/libs/$(ls server/build/libs 2>/dev/null | grep -E '^server.*\.jar$' | head -1 || true)"
 PIDS=()
 
+# beim Beenden (trap EXIT): gestartete Pods killen + DB-Dateien löschen (außer KEEP_RUNNING=1).
 cleanup() {
   if [[ "${KEEP_RUNNING:-0}" != "1" ]]; then
     for pid in "${PIDS[@]:-}"; do kill "$pid" 2>/dev/null || true; done
@@ -29,6 +31,7 @@ echo "==> Building server jar"
 JAR="server/build/libs/$(ls server/build/libs | grep -E '\.jar$' | grep -v plain | head -1)"
 echo "    $JAR"
 
+# startet EINEN Server: eigener Port + Peers/Secret als Env (lokaler Ersatz für den k8s-Headless-Service).
 start_instance() {
   local port="$1" peers="$2"
   local logfile="/tmp/kuhhandel-pod-${port}.log"
@@ -37,6 +40,7 @@ start_instance() {
   SPRING_DATASOURCE_USERNAME="sa" \
   SPRING_DATASOURCE_PASSWORD="" \
   SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT="org.hibernate.dialect.H2Dialect" \
+  # statische Peer-Liste = dein "peers" aus ClusterProperties (lokal statt headless peerService)
   KUHHANDEL_CLUSTER_PEERS="$peers" \
   KUHHANDEL_CLUSTER_SECRET="$SECRET" \
   java -jar "$JAR" > "$logfile" 2>&1 &
@@ -44,6 +48,7 @@ start_instance() {
   echo "    pod :$port (log: $logfile)"
 }
 
+# pollt /health, bis der Pod oben ist (max 60s), sonst letzte Log-Zeilen ausgeben + abbrechen.
 wait_healthy() {
   local port="$1"
   for _ in $(seq 1 60); do

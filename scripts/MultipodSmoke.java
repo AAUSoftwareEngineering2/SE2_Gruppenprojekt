@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 public class MultipodSmoke {
     static final HttpClient HTTP = HttpClient.newHttpClient();
 
+    // kleine WebSocket-Verbindung: sammelt eingehende Nachrichten in einer Queue; await() wartet auf einen Typ.
     static class WsSession implements WebSocket.Listener {
         final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
         final StringBuilder partial = new StringBuilder();
@@ -55,6 +56,7 @@ public class MultipodSmoke {
 
         /** Waits for a message of the given type that also contains marker, skipping older
          *  buffered messages of the same type. */
+        // wartet bis zu N Sekunden auf eine Nachricht des Typs (optional mit Marker); kommt ERROR -> Abbruch.
         String await(String type, String marker, int seconds) throws InterruptedException {
             long deadline = System.currentTimeMillis() + seconds * 1000L;
             while (System.currentTimeMillis() < deadline) {
@@ -74,6 +76,7 @@ public class MultipodSmoke {
         }
     }
 
+    // zieht ein Feld per Regex aus dem JSON (crude, reicht für den Smoke-Test).
     static String extract(String json, String field) {
         Matcher m = Pattern.compile("\"" + field + "\":\"([^\"]+)\"").matcher(json);
         if (!m.find()) throw new AssertionError("Field " + field + " missing in: " + cut(json));
@@ -95,6 +98,7 @@ public class MultipodSmoke {
         String aliceToken = extract(created, "reconnectToken");
         System.out.println("    game " + gameId + ", alice " + aliceId.substring(0, 8) + "...");
 
+        // Join auf einem ANDEREN Pod -> beweist: der State liegt in der geteilten DB, nicht pod-lokal.
         System.out.println("[2] Bob and Carol join on :8081 (different pod)");
         WsSession bob8081 = WsSession.connect(8081);
         bob8081.send(
@@ -109,6 +113,7 @@ public class MultipodSmoke {
         carol8081.await("GAME_JOINED", 10);
         System.out.println("    joined across pods, game state lives in the shared DB");
 
+        // Alice' Pod stirbt, Reconnect auf einem dritten Pod -> Token wird aus der DB von einem fremden Pod validiert.
         System.out.println("[3] Alice's pod dies; she reconnects on :8082 with her token");
         alice8080.socket.abort();
         Thread.sleep(500);
@@ -119,6 +124,7 @@ public class MultipodSmoke {
         String snapshot = alice8082.await("SNAPSHOT", 10);
         System.out.println("    SNAPSHOT received, token validated from the DB by a foreign pod");
 
+        // Start auf :8082, Bob auf :8081 muss es hören -> Cross-Pod-Broadcast (dein ClusterUpdateNotifier).
         System.out.println("[4] Alice starts the game on :8082; Bob on :8081 must hear about it");
         alice8082.send("{\"type\":\"START_GAME\",\"requestId\":\"r5\",\"payload\":null}");
         alice8082.await("GAME_STATE_UPDATED", "PLAYER_CHOICE", 10);

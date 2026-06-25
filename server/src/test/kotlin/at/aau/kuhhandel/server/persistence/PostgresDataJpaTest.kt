@@ -4,6 +4,8 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
 
+// abstrakte Test-Basis: startet per Testcontainers eine ECHTE Postgres-DB und reicht deren Zugangsdaten
+// an Spring weiter. Subklassen testen so gegen echtes Postgres (statt H2).
 abstract class PostgresDataJpaTest {
     companion object {
         @JvmStatic
@@ -16,6 +18,8 @@ abstract class PostgresDataJpaTest {
 
         @DynamicPropertySource
         @JvmStatic
+        // füllt zur Laufzeit Springs Datasource-Properties mit URL/User/Passwort des Containers
+        // (+ ddl-auto create-drop, Postgres-Dialekt) - @DynamicPropertySource, weil die URL erst beim Start feststeht.
         fun postgresProperties(registry: DynamicPropertyRegistry) {
             startPostgres()
 
@@ -30,6 +34,7 @@ abstract class PostgresDataJpaTest {
         }
 
         @Synchronized
+        // startet den Container nur einmal (synchronized + idempotent) - wird von allen Tests geteilt.
         private fun startPostgres() {
             if (!postgres.isRunning) {
                 postgres.start()
