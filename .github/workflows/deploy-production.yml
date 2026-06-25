@@ -17,6 +17,8 @@ on:
       - ".github/workflows/deploy-production.yml"
   workflow_dispatch:
 
+# Nur EIN Production-Build gleichzeitig (gleiche group). cancel-in-progress: false =
+# ein laufendes Release wird NICHT abgebrochen (bei staging ist es true = abbrechen).
 concurrency:
   group: build-production
   cancel-in-progress: false
@@ -33,12 +35,14 @@ jobs:
   build:
     name: Build Production Image
     runs-on: ubuntu-latest
+    # GitHub-Environment "production" - kann eigene Secrets / Freigabe-Regeln haben.
     environment: production
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          # ganze Git-History holen - unten für die Versions-Tags nötig.
           fetch-depth: 0
 
       - name: Set up Temurin JDK 21
@@ -57,6 +61,7 @@ jobs:
           accept-android-sdk-licenses: true
           log-accepted-android-sdk-licenses: false
 
+      # Qualitäts-Gate: Lint + alle Tests müssen grün sein, sonst wird kein Image gebaut.
       - name: Run deployment test gate
         run: ./gradlew ktlintCheck :shared:test :server:test :app:testDebugUnitTest --stacktrace
 
@@ -70,6 +75,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Bestimmt die nächste Versionsnummer (Semantic Versioning):
+      # 1) liest am PR das Label release/patch|minor|major (Default: patch),
+      # 2) hat der Commit schon ein vX.Y.Z-Tag -> dieses wiederverwenden,
+      # 3) sonst aus dem letzten Tag die nächste Version hochzählen.
       - name: Prepare production image version
         id: image-version
         shell: bash
@@ -78,13 +87,16 @@ jobs:
         run: |
           set -euo pipefail
 
+          # alle Versions-Tags holen (Vergleichsbasis fürs Hochzählen)
           git fetch --tags --force
 
+          # den PR zu diesem Commit über die GitHub-API holen (daraus kommt das Release-Label)
           PRS_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" -H "Accept: application/vnd.github+json")"
           PR_NUMBER="$(jq -r '.[0].number // empty' <<< "${PRS_JSON}")"
           BUMP_LABELS="$(jq -r '.[0].labels[]?.name // empty' <<< "${PRS_JSON}" | awk '/^release\/(patch|minor|major)$/ { print }')"
           BUMP_LABEL_COUNT="$(printf '%s\n' "${BUMP_LABELS}" | awk 'NF { count++ } END { print count + 0 }')"
 
+          # mehr als ein release/-Label am PR -> Fehler (nur genau eins erlaubt)
           if [[ "${BUMP_LABEL_COUNT}" -gt 1 ]]; then
             echo "Only one release label is allowed per PR."
             printf 'Found release labels:\n'
@@ -92,7 +104,9 @@ jobs:
             exit 1
           fi
 
+          # kein (oder kein gültiges) Label -> Standard-Sprung = patch
           BUMP="patch"
+          # genau ein Label -> dessen Sprung nehmen ("release/" abschneiden -> patch|minor|major)
           if [[ "${BUMP_LABEL_COUNT}" -eq 1 ]]; then
             BUMP="${BUMP_LABELS#release/}"
           fi
@@ -105,12 +119,14 @@ jobs:
 
           EXISTING_VERSION_FOR_SHA="$(git tag --points-at "${GITHUB_SHA}" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
 
+          # hat dieser Commit schon ein vX.Y.Z-Tag? Dann das wiederverwenden (kein neues bauen).
           if [[ -n "${EXISTING_VERSION_FOR_SHA}" ]]; then
             VERSION="${EXISTING_VERSION_FOR_SHA}"
             echo "Reusing existing release tag '${VERSION}' for this commit."
           else
             LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }')"
 
+            # noch gar kein Tag im Repo -> Startversion (major-Label: v1.0.0, sonst v0.1.0)
             if [[ -z "${LATEST_TAG}" ]]; then
               if [[ "${BUMP}" == "major" ]]; then
                 VERSION="v1.0.0"
@@ -119,8 +135,10 @@ jobs:
               fi
             else
               RAW_VERSION="${LATEST_TAG#v}"
+              # das letzte Tag (ohne führendes v) in MAJOR / MINOR / PATCH zerlegen
               IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
 
+              # je nach Sprung die passende Stelle erhöhen (niedrigere auf 0 setzen)
               case "${BUMP}" in
                 patch)
                   PATCH=$((PATCH + 1))
@@ -143,6 +161,7 @@ jobs:
               VERSION="v${MAJOR}.${MINOR}.${PATCH}"
             fi
 
+            # falls die berechnete Version schon als Tag existiert: weiter hochzählen, bis frei
             while git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; do
               RAW_VERSION="${VERSION#v}"
               IFS='.' read -r MAJOR MINOR PATCH <<< "${RAW_VERSION}"
@@ -152,8 +171,10 @@ jobs:
           fi
 
           echo "bump=${BUMP}" >> "${GITHUB_OUTPUT}"
+          # Ergebnis (version + bump) an die folgenden Schritte weitergeben (GITHUB_OUTPUT)
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
+      # baut server/Dockerfile und pusht das Image mit 3 Tags: vX.Y.Z, sha-<sha>, production.
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
@@ -180,6 +201,7 @@ jobs:
           echo "${IMAGE_NAME}:sha-${GITHUB_SHA}"
           echo "${IMAGE_NAME}:production"
 
+      # Git-Tag vX.Y.Z anlegen und pushen (falls noch nicht vorhanden).
       - name: Create and push Git tag
         shell: bash
         run: |
@@ -197,6 +219,7 @@ jobs:
             git push origin "${VERSION}"
           fi
 
+      # GitHub-Release zum Tag erstellen, mit automatisch generierten Release-Notes.
       - name: Create GitHub Release
         shell: bash
         env:

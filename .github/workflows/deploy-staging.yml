@@ -17,6 +17,8 @@ on:
       - ".github/workflows/deploy-staging.yml"
   workflow_dispatch:
 
+# Nur EIN Staging-Build gleichzeitig (gleiche group). cancel-in-progress: true =
+# ein laufender Build wird abgebrochen, wenn ein neuerer Push kommt (nur der neueste zählt).
 concurrency:
   group: build-staging
   cancel-in-progress: true
@@ -32,6 +34,7 @@ jobs:
   build:
     name: Build Staging Image
     runs-on: ubuntu-latest
+    # GitHub-Environment "staging" - kann eigene Secrets / Freigabe-Regeln haben.
     environment: staging
 
     steps:
@@ -54,6 +57,7 @@ jobs:
           accept-android-sdk-licenses: true
           log-accepted-android-sdk-licenses: false
 
+      # Qualitäts-Gate: Lint + alle Tests müssen grün sein, sonst wird kein Image gebaut.
       - name: Run deployment test gate
         run: ./gradlew ktlintCheck :shared:test :server:test :app:testDebugUnitTest --stacktrace
 
@@ -67,6 +71,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # einfache Staging-Version: staging-<Run-Nummer>-<kurzer-SHA> (kein Semver, kein Tag/Release).
       - name: Prepare staging image version
         id: image-version
         shell: bash
@@ -78,6 +83,7 @@ jobs:
 
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
+      # baut server/Dockerfile und pusht das Image mit 3 Tags: <version>, sha-<sha>, staging.
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
