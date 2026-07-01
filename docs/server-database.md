@@ -24,89 +24,7 @@ memory because losing it on a restart is acceptable for the prototype.
 - Players in a match — id, name, seat order
 - Animal deck draws — so the match can be reconstructed after a crash
 - Per-player money cards and animals
-- Active auction or trade state, while the match is in those phases
-
-## ER diagram
-
-```mermaid
-erDiagram
-    USERS ||--o{ GAME_PLAYERS : "joins as"
-    GAMES ||--o{ GAME_PLAYERS : "contains"
-    GAME_PLAYERS ||--o{ GAMES : "host_player"
-    GAME_PLAYERS ||--o{ GAMES : "active_player"
-    GAMES ||--o{ DECK_CARDS : "has deck"
-    GAMES ||--o| AUCTION_STATE : "when AUCTION"
-    GAMES ||--o| TRADE_STATE : "when TRADE"
-    GAME_PLAYERS ||--o{ PLAYER_MONEY : "owns"
-    GAME_PLAYERS ||--o{ PLAYER_ANIMALS : "owns"
-    GAME_PLAYERS ||--o{ AUCTION_STATE : "highest_bidder"
-    GAME_PLAYERS ||--o{ TRADE_STATE : "challenger or defender"
-
-    USERS {
-        BIGINT id PK
-        VARCHAR username UK
-        VARCHAR password_hash
-    }
-    GAMES {
-        BIGINT id PK
-        ENUM status "LOBBY, AUCTION, TRADE, FINISHED"
-        BIGINT host_player_id FK "references game_players"
-        BIGINT active_player_id FK "references game_players"
-        INT version "optimistic lock"
-    }
-    GAME_PLAYERS {
-        BIGINT id PK
-        BIGINT game_id FK
-        BIGINT user_id FK
-        INT seat_order
-    }
-    DECK_CARDS {
-        BIGINT id PK
-        BIGINT game_id FK
-        ENUM animal_type
-        INT draw_order
-    }
-    PLAYER_MONEY {
-        BIGINT id PK
-        BIGINT player_id FK
-        VARCHAR card_id "MoneyCard.id, UK with player_id"
-        INT card_value
-    }
-    PLAYER_ANIMALS {
-        BIGINT id PK
-        BIGINT player_id FK
-        ENUM animal_type
-        INT amount
-    }
-    AUCTION_STATE {
-        BIGINT game_id PK
-        BIGINT game_id_fk FK
-        BIGINT auctioneer_id FK
-        ENUM current_animal
-        INT highest_bid
-        BIGINT highest_bidder_id FK
-        BOOLEAN is_closed
-        TIMESTAMP timer_end_time
-    }
-    TRADE_STATE {
-        BIGINT game_id PK
-        BIGINT game_id_fk FK
-        BIGINT challenger_id FK
-        BIGINT defender_id FK
-        ENUM animal_type
-        ENUM step "WAITING_FOR_RESPONSE, RESOLVED"
-        INT offered_money
-        INT counter_offered_money "nullable"
-        JSON offered_money_card_ids_json
-        JSON counter_offered_money_card_ids_json
-        BOOLEAN is_resolved
-    }
-```
-
-> In the actual DDL, `auction_state.game_id` and `trade_state.game_id` are each
-> a single column carrying both the primary key and a foreign key to
-> `games.id`. Mermaid cannot render the dual constraint on one column, so the
-> diagram splits them visually.
+- Active auction or trade state, while the match is in those phasee
 
 ## Table summary
 
@@ -154,6 +72,118 @@ erDiagram
 - **`auction_state` and `trade_state` are keyed by `game_id`**, so a match can
   hold at most one active auction and one active trade at a time. When the
   phase ends the row is deleted.
+
+  ```## Table `auction_state`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `game_id` | `int8` | Primary |
+| `current_animal` | `varchar` |  |
+| `highest_bid` | `int4` |  |
+| `is_closed` | `bool` |  |
+| `passed_players` | `text` |  Nullable |
+| `timer_end_time` | `int8` |  Nullable |
+| `highest_bidder_id` | `int8` |  Nullable Unique |
+| `auctioneer_player_id` | `varchar` |  Nullable |
+| `buyer_player_id` | `varchar` |  Nullable |
+| `seller_player_id` | `varchar` |  Nullable |
+
+## Table `deck_cards`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary Identity |
+| `animal_type` | `varchar` |  |
+| `draw_order` | `int4` |  |
+| `game_id` | `int8` |  |
+
+## Table `game_players`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary Identity |
+| `seat_order` | `int4` |  |
+| `game_id` | `int8` |  |
+| `user_id` | `int8` |  |
+| `display_name` | `varchar` |  Nullable |
+| `player_id` | `varchar` |  Nullable |
+| `reconnect_token_hash` | `varchar` |  Nullable |
+
+## Table `games`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary |
+| `face_up_animal_type` | `varchar` |  Nullable |
+| `round_number` | `int4` |  |
+| `status` | `varchar` |  |
+| `version` | `int4` |  |
+| `active_player_id` | `int8` |  Nullable |
+| `host_player_id` | `varchar` |  Nullable |
+| `phase` | `varchar` |  Nullable |
+| `timer_end` | `int8` |  Nullable |
+| `last_activity_at` | `int8` |  Nullable |
+| `active_spies_json` | `text` |  Nullable |
+| `earliest_spy_expiry` | `int8` |  Nullable |
+| `spied_this_turn_json` | `text` |  Nullable |
+
+## Table `player_animals`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary Identity |
+| `amount` | `int4` |  |
+| `animal_type` | `varchar` |  |
+| `player_id` | `int8` |  |
+
+## Table `player_money`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary Identity |
+| `amount` | `int4` |  |
+| `card_value` | `int4` |  |
+| `player_id` | `int8` |  |
+
+## Table `trade_state`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `game_id` | `int8` | Primary |
+| `animal_type` | `varchar` |  |
+| `challenger_offer_json` | `text` |  Nullable |
+| `defender_offer_json` | `text` |  Nullable |
+| `challenger_id` | `int8` |  Unique |
+| `defender_id` | `int8` |  Unique |
+| `animal_cards_json` | `text` |  Nullable |
+| `challenger_offer_cards_json` | `text` |  Nullable |
+| `defender_offer_cards_json` | `text` |  Nullable |
+| `is_resolved` | `bool` |  Nullable |
+| `winner_player_id` | `varchar` |  Nullable |
+
+## Table `users`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int8` | Primary Identity |
+| `password_hash` | `varchar` |  |
+| `username` | `varchar` |  Unique |```
 
 ## Known limitations
 
