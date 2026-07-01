@@ -4,17 +4,22 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -26,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +39,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import at.aau.kuhhandel.app.R
+import at.aau.kuhhandel.app.audio.LocalButtonClickSound
 import at.aau.kuhhandel.app.audio.rememberAnimalAuctionSound
 import at.aau.kuhhandel.app.audio.rememberMediaSoundEffect
 import at.aau.kuhhandel.app.audio.rememberSoundEffect
@@ -46,6 +55,7 @@ import at.aau.kuhhandel.app.ui.components.MoneyHand
 import at.aau.kuhhandel.app.ui.components.OpponentList
 import at.aau.kuhhandel.app.ui.components.PlayerFarm
 import at.aau.kuhhandel.app.ui.components.getAnimalDrawable
+import at.aau.kuhhandel.app.ui.menu.rules.RulesScreen
 import at.aau.kuhhandel.app.ui.theme.DarkPurple
 import at.aau.kuhhandel.app.ui.theme.LightPurple
 import at.aau.kuhhandel.app.ui.theme.PureWhite
@@ -53,6 +63,7 @@ import at.aau.kuhhandel.app.ui.theme.WhitePurple
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
+import at.aau.kuhhandel.shared.model.GameEvent
 import at.aau.kuhhandel.shared.model.MoneyCard
 import at.aau.kuhhandel.shared.model.Opponent
 import at.aau.kuhhandel.shared.model.Player
@@ -80,7 +91,10 @@ fun GameScreen(
     val isAuctionActive = uiState.isAuctionActive
     val isTradeActive = uiState.isTradeActive
     val gameBackgroundInteractionSource = remember { MutableInteractionSource() }
+    val rulesOverlayInteractionSource = remember { MutableInteractionSource() }
+    var areRulesVisible by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    val playButtonClickSound = LocalButtonClickSound.current
     val playAnimalAuctionSound = rememberAnimalAuctionSound()
     val playGavelSound = rememberSoundEffect(R.raw.auction_gavel)
     val playPickFarmSound = rememberSoundEffect(R.raw.trade_pick_farm)
@@ -97,14 +111,25 @@ fun GameScreen(
     var previousEyeHighlighted by remember { mutableStateOf<Boolean?>(null) }
     var previousSpyingTargetId by remember { mutableStateOf<String?>(null) }
     var animalSetNotification by remember { mutableStateOf<CompletedAnimalSet?>(null) }
+    var goldenDonkeyBonus by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(uiState.lastEvent) {
         val event = uiState.lastEvent
-        if (event != null) {
-            snackbarHostState.showSnackbar(
-                message = event.message,
-                withDismissAction = true,
-            )
+        when (event) {
+            is GameEvent.MoneyBonus -> {
+                goldenDonkeyBonus = event.amount
+                delay(3_000)
+                if (goldenDonkeyBonus == event.amount) {
+                    goldenDonkeyBonus = null
+                }
+            }
+
+            null -> Unit
+            else ->
+                snackbarHostState.showSnackbar(
+                    message = event.message,
+                    withDismissAction = true,
+                )
         }
     }
 
@@ -353,7 +378,16 @@ fun GameScreen(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 80.dp)
                         .offset(y = handTranslationY)
-                        .scale(handScale),
+                        .scale(handScale)
+                        .zIndex(
+                            if (isAuctionActive &&
+                                uiState.currentPhase != GamePhase.AUCTION_PAYMENT
+                            ) {
+                                1f
+                            } else {
+                                0f
+                            },
+                        ),
             )
         }
 
@@ -436,6 +470,106 @@ fun GameScreen(
                         .padding(top = 76.dp, end = 16.dp),
             )
         }
+
+        goldenDonkeyBonus?.let { amount ->
+            GoldenDonkeyToast(
+                amount = amount,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .zIndex(8f),
+            )
+        }
+
+        if (!areRulesVisible) {
+            IconButton(
+                onClick = {
+                    playButtonClickSound()
+                    areRulesVisible = true
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 12.dp, top = 20.dp)
+                        .size(56.dp)
+                        .background(color = PureWhite, shape = CircleShape)
+                        .zIndex(10f),
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_question_mark),
+                    contentDescription = "Open game rules",
+                    modifier = Modifier.size(width = 34.dp, height = 50.dp),
+                )
+            }
+        }
+
+        if (areRulesVisible) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .zIndex(20f)
+                        .clickable(
+                            interactionSource = rulesOverlayInteractionSource,
+                            indication = null,
+                            onClick = {},
+                        ),
+            ) {
+                RulesScreen(
+                    showMenuBackground = false,
+                    onBack = { areRulesVisible = false },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoldenDonkeyToast(
+    amount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(0.72f),
+        shape = RoundedCornerShape(28.dp),
+        color = PureWhite,
+        shadowElevation = 12.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "A Golden Donkey!",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = DarkPurple,
+            )
+            Text(
+                text = "Everyone gets",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = DarkPurple,
+            )
+            Image(
+                painter = painterResource(id = getMoneyCardDrawable(amount)),
+                contentDescription = "$amount euro money card",
+                modifier = Modifier.size(width = 126.dp, height = 180.dp),
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
+@Composable
+fun GoldenDonkeyToastPreview() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        MainBackground()
+        GoldenDonkeyToast(amount = 100)
     }
 }
 

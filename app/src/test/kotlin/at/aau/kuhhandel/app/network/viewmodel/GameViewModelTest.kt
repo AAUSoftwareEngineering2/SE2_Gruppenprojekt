@@ -1277,6 +1277,45 @@ class GameViewModelTest {
         }
     }
 
+    @Test
+    fun `auction timer is null after bidding ends`() {
+        runTest {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect {}
+            }
+
+            val auctionState =
+                AuctionState(
+                    auctioneerId = "p1",
+                    auctionCard = AnimalCard("1", AnimalType.COW),
+                )
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameState =
+                        GameState(
+                            phase = GamePhase.AUCTION_BIDDING,
+                            timerEnd = testScheduler.currentTime + 5000,
+                            auctionState = auctionState,
+                        ),
+                )
+            advanceTimeBy(1.milliseconds)
+            assertEquals(5, viewModel.uiState.value.auctionTimerSeconds)
+
+            repoStateFlow.value =
+                GameRepositoryState(
+                    gameState =
+                        GameState(
+                            phase = GamePhase.AUCTIONEER_DECISION,
+                            timerEnd = testScheduler.currentTime + 5000,
+                            auctionState = auctionState,
+                        ),
+                )
+            advanceTimeBy(1.milliseconds)
+
+            assertNull(viewModel.uiState.value.auctionTimerSeconds)
+        }
+    }
+
     private fun auctionPaymentGameState(
         buyerId: String = "me",
         highestBid: Int,

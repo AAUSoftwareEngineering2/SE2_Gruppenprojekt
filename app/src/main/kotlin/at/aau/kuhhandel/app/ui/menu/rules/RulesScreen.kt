@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -417,6 +418,7 @@ private val spyTutorialSlides =
 @Composable
 fun RulesScreen(
     modifier: Modifier = Modifier,
+    showMenuBackground: Boolean = true,
     onBack: () -> Unit,
 ) {
     var isTutorialOpen by rememberSaveable { mutableStateOf(false) }
@@ -435,7 +437,10 @@ fun RulesScreen(
             )
         }
 
-    MenuBackground(modifier = modifier) {
+    RulesContainer(
+        modifier = modifier,
+        showMenuBackground = showMenuBackground,
+    ) {
         Box(
             modifier =
                 Modifier
@@ -563,6 +568,25 @@ fun RulesScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RulesContainer(
+    modifier: Modifier,
+    showMenuBackground: Boolean,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    if (showMenuBackground) {
+        MenuBackground(
+            modifier = modifier,
+            content = content,
+        )
+    } else {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            content = content,
+        )
     }
 }
 
