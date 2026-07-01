@@ -6,6 +6,7 @@ import at.aau.kuhhandel.server.persistence.PostgresDataJpaTest
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GamePhase
 import at.aau.kuhhandel.shared.model.AnimalCard
+import at.aau.kuhhandel.shared.model.AnimalDeck
 import at.aau.kuhhandel.shared.model.AuctionState
 import at.aau.kuhhandel.shared.model.GameState
 import at.aau.kuhhandel.shared.model.Player
@@ -123,6 +124,7 @@ class GameServicePersistenceTest
                 GameState(
                     phase = GamePhase.AUCTION_RESULT,
                     timerEnd = 1L,
+                    deck = AnimalDeck(listOf(AnimalCard("cow-1", AnimalType.COW))),
                     currentPlayerIndex = 0,
                     hostPlayerId = "player1",
                     players =
