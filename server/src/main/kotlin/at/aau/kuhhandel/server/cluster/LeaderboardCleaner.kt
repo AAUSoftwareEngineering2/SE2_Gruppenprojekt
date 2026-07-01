@@ -1,6 +1,6 @@
 package at.aau.kuhhandel.server.cluster
 
-import at.aau.kuhhandel.server.service.LeaderboardService
+import at.aau.kuhhandel.server.persistence.LeaderboardService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled

@@ -1,6 +1,7 @@
 package at.aau.kuhhandel.server.service
 
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import at.aau.kuhhandel.server.persistence.LeaderboardService
 import at.aau.kuhhandel.shared.enums.GamePhase
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers

@@ -1,4 +1,4 @@
-package at.aau.kuhhandel.server.service
+package at.aau.kuhhandel.server.persistence
 
 import at.aau.kuhhandel.server.persistence.entity.LeaderboardEntry
 import at.aau.kuhhandel.server.persistence.repository.LeaderboardRepository
