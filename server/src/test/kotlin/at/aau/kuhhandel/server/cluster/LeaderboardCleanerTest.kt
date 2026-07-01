@@ -1,6 +1,6 @@
 package at.aau.kuhhandel.server.cluster
 
-import at.aau.kuhhandel.server.service.LeaderboardService
+import at.aau.kuhhandel.server.persistence.LeaderboardService
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

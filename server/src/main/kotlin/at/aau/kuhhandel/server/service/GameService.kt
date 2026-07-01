@@ -5,6 +5,7 @@ import at.aau.kuhhandel.server.event.GameStateChangedEvent
 import at.aau.kuhhandel.server.model.ReconnectResult
 import at.aau.kuhhandel.server.model.RoomActionResult
 import at.aau.kuhhandel.server.persistence.GamePersistenceService
+import at.aau.kuhhandel.server.persistence.LeaderboardService
 import at.aau.kuhhandel.server.persistence.ReconnectTokenMutationResult
 import at.aau.kuhhandel.shared.enums.AnimalType
 import at.aau.kuhhandel.shared.enums.GameErrorReason

@@ -2082,6 +2082,7 @@ class GameSessionTest {
         val activeState =
             baselineState.copy(
                 phase = GamePhase.AUCTION_RESULT,
+                deck = AnimalDeck(listOf(AnimalCard("cow-1", AnimalType.COW))),
                 auctionState = AuctionState(AnimalCard("c1", AnimalType.COW), "player-1"),
                 currentPlayerIndex = 0,
                 roundNumber = 3,
@@ -2197,6 +2198,7 @@ class GameSessionTest {
         val activeState =
             baselineState.copy(
                 phase = GamePhase.TRADE_RESULT,
+                deck = AnimalDeck(listOf(AnimalCard("cow-1", AnimalType.COW))),
                 tradeState = tradeState,
                 currentPlayerIndex = 0,
                 roundNumber = 5,
@@ -2308,7 +2310,12 @@ class GameSessionTest {
                 phase = GamePhase.PLAYER_CHOICE,
                 players =
                     listOf(
-                        Player(id = "player-1", name = "Player 1"),
+                        Player(
+                            id = "player-1",
+                            name = "Player 1",
+                            // An incomplete quartet so that the game does not end
+                            animals = listOf(AnimalCard("cow-1", AnimalType.COW)),
+                        ),
                         Player(id = "player-2", name = "Player 2", isConnected = false),
                         Player(id = "player-3", name = "Player 3"),
                     ),
