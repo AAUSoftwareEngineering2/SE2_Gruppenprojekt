@@ -877,12 +877,19 @@ class GameSession(
      * are completed and to [GamePhase.PLAYER_CHOICE] otherwise.
      */
     private fun advanceTurnAndCheckGameEnd(): GameState {
-        val totalQuartetsFormed =
-            state.players.sumOf { player ->
-                player.animals.groupBy { it.type }.count { (_, cards) -> cards.size == 4 }
+        val deckEmpty = state.deck.isEmpty()
+        // When this method is called, no auction state or trade state exists, so all animal
+        // cards that have been removed from the deck are in the players' possession.
+        // This means that checking the players' hands is enough to determine whether
+        // all cards in play have been combined into quartets.
+        val allQuartetsCompleted =
+            state.players.all { player ->
+                player.animals
+                    .groupBy { it.type }
+                    .all { (_, cards) -> cards.size == CARDS_PER_ANIMAL_TYPE }
             }
 
-        if (totalQuartetsFormed == AnimalType.entries.size) {
+        if (deckEmpty && allQuartetsCompleted) {
             val ranking = ScoreCalculator.calculateGameRanking(state.players)
 
             state =
